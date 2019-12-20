@@ -41,7 +41,7 @@ author = 'Artem Chupryna, EnergyMachines ApS'
 
 # The short X.Y version
 ##TODO version should be in main code
-version = '0.0.1'
+version = '0.0.2'
 # The full version, including alpha/beta/rc tags
 release = ''
 
