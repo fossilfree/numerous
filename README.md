@@ -42,6 +42,6 @@ Or follow one of our comprehensive tutorials:
  * [Two_Tanks_System](https://github.com/fossilfree/numerous/blob/master/examples/Two_Tanks_System/TwoTanks_System.ipynb)
 	two tanks are placed on top of each other and connected by a valve.
 
-Documentation can be found on [readthedocs](numerous.readthedocs.io).
+Documentation can be found on [readthedocs](https://numerous.readthedocs.io/).
 
 Or you can get familiar with the concepts we have used to abstract away building complex interacting systems right inside python. 
