@@ -35,7 +35,7 @@ You can get started quickly here with a simple example:
 
 
 
-Or follow one our comprehensive tutorials: 
+Or follow one of our comprehensive tutorials: 
 
  * [Bouncing_Ball](https://github.com/fossilfree/numerous/blob/master/examples/Bouncing_Ball/Bouncing%20Ball%20Example.ipynb)
 	a model of a ball dropping from a certain height and bouncing off the ground, until it finally comes to rest
