@@ -18,9 +18,14 @@ Philosophy and Motivation for Object-Oriented Modelling
 
 As systems becomes complex the number of equations and variables grow fast and the overview is lost for the model developer. The idea behind this engine is to allow the model developer focus on one familiar object at a time and setup simulations for validation – and then combine these objects together to form complex interacting systems in a simple way where all the general tedious work is handled by the engine. 
 
+Quick start
+--------------------------------------------------------
+To install using pip use `pip install numerous-engine`
+
+
 You can get started quickly here with a simple example:
 
-
+```python
     from numerous.engine import model, simulation
     from numerous.examples.dampened_oscillator import OscillatorSystem
 
@@ -32,7 +37,7 @@ You can get started quickly here with a simple example:
     #Solve and plot
     s.solve()
     s.model.historian.df.plot()
-
+```
 
 
 Or follow one of our comprehensive tutorials: 
