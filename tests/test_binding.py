@@ -1,8 +1,7 @@
 import pytest
 
-from connector_item import ConnectorTwoWay
-from item import Item
-from variables import VariableDescription, VariableType
+from engine.system import ConnectorTwoWay, Item
+from numerous import VariableDescription, VariableType
 
 
 @pytest.fixture

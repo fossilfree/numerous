@@ -3,11 +3,11 @@ import os
 from pytest import approx
 import pytest
 
-from historyDataFrame import HistoryDataFrame
-from model import Model
-from simulation import Simulation
-from simulation_callbacks import _SimulationCallback
-from system import ConnectorItem, Subsystem, ConnectorTwoWay, Item
+from engine.model import Model
+from engine.simulation import Simulation
+from engine.simulation.simulation_callbacks import _SimulationCallback
+from engine.system import ConnectorItem, ConnectorTwoWay, Item, Subsystem
+from numerous import HistoryDataFrame
 from test_equations import TestEq_input, Test_Eq, TestEq_ground
 
 

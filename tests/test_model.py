@@ -1,14 +1,11 @@
 import pytest
 from pytest import approx
-from connector_item import ConnectorItem, ConnectorTwoWay
-from equation_decorators import equation
-from equation_base import Equation
-from item import Item
-from model import Model, HistoryDataFrame
-from output_filter import OutputFilter
-from simulation_callbacks import _SimulationCallback
-from simulation import Simulation
-from subsystem import Subsystem
+
+from engine.model import Model
+from engine.simulation import Simulation
+from engine.simulation.simulation_callbacks import _SimulationCallback
+from engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
+from numerous import Equation, HistoryDataFrame, OutputFilter, equation
 from test_equations import TestEq_ground, Test_Eq, TestEq_input
 
 

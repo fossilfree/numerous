@@ -1,5 +1,4 @@
-from equation_decorators import equation
-from equation_base import Equation
+from numerous import Equation, equation
 
 
 class TestEq_input(Equation):

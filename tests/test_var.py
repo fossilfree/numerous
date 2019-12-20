@@ -1,10 +1,12 @@
 import pytest
+
+from engine.variables import _VariableFactory, OverloadAction, VariableType, Variable
+from numerous import VariableDescription
 from test_equations import *
 
 
 @pytest.fixture
 def positive_limit_parameter():
-    from variables import _VariableFactory, VariableDescription, VariableType, OverloadAction, Variable
 
     var_desc = VariableDescription(tag='test_positive_parameter', initial_value=0,
                                    type=VariableType.PARAMETER,
@@ -23,7 +25,6 @@ def positive_limit_parameter():
 
 @pytest.fixture
 def constant():
-    from variables import _VariableFactory, VariableDescription, VariableType, OverloadAction
 
     var_desc = VariableDescription(tag='test_derivative', initial_value=0,
                                    type=VariableType.CONSTANT,
@@ -33,7 +34,6 @@ def constant():
 
 @pytest.fixture
 def derivative():
-    from variables import _VariableFactory, VariableDescription, VariableType, OverloadAction
 
     var_desc = VariableDescription(tag='test_constant', initial_value=0,
                                    type=VariableType.DERIVATIVE,

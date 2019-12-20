@@ -1,12 +1,11 @@
 import pytest
 
-from connector import Connector
-from item import Item
+from engine.system import Connector, Item
+from numerous import VariableDescription, VariableType
 
 
 @pytest.fixture
 def item_with_namespace():
-    from variables import VariableDescription, VariableType
 
     item = Item('item_with_namespace')
     test_namespace = item.create_namespace('test_namespace')
