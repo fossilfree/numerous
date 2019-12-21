@@ -158,7 +158,7 @@ class TemporaryScopeWrapper:
 
 		# updates the dictionary
 		self.scope_dict.update(\
-			new_time_map(self.scope_dict))
+			new_time_map(self.scope_dict, timestamp))
 
 	# OLD CODE
     # def update_mappings_and_time(self, timestamp=None):
