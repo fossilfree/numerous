@@ -1,8 +1,3 @@
-run-tests:
-	PYTHONPATH=./src pytest
-	pytest ./tests
-
-
 install:
 	pip3 install -e .
 
