@@ -1,6 +1,6 @@
 from .variables import Variable, VariableType
 from numerous.utils.dict_wrapper import _DictWrapper
-
+from collections import ChainMap
 
 class ScopeVariable(Variable):
     """
@@ -108,22 +108,18 @@ class TemporaryScopeWrapper:
                 scope.variables[var.tag] = value
                 var.value = value
 
-    # can be refactored the same way as update_mapping_and_time
-    # TODO
+    # refactored in a functional way
     def get_derivatives(self):
-        result = {}
-        for scope in self.scope_dict.values():
-            for var in scope.variables_dict.values():
-                if var.type.value == VariableType.DERIVATIVE.value:
-                    result.update({var.id:var})
-                    # read: https://www.programiz.com/python-programming/methods/dictionary/update
-                    # you can pass a dictionary and update it
-                    # OLD CODE
-                    # if var.id in result.keys():
-                        # result[var.id].update(var)
-                    # else:
-                        # result.update({var.id: var})
-        return result.values()
+        def scope_variables_dict(scope):
+            return {var.id:var\
+                for var in scope.variables_dict.values()\
+                if var.type.value == VariableType.DERIVATIVE.value}
+        # list of dictionaries
+        resList = list(map(scope_variables_dict, self.scope_dict.values()))
+        # one dictionary, list must be reversed because:
+        # in the iterative code the values for keys were updated as encountered
+        # chainMap does not update values,
+        return ChainMap(*(reversed(resList))).values()
 
     # refactored the method to use dictionary comprehension
     def update_mappings_and_time(self, timestamp=None):
