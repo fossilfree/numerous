@@ -1,12 +1,12 @@
 import pytest
 from pytest import approx
 
-from engine.model import Model
-from engine.simulation import Simulation
-from engine.simulation.simulation_callbacks import _SimulationCallback
-from engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
+from numerous.engine.model import Model
+from numerous.engine.simulation import Simulation
+from numerous.engine.simulation.simulation_callbacks import _SimulationCallback
+from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
 from numerous import Equation, HistoryDataFrame, OutputFilter, equation
-from test_equations import TestEq_ground, Test_Eq, TestEq_input
+from .test_equations import TestEq_ground, Test_Eq, TestEq_input
 
 
 @pytest.fixture

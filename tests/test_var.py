@@ -1,8 +1,8 @@
 import pytest
 
-from engine.variables import _VariableFactory, OverloadAction, VariableType, Variable
+from numerous.engine.variables import _VariableFactory, OverloadAction, VariableType, Variable
 from numerous import VariableDescription
-from test_equations import *
+from .test_equations import *
 
 
 @pytest.fixture
