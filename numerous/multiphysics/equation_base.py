@@ -20,7 +20,7 @@ class VariableDescriptionMap(VariableBase):
     def __iter__(self):
         # used filter and extend
         self.variables_descriptions_deque.extend(list(filter((lambda v:\
-            isinstance(value, VariableDescription)),\
+            isinstance(v, VariableDescription)),\
             self.variables_descriptions.values())))
         return self
         # for value in self.variables_descriptions.values():

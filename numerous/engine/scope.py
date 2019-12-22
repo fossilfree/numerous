@@ -133,7 +133,7 @@ class TemporaryScopeWrapper:
         # due to the fact that data is immutable
         def new_time_map(scope, t):
             return {key: new_scope_value_time_and_mapping(val,t)\
-                for key, val in scope}
+                for (key, val) in scope.items()}
 
         # input a scope_dict value
         # output a new value with updated time/ variables
