@@ -88,7 +88,6 @@ class TemporaryScopeWrapper:
                 if scope_var.base_variable.value != scope_var.value:
                     scope_var.base_variable.value = scope_var.value
 
-    # TODO
     def get_scope_vars(self, state):
         if state.id in self.result:
             return self.result[state.id]
@@ -100,7 +99,6 @@ class TemporaryScopeWrapper:
                     self.result[state.id].append((var, scope))
         return self.result[state.id]
 
-    # TODO
     def update_states(self, state_values):
         for i, state in enumerate(self.states.values()):
             scope_vars = self.get_scope_vars(state)
@@ -109,20 +107,18 @@ class TemporaryScopeWrapper:
                 scope.variables[var.tag] = value
                 var.value = value
 
-    # refactored in a functional way
     def get_derivatives(self):
-        def scope_variables_dict(scope):
+        def scope_derivatives_dict(scope):
             return {var.id:var\
                 for var in scope.variables_dict.values()\
                 if var.type.value == VariableType.DERIVATIVE.value}
         # list of dictionaries
-        resList = list(map(scope_variables_dict, self.scope_dict.values()))
+        resList = list(map(scope_derivatives_dict, self.scope_dict.values()))
         # one dictionary, list must be reversed because:
         # in the old code the key,values  were updated from left to right
         # chainMap only keeps the first encoutnered key,value
         return ChainMap(*(reversed(resList))).values()
 
-    # refactored the method to use dictionary comprehension
     def update_mappings_and_time(self, timestamp=None):
         # input scope_dict
         # output a new updated dict
