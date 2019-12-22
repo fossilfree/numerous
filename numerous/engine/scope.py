@@ -88,8 +88,8 @@ class TemporaryScopeWrapper:
                 if scope_var.base_variable.value != scope_var.value:
                     scope_var.base_variable.value = scope_var.value
 
+    # TODO
     def get_scope_vars(self, state):
-
         if state.id in self.result:
             return self.result[state.id]
         else:
@@ -100,6 +100,7 @@ class TemporaryScopeWrapper:
                     self.result[state.id].append((var, scope))
         return self.result[state.id]
 
+    # TODO
     def update_states(self, state_values):
         for i, state in enumerate(self.states.values()):
             scope_vars = self.get_scope_vars(state)
@@ -117,28 +118,21 @@ class TemporaryScopeWrapper:
         # list of dictionaries
         resList = list(map(scope_variables_dict, self.scope_dict.values()))
         # one dictionary, list must be reversed because:
-        # in the iterative code the values for keys were updated as encountered
-        # chainMap does not update values,
+        # in the old code the key,values  were updated from left to right
+        # chainMap only keeps the first encoutnered key,value
         return ChainMap(*(reversed(resList))).values()
 
     # refactored the method to use dictionary comprehension
     def update_mappings_and_time(self, timestamp=None):
         # input scope_dict
         # output a new updated dict
-        # has no correspondence in the iterative code
-        # due to the fact that data is immutable
         def new_time_map(scope, t):
             return {key: new_scope_value_time_and_mapping(val,t)\
                 for (key, val) in scope.items()}
 
         # input a scope_dict value
         # output a new value with updated time/ variables
-        # corresponds to 2. in the iterative code
         def new_scope_value_time_and_mapping(scope_v, t):
-            # alternative way:
-            #   scope_v.set_time(t);
-            #   scope_v.variables.update(new_variable_mapping(scope_v))
-            #   return scope_v
             # clone the old value in order to keep things "immutable"
             val = scope_v
             val.set_time(t)
@@ -147,7 +141,6 @@ class TemporaryScopeWrapper:
 
         # input a scope_dict value
         # returns a dictionary corespnding to the values variables
-        # corresponds to 1. in the iterative code
         def new_variable_mapping(scope_v):
             return {var.tag: var.value\
                 for var in scope_v.variables_dict.values()}
@@ -155,12 +148,3 @@ class TemporaryScopeWrapper:
         # updates the dictionary
         self.scope_dict.update(\
             new_time_map(self.scope_dict, timestamp))
-
-    # OLD CODE
-    # def update_mappings_and_time(self, timestamp=None):
-        # "2. this loop updates scope_dict.value time+variable mapping"
-        # for scope in self.scope_dict.values():
-            # scope.set_time(timestamp)
-            # "1. this loop updates scope_dict.value variable mapping"
-            # for var in scope.variables_dict.values():
-                # scope.variables[var.tag] = var.value

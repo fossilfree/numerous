@@ -17,16 +17,13 @@ class VariableDescriptionMap(VariableBase):
             raise ValueError('Variable description with tag {} is already exist in equation {}'.format(
                 variable_description.tag, self.equation.tag))
 
+    # refactored in a more functional way
     def __iter__(self):
         # used filter and extend
         self.variables_descriptions_deque.extend(list(filter((lambda v:\
             isinstance(v, VariableDescription)),\
             self.variables_descriptions.values())))
         return self
-        # for value in self.variables_descriptions.values():
-            # if isinstance(value, VariableDescription):
-                # self.variables_descriptions_deque.append(value)
-        # return self
 
     def __next__(self):
         if self.variables_descriptions_deque:
