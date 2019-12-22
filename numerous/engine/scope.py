@@ -114,7 +114,6 @@ class TemporaryScopeWrapper:
                 if var.type.value == VariableType.DERIVATIVE.value}
         # list of dictionaries
         resList = list(map(scope_derivatives_dict, self.scope_dict.values()))
-
         # one dictionary, list must be reversed because:
         # in the old code the key,values  were updated from left to right
         # chainMap only keeps the first encoutnered key,value
