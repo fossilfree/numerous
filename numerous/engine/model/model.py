@@ -247,7 +247,7 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
-    def add_event(self, name, event_function, callbacks):
+    def add_event(self, name, event_function, callbacks=None):
         """
         Creating and adding Event callback.
 
@@ -260,14 +260,16 @@ class Model:
         event_function : callable
 
 
-        callbacks : callable
+        callbacks : list of callable
             callback associated with event
 
         Returns
         -------
 
         """
-        self.events.update({name: _Event(name, self, event_function=event_function, callbacks=[callbacks])})
+        if not callbacks:
+            callbacks = []
+        self.events.update({name: _Event(name, self, event_function=event_function, callbacks=callbacks)})
 
     def add_event_callback(self, event_name, event_callback):
         """
