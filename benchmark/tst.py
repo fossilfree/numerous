@@ -132,5 +132,7 @@ if __name__ == "__main__":
     ax.plot(X, Y, label='solve')
     ax.plot(X, Z, label='assemble')
     plt.legend(loc="upper left")
+    plt.xlabel("number of objects")
+    plt.ylabel("seconds")
     plt.show()
 
