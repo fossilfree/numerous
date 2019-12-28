@@ -77,9 +77,6 @@ class Model:
     def _get_initial_scope_copy(self):
         return TemporaryScopeWrapper(copy.copy(self.synchronized_scope), self.states)
 
-    def __add_equation(self, eq, scope_id):
-        self.equation_dict.update({scope_id: eq})
-
 
     def __add_item(self, item):
         if item.id in self.model_items:
@@ -108,7 +105,7 @@ class Model:
             for namespace in item.registered_namespaces.values():
                 for eq in namespace.associated_equations.values():
                     scope_id = self.__create_scope(eq, namespace, item)
-                    self.__add_equation(eq, scope_id)
+                    self.equation_dict.update({scope_id: eq})
 
         self.__create_scope_mappings()
         assemble_finish = time.time()
@@ -247,7 +244,7 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
-    def add_event(self, name, event_function, callbacks):
+    def add_event(self, name, event_function, callbacks=None):
         """
         Creating and adding Event callback.
 
@@ -260,14 +257,16 @@ class Model:
         event_function : callable
 
 
-        callbacks : callable
+        callbacks : list of callable
             callback associated with event
 
         Returns
         -------
 
         """
-        self.events.update({name: _Event(name, self, event_function=event_function, callbacks=[callbacks])})
+        if not callbacks:
+            callbacks = []
+        self.events.update({name: _Event(name, self, event_function=event_function, callbacks=callbacks)})
 
     def add_event_callback(self, event_name, event_callback):
         """
