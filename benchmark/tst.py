@@ -1,5 +1,6 @@
 import random
 import time
+import sys
 
 from engine.model import Model
 from engine.simulation import Simulation
@@ -105,33 +106,31 @@ class ThermalCapacitancesSeries(Subsystem):
 
 if __name__ == "__main__":
     # Create a model with three nodes
-    T0 = [random.randrange(1, 101, 1) for _ in range(2000)]
+    X= []
+    Y= []
+    Z= []
+    for i in range(1, int(sys.argv[1]), int(sys.argv[2])):
+        T0 = [random.randrange(1, 101, 1) for _ in range(i)]
+        m = Model(ThermalCapacitancesSeries("tcs", T0))
+        start = time.time()
+        # Define simulation
+        s = Simulation(m, t_start=0, t_stop=1, num=10, num_inner=100, max_step=0.1)
+        #
+        # solve simulation
+        s.solve()
+        end = time.time()
+        # print(m.states_as_vector)
+        # print some statitics and info
+        print(m.info)
+        X.append(i)
+        Z.append(m.info['Assemble time'])
+        Y.append(end-start)
 
-    m = Model(ThermalCapacitancesSeries("tcs", T0))
-    print(m.states_as_vector)
-    start = time.time()
-    # Define simulation
-    # s = Simulation(m, t_start=0, t_stop=1, num=10, num_inner=100, max_step=0.1)
-    #
-    # # solve simulation
-    # s.solve()
-    end = time.time()
-    print(m.states_as_vector)
-    # print some statitics and info
-    print(m.info)
-    # X= []
-    # Y= []
-    # Z= []
-    # for i in range(1,2000,100):
-    #
-    #     X.append(i)
-    #     Z.append(m.info['Assemble time'])
-    #     Y.append(end-start)
-    # import matplotlib.pyplot as plt
-    # fig = plt.figure()
-    # ax = plt.axes()
-    # ax.plot(X, Y, label='solve')
-    # ax.plot(X, Z, label='assemble')
-    # plt.legend(loc="upper left")
-    # plt.show()
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    ax = plt.axes()
+    ax.plot(X, Y, label='solve')
+    ax.plot(X, Z, label='assemble')
+    plt.legend(loc="upper left")
+    plt.show()
 
