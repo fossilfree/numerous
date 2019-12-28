@@ -1,9 +1,9 @@
 import random
 import time
 
-from engine.model import Model
-from engine.simulation import Simulation
-from engine.system import Item, ConnectorTwoWay, Subsystem
+from numerous.engine.model import Model
+from numerous.engine.simulation import Simulation
+from numerous.engine.system import Item, ConnectorTwoWay, Subsystem
 from numerous import Equation
 from numerous.engine import OverloadAction
 from numerous.multiphysics import equation
