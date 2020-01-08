@@ -2,7 +2,7 @@
 
 --------------------------------------------------------------------------------
 
-Numerous  - an object-oriented modelling and simulation engine 
+Numerous  — an object-oriented modelling and simulation engine 
 ================================================================
 
 Reasons for developing a python-based object-oriented simulation engine 
