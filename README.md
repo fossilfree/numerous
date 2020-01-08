@@ -1,6 +1,5 @@
 ![Numerous Logo](./docs/source/_static/img/logo_numerous_grey-back_github.svg)
 
---------------------------------------------------------------------------------
 
 Numerous — an object-oriented modelling and simulation engine 
 ================================================================
