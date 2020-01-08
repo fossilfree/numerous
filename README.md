@@ -1,4 +1,4 @@
-![Numerous Logo](./docs/source/_static/img/logo_cropped_numerous_transparent-back.svg)
+![Numerous Logo](./docs/source/_static/img/logo_numerous_grey-back_github.svg)
 
 --------------------------------------------------------------------------------
 
