@@ -3,12 +3,12 @@ import os
 from pytest import approx
 import pytest
 
-from engine.model import Model
-from engine.simulation import Simulation
-from engine.simulation.simulation_callbacks import _SimulationCallback
-from engine.system import ConnectorItem, ConnectorTwoWay, Item, Subsystem
+from numerous.engine.model import Model
+from numerous.engine.simulation import Simulation
+from numerous.engine.simulation.simulation_callbacks import _SimulationCallback
+from numerous.engine.system import ConnectorItem, ConnectorTwoWay, Item, Subsystem
 from numerous import HistoryDataFrame
-from test_equations import TestEq_input, Test_Eq, TestEq_ground
+from .test_equations import TestEq_input, Test_Eq, TestEq_ground
 
 
 class I(ConnectorItem):

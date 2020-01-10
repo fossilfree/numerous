@@ -17,10 +17,12 @@ class VariableDescriptionMap(VariableBase):
             raise ValueError('Variable description with tag {} is already exist in equation {}'.format(
                 variable_description.tag, self.equation.tag))
 
+    # refactored in a more functional way
     def __iter__(self):
-        for value in self.variables_descriptions.values():
-            if isinstance(value, VariableDescription):
-                self.variables_descriptions_deque.append(value)
+        # used filter and extend
+        self.variables_descriptions_deque.extend(list(filter((lambda v:\
+            isinstance(v, VariableDescription)),\
+            self.variables_descriptions.values())))
         return self
 
     def __next__(self):
@@ -30,7 +32,7 @@ class VariableDescriptionMap(VariableBase):
             raise StopIteration
 
 
-class Equation:
+class EquationBase:
     """
     Equations governing the behavior of the objects in the model and their interactions
      are defined in classes extending the :class:`numerous.multiphysics.Equation`.
@@ -41,7 +43,7 @@ class Equation:
             self.tag = tag
         self.equations = []
         self.variables_descriptions = VariableDescriptionMap(self)
-        super(Equation, self).__init__()
+        super(EquationBase, self).__init__()
         method_list = [func for func in dir(self) if callable(getattr(self, func)) and not func.startswith("__")]
         for method in method_list:
             method_call = getattr(self, method)

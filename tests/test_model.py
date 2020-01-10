@@ -1,17 +1,17 @@
 import pytest
 from pytest import approx
 
-from engine.model import Model
-from engine.simulation import Simulation
-from engine.simulation.simulation_callbacks import _SimulationCallback
-from engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
-from numerous import Equation, HistoryDataFrame, OutputFilter, equation
-from test_equations import TestEq_ground, Test_Eq, TestEq_input
+from numerous.engine.model import Model
+from numerous.engine.simulation import Simulation
+from numerous.engine.simulation.simulation_callbacks import _SimulationCallback
+from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
+from numerous import EquationBase, HistoryDataFrame, OutputFilter, Equation
+from .test_equations import TestEq_ground, Test_Eq, TestEq_input
 
 
 @pytest.fixture
 def test_eq1():
-    class TestEq1(Equation):
+    class TestEq1(EquationBase):
         def __init__(self, P=10):
             super().__init__(tag='example_1')
             self.add_parameter('P', P)
@@ -26,8 +26,8 @@ def test_eq1():
             self.add_constant('R3', 3)
             self.add_constant('RG', 2)
 
-        @equation
-        def eval(self, scope):
+        @Equation()
+        def eval(self,scope):
             scope.T1_dot = scope.P - (scope.T1 - scope.T2) / scope.R1
             scope.T2_dot = (scope.T1 - scope.T2) / scope.R1 - (scope.T2 - scope.T3) / scope.R2
             scope.T3_dot = (scope.T2 - scope.T3) / scope.R2 - (scope.T3 - scope.T4) / scope.R3

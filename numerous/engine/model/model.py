@@ -4,9 +4,10 @@ import uuid
 from numerous.engine.system.connector import Connector
 from numerous.utils.historyDataFrame import HistoryDataFrame
 from numerous.engine.scope import Scope, TemporaryScopeWrapper
-from numerous.engine.simulation.simulation_callbacks import _SimulationCallback,_Event
+from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 from numerous.engine.system.subsystem import Subsystem
 from numerous.engine.variables import VariableType
+from multiprocessing import Pool
 
 
 class Model:
@@ -15,6 +16,7 @@ class Model:
      for computation – the model also back-propagates the numerical results from the solver into the system,
      so they can be accessed as variable values there.
     """
+
     def __init__(self, system=None, historian=None, assemble=True, validate=False):
 
         self.system = system
@@ -77,10 +79,6 @@ class Model:
     def _get_initial_scope_copy(self):
         return TemporaryScopeWrapper(copy.copy(self.synchronized_scope), self.states)
 
-    def __add_equation(self, eq, scope_id):
-        self.equation_dict.update({scope_id: eq})
-
-
     def __add_item(self, item):
         if item.id in self.model_items:
             return
@@ -104,11 +102,12 @@ class Model:
         for item in self.system.registered_items.values():
             self.__add_item(item)
 
-        for item in self.model_items.values():
-            for namespace in item.registered_namespaces.values():
+        for x in self.model_items.values():
+            for namespace in x.registered_namespaces.values():
                 for eq in namespace.associated_equations.values():
-                    scope_id = self.__create_scope(eq, namespace, item)
-                    self.__add_equation(eq, scope_id)
+                    scope_id = self.__create_scope(eq, namespace, x)
+                    self.equation_dict.update({scope_id: eq})
+
 
         self.__create_scope_mappings()
         assemble_finish = time.time()
@@ -177,7 +176,7 @@ class Model:
         last_states = self.historian.get_last_state()
         for state_name in last_states:
             if state_name in self.variables:
-                if  self.variables[state_name].type.value not in [VariableType.CONSTANT.value]:
+                if self.variables[state_name].type.value not in [VariableType.CONSTANT.value]:
                     self.variables[state_name].value = list(last_states[state_name].values())[0]
 
     @property
@@ -247,7 +246,7 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
-    def add_event(self, name, event_function, callbacks):
+    def add_event(self, name, event_function, callbacks=None):
         """
         Creating and adding Event callback.
 
@@ -260,14 +259,16 @@ class Model:
         event_function : callable
 
 
-        callbacks : callable
+        callbacks : list of callable
             callback associated with event
 
         Returns
         -------
 
         """
-        self.events.update({name: _Event(name, self, event_function=event_function, callbacks=[callbacks])})
+        if not callbacks:
+            callbacks = []
+        self.events.update({name: _Event(name, self, event_function=event_function, callbacks=callbacks)})
 
     def add_event_callback(self, event_name, event_callback):
         """

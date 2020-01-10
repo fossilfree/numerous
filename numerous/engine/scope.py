@@ -1,6 +1,6 @@
 from .variables import Variable, VariableType
 from numerous.utils.dict_wrapper import _DictWrapper
-
+from collections import ChainMap
 
 class ScopeVariable(Variable):
     """
@@ -89,7 +89,6 @@ class TemporaryScopeWrapper:
                     scope_var.base_variable.value = scope_var.value
 
     def get_scope_vars(self, state):
-
         if state.id in self.result:
             return self.result[state.id]
         else:
@@ -109,18 +108,39 @@ class TemporaryScopeWrapper:
                 var.value = value
 
     def get_derivatives(self):
-        result = {}
-        for scope in self.scope_dict.values():
-            for var in scope.variables_dict.values():
-                if var.type.value == VariableType.DERIVATIVE.value:
-                    if var.id in result.keys():
-                        result[var.id].update(var)
-                    else:
-                        result.update({var.id: var})
-        return result.values()
+        def scope_derivatives_dict(scope):
+            return {var.id:var\
+                for var in scope.variables_dict.values()\
+                if var.type.value == VariableType.DERIVATIVE.value}
+        # list of dictionaries
+        resList = list(map(scope_derivatives_dict, self.scope_dict.values()))
+        # one dictionary, list must be reversed because:
+        # in the old code the key,values  were updated from left to right
+        # chainMap only keeps the first encoutnered key,value
+        return ChainMap(*(reversed(resList))).values()
 
     def update_mappings_and_time(self, timestamp=None):
-        for scope in self.scope_dict.values():
-            scope.set_time(timestamp)
-            for var in scope.variables_dict.values():
-                scope.variables[var.tag] = var.value
+        # input scope_dict
+        # output a new updated dict
+        def new_time_map(scope, t):
+            return {key: new_scope_value_time_and_mapping(val,t)\
+                for (key, val) in scope.items()}
+
+        # input a scope_dict value
+        # output a new value with updated time/ variables
+        def new_scope_value_time_and_mapping(scope_v, t):
+            # clone the old value in order to keep things "immutable"
+            val = scope_v
+            val.set_time(t)
+            val.variables.update(new_variable_mapping(val))
+            return val
+
+        # input a scope_dict value
+        # returns a dictionary corespnding to the values variables
+        def new_variable_mapping(scope_v):
+            return {var.tag: var.value\
+                for var in scope_v.variables_dict.values()}
+
+        # updates the dictionary
+        self.scope_dict.update(\
+            new_time_map(self.scope_dict, timestamp))
