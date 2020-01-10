@@ -32,7 +32,7 @@ class VariableDescriptionMap(VariableBase):
             raise StopIteration
 
 
-class Equation:
+class EquationBase:
     """
     Equations governing the behavior of the objects in the model and their interactions
      are defined in classes extending the :class:`numerous.multiphysics.Equation`.
@@ -43,7 +43,7 @@ class Equation:
             self.tag = tag
         self.equations = []
         self.variables_descriptions = VariableDescriptionMap(self)
-        super(Equation, self).__init__()
+        super(EquationBase, self).__init__()
         method_list = [func for func in dir(self) if callable(getattr(self, func)) and not func.startswith("__")]
         for method in method_list:
             method_call = getattr(self, method)

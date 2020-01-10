@@ -1,9 +1,9 @@
 from numerous.multiphysics.equation_decorators import equation
-from numerous.multiphysics.equation_base import Equation
+from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
 from numerous.engine.system import Subsystem
 
-class DampenedOscillator(Equation, Item):
+class DampenedOscillator(EquationBase, Item):
     """
         Equation and item modelling a spring and dampener
     """
@@ -20,7 +20,7 @@ class DampenedOscillator(Equation, Item):
         mechanics = self.create_namespace('mechanics')
         mechanics.add_equations([self])
 
-    @equation
+    @Equation()
     def eval(self, scope):
         #Implement equations for the dampened oscillation
        scope.v_dot = -scope.k * scope.x - scope.c * scope.v
