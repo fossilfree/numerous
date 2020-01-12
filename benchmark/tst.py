@@ -5,12 +5,13 @@ import sys
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 from numerous.engine.system import Item, ConnectorTwoWay, Subsystem
-from numerous import Equation
+
+from numerous import EquationBase
 from numerous.engine import OverloadAction
-from numerous.multiphysics import equation
+from numerous.multiphysics import Equation
 
 
-class Thermal_Conductance_Equation(Equation):
+class Thermal_Conductance_Equation(EquationBase):
     """
     Equation for a simple thermal conductor
     """
@@ -23,20 +24,21 @@ class Thermal_Conductance_Equation(Equation):
         self.add_parameter('P1', 0)
         self.add_parameter('P2', 0)
 
-    @equation
-    def eval(self, scope):
+    @Equation()
+    def eval(self,scope):
         P = (scope.T1 - scope.T2) * scope.k
         scope.P1 = -P
         scope.P2 = P
 
 
-class Thermal_Capacitance(Equation, Item):
+class Thermal_Capacitance(EquationBase, Item):
     """
         Equation and item modelling a thermal capacitance
     """
     def __init__(self, tag="tm", C=1000, T0=0):
         super(Thermal_Capacitance, self).__init__(tag)
 
+        self.wrapper_ = 1
         self.add_constant('C', C)
         self.add_parameter('P', 0)
         self.add_state('T', T0)
@@ -45,8 +47,8 @@ class Thermal_Capacitance(Equation, Item):
         thermal_transport.add_equations([self],
                                         on_assign_overload=OverloadAction.SUM)
 
-    @equation
-    def eval(self, scope):
+    @Equation()
+    def eval(self,scope):
         scope.T_dot = scope.P / scope.C
 
 
@@ -85,11 +87,13 @@ class ThermalCapacitancesSeries(Subsystem):
         prev_node = None
         #Create N heat capacitances and connect them.
         for i, T0_ in enumerate(T0):
+            import pickle as pickle
 
 
             #Create thermal conductor
             node = Thermal_Capacitance('node' + str(i), C=100, T0=T0_)
-
+            QQ = pickle.dumps(node)
+            node = pickle.loads(QQ)
             items.append(node)
             if prev_node:
                 # Connect the last node to the new node with a conductor
@@ -103,8 +107,18 @@ class ThermalCapacitancesSeries(Subsystem):
         #Register the items to the subsystem to make it recognize them.
         self.register_items(items)
 
+def f(x):
+    return x * x
 
 if __name__ == "__main__":
+
+    from multiprocessing import Pool
+
+
+
+
+    with Pool(5) as p:
+        print(p.map(f, [1, 2, 3]))
     # Create a model with three nodes
     X= []
     Y= []

@@ -1,6 +1,7 @@
-![Numerous Logo](./docs/source/_static/img/numerous-logo.png)
+![Numerous Logo](./docs/source/_static/img/logo_cropped_numerous_transparent-back.svg)
+---------------------------------------------------------------------------------------------------
 
-Numerous  - an object-oriented modelling and simulation engine 
+Numerous — an object-oriented modelling and simulation engine 
 ================================================================
 
 Reasons for developing a python-based object-oriented simulation engine 
