@@ -92,8 +92,6 @@ class ThermalCapacitancesSeries(Subsystem):
 
             #Create thermal conductor
             node = Thermal_Capacitance('node' + str(i), C=100, T0=T0_)
-            QQ = pickle.dumps(node)
-            node = pickle.loads(QQ)
             items.append(node)
             if prev_node:
                 # Connect the last node to the new node with a conductor
