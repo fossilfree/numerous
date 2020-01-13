@@ -46,8 +46,8 @@ class Thermal_Capacitance(EquationBase, Item):
         thermal_transport.add_equations([self],
                                         on_assign_overload=OverloadAction.SUM)
 
-    @Equation()
-    def eval(self,scope):
+    @Equation
+    def eval(self, scope):
         scope.T_dot = scope.P / scope.C
 
 
