@@ -2,9 +2,10 @@ import random
 import time
 import sys
 
-from engine.model import Model
-from engine.simulation import Simulation
-from engine.system import Item, ConnectorTwoWay, Subsystem
+from numerous.engine.model import Model
+from numerous.engine.simulation import Simulation
+from numerous.engine.system import Item, ConnectorTwoWay, Subsystem
+
 from numerous import EquationBase
 from numerous.engine import OverloadAction
 from numerous.multiphysics import Equation
@@ -91,8 +92,6 @@ class ThermalCapacitancesSeries(Subsystem):
 
             #Create thermal conductor
             node = Thermal_Capacitance('node' + str(i), C=100, T0=T0_)
-            QQ = pickle.dumps(node)
-            node = pickle.loads(QQ)
             items.append(node)
             if prev_node:
                 # Connect the last node to the new node with a conductor
@@ -145,5 +144,7 @@ if __name__ == "__main__":
     ax.plot(X, Y, label='solve')
     ax.plot(X, Z, label='assemble')
     plt.legend(loc="upper left")
+    plt.xlabel("number of objects")
+    plt.ylabel("seconds")
     plt.show()
 
