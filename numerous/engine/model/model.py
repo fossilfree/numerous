@@ -46,13 +46,15 @@ class ModelAssembler:
     def t_1(input):
         scope_select = {}
         variables = {}
+        equation_dict = {}
         system, x = input
         for namespace in x.registered_namespaces.values():
             for eq in namespace.associated_equations.values():
                 scope = ModelAssembler.__create_scope(eq, namespace, x, system, variables)
                 scope_select.update({scope.id: scope})
+                equation_dict.update({scope.id: eq})
 
-        return (variables, scope_select)
+        return (variables, scope_select,equation_dict)
 
     # self.equation_dict.update({scope_id: eq})
 
@@ -133,38 +135,19 @@ class Model:
         assemble_start = time.time()
         for item in self.system.registered_items.values():
             self.__add_item(item)
-        i1 = self.model_items.values()
-        with concurrent.futures.ProcessPoolExecutor(max_workers=5) as executor:
-            futures = {executor.submit(ModelAssembler.t_1, (self.system, i)) for i in list(i1)}
+        with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+            futures = {executor.submit(ModelAssembler.t_1, (self.system, i))
+                       for i in list(self.model_items.values())}
             for future in concurrent.futures.as_completed(futures):
-                data = future.result()
-                print(data)
-
-        # if vardesc.type.value == VariableType.STATE.value:
-        #     variable.associated_scope.append(scope_id)
-        #     self.states.update({variable.id: variable})
-        # if vardesc.type.value == VariableType.DERIVATIVE.value:
-        #     self.derivatives.update({variable.id: variable})
-
-        # with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
-        #     futures = {executor.submit(self.t_1, i) for i in self.model_items.values()}
-        #     for future in concurrent.futures.as_completed(futures):
-        #         data = future.result()
-        # def a(z):
-        #     time.sleep(1)
-        #     return z * 12
-
-        # if __name__ == '__main__':
-        #
-        #
-        #         for future in :
-        #             data = future.result()
-        #             print(data)
-        #
-        # for x in self.model_items.values():
-        #     self.t_1(x)
-
-        # deque(map(self.t_1, self.model_items.values()))
+                variables, scope_select, eq_select = future.result()
+                self.equation_dict.update(eq_select)
+                self.synchronized_scope.update(scope_select)
+                self.variables.update(variables)
+        for variable in self.variables.values():
+            if variable.type.value == VariableType.STATE.value:
+                self.states.update({variable.id: variable})
+            if variable.type.value == VariableType.DERIVATIVE.value:
+                self.derivatives.update({variable.id: variable})
 
         self.__create_scope_mappings()
         assemble_finish = time.time()

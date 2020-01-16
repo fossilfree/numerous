@@ -92,30 +92,23 @@ class ThermalCapacitancesSeries(Subsystem):
 
             #Create thermal conductor
             node = Thermal_Capacitance('node' + str(i), C=100, T0=T0_)
+            qq = pickle.dumps(node)
+            node = pickle.loads(qq)
             if prev_node:
                 # Connect the last node to the new node with a conductor
                 thermal_conductor = Thermal_Conductor('thermal_conductor' + str(i), k=1)
                 thermal_conductor.bind(side1=prev_node, side2=node)
                 #Append the thermal conductor to the item.
                 items.append(thermal_conductor)
-
+            items.append(node)
             prev_node = node
 
         #Register the items to the subsystem to make it recognize them.
         self.register_items(items)
 
-def f(x):
-    return x * x
 
 if __name__ == "__main__":
 
-    from multiprocessing import Pool
-
-
-
-
-    with Pool(5) as p:
-        print(p.map(f, [1, 2, 3]))
     # Create a model with three nodes
     X= []
     Y= []

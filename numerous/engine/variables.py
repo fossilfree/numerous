@@ -73,13 +73,13 @@ class Variable:
     def add_mapping(self, variable):
         self.mapping.append(variable)
 
-    def __getattribute__(self, item):
-        if item == 'value':
-            if self.mapping:
-                return reduce(add, [x.value for x in self.mapping])
-            else:
-                return object.__getattribute__(self, item)
-        return object.__getattribute__(self, item)
+    # def __getattribute__(self, item):
+    #     if item == 'value':
+    #         if self.mapping:
+    #             return reduce(add, [x.value for x in self.mapping])
+    #         else:
+    #             return object.__getattribute__(self, item)
+    #     return object.__getattribute__(self, item)
 
     def update_value(self, value):
         self.value = value
