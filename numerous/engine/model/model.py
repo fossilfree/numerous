@@ -1,13 +1,64 @@
 import copy
 import time
 import uuid
+
+import concurrent.futures
 from numerous.engine.system.connector import Connector
 from numerous.utils.historyDataFrame import HistoryDataFrame
 from numerous.engine.scope import Scope, TemporaryScopeWrapper
 from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 from numerous.engine.system.subsystem import Subsystem
 from numerous.engine.variables import VariableType
-from multiprocessing import Pool
+
+
+class ModelAssembler:
+
+    @staticmethod
+    def get_variable_path(id, item):
+        for (variable, namespace) in item.get_variables():
+            if variable.id == id:
+                return "{0}.{1}".format(namespace.tag, variable.tag)
+        if hasattr(item, 'registered_items'):
+            for registered_item in item.registered_items.values():
+                result = ModelAssembler.get_variable_path(id, registered_item)
+                if result:
+                    return "{0}.{1}".format(registered_item.tag, result)
+        return ""
+
+    @staticmethod
+    def __update_var_desc(namespace, scope, vardesc, scope_id, system, variables):
+        variable = namespace.get_variable(vardesc)
+        scope.add_variable(variable)
+        if vardesc.type.value == VariableType.STATE.value:
+            variable.associated_scope.append(scope_id)
+        var_path = ModelAssembler.get_variable_path(variable.id, system)
+        variables.update({var_path: variable})
+
+    @staticmethod
+    def __create_scope(eq, namespace, item, system, variables):
+        scope_id = "{0}_{1}_{2}_{3}".format(eq.tag, namespace.tag, item.tag, str(uuid.uuid4()), system)
+        scope = Scope(scope_id)
+        for var_desc in eq.variables_descriptions:
+            ModelAssembler.__update_var_desc(namespace, scope, var_desc, scope_id, system, variables)
+        return scope
+
+    @staticmethod
+    def t_1(input):
+        scope_select = {}
+        variables = {}
+        system, x = input
+        for namespace in x.registered_namespaces.values():
+            for eq in namespace.associated_equations.values():
+                scope = ModelAssembler.__create_scope(eq, namespace, x, system, variables)
+                scope_select.update({scope.id: scope})
+
+        return (variables, scope_select)
+
+    # self.equation_dict.update({scope_id: eq})
+
+    def a(z):
+        time.sleep(1)
+        return z * 12
 
 
 class Model:
@@ -52,25 +103,6 @@ class Model:
         for key, value in self.historian.get_last_state():
             self.variables[key] = value
 
-    def __update_var_desc(self, namespace, scope, vardesc, scope_id):
-        variable = namespace.get_variable(vardesc)
-        scope.add_variable(variable)
-        if vardesc.type.value == VariableType.STATE.value:
-            variable.associated_scope.append(scope_id)
-            self.states.update({variable.id: variable})
-        if vardesc.type.value == VariableType.DERIVATIVE.value:
-            self.derivatives.update({variable.id: variable})
-        var_path = self.get_variable_path(variable.id, self.system)
-        self.variables.update({var_path: variable})
-
-    def __create_scope(self, eq, namespace, item):
-        scope = Scope()
-        scope_id = "{0}_{1}_{2}_{3}".format(eq.tag, namespace.tag, item.tag, str(uuid.uuid4()))
-        for var_desc in eq.variables_descriptions:
-            self.__update_var_desc(namespace, scope, var_desc, scope_id)
-        self.synchronized_scope.update({scope_id: scope})
-        return scope_id
-
     def _update_scope_states(self, new_state):
 
         for i, v1 in enumerate(self.states.values()):
@@ -94,20 +126,45 @@ class Model:
             for registered_item in item.registered_items.values():
                 self.__add_item(registered_item)
 
-    def assemble(self):
+    def assemble(self, workers=5):
         """
         Assembles the model.
         """
         assemble_start = time.time()
         for item in self.system.registered_items.values():
             self.__add_item(item)
+        i1 = self.model_items.values()
+        with concurrent.futures.ProcessPoolExecutor(max_workers=5) as executor:
+            futures = {executor.submit(ModelAssembler.t_1, (self.system, i)) for i in list(i1)}
+            for future in concurrent.futures.as_completed(futures):
+                data = future.result()
+                print(data)
 
-        for x in self.model_items.values():
-            for namespace in x.registered_namespaces.values():
-                for eq in namespace.associated_equations.values():
-                    scope_id = self.__create_scope(eq, namespace, x)
-                    self.equation_dict.update({scope_id: eq})
+        # if vardesc.type.value == VariableType.STATE.value:
+        #     variable.associated_scope.append(scope_id)
+        #     self.states.update({variable.id: variable})
+        # if vardesc.type.value == VariableType.DERIVATIVE.value:
+        #     self.derivatives.update({variable.id: variable})
 
+        # with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+        #     futures = {executor.submit(self.t_1, i) for i in self.model_items.values()}
+        #     for future in concurrent.futures.as_completed(futures):
+        #         data = future.result()
+        # def a(z):
+        #     time.sleep(1)
+        #     return z * 12
+
+        # if __name__ == '__main__':
+        #
+        #
+        #         for future in :
+        #             data = future.result()
+        #             print(data)
+        #
+        # for x in self.model_items.values():
+        #     self.t_1(x)
+
+        # deque(map(self.t_1, self.model_items.values()))
 
         self.__create_scope_mappings()
         assemble_finish = time.time()
@@ -217,34 +274,6 @@ class Model:
         callback = _SimulationCallback("FileWriter")
         callback.add_callback_function(saver_callback)
         self.callbacks.append(callback)
-
-    def get_variable_path(self, id, item):
-        """
-        Create a path to a given variable
-
-        Parameters
-        ----------
-        id : id
-            id of a variable
-
-        item : :class:`numerous.engine.system.Item`
-            Item to search
-
-        Returns
-        -------
-        path: string
-            path to variable
-
-        """
-        for (variable, namespace) in item.get_variables():
-            if variable.id == id:
-                return "{0}.{1}".format(namespace.tag, variable.tag)
-        if hasattr(item, 'registered_items'):
-            for registered_item in item.registered_items.values():
-                result = self.get_variable_path(id, registered_item)
-                if result:
-                    return "{0}.{1}".format(registered_item.tag, result)
-        return ""
 
     def add_event(self, name, event_function, callbacks=None):
         """

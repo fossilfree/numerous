@@ -33,9 +33,9 @@ class HistoryDataFrame:
         else:
             self.filter = OutputFilter()
         self.callback = _SimulationCallback("save to dataframe")
-        self.callback.add_callback_function(self.__update)
+        self.callback.add_callback_function(self.update)
 
-    def __update(self, time, variables):
+    def update(self, time, variables):
         if self.filter:
             variables = self.filter.filter_varaibles(variables)
 

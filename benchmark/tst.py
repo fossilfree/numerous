@@ -47,7 +47,7 @@ class Thermal_Capacitance(EquationBase, Item):
         thermal_transport.add_equations([self],
                                         on_assign_overload=OverloadAction.SUM)
 
-    @Equation
+    @Equation()
     def eval(self, scope):
         scope.T_dot = scope.P / scope.C
 
@@ -92,7 +92,6 @@ class ThermalCapacitancesSeries(Subsystem):
 
             #Create thermal conductor
             node = Thermal_Capacitance('node' + str(i), C=100, T0=T0_)
-            items.append(node)
             if prev_node:
                 # Connect the last node to the new node with a conductor
                 thermal_conductor = Thermal_Conductor('thermal_conductor' + str(i), k=1)
@@ -121,7 +120,7 @@ if __name__ == "__main__":
     X= []
     Y= []
     Z= []
-    for i in range(1, int(sys.argv[1]), int(sys.argv[2])):
+    for i in range(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])):
         T0 = [random.randrange(1, 101, 1) for _ in range(i)]
         m = Model(ThermalCapacitancesSeries("tcs", T0))
         start = time.time()

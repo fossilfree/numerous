@@ -33,9 +33,10 @@ class Scope:
 
     """
 
-    def __init__(self):
+    def __init__(self, scopeid):
         self.variables = _DictWrapper(self.__dict__, object)
         self.variables_dict = {}
+        self.id = scopeid
         self.globals = GlobalVariables(0)
 
     def set_time(self, time):
