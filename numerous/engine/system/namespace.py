@@ -51,7 +51,7 @@ class VariableNamespaceBase:
             action on assign overload
                """
         variable_description.on_assign_overload = on_assign_overload
-        variable = _VariableFactory._create_from_variable_desc(self, self.item, variable_description)
+        variable = _VariableFactory._create_from_variable_desc(self,self.item, variable_description)
         self.register_variable(variable)
 
     def get_variable(self, var_description):

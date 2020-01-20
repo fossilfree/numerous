@@ -44,9 +44,10 @@ class DetailedVariableDescription(VariableDescription):
 
 
 class Variable:
-    value = _CallbackProperty(0)
+
 
     def __init__(self, detailed_variable_description, base_variable=None):
+
         self.detailed_description = detailed_variable_description
         self.namespace = detailed_variable_description.namespace
         self.tag = detailed_variable_description.tag
@@ -54,8 +55,10 @@ class Variable:
         self.type = detailed_variable_description.type
         self.alias = None
         if base_variable:
+            self.value = _CallbackProperty(base_variable.value)
             self.value = base_variable.value
         else:
+            self.value = _CallbackProperty(detailed_variable_description.initial_value)
             self.value = detailed_variable_description.initial_value
         self.item = detailed_variable_description.item
         self.metadata = detailed_variable_description.metadata
@@ -64,22 +67,21 @@ class Variable:
         self.allow_update = detailed_variable_description.allow_update
         self.on_assign_overload = detailed_variable_description.on_assign_overload
         self.associated_scope = []
-        self.state_ix =None
 
-    def update_ix(self, ix):
-        self.state_ix = ix
+
+
 
 
     def add_mapping(self, variable):
         self.mapping.append(variable)
 
-    # def __getattribute__(self, item):
-    #     if item == 'value':
-    #         if self.mapping:
-    #             return reduce(add, [x.value for x in self.mapping])
-    #         else:
-    #             return object.__getattribute__(self, item)
-    #     return object.__getattribute__(self, item)
+    def __getattribute__(self, item):
+        if item == 'value':
+            if self.mapping:
+                return reduce(add, [x.value for x in self.mapping])
+            else:
+                return object.__getattribute__(self, item)
+        return object.__getattribute__(self, item)
 
     def update_value(self, value):
         self.value = value

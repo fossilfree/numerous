@@ -92,8 +92,6 @@ class ThermalCapacitancesSeries(Subsystem):
 
             #Create thermal conductor
             node = Thermal_Capacitance('node' + str(i), C=100, T0=T0_)
-            qq = pickle.dumps(node)
-            node = pickle.loads(qq)
             if prev_node:
                 # Connect the last node to the new node with a conductor
                 thermal_conductor = Thermal_Conductor('thermal_conductor' + str(i), k=1)
@@ -108,15 +106,28 @@ class ThermalCapacitancesSeries(Subsystem):
 
 
 if __name__ == "__main__":
+    import resource
+    import sys
 
+    # print(resource.getrlimit(resource.RLIMIT_STACK))
+    # print(sys.getrecursionlimit())
+
+    max_rec = 0x100000
+
+    # May segfault without this line. 0x100 is a guess at the size of each stack frame.
+    resource.setrlimit(resource.RLIMIT_STACK, [0x100 * max_rec, resource.RLIM_INFINITY])
+    sys.setrecursionlimit(max_rec)
     # Create a model with three nodes
-    X= []
-    Y= []
-    Z= []
+
+    X = []
+    Y = []
+    Z = []
+
     for i in range(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])):
         T0 = [random.randrange(1, 101, 1) for _ in range(i)]
         m = Model(ThermalCapacitancesSeries("tcs", T0))
         start = time.time()
+        # print(m.states_as_vector)
         # Define simulation
         s = Simulation(m, t_start=0, t_stop=1, num=10, num_inner=100, max_step=0.1)
         #
@@ -125,6 +136,7 @@ if __name__ == "__main__":
         end = time.time()
         # print(m.states_as_vector)
         # print some statitics and info
+        # print(m.states_as_vector)
         print(m.info)
         X.append(i)
         Z.append(m.info['Assemble time'])

@@ -54,7 +54,7 @@ class Simulation:
 
     def __end_step(self, y, t, event_id=None):
         self.model._update_scope_states(y)
-        self.recent_scope.update_model_from_scope()
+        self.recent_scope.update_model_from_scope(self.model)
         for callback in self.callbacks:
             callback(t, self.model.variables)
         if event_id is not None:
@@ -129,7 +129,7 @@ class Simulation:
 
         for key, eq in self.model.equation_dict.items():
             scope = t_scope.scope_dict[key]
-            for eq_method in eq.equations:
+            for eq_method in eq:
                 eq_method(scope)
         result = t_scope.get_derivatives()
         self.recent_scope = t_scope

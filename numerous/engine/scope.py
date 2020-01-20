@@ -2,19 +2,29 @@ from .variables import Variable, VariableType
 from numerous.utils.dict_wrapper import _DictWrapper
 from collections import ChainMap
 
-class ScopeVariable(Variable):
+class ScopeVariable:
     """
                Variable inside the scope.
     """
 
-    def __init__(self, base_variable, scope):
-        super().__init__(base_variable.detailed_description, base_variable)
-        self.base_variable = base_variable
+    def __init__(self, base_variable):
         self.updated = False
-        self.scope = scope
+        # self.scope = None
         self.mapping_ids = [var.id for var in base_variable.mapping]
         self.mapping = []
+        self.value = base_variable.value
+        self.type = base_variable.type
+        self.tag = base_variable.tag
+        self.id = base_variable.id
+        self.state_ix =None
+        self.associated_state_scope = []
 
+
+    def update_ix(self, ix):
+        self.state_ix = ix
+
+    def update_value(self, value):
+        self.value = value
 
 class GlobalVariables:
 
@@ -34,15 +44,15 @@ class Scope:
     """
 
     def __init__(self, scopeid):
-        self.variables = _DictWrapper(self.__dict__, object)
-        self.variables_dict = {}
+        self.variables = {}
+        self.variables_id = []
         self.id = scopeid
         self.globals = GlobalVariables(0)
 
     def set_time(self, time):
         self.globals.time = time
 
-    def add_variable(self, variable):
+    def add_variable(self, scope_var):
         """
             Function to add variables to the scope.
 
@@ -52,15 +62,25 @@ class Scope:
                 Original variable associated with namespace.
 
             """
-        scope_var = ScopeVariable(variable, self)
-        self.variables.update({variable.tag: scope_var.value})
-        self.variables_dict.update({variable.tag: scope_var})
+        # scope_var.add_scope(self)
+        self.variables.update({scope_var.tag: scope_var})
+        self.variables_id.append(scope_var.id)
 
     def __setattr__(self, key, value):
         if 'variables_dict' in self.__dict__:
-            if key in self.variables_dict:
-                self.variables_dict[key].update_value(value)
+            if key in self.variables_id:
+                self.variables_id[key].update_value(value)
+        if 'variables' in self.__dict__:
+            if key in self.variables:
+                self.variables[key].value = value
         object.__setattr__(self, key, value)
+
+    def __getattribute__(self, item):
+        if item == 'variables' or item == '__setstate__' or item == '__dict__':
+            return object.__getattribute__(self, item)
+        if item in self.variables:
+            return self.variables[item].value
+        return object.__getattribute__(self, item)
 
     def apply_differential_equation_rules(self, is_true):
         """
@@ -83,19 +103,19 @@ class TemporaryScopeWrapper:
         self.states = states
         self.result = {}
 
-    def update_model_from_scope(self):
+    def update_model_from_scope(self,model):
         for scope in self.scope_dict.values():
-            for scope_var in scope.variables_dict.values():
-                if scope_var.base_variable.value != scope_var.value:
-                    scope_var.base_variable.value = scope_var.value
+            for scope_var in scope.variables.values():
+                if model.variables[scope_var.id].value != scope_var.value:
+                    model.variables[scope_var.id].value = scope_var.value
 
     def get_scope_vars(self, state):
         if state.id in self.result:
             return self.result[state.id]
         else:
             self.result[state.id] = []
-            for scope in [self.scope_dict[your_key] for your_key in state.associated_scope]:
-                var = scope.variables_dict[state.tag]
+            for scope in [self.scope_dict[your_key] for your_key in state.associated_state_scope]:
+                var = scope.variables[state.tag]
                 if var.id == state.id:
                     self.result[state.id].append((var, scope))
         return self.result[state.id]
@@ -105,13 +125,13 @@ class TemporaryScopeWrapper:
             scope_vars = self.get_scope_vars(state)
             value = state_values[i]
             for var, scope in scope_vars:
-                scope.variables[var.tag] = value
+                scope.variables[var.tag].value = value
                 var.value = value
 
     def get_derivatives(self):
         def scope_derivatives_dict(scope):
             return {var.id:var\
-                for var in scope.variables_dict.values()\
+                for var in scope.variables.values()\
                 if var.type.value == VariableType.DERIVATIVE.value}
         # list of dictionaries
         resList = list(map(scope_derivatives_dict, self.scope_dict.values()))
@@ -139,8 +159,8 @@ class TemporaryScopeWrapper:
         # input a scope_dict value
         # returns a dictionary corespnding to the values variables
         def new_variable_mapping(scope_v):
-            return {var.tag: var.value\
-                for var in scope_v.variables_dict.values()}
+            return {var.tag: var\
+                for var in scope_v.variables.values()}
 
         # updates the dictionary
         self.scope_dict.update(\
