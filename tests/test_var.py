@@ -5,10 +5,8 @@ from numerous import VariableDescription
 from .test_equations import *
 
 
-
 @pytest.fixture
 def constant():
-
     var_desc = VariableDescription(tag='test_derivative', initial_value=0,
                                    type=VariableType.CONSTANT,
                                    on_assign_overload=OverloadAction.SUM)
@@ -17,7 +15,6 @@ def constant():
 
 @pytest.fixture
 def derivative():
-
     var_desc = VariableDescription(tag='test_constant', initial_value=0,
                                    type=VariableType.DERIVATIVE,
                                    on_assign_overload=OverloadAction.RaiseError)
@@ -37,10 +34,6 @@ def test_allow_update_true(derivative):
     x_dot.allow_update = True
     x_dot.value = 1
     assert x_dot.value == 1
-
-
-
-
 
 
 def test_update_constant(constant):

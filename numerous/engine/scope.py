@@ -2,6 +2,7 @@ from .variables import Variable, VariableType
 from numerous.utils.dict_wrapper import _DictWrapper
 from collections import ChainMap
 
+
 class ScopeVariable:
     """
                Variable inside the scope.
@@ -17,15 +18,15 @@ class ScopeVariable:
         self.type = base_variable.type
         self.tag = base_variable.tag
         self.id = base_variable.id
-        self.state_ix =None
+        self.state_ix = None
         self.associated_state_scope = []
-
 
     def update_ix(self, ix):
         self.state_ix = ix
 
     def update_value(self, value):
         self.value = value
+
 
 class GlobalVariables:
 
@@ -104,7 +105,7 @@ class TemporaryScopeWrapper:
         self.states = states
         self.result = {}
 
-    def update_model_from_scope(self,model):
+    def update_model_from_scope(self, model):
         for scope in self.scope_dict.values():
             for scope_var in scope.variables.values():
                 if model.variables[scope_var.id].value != scope_var.value:
@@ -131,9 +132,10 @@ class TemporaryScopeWrapper:
 
     def get_derivatives(self):
         def scope_derivatives_dict(scope):
-            return {var.id:var\
-                for var in scope.variables.values()\
-                if var.type.value == VariableType.DERIVATIVE.value}
+            return {var.id: var \
+                    for var in scope.variables.values() \
+                    if var.type.value == VariableType.DERIVATIVE.value}
+
         # list of dictionaries
         resList = list(map(scope_derivatives_dict, self.scope_dict.values()))
         # one dictionary, list must be reversed because:
@@ -145,8 +147,8 @@ class TemporaryScopeWrapper:
         # input scope_dict
         # output a new updated dict
         def new_time_map(scope, t):
-            return {key: new_scope_value_time_and_mapping(val,t)\
-                for (key, val) in scope.items()}
+            return {key: new_scope_value_time_and_mapping(val, t) \
+                    for (key, val) in scope.items()}
 
         # input a scope_dict value
         # output a new value with updated time/ variables
@@ -160,9 +162,9 @@ class TemporaryScopeWrapper:
         # input a scope_dict value
         # returns a dictionary corespnding to the values variables
         def new_variable_mapping(scope_v):
-            return {var.tag: var\
-                for var in scope_v.variables.values()}
+            return {var.tag: var \
+                    for var in scope_v.variables.values()}
 
         # updates the dictionary
-        self.scope_dict.update(\
+        self.scope_dict.update( \
             new_time_map(self.scope_dict, timestamp))
