@@ -215,7 +215,7 @@ def test_1_item_model(ms1):
 
 def test_callback_step_item_model(ms1):
     def simple_callback(_, variables):
-        if variables['test_item.t1.T2'].value > 1000:
+        if variables['S1.test_item.t1.T2'].value > 1000:
             raise ValueError("Overflow of state2")
 
     m1 = Model(ms1)
@@ -238,13 +238,13 @@ def test_add_item_twice_with_same_tag(ms2):
 
 def test_chain_item_model(ms2):
     m1 = Model(ms2)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
 
 def test_chain_item_binding_model(ms3):
     m1 = Model(ms3)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]

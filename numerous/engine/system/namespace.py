@@ -86,12 +86,16 @@ class VariableNamespaceBase:
         """
         if variable.tag not in self.variables:
             self.variables[variable.tag] = variable
+            variable.extend_path(self.tag)
+            variable.extend_path(self.item.tag)
         else:
             logging.warning("Variable {0} is already in namespace {1} of item {2}".format(variable.tag,
                                                                                           self.tag, self.item.tag))
             # we overwrite constant < parameters < state
             if self.variables[variable.tag].type < variable.type:
                 self.variables[variable.tag] = variable
+                variable.extend_path(self.tag)
+                variable.extend_path(self.item.tag)
 
     def add_equations(self, list_of_equations, on_assign_overload=OverloadAction.RaiseError, update_bindings=True):
         """
@@ -138,3 +142,4 @@ class _ShadowVariableNamespace(VariableNamespaceBase):
     def register_variable(self, variable):
         if variable.tag not in self.variables:
             self.variables[variable.tag] = _BindingVariable(variable)
+            self.variables[variable.tag].extend_path(self.tag)

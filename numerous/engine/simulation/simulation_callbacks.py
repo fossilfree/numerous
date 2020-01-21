@@ -28,9 +28,9 @@ class _EventFunction:
     def _event_wrapper(self):
         def event(t, y):
             for variable in self.model.variables:
-                if self.model.variables[variable].state_ix is not None:
-                    self.model.variables[variable].value = y[self.model.variables[variable].state_ix]
-            return self.event_function(t, self.model.variables)
+                if self.model.scope_variables[variable].state_ix is not None:
+                    self.model.scope_variables[variable].value = y[self.model.scope_variables[variable].state_ix]
+            return self.event_function(t, {var.path: var for var in self.model.scope_variables.values()})
         event.terminal = True
         event.direction = self.event_function.direction
         return event

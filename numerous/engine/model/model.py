@@ -2,7 +2,6 @@ import copy
 import time
 import uuid
 
-import concurrent.futures
 from numerous.engine.system.connector import Connector
 from numerous.utils.historyDataFrame import HistoryDataFrame
 from numerous.engine.scope import Scope, TemporaryScopeWrapper, ScopeVariable
@@ -15,8 +14,8 @@ class ModelNamespace:
 
     def __init__(self, tag):
         self.tag = tag
-        self.equation_dict = {}  # name list
-        self.eq_variables_ids = []  # name list
+        self.equation_dict = {}
+        self.eq_variables_ids = []
         self.variables = {}
 
 
@@ -28,18 +27,18 @@ class ModelAssembler:
         scope = Scope(scope_id)
         for variable in eq_variables:
             scope.add_variable(variable)
-            ##TODO why is this line here?
+            # Needed for updating states after solve run
             if variable.type.value == VariableType.STATE.value:
                 variable.associated_state_scope.append(scope_id)
             variables.update({variable.id: variable})
         return scope
 
     @staticmethod
-    def t_1(input):
+    def t_1(input_namespace):
         scope_select = {}
         variables = {}
         equation_dict = {}
-        tag, namespaces = input
+        tag, namespaces = input_namespace
         for namespace in namespaces:
             for i, (eq_tag, eq_methods) in enumerate(namespace.equation_dict.items()):
                 scope = ModelAssembler.__create_scope(eq_tag,
@@ -48,7 +47,7 @@ class ModelAssembler:
                 scope_select.update({scope.id: scope})
                 equation_dict.update({scope.id: eq_methods})
 
-        return (variables, scope_select, equation_dict)
+        return variables, scope_select, equation_dict
 
 
 class Model:
@@ -69,7 +68,6 @@ class Model:
         self.state_history = {}
         self.synchronized_scope = {}
 
-        ##TODO only equation methods here
         self.equation_dict = {}
         self.scope_variables = {}
         self.variables = {}
@@ -104,60 +102,36 @@ class Model:
         return TemporaryScopeWrapper(copy.copy(self.synchronized_scope), self.states)
 
     def __add_item(self, item):
+        model_namespaces = []
         if item.id in self.model_items:
-            return
+            return model_namespaces
 
         if item.callbacks:
             self.callbacks.append(item.callbacks)
 
         self.model_items.update({item.id: item})
+        model_namespaces.append((item.tag, self.create_model_namespaces(item)))
         if isinstance(item, Connector):
             for binded_item in item.get_binded_items():
-                self.__add_item(binded_item)
+                model_namespaces.extend(self.__add_item(binded_item))
         if isinstance(item, Subsystem):
             for registered_item in item.registered_items.values():
-                self.__add_item(registered_item)
+                model_namespaces.extend(self.__add_item(registered_item))
+        return model_namespaces
 
-    def assemble(self, workers=100):
+    def assemble(self):
         """
         Assembles the model.
         """
         assemble_start = time.time()
+        model_namespaces = []
         for item in self.system.registered_items.values():
-            self.__add_item(item)
-        qq_start = time.time()
-        QQ = [(i.tag, self.create_model_namespaces(i)) for i in list(self.model_items.values())]
-        qq_finish = time.time()
+            model_namespaces.extend(self.__add_item(item))
 
-        f = []
-        assemble_par = time.time()
-        # executor  = concurrent.futures.ProcessPoolExecutor(max_workers=workers)
-
-
-        for (variables, scope_select, equation_dict) in map(ModelAssembler.t_1, QQ):
-            # variables, scope_select, eq_select = future.result()
+        for (variables, scope_select, equation_dict) in map(ModelAssembler.t_1, model_namespaces):
             self.equation_dict.update(equation_dict)
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
-        # for el in QQ:
-        #     f.append(executor.submit(ModelAssembler.t_1, el))
-        #
-        # for future in concurrent.futures.as_completed(f):
-        #     variables, scope_select, eq_select = future.result()
-        #     self.equation_dict.update(eq_select)
-        #     self.synchronized_scope.update(scope_select)
-        #     self.scope_variables.update(variables)
-
-        # with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
-        #     results = executor.map(ModelAssembler.t_1,QQ)
-        #     for (variables, scope_select, equation_dict) in results:
-        #         # variables, scope_select, eq_select = future.result()
-        #         self.equation_dict.update(equation_dict)
-        #         self.synchronized_scope.update(scope_select)
-        #         self.scope_variables.update(variables)
-
-
-        assemble_parf = time.time()
 
         for variable in self.scope_variables.values():
             if variable.type.value == VariableType.STATE.value:
@@ -168,8 +142,6 @@ class Model:
         self.__create_scope_mappings()
         assemble_finish = time.time()
         self.info.update({"Assemble time": assemble_finish - assemble_start})
-        self.info.update({"Assemble timeQQ": qq_finish - qq_start})
-        self.info.update({"Assemble timeP": assemble_parf - assemble_par})
         self.info.update({"Number of items": len(self.model_items)})
         self.info.update({"Number of variables": len(self.scope_variables)})
         self.info.update({"Number of equation scopes": len(self.equation_dict)})
@@ -232,11 +204,12 @@ class Model:
         Restores last saved state from the historian.
         """
         last_states = self.historian.get_last_state()
+        path_var = {var.path: var for var in self.variables.values()}
         for state_name in last_states:
-            if state_name in self.scope_variables:
-                if self.scope_variables[state_name].type.value not in [VariableType.CONSTANT.value]:
-                    self.scope_variables[state_name].value = list(last_states[state_name].values())[0]
-
+            if state_name in path_var:
+                if path_var[state_name].type.value not in [VariableType.CONSTANT.value]:
+                    path_var[state_name].value = list(last_states[state_name].values())[0]
+        self.sychronize_scope()
     @property
     def states_as_vector(self):
         """
@@ -361,24 +334,24 @@ class Model:
         self.callbacks.append(_SimulationCallback(name, callback_function))
 
     def create_model_namespaces(self, item):
-        r = []
+        namespaces_list = []
         for namespace in item.registered_namespaces.values():
             model_namespace = ModelNamespace(namespace.tag)
             equation_dict = {}
             eq_variables_ids = []
             for eq in namespace.associated_equations.values():
-                d1 = []
+                equations = []
                 ids = []
                 for equation in eq.equations:
-                    d1.append(equation)
+                    equations.append(equation)
                 for vardesc in eq.variables_descriptions:
                     variable = namespace.get_variable(vardesc)
                     self.variables.update({variable.id: variable})
                     ids.append(variable.id)
-                equation_dict.update({eq.tag: d1})
+                equation_dict.update({eq.tag: equations})
                 eq_variables_ids.append(ids)
             model_namespace.equation_dict = equation_dict
             model_namespace.eq_variables_ids = eq_variables_ids
             model_namespace.variables = {v.id: ScopeVariable(v) for v in namespace.variables.shadow_dict.values()}
-            r.append(model_namespace)
-        return r
+            namespaces_list.append(model_namespace)
+        return namespaces_list

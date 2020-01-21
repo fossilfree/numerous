@@ -56,11 +56,12 @@ class Simulation:
         self.model._update_scope_states(y)
         self.recent_scope.update_model_from_scope(self.model)
         for callback in self.callbacks:
-            callback(t, self.model.variables)
+            callback(t, {var.path: var for var in self.model.variables.values()})
         if event_id is not None:
-            list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.variables)
-        self.y0 = self.model.states_as_vector
+            list(self.model.events.items())[event_id][1]._callbacks_call(t, {var.path: var for var in self.model.variables.values()})
+
         self.model.sychronize_scope()
+        self.y0 = self.model.states_as_vector
 
     def solve(self):
         """

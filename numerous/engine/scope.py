@@ -12,6 +12,7 @@ class ScopeVariable:
         # self.scope = None
         self.mapping_ids = [var.id for var in base_variable.mapping]
         self.mapping = []
+        self.path = base_variable.path
         self.value = base_variable.value
         self.type = base_variable.type
         self.tag = base_variable.tag

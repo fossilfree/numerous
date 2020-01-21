@@ -5,23 +5,6 @@ from numerous import VariableDescription
 from .test_equations import *
 
 
-@pytest.fixture
-def positive_limit_parameter():
-
-    var_desc = VariableDescription(tag='test_positive_parameter', initial_value=0,
-                                   type=VariableType.PARAMETER,
-                                   on_assign_overload=OverloadAction.SUM)
-
-    v1 = _VariableFactory._create_from_variable_desc_unbound(variable_description=var_desc, initial_value=0)
-
-    def positive(value):
-        if value < 0:
-            raise ValueError("non positive value")
-
-    Variable.value.add_callback(v1, positive)
-
-    return v1
-
 
 @pytest.fixture
 def constant():
@@ -56,13 +39,8 @@ def test_allow_update_true(derivative):
     assert x_dot.value == 1
 
 
-def test_positive_parameter(positive_limit_parameter):
-    positive_limit_parameter.value = 100
 
 
-def test_positive_parameter(positive_limit_parameter):
-    with pytest.raises(ValueError, match=r".*non positive.*"):
-        positive_limit_parameter.value = -1
 
 
 def test_update_constant(constant):

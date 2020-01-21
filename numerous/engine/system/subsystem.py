@@ -72,7 +72,6 @@ class Subsystem(ConnectorItem):
         """
         any(self.register_item(item) for item in items)
 
-
     def increase_level(self):
         super().increase_level()
         for item in self.registered_items.values():
@@ -89,4 +88,7 @@ class Subsystem(ConnectorItem):
         if item.tag in [x.get_tag for x in self.registered_items.values()]:
             raise ValueError('Item with tag {} is already registered in system {}'.format(item.tag, self.tag))
         item._increase_level()
+        for ns in item.registered_namespaces.values():
+            for var in ns.variables.values():
+                var.extend_path(self.tag)
         self.registered_items.update({item.tag + item.id: item})
