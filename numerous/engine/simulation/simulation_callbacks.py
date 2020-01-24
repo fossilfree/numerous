@@ -30,7 +30,7 @@ class _EventFunction:
             for variable in self.model.variables:
                 if self.model.scope_variables[variable].state_ix is not None:
                     self.model.scope_variables[variable].value = y[self.model.scope_variables[variable].state_ix]
-            return self.event_function(t, {var.path: var for var in self.model.scope_variables.values()})
+            return self.event_function(t, self.model.path_scope_variables)
         event.terminal = True
         event.direction = self.event_function.direction
         return event

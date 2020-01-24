@@ -56,9 +56,9 @@ class Simulation:
         self.model._update_scope_states(y)
         self.recent_scope.update_model_from_scope(self.model)
         for callback in self.callbacks:
-            callback(t, {var.path: var for var in self.model.variables.values()})
+            callback(t, self.model.path_variables)
         if event_id is not None:
-            list(self.model.events.items())[event_id][1]._callbacks_call(t, {var.path: var for var in self.model.variables.values()})
+            list(self.model.events.items())[event_id][1]._callbacks_call(t,  self.model.path_variables)
 
         self.model.sychronize_scope()
         self.y0 = self.model.states_as_vector
