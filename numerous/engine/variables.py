@@ -4,6 +4,7 @@ from typing import Any
 import uuid
 from functools import reduce
 from operator import add
+from collections import defaultdict
 
 
 class VariableBase:
@@ -40,6 +41,24 @@ class DetailedVariableDescription(VariableDescription):
     update_counter: int = None
     allow_update: True = None
 
+class VariablePath:
+
+    def __init__(self, tag, id):
+
+        self.path = {id: tag}
+        self.used_id_pairs = []
+
+    def __iter__(self):
+        return iter(self.path.values())
+
+    def extend_path(self, current_id, new_id, new_tag):
+        if not (current_id+new_id in self.used_id_pairs):
+            if new_id in  self.path:
+                self.path[new_id].extend([new_tag+'.'+x for x in self.path[current_id]])
+            else:
+                self.path.update({new_id: [new_tag+'.'+x for x in self.path[current_id]]})
+            self.used_id_pairs.append(current_id+new_id)
+
 
 class Variable:
 
@@ -51,7 +70,7 @@ class Variable:
         self.tag = detailed_variable_description.tag
         self.id = detailed_variable_description.id
         self.type = detailed_variable_description.type
-        self.path = detailed_variable_description.tag
+        self.path = VariablePath([detailed_variable_description.tag],self.id)
         self.alias = None
         if base_variable:
 
@@ -68,9 +87,6 @@ class Variable:
 
     def add_mapping(self, variable):
         self.mapping.append(variable)
-
-    def extend_path(self, tag):
-        self.path = tag + '.' + self.path
 
 
     def __getattribute__(self, item):

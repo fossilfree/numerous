@@ -238,9 +238,37 @@ def test_add_item_twice_with_same_tag(ms2):
 
 def test_chain_item_model(ms2):
     m1 = Model(ms2)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=1)
+    s1.solve()
+    assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
+
+
+def test_chain_item_binding_model_nested(ms3):
+    ms4 = Subsystem('new_s')
+    ms4.register_item(ms3)
+    m1 = Model(ms4)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
+
+def test_chain_item_binding_model_nested2(ms3):
+    ms4 = Subsystem('new_s4')
+    ms4.register_item(ms3)
+    ms5 = Subsystem('new_s5')
+    ms5.register_item(ms3)
+    ms6 = Subsystem('new_s6')
+    ms6.register_item(ms4)
+    ms6.register_item(ms5)
+    ms7 = Subsystem('new_s7')
+    ms7.register_item(ms6)
+    m1 = Model(ms7)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
+    s1.solve()
+    assert len(m1.path_variables) == 50
+    assert len(m1.variables) == 25
+    assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
+
+
 
 
 def test_chain_item_binding_model(ms3):

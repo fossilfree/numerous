@@ -71,6 +71,8 @@ class Model:
         self.equation_dict = {}
         self.scope_variables = {}
         self.variables = {}
+        self.path_variables = {}
+        self.path_scope_variables = {}
         self.states = {}
         self.period = 1
 
@@ -139,6 +141,15 @@ class Model:
             if variable.type.value == VariableType.DERIVATIVE.value:
                 self.derivatives.update({variable.id: variable})
 
+        for variable in self.variables.values():
+            for path in variable.path.path[self.system.id]:
+                self.path_variables.update({path: variable})
+
+        for variable in self.scope_variables.values():
+            for path in self.variables[variable.id].path.path[self.system.id]:
+                self.path_scope_variables.update({path: variable})
+
+
         self.__create_scope_mappings()
         assemble_finish = time.time()
         self.info.update({"Assemble time": assemble_finish - assemble_start})
@@ -204,11 +215,10 @@ class Model:
         Restores last saved state from the historian.
         """
         last_states = self.historian.get_last_state()
-        path_var = {var.path: var for var in self.variables.values()}
         for state_name in last_states:
-            if state_name in path_var:
-                if path_var[state_name].type.value not in [VariableType.CONSTANT.value]:
-                    path_var[state_name].value = list(last_states[state_name].values())[0]
+            if state_name in self.path_variables:
+                if self.path_variables[state_name].type.value not in [VariableType.CONSTANT.value]:
+                    self.path_variables[state_name].value = list(last_states[state_name].values())[0]
         self.sychronize_scope()
     @property
     def states_as_vector(self):

@@ -13,7 +13,7 @@ class VariableNamespaceBase:
     def __init__(self, item, tag, is_connector=False, _id=uuid.uuid1()):
         self.is_connector = is_connector
         self.item = item
-        self.id = _id
+        self.id = str(_id)
         self.tag = tag
         self.associated_equations = {}
         self.variables = _DictWrapper(self.__dict__, Variable)
@@ -86,8 +86,9 @@ class VariableNamespaceBase:
         """
         if variable.tag not in self.variables:
             self.variables[variable.tag] = variable
-            variable.extend_path(self.tag)
-            variable.extend_path(self.item.tag)
+
+            variable.path.extend_path(variable.id,self.id, self.tag)
+            variable.path.extend_path(self.id,self.item.id, self.item.tag)
         else:
             logging.warning("Variable {0} is already in namespace {1} of item {2}".format(variable.tag,
                                                                                           self.tag, self.item.tag))
@@ -142,4 +143,4 @@ class _ShadowVariableNamespace(VariableNamespaceBase):
     def register_variable(self, variable):
         if variable.tag not in self.variables:
             self.variables[variable.tag] = _BindingVariable(variable)
-            self.variables[variable.tag].extend_path(self.tag)
+            self.variables[variable.tag].path.extend_path(variable.id, self.id, self.tag)
