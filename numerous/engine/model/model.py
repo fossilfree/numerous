@@ -192,19 +192,15 @@ class Model:
                """
         return [item for item in self.model_items.values() if item.tag == item_tag]
 
-    def __find_scope_var(self, var_id):
-        for scope in self.synchronized_scope.values():
-            for scope_var in scope.variables.values():
-                if scope_var.id == var_id:
-                    return scope_var
 
     def __create_scope_mappings(self):
         for scope in self.synchronized_scope.values():
             for var in scope.variables.values():
                 for mapping_id in var.mapping_ids:
-                    var.mapping.append(self.__find_scope_var(mapping_id))
+                    var.mapping.append(self.scope_variables[mapping_id])
                 for mapping_id in var.sum_mapping_ids:
-                    var.sum_mapping.append(self.__find_scope_var(mapping_id))
+                    var.sum_mapping.append(self.scope_variables[mapping_id])
+
 
     def restore_state(self, timestep=-1):
         """
