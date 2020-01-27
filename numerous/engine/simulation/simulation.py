@@ -58,7 +58,7 @@ class Simulation:
         for callback in self.callbacks:
             callback(t, self.model.path_variables)
         if event_id is not None:
-            list(self.model.events.items())[event_id][1]._callbacks_call(t,  self.model.path_variables)
+            list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
 
         self.model.sychronize_scope()
         self.y0 = self.model.states_as_vector
@@ -125,7 +125,7 @@ class Simulation:
         t_scope = self.model._get_initial_scope_copy()
 
         t_scope.update_states(y)
-        t_scope.update_mappings_and_time(timestamp=_t)
+        map(lambda x: x.set_time(_t), t_scope.scope_dict)
         self.info["Number of Equation Calls"] = self.info["Number of Equation Calls"] + 1
 
         for key, eq in self.model.equation_dict.items():

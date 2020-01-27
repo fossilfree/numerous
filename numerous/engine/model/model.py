@@ -203,6 +203,8 @@ class Model:
             for var in scope.variables.values():
                 for mapping_id in var.mapping_ids:
                     var.mapping.append(self.__find_scope_var(mapping_id))
+                for mapping_id in var.sum_mapping_ids:
+                    var.sum_mapping.append(self.__find_scope_var(mapping_id))
 
     def restore_state(self, timestep=-1):
         """

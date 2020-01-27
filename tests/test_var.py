@@ -8,16 +8,14 @@ from .test_equations import *
 @pytest.fixture
 def constant():
     var_desc = VariableDescription(tag='test_derivative', initial_value=0,
-                                   type=VariableType.CONSTANT,
-                                   on_assign_overload=OverloadAction.SUM)
+                                   type=VariableType.CONSTANT)
     return _VariableFactory._create_from_variable_desc_unbound(variable_description=var_desc, initial_value=0)
 
 
 @pytest.fixture
 def derivative():
     var_desc = VariableDescription(tag='test_constant', initial_value=0,
-                                   type=VariableType.DERIVATIVE,
-                                   on_assign_overload=OverloadAction.RaiseError)
+                                   type=VariableType.DERIVATIVE)
     return _VariableFactory._create_from_variable_desc_unbound(variable_description=var_desc, initial_value=0)
 
 

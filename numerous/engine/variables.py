@@ -4,7 +4,6 @@ from typing import Any
 import uuid
 from functools import reduce
 from operator import add
-from collections import defaultdict
 
 
 class VariableBase:
@@ -29,7 +28,6 @@ class VariableDescription:
     type: VariableType = VariableType.PARAMETER
     initial_value: Any = None
     id: str = None
-    on_assign_overload: OverloadAction = OverloadAction.RaiseError
 
 
 @dataclass
@@ -40,6 +38,47 @@ class DetailedVariableDescription(VariableDescription):
     mapping: None = None
     update_counter: int = None
     allow_update: True = None
+
+
+class MappedValue(object):
+    def __init__(self):
+        self.mapping = []
+        self.sum_mapping = []
+        self.special_mapping = False
+
+    def add_mapping(self, variable):
+
+        if not self.special_mapping:
+            if variable.id == self.id:
+                raise RecursionError("Variable {0} cannot be mapped to itself",self.id)
+            self.mapping.append(variable)
+        self.special_mapping = False
+
+    def add_sum_mapping(self, variable):
+        self.sum_mapping.append(variable)
+
+    def __getattribute__(self, item):
+        if item == 'value':
+            if self.mapping:
+                return reduce(add, [x.value for x in self.mapping])
+            if self.sum_mapping:
+                return object.__getattribute__(self, item) + reduce(add, [x.value for x in self.sum_mapping])
+            else:
+                return object.__getattribute__(self, item)
+        return object.__getattribute__(self, item)
+
+    def __iadd__(self, other):
+        if isinstance(other, Variable):
+            if self.mapping:
+                raise ValueError('It is not possible to add a summation to {0}. Variable already have mapping'
+                                 ''.format(self.tag))
+            else:
+                self.add_sum_mapping(other)
+                self.special_mapping = True
+                return self
+        else:
+            object.__iadd__(self, other)
+
 
 class VariablePath:
 
@@ -60,11 +99,11 @@ class VariablePath:
             self.used_id_pairs.append(current_id+new_id)
 
 
-class Variable:
-
+class Variable(MappedValue):
 
     def __init__(self, detailed_variable_description, base_variable=None):
 
+        super().__init__()
         self.detailed_description = detailed_variable_description
         self.namespace = detailed_variable_description.namespace
         self.tag = detailed_variable_description.tag
@@ -82,20 +121,8 @@ class Variable:
         self.mapping = detailed_variable_description.mapping
         self.update_counter = detailed_variable_description.update_counter
         self.allow_update = detailed_variable_description.allow_update
-        self.on_assign_overload = detailed_variable_description.on_assign_overload
         self.associated_scope = []
 
-    def add_mapping(self, variable):
-        self.mapping.append(variable)
-
-
-    def __getattribute__(self, item):
-        if item == 'value':
-            if self.mapping:
-                return reduce(add, [x.value for x in self.mapping])
-            else:
-                return object.__getattribute__(self, item)
-        return object.__getattribute__(self, item)
 
     def update_value(self, value):
         self.value = value
@@ -114,12 +141,6 @@ class Variable:
                                                     mapping=mapping,
                                                     update_counter=update_counter,
                                                     allow_update=allow_update))
-
-    def update(self, value):
-        if self.on_assign_overload == OverloadAction.SUM:
-            self.value += value
-        else:
-            raise ValueError('Reassignment of variable {0} not allowed'.format(self.tag))
 
     def __setattr__(self, key, value):
         if key == 'value' and 'update_counter' in self.__dict__:
