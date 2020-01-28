@@ -57,16 +57,6 @@ class MappedValue(object):
     def add_sum_mapping(self, variable):
         self.sum_mapping.append(variable)
 
-#    def __getattribute__(self, item):
-#        if item == 'value':
-#            if self.mapping:
-#                return reduce(add, [x.value for x in self.mapping])
-#            if self.sum_mapping:
-#                return object.__getattribute__(self, item) + reduce(add, [x.value for x in self.sum_mapping])
-#            else:
-#                return object.__getattribute__(self, item)
-#        return object.__getattribute__(self, item)
-
     def __iadd__(self, other):
         if isinstance(other, Variable):
             if self.mapping:
@@ -87,46 +77,6 @@ class MappedValue(object):
         else:
             return self.value
 
-class MappedValue_old(object):
-    def __init__(self):
-        self.mapping = []
-        self.sum_mapping = []
-        self.special_mapping = False
-
-    def add_mapping(self, variable):
-
-        if not self.special_mapping:
-            if variable.id == self.id:
-                raise RecursionError("Variable {0} cannot be mapped to itself",self.id)
-            self.mapping.append(variable)
-        self.special_mapping = False
-
-    def add_sum_mapping(self, variable):
-        self.sum_mapping.append(variable)
-
-    def __getattribute__(self, item):
-        if item == 'value':
-            if self.mapping:
-                return reduce(add, [x.value for x in self.mapping])
-            if self.sum_mapping:
-                return object.__getattribute__(self, item) + reduce(add, [x.value for x in self.sum_mapping])
-            else:
-                return object.__getattribute__(self, item)
-        return object.__getattribute__(self, item)
-
-    def __iadd__(self, other):
-        if isinstance(other, Variable):
-            if self.mapping:
-                raise ValueError('It is not possible to add a summation to {0}. Variable already have mapping'
-                                 ''.format(self.tag))
-            else:
-                self.add_sum_mapping(other)
-                self.special_mapping = True
-                return self
-        else:
-            object.__iadd__(self, other)
-
-
 class VariablePath:
 
     def __init__(self, tag, id):
@@ -145,7 +95,6 @@ class VariablePath:
                 self.path.update({new_id: [new_tag+'.'+x for x in self.path[current_id]]})
             self.used_id_pairs.append(current_id+new_id)
 
-#class Variable(MappedValue_old):
 class Variable(MappedValue):
 
     def __init__(self, detailed_variable_description, base_variable=None):
@@ -203,66 +152,6 @@ class Variable(MappedValue):
                                      ' in differential equation'.format(self.tag))
 
         object.__setattr__(self, key, value)
-
-
-class Variable_old(MappedValue_old):
-
-    def __init__(self, detailed_variable_description, base_variable=None):
-
-        super().__init__()
-        self.detailed_description = detailed_variable_description
-        self.namespace = detailed_variable_description.namespace
-        self.tag = detailed_variable_description.tag
-        self.id = detailed_variable_description.id
-        self.type = detailed_variable_description.type
-        self.path = VariablePath([detailed_variable_description.tag],self.id)
-        self.alias = None
-        if base_variable:
-
-            self.value = base_variable.value
-        else:
-            self.value = detailed_variable_description.initial_value
-        self.item = detailed_variable_description.item
-        self.metadata = detailed_variable_description.metadata
-        self.mapping = detailed_variable_description.mapping
-        self.update_counter = detailed_variable_description.update_counter
-        self.allow_update = detailed_variable_description.allow_update
-        self.associated_scope = []
-
-
-    def update_value(self, value):
-        self.value = value
-
-    @staticmethod
-    def create(namespace, v_id, tag,
-               v_type, value, item, metadata,
-               mapping, update_counter, allow_update):
-        return Variable(DetailedVariableDescription(tag=tag,
-                                                    id=v_id,
-                                                    type=v_type,
-                                                    initial_value=value,
-                                                    namespace=namespace,
-                                                    item=item,
-                                                    metadata=metadata,
-                                                    mapping=mapping,
-                                                    update_counter=update_counter,
-                                                    allow_update=allow_update))
-
-    def __setattr__(self, key, value):
-        if key == 'value' and 'update_counter' in self.__dict__:
-            if self.allow_update:
-                self.update_counter += 1
-            else:
-                if self.type == VariableType.CONSTANT:
-                    raise ValueError(' It is not possible to reassign constant variable {0}'
-                                     .format(self.tag))
-                else:
-
-                    raise ValueError('It is not possible to reassign variable {0}'
-                                     ' in differential equation'.format(self.tag))
-
-        object.__setattr__(self, key, value)
-
 
 class _VariableFactory:
 

@@ -1,11 +1,8 @@
 from numerous.engine.system import Item, Subsystem
 from numerous.multiphysics import EquationBase, Equation
-from numerous.engine.simulation.simulation_callbacks import _SimulationCallback
-from numerous.engine.variables import OverloadAction
-from numerous.engine.model import Model, Model_old
-from numerous.engine.simulation import Simulation, Simulation_old
+from numerous.engine.model import Model
+from numerous.engine.simulation import Simulation
 import numpy as np
-import matplotlib.pyplot as plt
 import pytest
 from pytest import approx
 
@@ -23,12 +20,6 @@ class Item1(Item, EquationBase):
         scope.t_dot = 1
         scope.x_dot = -1 * np.exp(-1 * scope.t)
 
-class DummyHistorian:
-    def __init__(self):
-        self.callback = _SimulationCallback("save to dataframe")
-        self.callback.add_callback_function(self.update)
-    def update(self, a, b):
-        pass
 
 
 class Subsystem1(Subsystem, EquationBase):
@@ -47,7 +38,7 @@ class Subsystem1(Subsystem, EquationBase):
         scope.x_dot_mod = -1
 
 
-#@pytest.fixture
+@pytest.fixture
 def system1():
     class System(Subsystem, EquationBase):
         def __init__(self, tag='system1', subsystem1=object):
@@ -60,16 +51,8 @@ def expected_sol(t):
     return -1*(t*np.exp(t) -1)*np.exp(-t)
 
 def test_overloadaction_sum(system1):
-    #model = Model(system1, historian=DummyHistorian())
     model = Model(system1)
-    sim = Simulation(model, t_start=0, t_stop=20, num=500)
+    sim = Simulation(model, t_start=0, t_stop=10, num=100)
     sim.solve()
     df = sim.model.historian.df
-    df['expected_sol'] = expected_sol(np.linspace(20/500, 20, 500))
-    df.plot(y=['system1.subsystem1.item1.t1.x', 'expected_sol'])
-    plt.show()
-    #assert approx(np.array(df['system1.subsystem1.item1.t1.x']), rel=100) == expected_sol(np.linspace(0, 10, 101)[1:])
-
-if __name__ == "__main__":
-    sys1 = system1()
-    test_overloadaction_sum(sys1)
+    assert approx(np.array(df['system1.subsystem1.item1.t1.x']), rel=100) == expected_sol(np.linspace(0, 10, 101)[1:])
