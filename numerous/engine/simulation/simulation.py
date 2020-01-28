@@ -48,9 +48,10 @@ class Simulation:
         self.max_event_steps = max_event_steps
         self.info = model.info["Solver"]
         self.info["Number of Equation Calls"] = 0
-        self.y0 = [y for y, _ in [(x.value, x.update_ix(i)) for i, x in enumerate(self.model.states.values())]]
+        self.y0 = [y for y, _ in [(x.get_value(), x.update_ix(i)) for i, x in enumerate(self.model.states.values())]]
         self.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
         self.callbacks = [x.callbacks for x in model.callbacks]
+        self.t_scope = self.model._get_initial_scope_copy()
 
     def __end_step(self, y, t, event_id=None):
         self.model._update_scope_states(y)
@@ -117,12 +118,13 @@ class Simulation:
             if stop_condition:
                 result_status = "Stopping condition reached"
                 break
-        time.sleep(1)
+        #time.sleep(1)
         self.info.update({"Solving status": result_status})
         return sol
 
     def __func(self, _t, y):
-        t_scope = self.model._get_initial_scope_copy()
+        #t_scope = self.model._get_initial_scope_copy() # can I just remove this??
+        t_scope = self.t_scope
 
         t_scope.update_states(y)
         map(lambda x: x.set_time(_t), t_scope.scope_dict)
@@ -134,4 +136,4 @@ class Simulation:
                 eq_method(scope)
         result = t_scope.get_derivatives()
         self.recent_scope = t_scope
-        return [x.value for x in result]
+        return [x.get_value() for x in result]

@@ -1,9 +1,4 @@
-from functools import reduce
-from operator import add
-
 from .variables import Variable, VariableType, MappedValue
-from collections import ChainMap
-
 
 
 class ScopeVariable(MappedValue):
@@ -17,7 +12,7 @@ class ScopeVariable(MappedValue):
         # self.scope = None
         self.mapping_ids = [var.id for var in base_variable.mapping]
         self.sum_mapping_ids = [var.id for var in base_variable.sum_mapping]
-        self.value = base_variable.value
+        self.value = base_variable.get_value()
         self.type = base_variable.type
         self.tag = base_variable.tag
         self.id = base_variable.id
@@ -29,7 +24,6 @@ class ScopeVariable(MappedValue):
 
     def update_value(self, value):
         self.value = value
-
 
 
 class GlobalVariables:
@@ -85,7 +79,7 @@ class Scope:
         if item == 'variables' or item == '__setstate__' or item == '__dict__':
             return object.__getattribute__(self, item)
         if item in self.variables:
-            return self.variables[item].value
+            return self.variables[item].get_value()
         return object.__getattribute__(self, item)
 
     def apply_differential_equation_rules(self, is_true):
@@ -112,8 +106,8 @@ class TemporaryScopeWrapper:
     def update_model_from_scope(self, model):
         for scope in self.scope_dict.values():
             for scope_var in scope.variables.values():
-                if model.variables[scope_var.id].value != scope_var.value:
-                    model.variables[scope_var.id].value = scope_var.value
+                if model.variables[scope_var.id].get_value() != scope_var.get_value():
+                    model.variables[scope_var.id].value = scope_var.get_value()
 
     def get_scope_vars(self, state):
         if state.id in self.result:
@@ -145,4 +139,10 @@ class TemporaryScopeWrapper:
         # one dictionary, list must be reversed because:
         # in the old code the key,values  were updated from left to right
         # chainMap only keeps the first encoutnered key,value
-        return ChainMap(*(reversed(resList))).values()
+        # return ChainMap(*(reversed(resList))).values()
+
+        derivatives = []
+        for item in resList:
+            for scope in item:
+                derivatives.append(item[scope])
+        return derivatives

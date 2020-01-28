@@ -57,16 +57,6 @@ class MappedValue(object):
     def add_sum_mapping(self, variable):
         self.sum_mapping.append(variable)
 
-    def __getattribute__(self, item):
-        if item == 'value':
-            if self.mapping:
-                return reduce(add, [x.value for x in self.mapping])
-            if self.sum_mapping:
-                return object.__getattribute__(self, item) + reduce(add, [x.value for x in self.sum_mapping])
-            else:
-                return object.__getattribute__(self, item)
-        return object.__getattribute__(self, item)
-
     def __iadd__(self, other):
         if isinstance(other, Variable):
             if self.mapping:
@@ -79,6 +69,13 @@ class MappedValue(object):
         else:
             object.__iadd__(self, other)
 
+    def get_value(self):
+        if self.mapping:
+            return reduce(add, [x.value for x in self.mapping])
+        if self.sum_mapping:
+            return self.value + reduce(add, [x.value for x in self.sum_mapping])
+        else:
+            return self.value
 
 class VariablePath:
 
@@ -97,7 +94,6 @@ class VariablePath:
             else:
                 self.path.update({new_id: [new_tag+'.'+x for x in self.path[current_id]]})
             self.used_id_pairs.append(current_id+new_id)
-
 
 class Variable(MappedValue):
 
@@ -156,7 +152,6 @@ class Variable(MappedValue):
                                      ' in differential equation'.format(self.tag))
 
         object.__setattr__(self, key, value)
-
 
 class _VariableFactory:
 

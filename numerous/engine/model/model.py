@@ -49,7 +49,6 @@ class ModelAssembler:
 
         return variables, scope_select, equation_dict
 
-
 class Model:
     """
      The model object traverses the system to collect all information needed to pass to the solver
@@ -88,8 +87,8 @@ class Model:
         Synchronize the values between ScopeVariables and SystemVariables
         """
         for scope_var in self.scope_variables.values():
-            if scope_var.value != self.variables[scope_var.id].value:
-                scope_var.value = self.variables[scope_var.id].value
+            if scope_var.value != self.variables[scope_var.id].get_value():
+                scope_var.value = self.variables[scope_var.id].get_value()
 
     def __restore_state(self):
         for key, value in self.historian.get_last_state():
@@ -229,7 +228,7 @@ class Model:
             a default namespace.
 
         """
-        return [x.value for x in self.states.values()]
+        return [x.get_value() for x in self.states.values()]
 
     def get_variable_path(self, id, item):
         for (variable, namespace) in item.get_variables():
