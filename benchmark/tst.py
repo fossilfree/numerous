@@ -2,8 +2,8 @@ import random
 import time
 import sys
 
-from numerous.engine.model import Model
-from numerous.engine.simulation import Simulation
+from numerous.engine.model import Model_old as Model
+from numerous.engine.simulation import Simulation_old as Simulation
 from numerous.engine.system import Item, ConnectorTwoWay, Subsystem
 
 from numerous import EquationBase
@@ -44,8 +44,7 @@ class Thermal_Capacitance(EquationBase, Item):
         self.add_state('T', T0)
 
         thermal_transport = self.create_namespace('thermal_transport')
-        thermal_transport.add_equations([self],
-                                        on_assign_overload=OverloadAction.SUM)
+        thermal_transport.add_equations([self])
 
     @Equation()
     def eval(self, scope):
