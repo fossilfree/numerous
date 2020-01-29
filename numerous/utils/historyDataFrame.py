@@ -54,7 +54,6 @@ class HistoryDataFrame:
 
     def finalize(self):
         self.df = pd.concat([new_row for new_row in self.list_result], ignore_index=False)
-        self.i = 0
 
     @staticmethod
     def load(filename):
