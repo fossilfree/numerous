@@ -6,13 +6,23 @@ class _SimulationCallback:
             self.callback_functions = [callback_function]
         else:
             self.callback_functions = []
+        self.finalize_functions = []
 
     def add_callback_function(self, callback_function):
         self.callback_functions.append(callback_function)
 
+    def add_finalize_function(self, finalize_function):
+        self.finalize_functions.append(finalize_function)
+
     def callbacks(self, t, variables):
         for callback in self.callback_functions:
             callback(t, variables)
+
+
+    def finalize(self):
+        for finalize in self.finalize_functions:
+            finalize()
+
 
 
 class _EventFunction:

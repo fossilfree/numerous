@@ -34,6 +34,8 @@ class HistoryDataFrame:
             self.filter = OutputFilter()
         self.callback = _SimulationCallback("save to dataframe")
         self.callback.add_callback_function(self.update)
+        self.callback.add_finalize_function(self.finalize)
+        self.list_result = []
 
     def update(self, time, variables):
         if self.filter:
@@ -46,10 +48,13 @@ class HistoryDataFrame:
             else:
                 keys.append(key)
 
-        new_row = pd.DataFrame([[y.value for y in variables.values()]],
+        self.list_result.append(pd.DataFrame([[y.value for y in variables.values()]],
                                columns=keys, index=[self.time +
-                                                    timedelta(seconds=self.time.total_seconds() + time)])
-        self.df = pd.concat([self.df, new_row], ignore_index=False)
+                                                    timedelta(seconds=self.time.total_seconds() + time)]))
+
+    def finalize(self):
+        self.df = pd.concat([new_row for new_row in self.list_result], ignore_index=False)
+        self.i = 0
 
     @staticmethod
     def load(filename):

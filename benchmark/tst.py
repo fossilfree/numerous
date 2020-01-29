@@ -1,9 +1,8 @@
 import random
 import time
-import sys
 
-from numerous.engine.model import Model_old as Model
-from numerous.engine.simulation import Simulation_old as Simulation
+from numerous.engine.model import Model
+from numerous.engine.simulation import Simulation
 from numerous.engine.system import Item, ConnectorTwoWay, Subsystem
 
 from numerous import EquationBase

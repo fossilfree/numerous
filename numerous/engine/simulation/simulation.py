@@ -120,14 +120,14 @@ class Simulation:
                 break
         #time.sleep(1)
         self.info.update({"Solving status": result_status})
+        list(map(lambda x: x.finalize(), self.model.callbacks))
         return sol
 
     def __func(self, _t, y):
-        #t_scope = self.model._get_initial_scope_copy() # can I just remove this??
         t_scope = self.t_scope
 
         t_scope.update_states(y)
-        map(lambda x: x.set_time(_t), t_scope.scope_dict)
+        list(map(lambda x: x.set_time(_t), t_scope.scope_dict.values()))
         self.info["Number of Equation Calls"] = self.info["Number of Equation Calls"] + 1
 
         for key, eq in self.model.equation_dict.items():
