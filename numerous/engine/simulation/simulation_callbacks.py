@@ -7,6 +7,9 @@ class _SimulationCallback:
         else:
             self.callback_functions = []
         self.finalize_functions = []
+        self.initialize_functions = []
+
+
 
     def add_callback_function(self, callback_function):
         self.callback_functions.append(callback_function)
@@ -14,10 +17,17 @@ class _SimulationCallback:
     def add_finalize_function(self, finalize_function):
         self.finalize_functions.append(finalize_function)
 
+    def add_initialize_function(self, initialize_function):
+        self.initialize_functions.append(initialize_function)
+
     def callbacks(self, t, variables):
         for callback in self.callback_functions:
             callback(t, variables)
 
+    # Pass the simulation object for initialization only
+    def initialize(self, simulation=object):
+        for initialize in self.initialize_functions:
+            initialize(simulation)
 
     def finalize(self):
         for finalize in self.finalize_functions:
