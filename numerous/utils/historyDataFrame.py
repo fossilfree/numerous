@@ -104,7 +104,6 @@ class SimpleHistoryDataFrame(HistoryDataFrame):
         self.ix = 0
         self.var_list = None
 
-
     def update(self, time, variables):
 
         varix = 1
@@ -118,10 +117,12 @@ class SimpleHistoryDataFrame(HistoryDataFrame):
     def finalize(self):
         time = self.data[0]
         data = {'time': time}
+
         for i, var in enumerate(self.var_list):
-            data.update({var: self.data[i]})
+            data.update({var: self.data[i+1]})
 
         self.df = pd.DataFrame(data)
+        self.df.set_index('time')
 
     def initialize(self, simulation=object):
 
