@@ -39,7 +39,7 @@ class Simulation:
 
         self.time, self.delta_t = np.linspace(t_start, t_stop, num + 1, retstep=True)
         self.callbacks = []
-        self.recent_scope = None
+        #self.recent_scope = None
         self.async_callback = []
         self.model = model
         self.start_datetime = start_datetime
@@ -52,17 +52,22 @@ class Simulation:
         self.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
         self.callbacks = [x.callbacks for x in model.callbacks]
         self.t_scope = self.model._get_initial_scope_copy()
+        self.recent_scope = self.t_scope
 
-    def __end_step(self, y, t, event_id=None):
+    def __end_step(self, y, t, event_id=None, **kwargs):
         self.model._update_scope_states(y)
         self.recent_scope.update_model_from_scope(self.model)
         for callback in self.callbacks:
-            callback(t, self.model.path_variables)
+            callback(t, self.model.path_variables, **kwargs)
         if event_id is not None:
             list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
 
         self.model.sychronize_scope()
         self.y0 = self.model.states_as_vector
+
+    def __init_step(self):
+        [x.initialize(simulation=self) for x in self.model.callbacks]
+
 
     def solve(self):
         """
@@ -71,9 +76,12 @@ class Simulation:
         Returns
         -------
         Solution : 'OdeSoulution'
-                returns the most recent OdeSoulution from scipy
+                returns the most recent OdeSolution from scipy
 
         """
+
+        self.__init_step() # initialize
+
         result_status = "Success"
         stop_condition = False
 
@@ -120,14 +128,14 @@ class Simulation:
                 break
         #time.sleep(1)
         self.info.update({"Solving status": result_status})
+        list(map(lambda x: x.finalize(), self.model.callbacks))
         return sol
 
     def __func(self, _t, y):
-        #t_scope = self.model._get_initial_scope_copy() # can I just remove this??
         t_scope = self.t_scope
 
         t_scope.update_states(y)
-        map(lambda x: x.set_time(_t), t_scope.scope_dict)
+        list(map(lambda x: x.set_time(_t), t_scope.scope_dict.values()))
         self.info["Number of Equation Calls"] = self.info["Number of Equation Calls"] + 1
 
         for key, eq in self.model.equation_dict.items():
