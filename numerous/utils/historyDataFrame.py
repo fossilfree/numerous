@@ -82,7 +82,7 @@ class HistoryDataFrame:
         filename:
             path to file
         """
-
+        self.finalize()
         self.df.to_csv(filename, index_label='time')
 
     def get_last_state(self):

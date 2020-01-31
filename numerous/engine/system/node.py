@@ -27,16 +27,6 @@ class Node:
                 self.id = uuid.UUID(id)
         super(Node, self).__init__()
 
-    @property
-    def get_tag(self):
-        """
-        Returns
-        -------
-        tag : string
-            Tag of the element.
-        """
-
-        return self.tag
 
     @property
     def get_id(self):
