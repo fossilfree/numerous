@@ -53,7 +53,7 @@ class Subsystem(ConnectorItem):
         next_item_path = item_path.get_next_item_path()
         if self.tag == current_item and next_item_path:
             for item in self.registered_items.values():
-                if item.get_tag == next_item_path.get_top_item():
+                if item.tag == next_item_path.get_top_item():
                     return item.get_item(next_item_path)
             else:
                 return None
@@ -93,7 +93,7 @@ class Subsystem(ConnectorItem):
         item : :class:`numerous.engine.system.Item`
             Item to register in the subsystem.
         """
-        if item.tag in [x.get_tag for x in self.registered_items.values()]:
+        if item.tag in [x.tag for x in self.registered_items.values()]:
             raise ValueError('Item with tag {} is already registered in system {}'.format(item.tag, self.tag))
         item._increase_level()
         self.update_variables_path(item,item)
