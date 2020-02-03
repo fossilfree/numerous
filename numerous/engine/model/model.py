@@ -111,7 +111,7 @@ class Model:
             self.callbacks.append(item.callbacks)
 
         self.model_items.update({item.id: item})
-        model_namespaces.append((item.tag, self.create_model_namespaces(item)))
+        model_namespaces.append((item.id, self.create_model_namespaces(item)))
         if isinstance(item, Connector):
             for binded_item in item.get_binded_items():
                 model_namespaces.extend(self.__add_item(binded_item))
