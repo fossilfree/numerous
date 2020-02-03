@@ -1,5 +1,5 @@
 from .variables import Variable, VariableType, MappedValue
-
+import numpy as np
 
 class ScopeVariable(MappedValue):
     """
@@ -102,6 +102,11 @@ class TemporaryScopeWrapper:
         self.scope_dict = scope_dict
         self.states = states
         self.result = {}
+        self.nmae_idx = {}
+        # self.varibles = np.array()
+        # for scope in self.scope_dict.values():
+        #     for scope_var in scope.variables.values():
+
 
     def update_model_from_scope(self, model):
         for scope in self.scope_dict.values():
@@ -128,18 +133,21 @@ class TemporaryScopeWrapper:
                 scope.variables[var.tag].value = value
                 var.value = value
 
+    # def update_states(self, state_values):
+    #     np.put(self.varibles, self.state_idx, state_values)
+
+
+
     def get_derivatives(self):
+        # np.take(a, self.deriv_idx)
+
         def scope_derivatives_dict(scope):
             return {var.id: var \
                     for var in scope.variables.values() \
                     if var.type.value == VariableType.DERIVATIVE.value}
 
-        # list of dictionaries
         resList = list(map(scope_derivatives_dict, self.scope_dict.values()))
-        # one dictionary, list must be reversed because:
-        # in the old code the key,values  were updated from left to right
-        # chainMap only keeps the first encoutnered key,value
-        # return ChainMap(*(reversed(resList))).values()
+
 
         derivatives = []
         for item in resList:
