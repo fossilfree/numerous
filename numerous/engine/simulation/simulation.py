@@ -145,4 +145,4 @@ class Simulation:
             for eq_method in eq:
                 eq_method(scope)
         result = self.t_scope.get_derivatives()
-        return [x.get_value () for x in result]
+        return [x.get_value() for x in result]

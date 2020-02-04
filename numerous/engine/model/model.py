@@ -1,7 +1,7 @@
 import copy
 import time
 import uuid
-
+import numpy as np
 from numerous.engine.system.connector import Connector
 from numerous.utils.historyDataFrame import HistoryDataFrame
 from numerous.engine.scope import Scope, TemporaryScopeWrapper, ScopeVariable
@@ -67,6 +67,8 @@ class Model:
         self.state_history = {}
         self.synchronized_scope = {}
 
+        self.flat_scope = None
+
         self.equation_dict = {}
         self.scope_variables = {}
         self.variables = {}
@@ -111,7 +113,7 @@ class Model:
             self.callbacks.append(item.callbacks)
 
         self.model_items.update({item.id: item})
-        model_namespaces.append((item.tag, self.create_model_namespaces(item)))
+        model_namespaces.append((item.id, self.create_model_namespaces(item)))
         if isinstance(item, Connector):
             for binded_item in item.get_binded_items():
                 model_namespaces.extend(self.__add_item(binded_item))
@@ -150,6 +152,7 @@ class Model:
 
 
         self.__create_scope_mappings()
+        self.create_flat_scope()
         assemble_finish = time.time()
         self.info.update({"Assemble time": assemble_finish - assemble_start})
         self.info.update({"Number of items": len(self.model_items)})
@@ -362,3 +365,13 @@ class Model:
             model_namespace.variables = {v.id: ScopeVariable(v) for v in namespace.variables.shadow_dict.values()}
             namespaces_list.append(model_namespace)
         return namespaces_list
+
+    def create_flat_scope(self):
+        result = []
+        for scope in self.synchronized_scope.values():
+            row = []
+            for var in scope.variables.values():
+                row.append(var.get_value())
+            result.append( np.array(row))
+        self.flat_scope = np.array(result)
+
