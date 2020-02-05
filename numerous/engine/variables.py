@@ -71,9 +71,9 @@ class MappedValue(object):
 
     def get_value(self):
         if self.mapping:
-            return reduce(add, [x.value for x in self.mapping])
+            return reduce(add, [x.get_value() for x in self.mapping])
         if self.sum_mapping:
-            return self.value + reduce(add, [x.value for x in self.sum_mapping])
+            return self.value + reduce(add, [x.get_value() for x in self.sum_mapping])
         else:
             return self.value
 

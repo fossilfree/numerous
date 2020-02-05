@@ -6,7 +6,6 @@ from numerous.multiphysics import EquationBase, Equation
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
-import matplotlib.pyplot as plt
 import numpy as np
 
 
