@@ -1,13 +1,11 @@
 import random
 import time
-import sys
 
-from numerous.engine.model import Model
+from numerous.engine.model import  Model
 from numerous.engine.simulation import Simulation
 from numerous.engine.system import Item, ConnectorTwoWay, Subsystem
 
-from numerous import EquationBase
-from numerous.engine import OverloadAction
+from numerous import EquationBase, SimpleHistoryDataFrame
 from numerous.multiphysics import Equation
 
 
@@ -44,10 +42,9 @@ class Thermal_Capacitance(EquationBase, Item):
         self.add_state('T', T0)
 
         thermal_transport = self.create_namespace('thermal_transport')
-        thermal_transport.add_equations([self],
-                                        on_assign_overload=OverloadAction.SUM)
+        thermal_transport.add_equations([self])
 
-    @Equation
+    @Equation()
     def eval(self, scope):
         scope.T_dot = scope.P / scope.C
 
@@ -92,39 +89,42 @@ class ThermalCapacitancesSeries(Subsystem):
 
             #Create thermal conductor
             node = Thermal_Capacitance('node' + str(i), C=100, T0=T0_)
-            items.append(node)
             if prev_node:
                 # Connect the last node to the new node with a conductor
                 thermal_conductor = Thermal_Conductor('thermal_conductor' + str(i), k=1)
                 thermal_conductor.bind(side1=prev_node, side2=node)
                 #Append the thermal conductor to the item.
                 items.append(thermal_conductor)
-
+            items.append(node)
             prev_node = node
 
         #Register the items to the subsystem to make it recognize them.
         self.register_items(items)
 
-def f(x):
-    return x * x
 
 if __name__ == "__main__":
+    import resource
+    import sys
 
-    from multiprocessing import Pool
+    # print(resource.getrlimit(resource.RLIMIT_STACK))
+    # print(sys.getrecursionlimit())
 
+    max_rec = 0x100000
 
-
-
-    with Pool(5) as p:
-        print(p.map(f, [1, 2, 3]))
+    # May segfault without this line. 0x100 is a guess at the size of each stack frame.
+    resource.setrlimit(resource.RLIMIT_STACK, [0x100 * max_rec, resource.RLIM_INFINITY])
+    sys.setrecursionlimit(max_rec)
     # Create a model with three nodes
-    X= []
-    Y= []
-    Z= []
-    for i in range(1, int(sys.argv[1]), int(sys.argv[2])):
+
+    X = []
+    Y = []
+    Z = []
+
+    for i in range(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])):
         T0 = [random.randrange(1, 101, 1) for _ in range(i)]
-        m = Model(ThermalCapacitancesSeries("tcs", T0))
+        m = Model(ThermalCapacitancesSeries("tcs", T0), historian=SimpleHistoryDataFrame())
         start = time.time()
+        # print(m.states_as_vector)
         # Define simulation
         s = Simulation(m, t_start=0, t_stop=1, num=10, num_inner=100, max_step=0.1)
         #
@@ -133,6 +133,7 @@ if __name__ == "__main__":
         end = time.time()
         # print(m.states_as_vector)
         # print some statitics and info
+        # print(m.states_as_vector)
         print(m.info)
         X.append(i)
         Z.append(m.info['Assemble time'])

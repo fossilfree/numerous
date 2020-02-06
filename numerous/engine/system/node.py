@@ -20,23 +20,15 @@ class Node:
 
         if tag:
             self.tag = tag
+        else:
+            self.tag = 'not_tagged'
         if id is None:
-            self.id = str(uuid.uuid1())
+            self.id = self.tag + str(uuid.uuid1())
         else:
             if self.id is None:
-                self.id = uuid.UUID(id)
+                self.id = self.tag + uuid.UUID(id)
         super(Node, self).__init__()
 
-    @property
-    def get_tag(self):
-        """
-        Returns
-        -------
-        tag : string
-            Tag of the element.
-        """
-
-        return self.tag
 
     @property
     def get_id(self):

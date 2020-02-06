@@ -1,4 +1,4 @@
-from numerous.multiphysics.equation_decorators import equation
+from numerous.multiphysics.equation_decorators import Equation
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
 from numerous.engine.system import Subsystem

@@ -13,7 +13,7 @@ class VariableNamespaceBase:
     def __init__(self, item, tag, is_connector=False, _id=uuid.uuid1()):
         self.is_connector = is_connector
         self.item = item
-        self.id = _id
+        self.id = str(_id)
         self.tag = tag
         self.associated_equations = {}
         self.variables = _DictWrapper(self.__dict__, Variable)
@@ -27,6 +27,8 @@ class VariableNamespaceBase:
         else:
             object.__setattr__(self, name, value)
 
+
+
     def create_variable(self, name):
         """
         Creates a variable in the namespaces with given name.
@@ -39,7 +41,7 @@ class VariableNamespaceBase:
         """
         self.create_variable_from_desc(VariableDescription(tag=name))
 
-    def create_variable_from_desc(self, variable_description, on_assign_overload=OverloadAction.RaiseError):
+    def create_variable_from_desc(self, variable_description):
         """
         Creates and register a variable from given description.
 
@@ -50,8 +52,7 @@ class VariableNamespaceBase:
         on_assign_overload : 'OverloadAction'
             action on assign overload
                """
-        variable_description.on_assign_overload = on_assign_overload
-        variable = _VariableFactory._create_from_variable_desc(self, self.item, variable_description)
+        variable = _VariableFactory._create_from_variable_desc(self,self.item, variable_description)
         self.register_variable(variable)
 
     def get_variable(self, var_description):
@@ -86,14 +87,19 @@ class VariableNamespaceBase:
         """
         if variable.tag not in self.variables:
             self.variables[variable.tag] = variable
+
+            variable.path.extend_path(variable.id,self.id, self.tag)
+            variable.path.extend_path(self.id,self.item.id, self.item.tag)
         else:
             logging.warning("Variable {0} is already in namespace {1} of item {2}".format(variable.tag,
                                                                                           self.tag, self.item.tag))
             # we overwrite constant < parameters < state
             if self.variables[variable.tag].type < variable.type:
                 self.variables[variable.tag] = variable
+                variable.extend_path(self.tag)
+                variable.extend_path(self.item.tag)
 
-    def add_equations(self, list_of_equations, on_assign_overload=OverloadAction.RaiseError, update_bindings=True):
+    def add_equations(self, list_of_equations, update_bindings=True):
         """
         Adding a list of equations to namespace. Each equation in the list is parsed and all
          required variables are created and registered in the namespace.
@@ -103,8 +109,6 @@ class VariableNamespaceBase:
         list_of_equations: list of 'Equation'
             list of equations to be added
 
-        on_assign_overload: OverloadAction
-            action on assign overload for all variables created
         update_bindings: bool
             if True creates and register a binding variables in all bindings associated with item
              that namespace is created in.
@@ -114,7 +118,7 @@ class VariableNamespaceBase:
         if update_bindings and self.is_connector:
             self.item.update_bindings(list_of_equations, self.tag)
         for eq in list_of_equations:
-            any(self.create_variable_from_desc(variable_description, on_assign_overload)
+            any(self.create_variable_from_desc(variable_description)
                 for variable_description in eq.variables_descriptions)
 
             self.associated_equations.update({eq.tag: eq})
@@ -138,3 +142,4 @@ class _ShadowVariableNamespace(VariableNamespaceBase):
     def register_variable(self, variable):
         if variable.tag not in self.variables:
             self.variables[variable.tag] = _BindingVariable(variable)
+            self.variables[variable.tag].path.extend_path(variable.id, self.id, self.tag)
