@@ -372,6 +372,6 @@ class Model:
             row = []
             for var in scope.variables.values():
                 row.append(var.get_value())
-            result.append( np.array(row))
+            result.append(np.array(row))
         self.flat_scope = np.array(result)
 
