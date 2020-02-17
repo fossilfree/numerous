@@ -1,5 +1,6 @@
-from .variables import Variable, VariableType, MappedValue
+from .variables import Variable, MappedValue
 import numpy as np
+
 
 class ScopeVariable(MappedValue):
     """
@@ -9,7 +10,6 @@ class ScopeVariable(MappedValue):
     def __init__(self, base_variable):
         super().__init__()
         self.updated = False
-        # self.scope = None
         self.mapping_ids = [var.id for var in base_variable.mapping]
         self.sum_mapping_ids = [var.id for var in base_variable.sum_mapping]
         self.value = base_variable.get_value()
@@ -18,6 +18,7 @@ class ScopeVariable(MappedValue):
         self.id = base_variable.id
         self.state_ix = None
         self.associated_state_scope = []
+        self.position = None
 
     def update_ix(self, ix):
         self.state_ix = ix
@@ -98,59 +99,16 @@ class Scope:
 
 class TemporaryScopeWrapper:
 
-    def __init__(self, scope_dict, states):
-        self.scope_dict = scope_dict
-        self.states = states
+    def __init__(self, flat_scope_var, state_idx,deriv_idx):
+        self.flat_var = flat_scope_var
+        self.state_idx = state_idx
+        self.deriv_idx = deriv_idx
         self.result = {}
-        self.nmae_idx = {}
-        # self.varibles = np.array()
-        # for scope in self.scope_dict.values():
-        #     for scope_var in scope.variables.values():
+        self.name_idx = {}
 
-
-    def update_model_from_scope(self, model):
-        for scope in self.scope_dict.values():
-            for scope_var in scope.variables.values():
-                if model.variables[scope_var.id].get_value() != scope_var.get_value():
-                    model.variables[scope_var.id].value = scope_var.get_value()
-
-    def get_scope_vars(self, state):
-        if state.id in self.result:
-            return self.result[state.id]
-        else:
-            self.result[state.id] = []
-            for scope in [self.scope_dict[your_key] for your_key in state.associated_state_scope]:
-                var = scope.variables[state.tag]
-                if var.id == state.id:
-                    self.result[state.id].append((var, scope))
-        return self.result[state.id]
 
     def update_states(self, state_values):
-        for i, state in enumerate(self.states.values()):
-            scope_vars = self.get_scope_vars(state)
-            value = state_values[i]
-            for var, scope in scope_vars:
-                scope.variables[var.tag].value = value
-                var.value = value
-
-    # def update_states(self, state_values):
-    #     np.put(self.varibles, self.state_idx, state_values)
-
-
+        np.put(self.flat_var, self.state_idx, state_values)
 
     def get_derivatives(self):
-        # np.take(a, self.deriv_idx)
-
-        def scope_derivatives_dict(scope):
-            return {var.id: var \
-                    for var in scope.variables.values() \
-                    if var.type.value == VariableType.DERIVATIVE.value}
-
-        resList = list(map(scope_derivatives_dict, self.scope_dict.values()))
-
-
-        derivatives = []
-        for item in resList:
-            for scope in item:
-                derivatives.append(item[scope])
-        return derivatives
+        return np.take(self.flat_var, self.deriv_idx)

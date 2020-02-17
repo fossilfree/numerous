@@ -2,6 +2,8 @@ import copy
 import time
 import uuid
 import numpy as np
+import ast
+import re
 from numerous.engine.system.connector import Connector
 from numerous.utils.historyDataFrame import HistoryDataFrame
 from numerous.engine.scope import Scope, TemporaryScopeWrapper, ScopeVariable
@@ -49,6 +51,7 @@ class ModelAssembler:
 
         return variables, scope_select, equation_dict
 
+
 class Model:
     """
      The model object traverses the system to collect all information needed to pass to the solver
@@ -66,16 +69,22 @@ class Model:
         self.model_items = {}
         self.state_history = {}
         self.synchronized_scope = {}
-
-        self.flat_scope = None
+        self.compiled_eq = []
+        self.flat_scope_idx = None
 
         self.equation_dict = {}
         self.scope_variables = {}
         self.variables = {}
+        self.flat_variables = {}
         self.path_variables = {}
         self.path_scope_variables = {}
         self.states = {}
         self.period = 1
+
+        self.scope_variables_flat = []
+        self.states_idx = []
+        self.derivatives_idx = []
+        self.scope_to_variables_idx = []
 
         self.info = {}
         if assemble:
@@ -88,21 +97,15 @@ class Model:
         """
         Synchronize the values between ScopeVariables and SystemVariables
         """
-        for scope_var in self.scope_variables.values():
-            if scope_var.value != self.variables[scope_var.id].get_value():
-                scope_var.value = self.variables[scope_var.id].get_value()
+        self.scope_variables_flat = self.flat_variables[self.scope_to_variables_idx.flatten()]
+        ##TODO MAPPING!
 
     def __restore_state(self):
         for key, value in self.historian.get_last_state():
             self.scope_variables[key] = value
 
-    def _update_scope_states(self, new_state):
-
-        for i, v1 in enumerate(self.states.values()):
-            v1.value = new_state[i]
-
     def _get_initial_scope_copy(self):
-        return TemporaryScopeWrapper(copy.copy(self.synchronized_scope), self.states)
+        return TemporaryScopeWrapper(copy.copy(self.scope_variables_flat), self.states_idx, self.derivatives_idx)
 
     def __add_item(self, item):
         model_namespaces = []
@@ -136,11 +139,44 @@ class Model:
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
 
-        for variable in self.scope_variables.values():
+        for tt in self.synchronized_scope.keys():
+            if self.equation_dict[tt]:
+                eq_text = self.equation_dict[tt][0].lines
+
+                for i, var in enumerate(self.synchronized_scope[tt].variables.values()):
+                    p = re.compile(r"\." + var.tag + r"(?=[^\w*])")
+                    eq_text = p.sub("[" + str(i) + "]", eq_text)
+
+                eq_text = eq_text.replace("@Equation()", "")
+                eq_text = eq_text.replace("self,", "")
+                eq_text = eq_text.strip()
+                tree = ast.parse(eq_text, mode='exec')
+                code = compile(tree, filename='test', mode='exec')
+                namespace = {}
+                exec(code, namespace)
+                self.compiled_eq.append(list(namespace.values())[1])
+
+        for i, variable in enumerate(self.scope_variables.values()):
+            self.scope_variables_flat.append(variable.value)
+            variable.position = i
+            self.variables[variable.id].idx_in_scope.append(i)
             if variable.type.value == VariableType.STATE.value:
-                self.states.update({variable.id: variable})
+                self.states_idx.append(i)
             if variable.type.value == VariableType.DERIVATIVE.value:
-                self.derivatives.update({variable.id: variable})
+                self.derivatives_idx.append(i)
+
+        result = []
+        for i, scope in enumerate(self.synchronized_scope.values()):
+            row = []
+            for j, var in enumerate(scope.variables.values()):
+                row.append(var.position)
+            result.append(np.array(row))
+        result.append(np.array([0]))
+        self.flat_scope_idx = np.array(result)
+
+        self.scope_variables_flat = np.array(self.scope_variables_flat, dtype=np.float32)
+        self.states_idx = np.array(self.states_idx)
+        self.derivatives_idx = np.array(self.derivatives_idx)
 
         for variable in self.variables.values():
             for path in variable.path.path[self.system.id]:
@@ -150,9 +186,10 @@ class Model:
             for path in self.variables[variable.id].path.path[self.system.id]:
                 self.path_scope_variables.update({path: variable})
 
-
         self.__create_scope_mappings()
-        self.create_flat_scope()
+
+        self.flat_variables = np.array([x.value for x in self.variables.values()])
+        self.scope_to_variables_idx = np.array([np.array(x.idx_in_scope) for x in self.variables.values()])
         assemble_finish = time.time()
         self.info.update({"Assemble time": assemble_finish - assemble_start})
         self.info.update({"Number of items": len(self.model_items)})
@@ -168,7 +205,7 @@ class Model:
         states : list of states
             list of all states.
         """
-        return self.states
+        return self.scope_variables[self.states_idx]
 
     def validate(self):
         """
@@ -194,7 +231,6 @@ class Model:
                """
         return [item for item in self.model_items.values() if item.tag == item_tag]
 
-
     def __create_scope_mappings(self):
         for scope in self.synchronized_scope.values():
             for var in scope.variables.values():
@@ -202,7 +238,6 @@ class Model:
                     var.mapping.append(self.scope_variables[mapping_id])
                 for mapping_id in var.sum_mapping_ids:
                     var.sum_mapping.append(self.scope_variables[mapping_id])
-
 
     def restore_state(self, timestep=-1):
         """
@@ -220,6 +255,8 @@ class Model:
                 if self.path_variables[state_name].type.value not in [VariableType.CONSTANT.value]:
                     self.path_variables[state_name].value = list(last_states[state_name].values())[0]
         self.sychronize_scope()
+        ##TODO reassembly flat arrays
+
     @property
     def states_as_vector(self):
         """
@@ -227,11 +264,10 @@ class Model:
 
         Returns
         -------
-        state_values : list of state values
-            a default namespace.
+        state_values : array of state values
 
         """
-        return [x.get_value() for x in self.states.values()]
+        return self.scope_variables_flat[self.states_idx]
 
     def get_variable_path(self, id, item):
         for (variable, namespace) in item.get_variables():
@@ -366,12 +402,5 @@ class Model:
             namespaces_list.append(model_namespace)
         return namespaces_list
 
-    def create_flat_scope(self):
-        result = []
-        for scope in self.synchronized_scope.values():
-            row = []
-            for var in scope.variables.values():
-                row.append(var.get_value())
-            result.append(np.array(row))
-        self.flat_scope = np.array(result)
-
+    def update_model_from_scope(self, t_scope):
+        self.flat_variables = t_scope.flat_var[self.scope_to_variables_idx].sum(1)

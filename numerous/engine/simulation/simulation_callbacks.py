@@ -1,3 +1,5 @@
+##TODO compile callbacks/
+
 class _SimulationCallback:
 
     def __init__(self, name,callback_function=None):
@@ -8,7 +10,6 @@ class _SimulationCallback:
             self.callback_functions = []
         self.finalize_functions = []
         self.initialize_functions = []
-
 
 
     def add_callback_function(self, callback_function):

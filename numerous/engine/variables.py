@@ -118,6 +118,7 @@ class Variable(MappedValue):
         self.update_counter = detailed_variable_description.update_counter
         self.allow_update = detailed_variable_description.allow_update
         self.associated_scope = []
+        self.idx_in_scope = []
 
 
     def update_value(self, value):

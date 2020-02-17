@@ -39,7 +39,7 @@ class Simulation:
 
         self.time, self.delta_t = np.linspace(t_start, t_stop, num + 1, retstep=True)
         self.callbacks = []
-        #self.recent_scope = None
+        # self.recent_scope = None
         self.async_callback = []
         self.model = model
         self.start_datetime = start_datetime
@@ -48,14 +48,14 @@ class Simulation:
         self.max_event_steps = max_event_steps
         self.info = model.info["Solver"]
         self.info["Number of Equation Calls"] = 0
-        self.y0 = [y for y, _ in [(x.get_value(), x.update_ix(i)) for i, x in enumerate(self.model.states.values())]]
+        # self.y0 = [y for y, _ in [(x.get_value(), x.update_ix(i)) for i, x in enumerate(self.model.states.values())]]
+        self.y0 = self.model.states_as_vector
         self.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
         self.callbacks = [x.callbacks for x in model.callbacks]
         self.t_scope = self.model._get_initial_scope_copy()
 
     def __end_step(self, y, t, event_id=None, **kwargs):
-        self.model._update_scope_states(y)
-        self.t_scope.update_model_from_scope(self.model)
+        self.model.update_model_from_scope(self.t_scope)
         for callback in self.callbacks:
             callback(t, self.model.path_variables, **kwargs)
         if event_id is not None:
@@ -66,7 +66,6 @@ class Simulation:
 
     def __init_step(self):
         [x.initialize(simulation=self) for x in self.model.callbacks]
-
 
     def solve(self):
         """
@@ -79,7 +78,7 @@ class Simulation:
 
         """
 
-        self.__init_step() # initialize
+        self.__init_step()  # initialize
 
         result_status = "Success"
         stop_condition = False
@@ -126,7 +125,7 @@ class Simulation:
                 if stop_condition:
                     result_status = "Stopping condition reached"
                     break
-            #time.sleep(1)
+            # time.sleep(1)
         except Exception as e:
             raise e
         finally:
@@ -137,12 +136,35 @@ class Simulation:
     def __func(self, _t, y):
         self.info["Number of Equation Calls"] += 1
         self.t_scope.update_states(y)
-        list(map(lambda x: x.set_time(_t), self.t_scope.scope_dict.values()))
 
 
-        for key, eq in self.model.equation_dict.items():
-            scope = self.t_scope.scope_dict[key]
-            for eq_method in eq:
-                eq_method(scope)
-        result = self.t_scope.get_derivatives()
-        return [x.get_value() for x in result]
+
+
+
+
+
+
+
+
+
+
+
+
+        for i, eq in enumerate(self.model.compiled_eq):
+            n = self.t_scope.flat_var[self.model.flat_scope_idx[i]]
+            eq(n)
+            self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
+
+
+
+
+
+
+
+
+
+
+
+
+
+        return self.t_scope.get_derivatives()

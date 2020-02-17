@@ -19,7 +19,7 @@ def test_eq1():
             self.add_state('T2', 0)
             self.add_state('T3', 0)
             self.add_state('T4', 0)
-            self.add_parameter('T_4', {})
+            self.add_parameter('T_4', 0)
             self.add_constant('TG', 10)
             self.add_constant('R1', 10)
             self.add_constant('R2', 5)
@@ -32,6 +32,7 @@ def test_eq1():
             scope.T2_dot = (scope.T1 - scope.T2) / scope.R1 - (scope.T2 - scope.T3) / scope.R2
             scope.T3_dot = (scope.T2 - scope.T3) / scope.R2 - (scope.T3 - scope.T4) / scope.R3
             scope.T4_dot = (scope.T3 - scope.T4) / scope.R3 - (scope.T4 - scope.TG) / scope.RG
+
 
     return TestEq1(P=100)
 
@@ -182,7 +183,7 @@ def test_model_var_referencing(ms1):
     m1 = Model(ms1)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
     s1.solve()
-    assert approx(m1.states_as_vector[::-1], rel=0.01) == [2010, 1010, 510, 210]
+    assert approx(list(m1.states_as_vector[::-1]), rel=0.01) == [2010, 1010, 510, 210]
 
 
 def test_model_save_only_aliases(ms3):
