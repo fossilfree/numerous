@@ -93,12 +93,6 @@ class Model:
         if validate:
             self.validate()
 
-    def sychronize_scope(self):
-        """
-        Synchronize the values between ScopeVariables and SystemVariables
-        """
-        self.scope_variables_flat = self.flat_variables[self.scope_to_variables_idx.flatten()]
-        ##TODO MAPPING!
 
     def __restore_state(self):
         for key, value in self.historian.get_last_state():
