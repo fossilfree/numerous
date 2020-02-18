@@ -18,6 +18,8 @@ class ScopeVariable(MappedValue):
         self.id = base_variable.id
         self.state_ix = None
         self.associated_state_scope = []
+        self.bound_equation_methods = None
+        self.parent_scope_id = None
 
     def update_ix(self, ix):
         self.state_ix = ix
@@ -103,6 +105,21 @@ class TemporaryScopeWrapper:
         self.states = states
         self.result = {}
 
+        def scope_derivatives_dict(scope):
+            return {var.id: var \
+                    for var in scope.variables.values() \
+                    if var.type.value == VariableType.DERIVATIVE.value}
+
+        # list of dictionaries
+        resList_tmp = list(map(scope_derivatives_dict, self.scope_dict.values()))
+
+        resList = []
+        for item in resList_tmp:
+            for scope in item:
+                resList.append(item[scope])
+
+        self.resList = resList
+
     def update_model_from_scope(self, model):
         for scope in self.scope_dict.values():
             for scope_var in scope.variables.values():
@@ -128,21 +145,17 @@ class TemporaryScopeWrapper:
                 scope.variables[var.tag].value = value
                 var.value = value
 
+    def update_states_idx(self, state_value, idx):
+        states = list(self.states.values())
+        scope_vars = self.get_scope_vars(states[idx])
+        for var, scope in scope_vars:
+            scope.variables[var.tag].value = state_value
+            var.value = state_value
+
+    # return all derivatives
     def get_derivatives(self):
-        def scope_derivatives_dict(scope):
-            return {var.id: var \
-                    for var in scope.variables.values() \
-                    if var.type.value == VariableType.DERIVATIVE.value}
+        return self.resList
 
-        # list of dictionaries
-        resList = list(map(scope_derivatives_dict, self.scope_dict.values()))
-        # one dictionary, list must be reversed because:
-        # in the old code the key,values  were updated from left to right
-        # chainMap only keeps the first encoutnered key,value
-        # return ChainMap(*(reversed(resList))).values()
-
-        derivatives = []
-        for item in resList:
-            for scope in item:
-                derivatives.append(item[scope])
-        return derivatives
+    # return derivate of state at index idx
+    def get_derivatives_idx(self, idx):
+        return self.resList[idx]
