@@ -24,11 +24,13 @@ class ModelNamespace:
 class ModelAssembler:
 
     @staticmethod
-    def __create_scope(eq_tag, eq_variables, namespace, tag, variables):
+    def __create_scope(eq_tag, eq_methods, eq_variables, namespace, tag, variables):
         scope_id = "{0}_{1}_{2}".format(eq_tag, namespace.tag, tag, str(uuid.uuid4()))
         scope = Scope(scope_id)
         for variable in eq_variables:
             scope.add_variable(variable)
+            variable.bound_equation_methods = eq_methods
+            variable.parent_scope_id = scope_id
             # Needed for updating states after solve run
             if variable.type.value == VariableType.STATE.value:
                 variable.associated_state_scope.append(scope_id)
@@ -43,7 +45,7 @@ class ModelAssembler:
         tag, namespaces = input_namespace
         for namespace in namespaces:
             for i, (eq_tag, eq_methods) in enumerate(namespace.equation_dict.items()):
-                scope = ModelAssembler.__create_scope(eq_tag,
+                scope = ModelAssembler.__create_scope(eq_tag, eq_methods,
                                                       map(namespace.variables.get, namespace.eq_variables_ids[i]),
                                                       namespace, tag, variables)
                 scope_select.update({scope.id: scope})
@@ -96,6 +98,15 @@ class Model:
 
         if validate:
             self.validate()
+
+
+    def sychronize_scope(self):
+        """
+        Synchronize the values between ScopeVariables and SystemVariables
+        """
+        for scope_var in self.scope_variables.values():
+            if scope_var.get_value() != self.variables[scope_var.id].get_value():
+                scope_var.value = self.variables[scope_var.id].get_value()
 
     def __restore_state(self):
         for key, value in self.historian.get_last_state():

@@ -63,6 +63,8 @@ class Simulation:
         if event_id is not None:
             list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
 
+        #self.model.sychronize_scope()
+
         self.y0 = self.model.states_as_vector
 
     def __init_step(self):

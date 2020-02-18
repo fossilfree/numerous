@@ -18,7 +18,9 @@ class ScopeVariable(MappedValue):
         self.id = base_variable.id
         self.state_ix = None
         self.associated_state_scope = []
-        self.position = None
+        self.bound_equation_methods = None
+        self.parent_scope_id = None
+
 
     def update_ix(self, ix):
         self.state_ix = ix
@@ -109,8 +111,54 @@ class TemporaryScopeWrapper:
     def update_mappings(self, model):
         self.flat_var[model.mapping_from] = self.flat_var[model.mapping_to]
 
+        def scope_derivatives_dict(scope):
+            return {var.id: var \
+                    for var in scope.variables.values() \
+                    if var.type.value == VariableType.DERIVATIVE.value}
+
+        # list of dictionaries
+        resList_tmp = list(map(scope_derivatives_dict, self.scope_dict.values()))
+
+        resList = []
+        for item in resList_tmp:
+            for scope in item:
+                resList.append(item[scope])
+
+        self.resList = resList
+
+    def update_model_from_scope(self, model):
+        for scope in self.scope_dict.values():
+            for scope_var in scope.variables.values():
+                if model.variables[scope_var.id].get_value() != scope_var.get_value():
+                    model.variables[scope_var.id].value = scope_var.get_value()
+
+    def get_scope_vars(self, state):
+        if state.id in self.result:
+            return self.result[state.id]
+        else:
+            self.result[state.id] = []
+            for scope in [self.scope_dict[your_key] for your_key in state.associated_state_scope]:
+                var = scope.variables[state.tag]
+                if var.id == state.id:
+                    self.result[state.id].append((var, scope))
+        return self.result[state.id]
+
     def update_states(self, state_values):
         np.put(self.flat_var, self.state_idx, state_values)
 
+    def update_states_idx(self, state_value, idx):
+        states = list(self.states.values())
+        scope_vars = self.get_scope_vars(states[idx])
+        for var, scope in scope_vars:
+            scope.variables[var.tag].value = state_value
+            var.value = state_value
+
+    # return all derivatives
     def get_derivatives(self):
         return np.take(self.flat_var, self.deriv_idx)
+
+
+    # return derivate of state at index idx
+    def get_derivatives_idx(self, idx):
+        return self.resList[idx]
+
