@@ -139,20 +139,20 @@ class Variable(MappedValue):
                                                     update_counter=update_counter,
                                                     allow_update=allow_update))
 
-    def __setattr__(self, key, value):
-        if key == 'value' and 'update_counter' in self.__dict__:
-            if self.allow_update:
-                self.update_counter += 1
-            else:
-                if self.type == VariableType.CONSTANT:
-                    raise ValueError(' It is not possible to reassign constant variable {0}'
-                                     .format(self.tag))
-                else:
-
-                    raise ValueError('It is not possible to reassign variable {0}'
-                                     ' in differential equation'.format(self.tag))
-
-        object.__setattr__(self, key, value)
+    # def __setattr__(self, key, value):
+    #     if key == 'value' and 'update_counter' in self.__dict__:
+    #         if self.allow_update:
+    #             self.update_counter += 1
+    #         else:
+    #             if self.type == VariableType.CONSTANT:
+    #                 raise ValueError(' It is not possible to reassign constant variable {0}'
+    #                                  .format(self.tag))
+    #             else:
+    #
+    #                 raise ValueError('It is not possible to reassign variable {0}'
+    #                                  ' in differential equation'.format(self.tag))
+    #
+    #     object.__setattr__(self, key, value)
 
 class _VariableFactory:
 

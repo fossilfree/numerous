@@ -1,4 +1,3 @@
-import time
 from datetime import datetime
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -50,6 +49,8 @@ class Simulation:
         self.info["Number of Equation Calls"] = 0
         # self.y0 = [y for y, _ in [(x.get_value(), x.update_ix(i)) for i, x in enumerate(self.model.states.values())]]
         self.y0 = self.model.states_as_vector
+        if self.y0.size == 0:
+            self.__func = self.stateless__func
         self.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
         self.callbacks = [x.callbacks for x in model.callbacks]
         self.t_scope = self.model._get_initial_scope_copy()
@@ -141,12 +142,11 @@ class Simulation:
             n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
             eq(n)
             self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
-                                                                  # + \
-                                                                  # self.model.sum_mapping_mask * self.t_scope.flat_var[
-                                                                  #     self.model.flat_scope_idx[i]]
+            # + \
+            # self.model.sum_mapping_mask * self.t_scope.flat_var[
+            #     self.model.flat_scope_idx[i]]
 
         return self.t_scope.get_derivatives()
-
 
     def stateless__func(self, _t, _):
         self.info["Number of Equation Calls"] += 1
@@ -155,8 +155,8 @@ class Simulation:
             n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
             eq(n)
             self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
-                                                                  # + \
-                                                                  # self.model.sum_mapping_mask * self.t_scope.flat_var[
-                                                                  #     self.model.flat_scope_idx[i]]
+            # + \
+            # self.model.sum_mapping_mask * self.t_scope.flat_var[
+            #     self.model.flat_scope_idx[i]]
 
         return np.array([])

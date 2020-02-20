@@ -83,6 +83,8 @@ class Model:
         self.period = 1
         self.mapping_from = []
         self.mapping_to = []
+        self.sum_mapping_from = []
+        self.sum_mapping_to = []
         self.scope_variables_flat = []
         self.states_idx = []
         self.derivatives_idx = []
@@ -178,9 +180,11 @@ class Model:
                 if len(self.variables[mapping_id].idx_in_scope) > 1:
                     raise ValueError("Mapping to more then 1 variable")
                 self.mapping_to.append(self.variables[mapping_id].idx_in_scope[0])
+            for sum_mapping_id in variable.sum_mapping_ids:
+                self.sum_mapping_from.append(i)
+                self.sum_mapping_to.append(self.variables[sum_mapping_id].idx_in_scope[0])
 
         result = []
-        # result_mask = []
         for i, scope in enumerate(self.synchronized_scope.values()):
             row = []
             for j, var in enumerate(scope.variables.values()):
@@ -189,12 +193,21 @@ class Model:
         result.append(np.array([0]))
         self.flat_scope_idx = np.array(result)
         self.flat_scope_idx_from = np.copy(self.flat_scope_idx)
+        self.sum_mapping_mask = copy.deepcopy(self.flat_scope_idx)
 
-        for scope in self.flat_scope_idx:
+        for scope in self.sum_mapping_mask:
+            for i, idx in enumerate(scope):
+                scope[i]=0
+
+        for k, scope in enumerate(self.flat_scope_idx):
             for i, idx in enumerate(scope):
                 for j, mapping_idx in enumerate(self.mapping_from):
                     if mapping_idx == idx:
                         scope[i] = self.mapping_to[j]
+                for j, mapping_idx in enumerate(self.sum_mapping_from):
+                    if mapping_idx == idx:
+                        scope[i] = self.sum_mapping_to[j]
+                        self.sum_mapping_mask[k][i] = 1
 
         self.scope_variables_flat = np.array(self.scope_variables_flat, dtype=np.float32)
         self.states_idx = np.array(self.states_idx)
@@ -273,12 +286,14 @@ class Model:
         Restores last saved state from the historian.
         """
         last_states = self.historian.get_last_state()
+        r1 = []
         for state_name in last_states:
             if state_name in self.path_variables:
                 if self.path_variables[state_name].type.value not in [VariableType.CONSTANT.value]:
                     self.path_variables[state_name].value = list(last_states[state_name].values())[0]
-        self.sychronize_scope()
-        ##TODO reassembly flat arrays
+                if self.path_variables[state_name].type.value is VariableType.STATE.value:
+                    r1.append(list(last_states[state_name].values())[0])
+        self.scope_variables_flat[self.states_idx] = np.array(r1)
 
     @property
     def states_as_vector(self):
@@ -431,5 +446,5 @@ class Model:
     def update_model_from_scope(self, t_scope):
         self.flat_variables = t_scope.flat_var[self.scope_to_variables_idx].sum(1)
         for i, v_id in enumerate(self.flat_variables_ids):
-            if not np.isclose(self.variables[v_id].value, self.flat_variables[i]):
-                self.variables[v_id].value = self.flat_variables[i]
+            # if not np.isclose(self.variables[v_id].value, self.flat_variables[i]):
+            self.variables[v_id].value = self.flat_variables[i]
