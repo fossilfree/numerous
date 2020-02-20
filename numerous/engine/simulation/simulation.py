@@ -62,7 +62,6 @@ class Simulation:
         if event_id is not None:
             list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
 
-
         self.y0 = self.model.states_as_vector
 
     def __init_step(self):
@@ -142,5 +141,8 @@ class Simulation:
             n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
             eq(n)
             self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
+                                                                  # + \
+                                                                  # self.model.sum_mapping_mask * self.t_scope.flat_var[
+                                                                  #     self.model.flat_scope_idx[i]]
 
         return self.t_scope.get_derivatives()

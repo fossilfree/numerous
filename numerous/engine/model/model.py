@@ -95,7 +95,6 @@ class Model:
         if validate:
             self.validate()
 
-
     def __restore_state(self):
         for key, value in self.historian.get_last_state():
             self.scope_variables[key] = value
@@ -151,8 +150,9 @@ class Model:
                 eq_text = eq_text.replace("@Equation()", "")
                 eq_text = eq_text.replace("self,", "")
                 eq_text = eq_text.strip()
-                idx = eq_text.find('\n')+1
-                eq_text = eq_text[:idx] + '        import numpy as np\n' + eq_text[idx:]
+                idx = eq_text.find('\n') + 1
+                spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
+                eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + eq_text[idx:]
                 tree = ast.parse(eq_text, mode='exec')
                 code = compile(tree, filename='test', mode='exec')
                 namespace = {}
@@ -168,7 +168,6 @@ class Model:
             if variable.type.value == VariableType.DERIVATIVE.value:
                 self.derivatives_idx.append(i)
 
-
         for i, variable in enumerate(self.scope_variables.values()):
             for mapping_id in variable.mapping_ids:
                 self.mapping_from.append(i)
@@ -177,8 +176,8 @@ class Model:
                     raise ValueError("Mapping to more then 1 variable")
                 self.mapping_to.append(self.variables[mapping_id].idx_in_scope[0])
 
-
         result = []
+        # result_mask = []
         for i, scope in enumerate(self.synchronized_scope.values()):
             row = []
             for j, var in enumerate(scope.variables.values()):
@@ -189,7 +188,7 @@ class Model:
         self.flat_scope_idx_from = np.copy(self.flat_scope_idx)
 
         for scope in self.flat_scope_idx:
-            for i,idx in enumerate(scope):
+            for i, idx in enumerate(scope):
                 for j, mapping_idx in enumerate(self.mapping_from):
                     if mapping_idx == idx:
                         scope[i] = self.mapping_to[j]
@@ -428,5 +427,3 @@ class Model:
         for i, v_id in enumerate(self.flat_variables_ids):
             if self.variables[v_id].value != self.flat_variables[i]:
                 self.variables[v_id].value = self.flat_variables[i]
-
-
