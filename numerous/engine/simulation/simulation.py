@@ -56,6 +56,7 @@ class Simulation:
 
     def __end_step(self, y, t, event_id=None, **kwargs):
         self.model.update_model_from_scope(self.t_scope)
+        self.model.sychronize_scope()
         for callback in self.callbacks:
             callback(t, self.model.path_variables, **kwargs)
         if event_id is not None:
@@ -138,7 +139,7 @@ class Simulation:
         self.t_scope.update_states(y)
 
         for i, eq in enumerate(self.model.compiled_eq):
-            n = self.t_scope.flat_var[self.model.flat_scope_idx[i]]
+            n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
             eq(n)
             self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
 

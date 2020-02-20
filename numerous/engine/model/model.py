@@ -71,6 +71,7 @@ class Model:
         self.synchronized_scope = {}
         self.compiled_eq = []
         self.flat_scope_idx = None
+        self.flat_scope_idx_from = None
 
         self.equation_dict = {}
         self.scope_variables = {}
@@ -80,7 +81,8 @@ class Model:
         self.path_scope_variables = {}
         self.states = {}
         self.period = 1
-
+        self.mapping_from = []
+        self.mapping_to = []
         self.scope_variables_flat = []
         self.states_idx = []
         self.derivatives_idx = []
@@ -97,6 +99,12 @@ class Model:
     def __restore_state(self):
         for key, value in self.historian.get_last_state():
             self.scope_variables[key] = value
+
+    def sychronize_scope(self):
+        """
+        Synchronize the values between ScopeVariables and SystemVariables
+        """
+        self.scope_variables_flat = self.flat_variables[self.scope_to_variables_idx.flatten()]
 
     def _get_initial_scope_copy(self):
         return TemporaryScopeWrapper(copy.copy(self.scope_variables_flat), self.states_idx, self.derivatives_idx)
@@ -140,10 +148,11 @@ class Model:
                 for i, var in enumerate(self.synchronized_scope[tt].variables.values()):
                     p = re.compile(r"\." + var.tag + r"(?=[^\w*])")
                     eq_text = p.sub("[" + str(i) + "]", eq_text)
-
                 eq_text = eq_text.replace("@Equation()", "")
                 eq_text = eq_text.replace("self,", "")
                 eq_text = eq_text.strip()
+                idx = eq_text.find('\n')+1
+                eq_text = eq_text[:idx] + '        import numpy as np\n' + eq_text[idx:]
                 tree = ast.parse(eq_text, mode='exec')
                 code = compile(tree, filename='test', mode='exec')
                 namespace = {}
@@ -159,6 +168,16 @@ class Model:
             if variable.type.value == VariableType.DERIVATIVE.value:
                 self.derivatives_idx.append(i)
 
+
+        for i, variable in enumerate(self.scope_variables.values()):
+            for mapping_id in variable.mapping_ids:
+                self.mapping_from.append(i)
+                ##TODO [0] is mapping to 1 var in scope_vars/ is it correct?
+                if len(self.variables[mapping_id].idx_in_scope) > 1:
+                    raise ValueError("Mapping to more then 1 variable")
+                self.mapping_to.append(self.variables[mapping_id].idx_in_scope[0])
+
+
         result = []
         for i, scope in enumerate(self.synchronized_scope.values()):
             row = []
@@ -167,6 +186,13 @@ class Model:
             result.append(np.array(row))
         result.append(np.array([0]))
         self.flat_scope_idx = np.array(result)
+        self.flat_scope_idx_from = np.copy(self.flat_scope_idx)
+
+        for scope in self.flat_scope_idx:
+            for i,idx in enumerate(scope):
+                for j, mapping_idx in enumerate(self.mapping_from):
+                    if mapping_idx == idx:
+                        scope[i] = self.mapping_to[j]
 
         self.scope_variables_flat = np.array(self.scope_variables_flat, dtype=np.float32)
         self.states_idx = np.array(self.states_idx)
@@ -183,6 +209,7 @@ class Model:
         self.__create_scope_mappings()
 
         self.flat_variables = np.array([x.value for x in self.variables.values()])
+        self.flat_variables_ids = [x.id for x in self.variables.values()]
         self.scope_to_variables_idx = np.array([np.array(x.idx_in_scope) for x in self.variables.values()])
         assemble_finish = time.time()
         self.info.update({"Assemble time": assemble_finish - assemble_start})
@@ -398,3 +425,8 @@ class Model:
 
     def update_model_from_scope(self, t_scope):
         self.flat_variables = t_scope.flat_var[self.scope_to_variables_idx].sum(1)
+        for i, v_id in enumerate(self.flat_variables_ids):
+            if self.variables[v_id].value != self.flat_variables[i]:
+                self.variables[v_id].value = self.flat_variables[i]
+
+

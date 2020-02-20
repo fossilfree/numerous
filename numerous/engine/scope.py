@@ -106,6 +106,8 @@ class TemporaryScopeWrapper:
         self.result = {}
         self.name_idx = {}
 
+    def update_mappings(self, model):
+        self.flat_var[model.mapping_from] = self.flat_var[model.mapping_to]
 
     def update_states(self, state_values):
         np.put(self.flat_var, self.state_idx, state_values)
