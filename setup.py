@@ -21,6 +21,7 @@ setuptools.setup(
     install_requires=[
           'numpy>=1.17.4',
           'scipy>=1.3.3',
+          'networkx>=2.4',
           'pandas>=0.25',
           'tqdm>=4.40.2'
     ],
