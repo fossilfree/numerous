@@ -26,7 +26,9 @@ class Item(Node):
         self.callbacks = []
         self.level = 1
         self.parent_item = None
-        super(Item, self).__init__(tag)
+        if tag:
+            self.tag = tag
+        super(Item, self).__init__(self.tag)
 
     def get_default_namespace(self):
         """

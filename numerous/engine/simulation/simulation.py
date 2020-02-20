@@ -146,3 +146,17 @@ class Simulation:
                                                                   #     self.model.flat_scope_idx[i]]
 
         return self.t_scope.get_derivatives()
+
+
+    def stateless__func(self, _t, _):
+        self.info["Number of Equation Calls"] += 1
+
+        for i, eq in enumerate(self.model.compiled_eq):
+            n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
+            eq(n)
+            self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
+                                                                  # + \
+                                                                  # self.model.sum_mapping_mask * self.t_scope.flat_var[
+                                                                  #     self.model.flat_scope_idx[i]]
+
+        return np.array([])

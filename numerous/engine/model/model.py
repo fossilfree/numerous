@@ -141,6 +141,7 @@ class Model:
             self.scope_variables.update(variables)
 
         for tt in self.synchronized_scope.keys():
+            eq_text = ""
             if self.equation_dict[tt]:
                 eq_text = self.equation_dict[tt][0].lines
 
@@ -153,11 +154,13 @@ class Model:
                 idx = eq_text.find('\n') + 1
                 spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
                 eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + eq_text[idx:]
-                tree = ast.parse(eq_text, mode='exec')
-                code = compile(tree, filename='test', mode='exec')
-                namespace = {}
-                exec(code, namespace)
-                self.compiled_eq.append(list(namespace.values())[1])
+            else:
+                eq_text = "def eval(scope):\n   pass"
+            tree = ast.parse(eq_text, mode='exec')
+            code = compile(tree, filename='test', mode='exec')
+            namespace = {}
+            exec(code, namespace)
+            self.compiled_eq.append(list(namespace.values())[1])
 
         for i, variable in enumerate(self.scope_variables.values()):
             self.scope_variables_flat.append(variable.value)
@@ -287,11 +290,10 @@ class Model:
         state_values : array of state values
 
         """
-        # if bool(self.states_idx):
-        #     return self.scope_variables_flat[self.states_idx]
-        # else:
-        #     return np.array([])
-        return self.scope_variables_flat[self.states_idx]
+        if self.states_idx.size == 0:
+            return np.array([])
+        else:
+            return self.scope_variables_flat[self.states_idx]
 
     def get_variable_path(self, id, item):
         for (variable, namespace) in item.get_variables():
@@ -429,5 +431,5 @@ class Model:
     def update_model_from_scope(self, t_scope):
         self.flat_variables = t_scope.flat_var[self.scope_to_variables_idx].sum(1)
         for i, v_id in enumerate(self.flat_variables_ids):
-            if self.variables[v_id].value != self.flat_variables[i]:
+            if not np.isclose(self.variables[v_id].value, self.flat_variables[i]):
                 self.variables[v_id].value = self.flat_variables[i]
