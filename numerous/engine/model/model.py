@@ -287,6 +287,10 @@ class Model:
         state_values : array of state values
 
         """
+        # if bool(self.states_idx):
+        #     return self.scope_variables_flat[self.states_idx]
+        # else:
+        #     return np.array([])
         return self.scope_variables_flat[self.states_idx]
 
     def get_variable_path(self, id, item):
