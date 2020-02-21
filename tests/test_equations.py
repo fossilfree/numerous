@@ -11,6 +11,8 @@ class TestEq_input(EquationBase):
 
     @Equation()
     def eval(self,scope):
+
+
         scope.T_dot = scope.P - (scope.T - scope.T_o) / scope.R
 
 
@@ -25,6 +27,7 @@ class Test_Eq(EquationBase):
 
     @Equation()
     def eval(self, scope):
+
         scope.T_dot = (scope.T_i - scope.T) / scope.R_i - (scope.T - scope.T_o) / scope.R
 
 
