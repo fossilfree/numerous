@@ -1,4 +1,5 @@
 from datetime import datetime
+import time
 import numpy as np
 from scipy.integrate import solve_ivp
 from tqdm import tqdm
@@ -137,15 +138,17 @@ class Simulation:
     def __func(self, _t, y):
         self.info["Number of Equation Calls"] += 1
         self.t_scope.update_states(y)
-
+        # print(len(self.model.compiled_eq))
+        ts = time.time()
         for i, eq in enumerate(self.model.compiled_eq):
-            n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
-            eq(n)
-            self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
+        #     n =
+            eq(self.t_scope.flat_var[self.model.flat_scope_idx_from[i]])
+        #     self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
             # + \
             # self.model.sum_mapping_mask * self.t_scope.flat_var[
             #     self.model.flat_scope_idx[i]]
-
+        te = time.time()
+        print('execution time: ' + str(te - ts))
         return self.t_scope.get_derivatives()
 
     def stateless__func(self, _t, _):
