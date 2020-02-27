@@ -1,5 +1,4 @@
-from .variables import Variable, MappedValue
-import numpy as np
+from .variables import Variable, VariableType, MappedValue
 
 
 class ScopeVariable(MappedValue):
@@ -18,6 +17,8 @@ class ScopeVariable(MappedValue):
         self.id = base_variable.id
         self.state_ix = None
         self.associated_state_scope = []
+        self.bound_equation_methods = None
+        self.parent_scope_id = None
         self.position = None
 
     def update_ix(self, ix):
@@ -112,5 +113,18 @@ class TemporaryScopeWrapper:
     def update_states(self, state_values):
         np.put(self.flat_var, self.state_idx, state_values)
 
+    def update_states_idx(self, state_value, idx):
+        states = list(self.states.values())
+        scope_vars = self.get_scope_vars(states[idx])
+        for var, scope in scope_vars:
+            scope.variables[var.tag].value = state_value
+            var.value = state_value
+
+    # return all derivatives
     def get_derivatives(self):
         return np.take(self.flat_var, self.deriv_idx)
+        return self.resList
+
+    # return derivate of state at index idx
+    def get_derivatives_idx(self, idx):
+        return self.resList[idx]

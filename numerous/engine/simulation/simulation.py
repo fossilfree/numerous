@@ -1,5 +1,5 @@
-from datetime import datetime
 import time
+from datetime import datetime
 import numpy as np
 from scipy.integrate import solve_ivp
 from tqdm import tqdm

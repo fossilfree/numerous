@@ -24,11 +24,13 @@ class ModelNamespace:
 class ModelAssembler:
 
     @staticmethod
-    def __create_scope(eq_tag, eq_variables, namespace, tag, variables):
+    def __create_scope(eq_tag, eq_methods, eq_variables, namespace, tag, variables):
         scope_id = "{0}_{1}_{2}".format(eq_tag, namespace.tag, tag, str(uuid.uuid4()))
         scope = Scope(scope_id)
         for variable in eq_variables:
             scope.add_variable(variable)
+            variable.bound_equation_methods = eq_methods
+            variable.parent_scope_id = scope_id
             # Needed for updating states after solve run
             if variable.type.value == VariableType.STATE.value:
                 variable.associated_state_scope.append(scope_id)
@@ -43,14 +45,13 @@ class ModelAssembler:
         tag, namespaces = input_namespace
         for namespace in namespaces:
             for i, (eq_tag, eq_methods) in enumerate(namespace.equation_dict.items()):
-                scope = ModelAssembler.__create_scope(eq_tag,
+                scope = ModelAssembler.__create_scope(eq_tag, eq_methods,
                                                       map(namespace.variables.get, namespace.eq_variables_ids[i]),
                                                       namespace, tag, variables)
                 scope_select.update({scope.id: scope})
                 equation_dict.update({scope.id: eq_methods})
 
         return variables, scope_select, equation_dict
-
 
 class Model:
     """
@@ -139,12 +140,12 @@ class Model:
         model_namespaces = []
         for item in self.system.registered_items.values():
             model_namespaces.extend(self.__add_item(item))
-        # print("139")
+
         for (variables, scope_select, equation_dict) in map(ModelAssembler.t_1, model_namespaces):
             self.equation_dict.update(equation_dict)
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
-        # print("144")
+
         for tt in self.synchronized_scope.keys():
             eq_text = ""
             if self.equation_dict[tt]:
@@ -177,7 +178,7 @@ class Model:
             namespace = {}
             exec(code, namespace)
             self.compiled_eq.append(list(namespace.values())[1])
-        # print("172")
+
         for i, variable in enumerate(self.scope_variables.values()):
             self.scope_variables_flat.append(variable.value)
             variable.position = i
