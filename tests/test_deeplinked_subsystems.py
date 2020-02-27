@@ -126,7 +126,7 @@ def test_system_link_Success1():
     df = sim.model.historian.df
 
     assert approx(np.array(df['works.linkersubsystem_2.boundary.t1.x'])[1:], rel=1) == \
-           expected(len(df['time'][:-1]),  (N_outer-1)*N_inner, 0.9)
+           expected(len(df.index[:-1]),  (N_outer-1)*N_inner, 0.9)
 
 
 def test_system_link_Success2():
@@ -141,7 +141,7 @@ def test_system_link_Success2():
     df = sim.model.historian.df
 
     assert approx(np.array(df['doesnotwork.linkersubsystem_2.boundary.t1.x'])[1:], rel=1) == \
-           expected(len(df['time'][:-1]), (N_outer-1)*N_inner, 0.9)
+           expected(len(df.index[:-1]), (N_outer-1)*N_inner, 0.9)
 
 
 

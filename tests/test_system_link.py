@@ -84,7 +84,7 @@ def test_system_link_1_5(system15):
     df = sim.model.historian.df
 
     assert approx(np.array(df['root.linkersubsystem_4.item_0.t1.x'])[1:], rel=1) == \
-           expected(len(df['time'][:-1]), 5, 0.9)
+           expected(len(df.index[:-1]), 5, 0.9)
 
 
 def test_system_link_5_1(system51):
@@ -96,4 +96,4 @@ def test_system_link_5_1(system51):
     df = sim.model.historian.df
 
     assert approx(np.array(df['root.linkersubsystem_0.item_4.t1.x'])[1:], rel=1) == \
-           expected(len(df['time'][:-1]), 5, 0.9)
+           expected(len(df.index[:-1]), 5, 0.9)
