@@ -5,7 +5,7 @@ import numpy as np
 import ast
 import re
 from numerous.engine.system.connector import Connector
-from numerous.utils.historyDataFrame import HistoryDataFrame
+from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
 from numerous.engine.scope import Scope, TemporaryScopeWrapper, ScopeVariable
 from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 from numerous.engine.system.subsystem import Subsystem
@@ -63,7 +63,7 @@ class Model:
 
         self.system = system
         self.events = {}
-        self.historian = historian if historian else HistoryDataFrame()
+        self.historian = historian if historian else SimpleHistoryDataFrame()
         self.callbacks = [self.historian.callback]
         self.derivatives = {}
         self.model_items = {}
@@ -72,6 +72,9 @@ class Model:
         self.compiled_eq = []
         self.flat_scope_idx = None
         self.flat_scope_idx_from = None
+
+        self.global_variables_tags = ['time']
+        self.global_vars = np.array([0])
 
         self.equation_dict = {}
         self.scope_variables = {}
@@ -136,12 +139,12 @@ class Model:
         model_namespaces = []
         for item in self.system.registered_items.values():
             model_namespaces.extend(self.__add_item(item))
-        print("139")
+        # print("139")
         for (variables, scope_select, equation_dict) in map(ModelAssembler.t_1, model_namespaces):
             self.equation_dict.update(equation_dict)
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
-        print("144")
+        # print("144")
         for tt in self.synchronized_scope.keys():
             eq_text = ""
             if self.equation_dict[tt]:
@@ -153,24 +156,28 @@ class Model:
                     string_without_empty_lines += line + "\n"
 
                 eq_text = string_without_empty_lines + " "
+                eq_text = eq_text.replace("global_variables)", ")")
+                for i, tag in enumerate(self.global_variables_tags):
+                    p = re.compile(r"(?<=global_variables)\." + tag + r"(?=[^\w])")
+                    eq_text = p.sub("[" + str(i) + "]", eq_text)
                 for i, var in enumerate(self.synchronized_scope[tt].variables.values()):
-                    p = re.compile(r"\." + var.tag + r"(?=[^\w*])")
+                    p = re.compile(r"(?<=scope)\." + var.tag + r"(?=[^\w])")
                     eq_text = p.sub("[" + str(i) + "]", eq_text)
                 eq_text = eq_text.replace("@Equation()", "")
-                eq_text = eq_text.replace("self,", "")
+                eq_text = eq_text.replace("self,", "global_variables,")
                 eq_text = eq_text.strip()
                 idx = eq_text.find('\n') + 1
                 spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
                 eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + eq_text[idx:]
             else:
-                eq_text = "def eval(scope):\n   pass"
+                eq_text = "def eval(global_variables, scope):\n   pass"
             print(eq_text)
             tree = ast.parse(eq_text, mode='exec')
             code = compile(tree, filename='test', mode='exec')
             namespace = {}
             exec(code, namespace)
             self.compiled_eq.append(list(namespace.values())[1])
-        print("172")
+        # print("172")
         for i, variable in enumerate(self.scope_variables.values()):
             self.scope_variables_flat.append(variable.value)
             variable.position = i
@@ -179,7 +186,7 @@ class Model:
                 self.states_idx.append(i)
             if variable.type.value == VariableType.DERIVATIVE.value:
                 self.derivatives_idx.append(i)
-        print("181")
+        # print("181")
         for i, variable in enumerate(self.scope_variables.values()):
             for mapping_id in variable.mapping_ids:
                 self.mapping_from.append(i)
@@ -190,7 +197,7 @@ class Model:
             for sum_mapping_id in variable.sum_mapping_ids:
                 self.sum_mapping_from.append(i)
                 self.sum_mapping_to.append(self.variables[sum_mapping_id].idx_in_scope[0])
-        print("192")
+        # print("192")
         result = []
         for i, scope in enumerate(self.synchronized_scope.values()):
             row = []
@@ -199,13 +206,14 @@ class Model:
             result.append(np.array(row))
         result.append(np.array([0]))
         self.flat_scope_idx = np.array(result)
-        self.flat_scope_idx_from = np.copy(self.flat_scope_idx)
+        self.flat_scope_idx_from = copy.deepcopy(self.flat_scope_idx)
         self.sum_mapping_mask = copy.deepcopy(self.flat_scope_idx)
-        print("203")
+        # print("203")
         for scope in self.sum_mapping_mask:
             for i, idx in enumerate(scope):
                 scope[i]=0
-        print("208")
+        # print("208")
+        # TODO VERY SLOW CODE
         for k, scope in enumerate(self.flat_scope_idx):
             for i, idx in enumerate(scope):
                 for j, mapping_idx in enumerate(self.mapping_from):
@@ -215,19 +223,19 @@ class Model:
                     if mapping_idx == idx:
                         scope[i] = self.sum_mapping_to[j]
                         self.sum_mapping_mask[k][i] = 1
-        print("217")
+        # print("217")
         self.scope_variables_flat = np.array(self.scope_variables_flat, dtype=np.float32)
         self.states_idx = np.array(self.states_idx)
         self.derivatives_idx = np.array(self.derivatives_idx)
-        print("221")
+        # print("221")
         for variable in self.variables.values():
             for path in variable.path.path[self.system.id]:
                 self.path_variables.update({path: variable})
-        print("225")
-        for variable in self.scope_variables.values():
-            for path in self.variables[variable.id].path.path[self.system.id]:
-                self.path_scope_variables.update({path: variable})
-        print("229")
+        # print("225")
+        # for variable in self.scope_variables.values():
+        #     for path in self.variables[variable.id].path.path[self.system.id]:
+        #         self.path_scope_variables.update({path: variable})
+        # # print("229")
         self.__create_scope_mappings()
 
         self.flat_variables = np.array([x.value for x in self.variables.values()])
@@ -249,6 +257,10 @@ class Model:
             list of all states.
         """
         return self.scope_variables[self.states_idx]
+
+
+    def update_states(self,y):
+        self.scope_variables[self.states_idx] = y
 
     def validate(self):
         """
@@ -455,3 +467,13 @@ class Model:
         for i, v_id in enumerate(self.flat_variables_ids):
             # if not np.isclose(self.variables[v_id].value, self.flat_variables[i]):
             self.variables[v_id].value = self.flat_variables[i]
+
+    # def update_flat_scope(self,t_scope):
+    #     for i,variable in enumerate(self.path_variables.values()):
+    #
+    #
+
+    def update_flat_scope(self,t_scope):
+        for i,variable in enumerate(self.path_variables.values()):
+            self.scope_variables_flat[variable.idx_in_scope] = variable.value
+        # t_scope.flat_var = self.flat_variables

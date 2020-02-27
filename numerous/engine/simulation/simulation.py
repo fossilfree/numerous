@@ -63,6 +63,7 @@ class Simulation:
             callback(t, self.model.path_variables, **kwargs)
         if event_id is not None:
             list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
+        self.model.update_flat_scope(self.t_scope)
 
         self.y0 = self.model.states_as_vector
 
@@ -127,7 +128,6 @@ class Simulation:
                 if stop_condition:
                     result_status = "Stopping condition reached"
                     break
-            # time.sleep(1)
         except Exception as e:
             raise e
         finally:
@@ -135,31 +135,25 @@ class Simulation:
             list(map(lambda x: x.finalize(), self.model.callbacks))
         return sol
 
+    def compute_eq(self):
+        for i, eq in enumerate(self.model.compiled_eq):
+            n = self.t_scope.flat_var[self.model.flat_scope_idx[i]]
+            eq(self.model.global_vars, n)
+            n = n + self.model.sum_mapping_mask[i] * self.t_scope.flat_var[self.model.flat_scope_idx[i]]
+            self.t_scope.flat_var[self.model.flat_scope_idx_from[i]] = n
+
     def __func(self, _t, y):
         self.info["Number of Equation Calls"] += 1
         self.t_scope.update_states(y)
-        # print(len(self.model.compiled_eq))
-        # ts = time.time()
-        for i, eq in enumerate(self.model.compiled_eq):
-            n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
-            eq(n)
-            self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
-            # + \
-            # self.model.sum_mapping_mask * self.t_scope.flat_var[
-            #     self.model.flat_scope_idx[i]]
-        # te = time.time()
-        # print('execution time: ' + str(te - ts))
+        self.model.global_vars[0] = _t
+
+        self.compute_eq()
+
         return self.t_scope.get_derivatives()
 
     def stateless__func(self, _t, _):
         self.info["Number of Equation Calls"] += 1
 
-        for i, eq in enumerate(self.model.compiled_eq):
-            n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
-            eq(n)
-            self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
-            # + \
-            # self.model.sum_mapping_mask * self.t_scope.flat_var[
-            #     self.model.flat_scope_idx[i]]
+        self.compute_eq()
 
         return np.array([])

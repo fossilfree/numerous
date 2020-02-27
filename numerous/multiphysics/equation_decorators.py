@@ -6,8 +6,8 @@ import inspect
 
 class Equation(object):
 
-    # def __init__(self):
-    # self._equation = True
+    def __init__(self):
+        pass
     # self.func = func
 
     def __call__(self, func):
@@ -16,6 +16,7 @@ class Equation(object):
             func(self,scope)
         wrapper._equation = True
         wrapper.lines = inspect.getsource(func)
+        # wrapper.i = self.i
         return wrapper
 
 

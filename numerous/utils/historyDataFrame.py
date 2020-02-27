@@ -122,7 +122,8 @@ class SimpleHistoryDataFrame(HistoryDataFrame):
             data.update({var: self.data[i+1]})
 
         self.df = pd.DataFrame(data)
-        self.df.set_index('time')
+        self.df = self.df.set_index('time')
+        # self.df.index = pd.to_timedelta(self.df.index, unit='s')
 
     def initialize(self, simulation=object):
 
@@ -131,7 +132,7 @@ class SimpleHistoryDataFrame(HistoryDataFrame):
         for var in variables:
             var_list.append(var)
         self.var_list = var_list
-        self.data = np.ndarray([len(var_list) + 1, len(simulation.time) * simulation.num_inner])
+        self.data = np.ndarray([len(var_list) + 1, len(simulation.time)])  ##* simulation.num_inner
         self.data.fill(np.nan)
 
         self.update(simulation.time[0], variables)
