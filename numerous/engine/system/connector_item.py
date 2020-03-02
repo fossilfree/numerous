@@ -32,12 +32,13 @@ class ConnectorItem(Item, Connector):
     def __bind_mappings(self, binding, binded_item):
         for ns in self.registered_namespaces:
             for f_var in ns.variables:
-                for i,b_fvar in enumerate(f_var.mapping):
+                if f_var.mapping:
+                    b_fvar=f_var.mapping
                     if isinstance(b_fvar, _BindingVariable):
                         if b_fvar.namespace.binding.name == binding.name:
                             bv = binded_item.registered_namespaces[ns.tag].get_variable(
                                 b_fvar.detailed_description)
-                            f_var.mapping[i] = bv
+                            f_var.mapping = bv
 
     def bind(self, **kwargs):
         """
