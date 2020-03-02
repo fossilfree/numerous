@@ -139,10 +139,10 @@ class Simulation:
 
     def compute_eq(self):
         for i, eq in enumerate(self.model.compiled_eq):
-            n = self.t_scope.flat_var[self.model.flat_scope_idx[i]]
+            n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
             eq(self.model.global_vars, n)
-            n = n + self.model.sum_mapping_mask[i] * self.t_scope.flat_var[self.model.flat_scope_idx[i]]
-            self.t_scope.flat_var[self.model.flat_scope_idx_from[i]] = n
+            n = n + self.model.sum_mapping_mask[i] * self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
+            self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
 
     def __func(self, _t, y):
         self.info["Number of Equation Calls"] += 1

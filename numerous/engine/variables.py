@@ -42,8 +42,8 @@ class DetailedVariableDescription(VariableDescription):
 
 class MappedValue(object):
     def __init__(self):
-        self.mapping = []
-        self.sum_mapping = []
+        self.mapping = None
+        self.sum_mapping = None
         self.special_mapping = False
 
     def add_mapping(self, variable):
@@ -51,11 +51,11 @@ class MappedValue(object):
         if not self.special_mapping:
             if variable.id == self.id:
                 raise RecursionError("Variable {0} cannot be mapped to itself",self.id)
-            self.mapping.append(variable)
+            self.mapping=variable
         self.special_mapping = False
 
     def add_sum_mapping(self, variable):
-        self.sum_mapping.append(variable)
+        self.sum_mapping=variable
 
     def __iadd__(self, other):
         if isinstance(other, Variable):
@@ -71,9 +71,9 @@ class MappedValue(object):
 
     def get_value(self):
         if self.mapping:
-            return reduce(add, [x.get_value() for x in self.mapping])
+            return self.mapping.get_value()
         if self.sum_mapping:
-            return self.value + reduce(add, [x.get_value() for x in self.sum_mapping])
+            return self.value + self.sum_mapping.get_value()
         else:
             return self.value
 
@@ -165,7 +165,7 @@ class _VariableFactory:
                                value=var_desc.initial_value,
                                item=item,
                                metadata={},
-                               mapping=[],
+                               mapping=None,
                                update_counter=0,
                                allow_update=(var_desc.type != VariableType.CONSTANT)
                                )
@@ -179,7 +179,7 @@ class _VariableFactory:
                              value=initial_value,
                              item=None,
                              metadata={},
-                             mapping=[],
+                             mapping=None,
                              update_counter=0,
                              allow_update=(variable_description.type != VariableType.CONSTANT))
 

@@ -39,8 +39,8 @@ class Binding:
     def __create_binding_varaible_bindings(self, namespace):
         if namespace.tag in self.binded_item.registered_namespaces.keys():
             for bv in namespace.variables:
-                for mapping in  bv.mapping:
-                    self.binded_item.registered_namespaces[namespace.tag].variables[bv.tag].add_mapping(mapping)
+                if bv.mapping:
+                    self.binded_item.registered_namespaces[namespace.tag].variables[bv.tag].add_mapping(bv.mapping)
 
     def __merge_namespaces(self):
         for namespace in self.ns:

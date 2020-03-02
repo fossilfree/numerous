@@ -182,7 +182,7 @@ class Model:
                 eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + eq_text[idx:]
             else:
                 eq_text = "def eval(global_variables, scope):\n   pass"
-            print(eq_text)
+
             tree = ast.parse(eq_text, mode='exec')
             code = compile(tree, filename='test', mode='exec')
             namespace = {}
@@ -197,56 +197,78 @@ class Model:
                 self.states_idx.append(i)
             if variable.type.value == VariableType.DERIVATIVE.value:
                 self.derivatives_idx.append(i)
-        # print("181")
-        for i, variable in enumerate(self.scope_variables.values()):
-            for mapping_id in variable.mapping_ids:
-                self.mapping_from.append(i)
-                ##TODO [0] is mapping to 1 var in scope_vars/ is it correct?
-                if len(self.variables[mapping_id].idx_in_scope) > 1:
-                    raise ValueError("Mapping to more then 1 variable")
-                self.mapping_to.append(self.variables[mapping_id].idx_in_scope[0])
-            for sum_mapping_id in variable.sum_mapping_ids:
-                self.sum_mapping_from.append(i)
-                self.sum_mapping_to.append(self.variables[sum_mapping_id].idx_in_scope[0])
-        # print("192")
-        result = []
+
+        # for i, variable in enumerate(self.scope_variables.values()):
+        #     for mapping_id in variable.mapping_ids:
+        #         self.mapping_from.append(i)
+        #         ##TODO [0] is mapping to 1 var in scope_vars/ is it correct?
+        #         if len(self.variables[mapping_id].idx_in_scope) > 1:
+        #             raise ValueError("Mapping to more then 1 variable")
+        #         self.mapping_to.append()
+        #     for sum_mapping_id in variable.sum_mapping_ids:
+        #         self.sum_mapping_from.append(i)
+        #         self.sum_mapping_to.append(self.variables[sum_mapping_id].idx_in_scope[0])
+
+        result1 = []
+        result2 = []
+        result3 = []
         for i, scope in enumerate(self.synchronized_scope.values()):
-            row = []
+            row1 = []
+            row2 = []
+            row3 = []
             for j, var in enumerate(scope.variables.values()):
-                row.append(var.position)
-            result.append(np.array(row))
-        result.append(np.array([0]))
-        self.flat_scope_idx = np.array(result)
-        self.flat_scope_idx_from = copy.deepcopy(self.flat_scope_idx)
-        self.sum_mapping_mask = copy.deepcopy(self.flat_scope_idx)
-        # print("203")
-        for scope in self.sum_mapping_mask:
-            for i, idx in enumerate(scope):
-                scope[i]=0
-        # print("208")
+                row2.append(var.position)
+                flag = True
+
+                if var.mapping_id:
+                    row1.append(self.variables[var.mapping_id.id].idx_in_scope[0])
+                    row3.append(0)
+                    flag = False
+                else:
+                    if var.sum_mapping_id:
+                        row1.append(self.variables[var.sum_mapping_id.id].idx_in_scope[0])
+                        row3.append(1)
+                        flag = False
+
+                if flag:
+                    row1.append(var.position)
+                    row3.append(0)
+
+
+
+            result1.append(np.array(row1))
+            result2.append(np.array(row2))
+            result3.append(np.array(row3))
+        ##indication of ending
+        result1.append(np.array([-1]))
+        result2.append(np.array([-1]))
+        result3.append(np.array([-1]))
+
+        self.flat_scope_idx_from = np.array(result1)
+        self.flat_scope_idx = np.array(result2)
+        self.sum_mapping_mask = np.array(result3)
+
+
         # TODO VERY SLOW CODE
-        for k, scope in enumerate(self.flat_scope_idx):
-            for i, idx in enumerate(scope):
-                for j, mapping_idx in enumerate(self.mapping_from):
-                    if mapping_idx == idx:
-                        scope[i] = self.mapping_to[j]
-                for j, mapping_idx in enumerate(self.sum_mapping_from):
-                    if mapping_idx == idx:
-                        scope[i] = self.sum_mapping_to[j]
-                        self.sum_mapping_mask[k][i] = 1
-        # print("217")
+        # for k, scope in enumerate(self.flat_scope_idx_from):
+        #     for i, idx in enumerate(scope):
+        #         for j, mapping_idx in enumerate(self.mapping_from):
+        #             if mapping_idx == idx:
+        #                 scope[i] = self.mapping_to[j]
+        #         for j, mapping_idx in enumerate(self.sum_mapping_from):
+        #             if mapping_idx == idx:
+        #                 scope[i] = self.sum_mapping_to[j]
+        #                 self.sum_mapping_mask[k][i] = 1
+
+
         self.scope_variables_flat = np.array(self.scope_variables_flat, dtype=np.float32)
         self.states_idx = np.array(self.states_idx)
         self.derivatives_idx = np.array(self.derivatives_idx)
-        # print("221")
+
         for variable in self.variables.values():
             for path in variable.path.path[self.system.id]:
                 self.path_variables.update({path: variable})
-        # print("225")
-        # for variable in self.scope_variables.values():
-        #     for path in self.variables[variable.id].path.path[self.system.id]:
-        #         self.path_scope_variables.update({path: variable})
-        # # print("229")
+
         self.__create_scope_mappings()
 
         self.flat_variables = np.array([x.value for x in self.variables.values()])
@@ -300,10 +322,10 @@ class Model:
     def __create_scope_mappings(self):
         for scope in self.synchronized_scope.values():
             for var in scope.variables.values():
-                for mapping_id in var.mapping_ids:
-                    var.mapping.append(self.scope_variables[mapping_id])
-                for mapping_id in var.sum_mapping_ids:
-                    var.sum_mapping.append(self.scope_variables[mapping_id])
+                if var.mapping_id:
+                    var.mapping=self.scope_variables[var.mapping_id.id]
+                if var.sum_mapping_id:
+                    var.sum_mapping=self.scope_variables[var.sum_mapping_id.id]
 
     def restore_state(self, timestep=-1):
         """

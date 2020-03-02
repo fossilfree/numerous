@@ -1,4 +1,5 @@
-from .variables import Variable, MappedValue
+
+from .variables import Variable, VariableType, MappedValue
 import numpy as np
 
 
@@ -10,8 +11,8 @@ class ScopeVariable(MappedValue):
     def __init__(self, base_variable):
         super().__init__()
         self.updated = False
-        self.mapping_ids = [var.id for var in base_variable.mapping]
-        self.sum_mapping_ids = [var.id for var in base_variable.sum_mapping]
+        self.mapping_id = base_variable.mapping
+        self.sum_mapping_id = base_variable.sum_mapping
         self.value = base_variable.get_value()
         self.type = base_variable.type
         self.tag = base_variable.tag
@@ -146,19 +147,17 @@ class TemporaryScopeWrapper:
     def update_states(self, state_values):
         np.put(self.flat_var, self.state_idx, state_values)
 
-    def update_states_idx(self, state_value, idx):
-        states = list(self.states.values())
-        scope_vars = self.get_scope_vars(states[idx])
-        for var, scope in scope_vars:
-            scope.variables[var.tag].value = state_value
-            var.value = state_value
+    # def update_states_idx(self, state_value, idx):
+    #     states = list(self.states.values())
+    #     scope_vars = self.get_scope_vars(states[idx])
+    #     for var, scope in scope_vars:
+    #         scope.variables[var.tag].value = state_value
+    #         var.value = state_value
 
     # return all derivatives
     def get_derivatives(self):
-        return np.take(self.flat_var, self.deriv_idx)
-
+        return self.flat_var[self.deriv_idx]
 
     # return derivate of state at index idx
     def get_derivatives_idx(self, idx):
-        return self.resList[idx]
-
+        return self.flat_var[idx]
