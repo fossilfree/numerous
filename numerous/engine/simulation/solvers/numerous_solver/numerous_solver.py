@@ -33,7 +33,7 @@ class Numerous_solver(BaseSolver):
 
         self.events = events[0]
         self.event_directions = event_directions
-        self.actions = events[1]
+        self.actions = events[1][0]
         # events value
         self.g = self.events(time_[0], y0)
 

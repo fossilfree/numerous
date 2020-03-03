@@ -1,6 +1,7 @@
 import ast
 
 import numpy as np
+from numba.core.registry import CPUDispatcher
 
 from numerous.engine.model.utils import njit_and_compile_function
 
@@ -32,11 +33,11 @@ def generate_event_condition_ast(event_functions, from_imports):
                                                 kwonlyargs=[], kw_defaults=[], defaults=[]),
                              body=body, decorator_list=[], lineno=0)
 
-
     return njit_and_compile_function(body_r, from_imports), np.array(directions_array)
 
 
-def generate_event_action_ast(event_functions, from_imports):
+def generate_event_action_ast(event_functions: list[tuple[str, ast.FunctionDef, ast.FunctionDef]],
+                              from_imports: list[tuple[str, str]]) -> CPUDispatcher:
     body = []
 
     for idx, (_, _, action_fun) in enumerate(event_functions):

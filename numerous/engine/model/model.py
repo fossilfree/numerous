@@ -8,6 +8,7 @@ import inspect
 import uuid
 
 from numba import njit
+from numba.core.registry import CPUDispatcher
 from numba.experimental import jitclass
 import pandas as pd
 
@@ -213,6 +214,7 @@ class Model:
         -  _3d 
 
         """
+
         def __get_mapping__idx(variable):
             if variable.mapping:
                 return __get_mapping__idx(variable.mapping)
@@ -527,14 +529,19 @@ class Model:
 
         self.events.append((key, condition, action))
 
-    def generate_event_condition_ast(self, is_numerous_solver):
+    def generate_mock_event(self) -> None:
         @njit()
-        def cond(t, v):
+        def condition(t, v):
+            return np.array([1.0])
+        @njit()
+        def action(t, v, i):
             return np.array([1.0])
 
+        self.add_event("mock", condition, action)
+
+    def generate_event_condition_ast(self, is_numerous_solver: bool):
         if len(self.events) == 0 and is_numerous_solver:
-            cond.direction = -1
-            return cond, np.array([cond.direction])
+            self.generate_mock_event()
         if is_numerous_solver:
             return generate_event_condition_ast(self.events, self.imports.from_imports)
         else:
@@ -546,15 +553,11 @@ class Model:
                 result.append(compiled_event)
             return result
 
-    def generate_event_action_ast(self, is_numerous_solver):
-        @njit()
-        def action(t, v, i):
-            return np.array([1.0])
-
+    def generate_event_action_ast(self, is_numerous_solver: bool) -> list[CPUDispatcher]:
         if len(self.events) == 0 and is_numerous_solver:
-            return action
+            self.generate_mock_event()
         if is_numerous_solver:
-            return generate_event_action_ast(self.events, self.imports.from_imports)
+            return [generate_event_action_ast(self.events, self.imports.from_imports)]
         else:
             result = []
             for event in self.events:

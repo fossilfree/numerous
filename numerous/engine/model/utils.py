@@ -1,6 +1,8 @@
 import ast
 from enum import unique, IntEnum
 
+from numba.core.registry import CPUDispatcher
+
 
 class Imports:
     def __init__(self):
@@ -42,7 +44,7 @@ def recurse_Attribute(attr, sep='.'):
         return recurse_Attribute(attr.value) + sep + attr.attr
 
 
-def njit_and_compile_function(func, from_imports):
+def njit_and_compile_function(func: ast.FunctionDef, from_imports: list[(str, str)]) -> CPUDispatcher:
     fname = func.name
     njit_decorator = ast.Name(id='njit', ctx=ast.Load())
     func.decorator_list = [njit_decorator]
@@ -65,10 +67,6 @@ def njit_and_compile_function(func, from_imports):
     exec(code, namespace)
     compiled_func = list(namespace.values())[1]()
     return compiled_func
-
-
-
-
 
 
 def wrap_function(name, body, args, decorators):
