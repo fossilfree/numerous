@@ -188,68 +188,45 @@ class Model:
             if variable.type.value == VariableType.DERIVATIVE.value:
                 self.derivatives_idx.append(i)
 
-        # for i, variable in enumerate(self.scope_variables.values()):
-        #     for mapping_id in variable.mapping_ids:
-        #         self.mapping_from.append(i)
-        #         ##TODO [0] is mapping to 1 var in scope_vars/ is it correct?
-        #         if len(self.variables[mapping_id].idx_in_scope) > 1:
-        #             raise ValueError("Mapping to more then 1 variable")
-        #         self.mapping_to.append()
-        #     for sum_mapping_id in variable.sum_mapping_ids:
-        #         self.sum_mapping_from.append(i)
-        #         self.sum_mapping_to.append(self.variables[sum_mapping_id].idx_in_scope[0])
-
-        result1 = []
-        result2 = []
-        result3 = []
+        flat_scope_idx_from = []
+        flat_scope_idx = []
+        sum_mapping_mask = []
         for i, scope in enumerate(self.synchronized_scope.values()):
-            row1 = []
-            row2 = []
-            row3 = []
+            flat_scope_idx_from_row = []
+            flat_scope_idx_row = []
+            sum_mapping_mask_row = []
             for j, var in enumerate(scope.variables.values()):
-                row2.append(var.position)
+                flat_scope_idx_row.append(var.position)
                 flag = True
 
                 if var.mapping_id:
-                    row1.append(self.variables[var.mapping_id.id].idx_in_scope[0])
-                    row3.append(0)
+                    flat_scope_idx_from_row.append(self.variables[var.mapping_id.id].idx_in_scope[0])
+                    sum_mapping_mask_row.append(0)
                     flag = False
                 else:
                     if var.sum_mapping_id:
-                        row1.append(self.variables[var.sum_mapping_id.id].idx_in_scope[0])
-                        row3.append(1)
+                        flat_scope_idx_from_row.append(self.variables[var.sum_mapping_id.id].idx_in_scope[0])
+                        sum_mapping_mask_row.append(1)
                         flag = False
 
                 if flag:
-                    row1.append(var.position)
-                    row3.append(0)
+                    flat_scope_idx_from_row.append(var.position)
+                    sum_mapping_mask_row.append(0)
 
 
 
-            result1.append(np.array(row1))
-            result2.append(np.array(row2))
-            result3.append(np.array(row3))
+            flat_scope_idx_from.append(np.array(flat_scope_idx_from_row))
+            flat_scope_idx.append(np.array(flat_scope_idx_row))
+            sum_mapping_mask.append(np.array(sum_mapping_mask_row))
+
         ##indication of ending
-        result1.append(np.array([-1]))
-        result2.append(np.array([-1]))
-        result3.append(np.array([-1]))
+        flat_scope_idx_from.append(np.array([-1]))
+        flat_scope_idx.append(np.array([-1]))
+        sum_mapping_mask.append(np.array([-1]))
 
-        self.flat_scope_idx_from = np.array(result1)
-        self.flat_scope_idx = np.array(result2)
-        self.sum_mapping_mask = np.array(result3)
-
-
-        # TODO VERY SLOW CODE
-        # for k, scope in enumerate(self.flat_scope_idx_from):
-        #     for i, idx in enumerate(scope):
-        #         for j, mapping_idx in enumerate(self.mapping_from):
-        #             if mapping_idx == idx:
-        #                 scope[i] = self.mapping_to[j]
-        #         for j, mapping_idx in enumerate(self.sum_mapping_from):
-        #             if mapping_idx == idx:
-        #                 scope[i] = self.sum_mapping_to[j]
-        #                 self.sum_mapping_mask[k][i] = 1
-
+        self.flat_scope_idx_from = np.array(flat_scope_idx_from)
+        self.flat_scope_idx = np.array(flat_scope_idx)
+        self.sum_mapping_mask = np.array(sum_mapping_mask)
 
         self.scope_variables_flat = np.array(self.scope_variables_flat, dtype=np.float32)
         self.states_idx = np.array(self.states_idx)
@@ -488,13 +465,7 @@ class Model:
     def update_model_from_scope(self, t_scope):
         self.flat_variables = t_scope.flat_var[self.scope_to_variables_idx].sum(1)
         for i, v_id in enumerate(self.flat_variables_ids):
-            # if not np.isclose(self.variables[v_id].value, self.flat_variables[i]):
             self.variables[v_id].value = self.flat_variables[i]
-
-    # def update_flat_scope(self,t_scope):
-    #     for i,variable in enumerate(self.path_variables.values()):
-    #
-    #
 
     def update_flat_scope(self,t_scope):
         for i,variable in enumerate(self.path_variables.values()):
