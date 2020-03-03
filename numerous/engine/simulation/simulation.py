@@ -51,7 +51,9 @@ class Simulation:
         if self.y0.size == 0:
             self.__func = self.stateless__func
         self.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
-        self.callbacks = [x.callbacks for x in model.callbacks]
+        self.callbacks = [x.callbacks for x in sorted(model.callbacks,
+                                                      key=lambda callback: callback.priority,
+                                                      reverse=True)]
         self.t_scope = self.model._get_initial_scope_copy()
 
     def __end_step(self, y, t, event_id=None, **kwargs):

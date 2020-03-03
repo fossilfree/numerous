@@ -32,7 +32,7 @@ class HistoryDataFrame:
             self.filter = filter
         else:
             self.filter = OutputFilter()
-        self.callback = _SimulationCallback("save to dataframe")
+        self.callback = _SimulationCallback("save to dataframe",priority = -1)
         self.callback.add_callback_function(self.update)
         self.callback.add_finalize_function(self.finalize)
         self.list_result = []
@@ -122,8 +122,9 @@ class SimpleHistoryDataFrame(HistoryDataFrame):
             data.update({var: self.data[i+1]})
 
         self.df = pd.DataFrame(data)
+        self.df = self.df.dropna(subset=['time'])
         self.df = self.df.set_index('time')
-        # self.df.index = pd.to_timedelta(self.df.index, unit='s')
+        self.df.index = pd.to_timedelta(self.df.index, unit='s')
 
     def initialize(self, simulation=object):
 
