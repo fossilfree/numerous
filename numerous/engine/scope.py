@@ -147,12 +147,8 @@ class TemporaryScopeWrapper:
     def update_states(self, state_values):
         np.put(self.flat_var, self.state_idx, state_values)
 
-    # def update_states_idx(self, state_value, idx):
-    #     states = list(self.states.values())
-    #     scope_vars = self.get_scope_vars(states[idx])
-    #     for var, scope in scope_vars:
-    #         scope.variables[var.tag].value = state_value
-    #         var.value = state_value
+    def update_states_idx(self, state_value, idx):
+        np.put(self.flat_var, idx, state_value)
 
     # return all derivatives
     def get_derivatives(self):
