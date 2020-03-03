@@ -2,12 +2,15 @@
 
 class _SimulationCallback:
 
-    def __init__(self, name,callback_function=None):
+    def __init__(self, name,callback_function=None,priority = 0):
         self.name = name
+        self.priority = priority
         if callback_function:
             self.callback_functions = [callback_function]
+
         else:
             self.callback_functions = []
+
         self.finalize_functions = []
         self.initialize_functions = []
 
