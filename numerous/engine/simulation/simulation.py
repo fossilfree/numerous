@@ -39,7 +39,6 @@ class Simulation:
 
         self.time, self.delta_t = np.linspace(t_start, t_stop, num + 1, retstep=True)
         self.callbacks = []
-        # self.recent_scope = None
         self.async_callback = []
         self.model = model
         self.start_datetime = start_datetime
@@ -48,7 +47,6 @@ class Simulation:
         self.max_event_steps = max_event_steps
         self.info = model.info["Solver"]
         self.info["Number of Equation Calls"] = 0
-        # self.y0 = [y for y, _ in [(x.get_value(), x.update_ix(i)) for i, x in enumerate(self.model.states.values())]]
         self.y0 = self.model.states_as_vector
         if self.y0.size == 0:
             self.__func = self.stateless__func
