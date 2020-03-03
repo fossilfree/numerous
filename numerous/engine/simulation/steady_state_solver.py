@@ -400,15 +400,11 @@ class SteadyStateSimulation(Simulation):
         while True:
 
             self.t_scope.update_states(y)
-            list(map(lambda x: x.set_time(_t), self.t_scope.scope_dict.values()))
+            self.model.global_vars[0] = _t
             self.info["Number of Equation Calls"] = self.info["Number of Equation Calls"] + 1
 
-            for key, eq in self.model.equation_dict.items():
-                scope = self.t_scope.scope_dict[key]
-                for eq_method in eq:
-                    eq_method(scope)
-            result = self.t_scope.get_derivatives()
-            derivatives = tuple([x.get_value() for x in result])
+            self.compute_eq()
+            derivatives = self.t_scope.get_derivatives()
             diff = ((np.array(derivatives) - np.array(derivatives0)) ** 2).sum()
             if diff < 1e-12:
                 break
