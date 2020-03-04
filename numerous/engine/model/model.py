@@ -145,11 +145,18 @@ class Model:
             self.equation_dict.update(equation_dict)
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
-
-        for tt in self.synchronized_scope.keys():
+        complied_equations_idx = []
+        complied_equations_ids = []
+        for i,tt in enumerate(self.synchronized_scope.keys()):
             eq_text = ""
+            eq_id = ""
+            # id of eq in list of eq)
             if self.equation_dict[tt]:
+                if self.equation_dict[tt][0].id in complied_equations_ids:
+                    complied_equations_idx.append(complied_equations_ids.index(self.equation_dict[tt][0].id))
+                    continue
                 lines = self.equation_dict[tt][0].lines.split("\n")
+                eq_id = self.equation_dict[tt][0].id
                 non_empty_lines = [line for line in lines if line.strip() != ""]
 
                 string_without_empty_lines = ""
@@ -171,13 +178,22 @@ class Model:
                 spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
                 eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + eq_text[idx:]
             else:
+                eq_id = "empty_equation"
+                if eq_id in complied_equations_ids:
+                    complied_equations_idx.append(complied_equations_ids.index(eq_id))
+                    continue
                 eq_text = "def eval(global_variables, scope):\n   pass"
 
             tree = ast.parse(eq_text, mode='exec')
             code = compile(tree, filename='test', mode='exec')
             namespace = {}
             exec(code, namespace)
+            complied_equations_idx.append(len(complied_equations_ids))
+            complied_equations_ids.append(eq_id)
+
             self.compiled_eq.append(list(namespace.values())[1])
+        self.compiled_eq = np.array(self.compiled_eq )
+        self.compiled_eq_idxs = np.array(complied_equations_idx)
 
         for i, variable in enumerate(self.scope_variables.values()):
             self.scope_variables_flat.append(variable.value)

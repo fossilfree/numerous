@@ -135,9 +135,9 @@ class Simulation:
         return sol
 
     def compute_eq(self):
-        for i, eq in enumerate(self.model.compiled_eq):
+        for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
             n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
-            eq(self.model.global_vars, n)
+            self.model.compiled_eq[eq_idx](self.model.global_vars, n)
             n = n + self.model.sum_mapping_mask[i] * self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
             self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
 
