@@ -9,14 +9,18 @@ class ScopeVariable(MappedValue):
     """
 
     def __init__(self, base_variable):
-        super().__init__()
+        super().__init__(base_variable.id)
         self.updated = False
-        self.mapping_id = base_variable.mapping
-        self.sum_mapping_id = base_variable.sum_mapping
+        self.mapping_id = base_variable.mapping.id if base_variable.mapping else None
+
+        if base_variable.sum_mapping is not None:
+            self.sum_mapping_ids = [x.id for x in base_variable.sum_mapping]
+        else:
+            self.sum_mapping_ids = None
+
         self.value = base_variable.get_value()
         self.type = base_variable.type
         self.tag = base_variable.tag
-        self.id = base_variable.id
         self.state_ix = None
         self.associated_state_scope = []
         self.bound_equation_methods = None

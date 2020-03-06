@@ -37,7 +37,7 @@ class ConnectorItem(Item, Connector):
                     if isinstance(b_fvar, _BindingVariable):
                         if b_fvar.namespace.binding.name == binding.name:
                             bv = binded_item.registered_namespaces[ns.tag].get_variable(
-                                b_fvar.detailed_description)
+                                b_fvar.detailed_description.tag)
                             f_var.mapping = bv
 
     def bind(self, **kwargs):

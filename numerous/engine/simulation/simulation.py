@@ -63,7 +63,7 @@ class Simulation:
             callback(t, self.model.path_variables, **kwargs)
         if event_id is not None:
             list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
-        self.model.update_flat_scope(self.t_scope)
+        # self.model.update_flat_scope(self.t_scope)
 
         #self.model.sychronize_scope()
 
@@ -141,8 +141,11 @@ class Simulation:
         for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
             n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
             self.model.compiled_eq[eq_idx](self.model.global_vars, n)
-            n = n + self.model.sum_mapping_mask[i] * self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
             self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
+
+    def sum_mappings(self):
+        for i, idx in enumerate(self.model.sum_idx):
+            self.t_scope.flat_var[idx] = np.sum(self.t_scope.flat_var[self.model.sum_mapped[i]])
 
     def __func(self, _t, y):
         self.info["Number of Equation Calls"] += 1
@@ -150,6 +153,7 @@ class Simulation:
         self.model.global_vars[0] = _t
 
         self.compute_eq()
+        self.sum_mappings()
 
         return self.t_scope.get_derivatives()
 
@@ -157,5 +161,6 @@ class Simulation:
         self.info["Number of Equation Calls"] += 1
 
         self.compute_eq()
+        self.sum_mappings()
 
         return np.array([])

@@ -31,6 +31,7 @@ class Subsystem1(Subsystem, EquationBase):
         self.register_items([item1])
 
         item1.t1.x_dot += self.t1.x_dot_mod
+        item1.t1.x_dot += item1.t1.x_dot
         print(self.t1.x_dot_mod)
 
     @Equation()
@@ -55,4 +56,4 @@ def test_overloadaction_sum(system1):
     sim = Simulation(model, t_start=0, t_stop=10, num=100)
     sim.solve()
     df = sim.model.historian.df
-    assert approx(np.array(df['system1.subsystem1.item1.t1.x']), rel=100) == expected_sol(np.linspace(0, 10, 101))
+    assert approx(np.array(df['system1.subsystem1.item1.t1.x'])) == expected_sol(np.linspace(0, 10, 101))
