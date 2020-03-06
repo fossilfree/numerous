@@ -183,7 +183,7 @@ class Model:
                     complied_equations_idx.append(complied_equations_ids.index(eq_id))
                     continue
                 eq_text = "def eval(global_variables, scope):\n   pass"
-
+            # print(eq_text)
             tree = ast.parse(eq_text, mode='exec')
             code = compile(tree, filename='test', mode='exec')
             namespace = {}
@@ -206,43 +206,55 @@ class Model:
 
         flat_scope_idx_from = []
         flat_scope_idx = []
-        sum_mapping_mask = []
+        sum_idx = []
+        sum_mapped = []
+
+        def __get_mapping__idx(variable):
+            if variable.mapping:
+                return __get_mapping__idx(variable.mapping)
+            else:
+                return variable.idx_in_scope[0]
+
+
         for i, scope in enumerate(self.synchronized_scope.values()):
             flat_scope_idx_from_row = []
             flat_scope_idx_row = []
-            sum_mapping_mask_row = []
             for j, var in enumerate(scope.variables.values()):
                 flat_scope_idx_row.append(var.position)
                 flag = True
 
                 if var.mapping_id:
-                    flat_scope_idx_from_row.append(self.variables[var.mapping_id.id].idx_in_scope[0])
-                    sum_mapping_mask_row.append(0)
+
+                    flat_scope_idx_from_row.append(__get_mapping__idx(self.variables[var.mapping_id]))
+
                     flag = False
                 else:
-                    if var.sum_mapping_id:
-                        flat_scope_idx_from_row.append(self.variables[var.sum_mapping_id.id].idx_in_scope[0])
-                        sum_mapping_mask_row.append(1)
+                    if var.sum_mapping_ids:
+                        sum_idx.append(self.variables[var.id].idx_in_scope[0])
+                        row1 = []
+                        for var_id in var.sum_mapping_ids:
+                            row1.append(self.variables[var_id].idx_in_scope[0])
+                        sum_mapped.append(np.array(row1))
+                        flat_scope_idx_from_row.append(var.position)
                         flag = False
 
                 if flag:
                     flat_scope_idx_from_row.append(var.position)
-                    sum_mapping_mask_row.append(0)
+
 
 
 
             flat_scope_idx_from.append(np.array(flat_scope_idx_from_row))
             flat_scope_idx.append(np.array(flat_scope_idx_row))
-            sum_mapping_mask.append(np.array(sum_mapping_mask_row))
 
         ##indication of ending
         flat_scope_idx_from.append(np.array([-1]))
         flat_scope_idx.append(np.array([-1]))
-        sum_mapping_mask.append(np.array([-1]))
 
         self.flat_scope_idx_from = np.array(flat_scope_idx_from)
         self.flat_scope_idx = np.array(flat_scope_idx)
-        self.sum_mapping_mask = np.array(sum_mapping_mask)
+        self.sum_idx = np.array(sum_idx)
+        self.sum_mapped = np.array(sum_mapped)
 
         self.scope_variables_flat = np.array(self.scope_variables_flat, dtype=np.float32)
         self.states_idx = np.array(self.states_idx)
@@ -252,7 +264,6 @@ class Model:
             for path in variable.path.path[self.system.id]:
                 self.path_variables.update({path: variable})
 
-        self.__create_scope_mappings()
 
         self.flat_variables = np.array([x.value for x in self.variables.values()])
         self.flat_variables_ids = [x.id for x in self.variables.values()]
@@ -306,9 +317,9 @@ class Model:
         for scope in self.synchronized_scope.values():
             for var in scope.variables.values():
                 if var.mapping_id:
-                    var.mapping=self.scope_variables[var.mapping_id.id]
+                    var.mapping=self.scope_variables[var.mapping_id]
                 if var.sum_mapping_id:
-                    var.sum_mapping=self.scope_variables[var.sum_mapping_id.id]
+                    var.sum_mapping=self.scope_variables[var.sum_mapping_id]
 
     def restore_state(self, timestep=-1):
         """
@@ -467,7 +478,7 @@ class Model:
                 for equation in eq.equations:
                     equations.append(equation)
                 for vardesc in eq.variables_descriptions:
-                    variable = namespace.get_variable(vardesc)
+                    variable = namespace.get_variable(vardesc.tag)
                     self.variables.update({variable.id: variable})
                     ids.append(variable.id)
                 equation_dict.update({eq.tag: equations})
@@ -483,7 +494,6 @@ class Model:
         for i, v_id in enumerate(self.flat_variables_ids):
             self.variables[v_id].value = self.flat_variables[i]
 
-    def update_flat_scope(self,t_scope):
-        for i,variable in enumerate(self.path_variables.values()):
-            self.scope_variables_flat[variable.idx_in_scope] = variable.value
-        # t_scope.flat_var = self.flat_variables
+    # def update_flat_scope(self,t_scope):
+    #     for variable in self.path_variables.values():
+    #         self.scope_variables_flat[variable.idx_in_scope] = variable.value

@@ -55,7 +55,7 @@ class VariableNamespaceBase:
         variable = _VariableFactory._create_from_variable_desc(self,self.item, variable_description)
         self.register_variable(variable)
 
-    def get_variable(self, var_description):
+    def get_variable(self, var_tag):
         """
         Get a variable with given description.
 
@@ -70,8 +70,8 @@ class VariableNamespaceBase:
                 returns a variable matching description or None
 
         """
-        if var_description.tag in self.variables.internal_dict.keys():
-            return self.variables.internal_dict[var_description.tag]
+        if var_tag in self.variables.internal_dict.keys():
+            return self.variables.internal_dict[var_tag]
         else:
             return None
 

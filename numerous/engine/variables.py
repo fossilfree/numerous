@@ -41,10 +41,12 @@ class DetailedVariableDescription(VariableDescription):
 
 
 class MappedValue(object):
-    def __init__(self):
+    def __init__(self,id):
+        self.id = id
         self.mapping = None
-        self.sum_mapping = None
+        self.sum_mapping = []
         self.special_mapping = False
+        self.addself = False
 
     def add_mapping(self, variable):
 
@@ -55,7 +57,7 @@ class MappedValue(object):
         self.special_mapping = False
 
     def add_sum_mapping(self, variable):
-        self.sum_mapping=variable
+            self.sum_mapping.append(variable)
 
     def __iadd__(self, other):
         if isinstance(other, Variable):
@@ -69,11 +71,24 @@ class MappedValue(object):
         else:
             object.__iadd__(self, other)
 
+    def __get_value(self,ids):
+        if self.id in ids:
+            return self.value
+        else:
+            if self.mapping:
+                return self.mapping.get_value()
+            if self.sum_mapping:
+                ids.append(self.id)
+                return reduce(add, [x.__get_value(ids) for x in self.sum_mapping])
+
+            else:
+                return self.value
     def get_value(self):
         if self.mapping:
             return self.mapping.get_value()
         if self.sum_mapping:
-            return self.value + self.sum_mapping.get_value()
+            return reduce(add, [x.__get_value([self.id]) for x in self.sum_mapping])
+
         else:
             return self.value
 
@@ -99,11 +114,10 @@ class Variable(MappedValue):
 
     def __init__(self, detailed_variable_description, base_variable=None):
 
-        super().__init__()
+        super().__init__(detailed_variable_description.id)
         self.detailed_description = detailed_variable_description
         self.namespace = detailed_variable_description.namespace
         self.tag = detailed_variable_description.tag
-        self.id = detailed_variable_description.id
         self.type = detailed_variable_description.type
         self.path = VariablePath([detailed_variable_description.tag],self.id)
         self.alias = None
