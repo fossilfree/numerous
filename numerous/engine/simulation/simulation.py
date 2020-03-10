@@ -1,5 +1,6 @@
 from datetime import datetime
 import numpy as np
+from numba import njit, prange
 from scipy.integrate import solve_ivp
 from tqdm import tqdm
 
@@ -40,6 +41,8 @@ class Simulation:
         self.callbacks = []
         self.async_callback = []
         self.model = model
+        self.eq_count = np.unique(self.model.compiled_eq_idxs).shape[0]
+        self.sum_mapping = self.model.sum_idx.size != 0
         self.start_datetime = start_datetime
         self.num_inner = num_inner
         self.options = kwargs
@@ -134,30 +137,78 @@ class Simulation:
             list(map(lambda x: x.finalize(), self.model.callbacks))
         return sol
 
-    def compute_eq(self):
-        for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
-            n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
-            self.model.compiled_eq[eq_idx](self.model.global_vars, n)
-            self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
+    def compute_eq(self,array_2d):
 
-    def sum_mappings(self):
-        for i, idx in enumerate(self.model.sum_idx):
-            self.t_scope.flat_var[idx] = np.sum(self.t_scope.flat_var[self.model.sum_mapped[i]])
+        for eq_idx in range(self.eq_count):
+                self.model.compiled_eq[eq_idx](array_2d[eq_idx])
+
+
+        # for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
+        #     n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
+        #     self.model.compiled_eq[eq_idx](self.model.global_vars, n)
+        #     self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
 
     def __func(self, _t, y):
         self.info["Number of Equation Calls"] += 1
         self.t_scope.update_states(y)
         self.model.global_vars[0] = _t
 
-        self.compute_eq()
-        self.sum_mappings()
+
+        scope_variables_2d = [[] for i in range(self.eq_count)]
+        index_helper = []
+        for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
+            index_helper.append(len(scope_variables_2d[eq_idx]))
+            scope_variables_2d[eq_idx].append(self.t_scope.flat_var[self.model.flat_scope_idx_from[i]])
+        index_helper = np.array(index_helper)
+
+
+        for i in range(len(scope_variables_2d)):
+            scope_variables_2d[i] = np.array(scope_variables_2d[i], dtype=np.float64)
+        # self.scope_variables_2d = np.array(scope_variables_2d,dtype=object)
+
+        self.compute_eq(scope_variables_2d)
+
+        for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
+            self.t_scope.flat_var[self.model.flat_scope_idx[i]] = scope_variables_2d[eq_idx][index_helper[i]]
+
+
+
+
+        if self.sum_mapping:
+            sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var, self.model.sum_mapped)
 
         return self.t_scope.get_derivatives()
 
     def stateless__func(self, _t, _):
         self.info["Number of Equation Calls"] += 1
 
-        self.compute_eq()
-        self.sum_mappings()
+        scope_variables_2d = [[] for i in range(self.eq_count)]
+        index_helper = []
+        for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
+            index_helper.append(len(scope_variables_2d[eq_idx]))
+            scope_variables_2d[eq_idx].append(self.t_scope.flat_var[self.model.flat_scope_idx_from[i]])
+        index_helper = np.array(index_helper)
+
+        for i in range(len(scope_variables_2d)):
+            scope_variables_2d[i] = np.array(scope_variables_2d[i], dtype=np.float64)
+        # self.scope_variables_2d = np.array(scope_variables_2d,dtype=object)
+
+        self.compute_eq(scope_variables_2d)
+
+        for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
+            self.t_scope.flat_var[self.model.flat_scope_idx[i]] = scope_variables_2d[eq_idx][index_helper[i]]
+
+
+
+        if self.sum_mapping:
+            sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var, self.model.sum_mapped)
 
         return np.array([])
+
+
+@njit(parallel=True)
+def sum_mappings(sum_idx, sum_mapped_idx, flat_var, sum_mapped):
+    for i in prange(sum_idx.shape[0]):
+        idx = sum_idx[i]
+        slice_ = sum_mapped_idx[i]
+        flat_var[idx] = np.sum(flat_var[sum_mapped[slice_[0]:slice_[1]]])
