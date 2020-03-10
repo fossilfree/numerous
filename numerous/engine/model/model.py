@@ -1,4 +1,5 @@
 import copy
+
 import time
 import uuid
 import numpy as np
@@ -173,7 +174,8 @@ class Model:
                 for line in non_empty_lines:
                     string_without_empty_lines += line + "\n"
 
-                eq_text = string_without_empty_lines + " "
+                eq_text = string_without_empty_lines + " \n"
+
                 eq_text = eq_text.replace("global_variables)", ")")
                 for i, tag in enumerate(self.global_variables_tags):
                     p = re.compile(r"(?<=global_variables)\." + tag + r"(?=[^\w])")
@@ -181,12 +183,26 @@ class Model:
                 for i, var in enumerate(self.synchronized_scope[tt].variables.values()):
                     p = re.compile(r"(?<=scope)\." + var.tag + r"(?=[^\w])")
                     eq_text = p.sub("[" + str(i) + "]", eq_text)
-                eq_text = eq_text.replace("@Equation()", "")
-                eq_text = eq_text.replace("self,", "global_variables,")
+
+                p = re.compile(r" +def +\w+(?=\()")
+                eq_text = p.sub("def eval", eq_text)
+
+                eq_text = eq_text.replace("@Equation()", "@guvectorize(['void(float64[:])'],'(n)',nopython=True)")
+                # eq_text = eq_text.replace("self,", "global_variables,")
+                eq_text = eq_text.replace("self,", "")
                 eq_text = eq_text.strip()
                 idx = eq_text.find('\n') + 1
-                spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
-                eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + eq_text[idx:]
+                # spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
+                # eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + " " * spaces_len \
+                #           + 'from numba import njit\n' + eq_text[idx:]
+                str_list = []
+                for line in eq_text.splitlines():
+                    str_list.append('   '+line)
+                eq_text_2 = '\n'.join(str_list)
+
+
+                eq_text = eq_text_2 + "\n   return eval"
+                eq_text = "def test():\n   from numba import guvectorize\n   import numpy as np\n"+eq_text
             else:
                 eq_id = "empty_equation"
                 if eq_id in complied_equations_ids:
@@ -201,10 +217,16 @@ class Model:
             complied_equations_idx.append(len(complied_equations_ids))
             complied_equations_ids.append(eq_id)
 
-            self.compiled_eq.append(list(namespace.values())[1])
+
+            self.compiled_eq.append(list(namespace.values())[1]())
 
         self.compiled_eq = np.array(self.compiled_eq )
         self.compiled_eq_idxs = np.array(complied_equations_idx)
+
+
+
+
+
 
         for i, variable in enumerate(self.scope_variables.values()):
             self.scope_variables_flat.append(variable.value)
@@ -219,6 +241,7 @@ class Model:
         flat_scope_idx = []
         sum_idx = []
         sum_mapped = []
+        sum_mapped_idx = []
 
         def __get_mapping__idx(variable):
             if variable.mapping:
@@ -242,10 +265,11 @@ class Model:
                 else:
                     if var.sum_mapping_ids:
                         sum_idx.append(self.variables[var.id].idx_in_scope[0])
-                        row1 = []
+                        start_idx = len(sum_mapped)
                         for var_id in var.sum_mapping_ids:
-                            row1.append(self.variables[var_id].idx_in_scope[0])
-                        sum_mapped.append(np.array(row1))
+                            sum_mapped.append(self.variables[var_id].idx_in_scope[0])
+                        end_idx = len(sum_mapped)
+                        sum_mapped_idx.append(np.array([start_idx,end_idx]))
                         flat_scope_idx_from_row.append(var.position)
                         flag = False
 
@@ -262,12 +286,14 @@ class Model:
         flat_scope_idx_from.append(np.array([-1]))
         flat_scope_idx.append(np.array([-1]))
 
+
         self.flat_scope_idx_from = np.array(flat_scope_idx_from)
         self.flat_scope_idx = np.array(flat_scope_idx)
         self.sum_idx = np.array(sum_idx)
         self.sum_mapped = np.array(sum_mapped)
+        self.sum_mapped_idx =np.array(sum_mapped_idx)
 
-        self.scope_variables_flat = np.array(self.scope_variables_flat, dtype=np.float32)
+
         self.states_idx = np.array(self.states_idx)
         self.derivatives_idx = np.array(self.derivatives_idx)
 
@@ -279,11 +305,31 @@ class Model:
         self.flat_variables = np.array([x.value for x in self.variables.values()])
         self.flat_variables_ids = [x.id for x in self.variables.values()]
         self.scope_to_variables_idx = np.array([np.array(x.idx_in_scope) for x in self.variables.values()])
+
+        self.scope_variables_flat = np.array(self.scope_variables_flat, dtype=np.float64, order='F')
+        scope_variables_2d = [[] for i in range(np.unique(self.compiled_eq_idxs).shape[0])]
+        index_helper = []
+        for i, eq_idx in enumerate(self.compiled_eq_idxs):
+            index_helper.append(len(scope_variables_2d[eq_idx]))
+            scope_variables_2d[eq_idx].append([self.scope_variables_flat[self.flat_scope_idx_from[i]]])
+
+
+        index_helper = np.array(index_helper)
+
+        for i in range(len(scope_variables_2d)):
+            scope_variables_2d[i] = np.array(scope_variables_2d[i],dtype=np.float64)
+        # self.scope_variables_2d = np.array(scope_variables_2d,dtype=object)
+
+        for i, eq_idx in enumerate(self.compiled_eq_idxs):
+            self.scope_variables_flat[self.flat_scope_idx[i]] =  scope_variables_2d[eq_idx][index_helper[i]]
+
+
         assemble_finish = time.time()
         self.info.update({"Assemble time": assemble_finish - assemble_start})
         self.info.update({"Number of items": len(self.model_items)})
         self.info.update({"Number of variables": len(self.scope_variables)})
         self.info.update({"Number of equation scopes": len(self.equation_dict)})
+        self.info.update({"Number of equations": len(self.compiled_eq)})
         self.info.update({"Solver": {}})
 
     def get_states(self):
