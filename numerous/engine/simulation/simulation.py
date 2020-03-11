@@ -156,26 +156,7 @@ class Simulation:
         self.t_scope.update_states(y)
         self.model.global_vars[0] = _t
 
-
-        scope_variables_2d = [[] for i in range(self.eq_count)]
-        index_helper = []
-        for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
-            index_helper.append(len(scope_variables_2d[eq_idx]))
-            scope_variables_2d[eq_idx].append(self.t_scope.flat_var[self.model.flat_scope_idx_from[i]])
-        index_helper = np.array(index_helper)
-
-
-        for i in range(len(scope_variables_2d)):
-            scope_variables_2d[i] = np.array(scope_variables_2d[i], dtype=np.float64)
-        # self.scope_variables_2d = np.array(scope_variables_2d,dtype=object)
-
-        self.compute_eq(scope_variables_2d)
-
-        for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
-            self.t_scope.flat_var[self.model.flat_scope_idx[i]] = scope_variables_2d[eq_idx][index_helper[i]]
-
-
-
+        self.compute_eq(self.model.scope_variables_2d)
 
         if self.sum_mapping:
             sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var, self.model.sum_mapped)
@@ -185,21 +166,21 @@ class Simulation:
     def stateless__func(self, _t, _):
         self.info["Number of Equation Calls"] += 1
 
-        scope_variables_2d = [[] for i in range(self.eq_count)]
-        index_helper = []
-        for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
-            index_helper.append(len(scope_variables_2d[eq_idx]))
-            scope_variables_2d[eq_idx].append(self.t_scope.flat_var[self.model.flat_scope_idx_from[i]])
-        index_helper = np.array(index_helper)
+        # scope_variables_2d = [[] for i in range(self.eq_count)]
+        # index_helper = []
+        # for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
+        #     index_helper.append(len(scope_variables_2d[eq_idx]))
+        #     scope_variables_2d[eq_idx].append(self.t_scope.flat_var[self.model.flat_scope_idx_from[i]])
+        # index_helper = np.array(index_helper)
+        #
+        # for i in range(len(scope_variables_2d)):
+        #     scope_variables_2d[i] = np.array(scope_variables_2d[i], dtype=np.float64)
+        # # self.scope_variables_2d = np.array(scope_variables_2d,dtype=object)
 
-        for i in range(len(scope_variables_2d)):
-            scope_variables_2d[i] = np.array(scope_variables_2d[i], dtype=np.float64)
-        # self.scope_variables_2d = np.array(scope_variables_2d,dtype=object)
+        self.compute_eq(self.model.scope_variables_2d)
 
-        self.compute_eq(scope_variables_2d)
-
-        for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
-            self.t_scope.flat_var[self.model.flat_scope_idx[i]] = scope_variables_2d[eq_idx][index_helper[i]]
+        # for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
+        #     self.t_scope.flat_var[self.model.flat_scope_idx[i]] = scope_variables_2d[eq_idx][index_helper[i]]
 
 
 
