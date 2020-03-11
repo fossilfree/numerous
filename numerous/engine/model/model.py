@@ -199,7 +199,7 @@ class Model:
                     complied_equations_idx.append(complied_equations_ids.index(eq_id))
                     continue
                 eq_text = "def eval(global_variables, scope):\n   pass"
-            # print(eq_text)
+            print(eq_text)
             tree = ast.parse(eq_text, mode='exec')
             code = compile(tree, filename='test', mode='exec')
             namespace = {}
@@ -306,7 +306,7 @@ class Model:
 
         for i in range(len(scope_variables_2d)):
             scope_variables_2d[i] = np.array(scope_variables_2d[i],dtype=np.float64)
-        # self.scope_variables_2d = np.array(scope_variables_2d,dtype=object)
+        self.scope_variables_2d = np.array(scope_variables_2d,dtype=object)
 
         for i, eq_idx in enumerate(self.compiled_eq_idxs):
             self.scope_variables_flat[self.flat_scope_idx[i]] =  scope_variables_2d[eq_idx][index_helper[i]]
