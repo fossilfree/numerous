@@ -105,12 +105,12 @@ class SimpleHistoryDataFrame(HistoryDataFrame):
         self.var_list = None
 
     def update(self, time, variables):
-
+        # variables[dict_key_idx["S1.item1.t1.x"]] = 10
         varix = 1
         ix = self.ix
         self.data[0][ix] = time
         for var in variables:
-            self.data[varix][ix] = variables[var].get_value()
+            self.data[varix][ix] = variables[var].value
             varix += 1
         self.ix += 1
 
