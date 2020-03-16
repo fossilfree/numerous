@@ -137,54 +137,61 @@ class Simulation:
             list(map(lambda x: x.finalize(), self.model.callbacks))
         return sol
 
-    def compute_eq(self,array_2d):
-
+    def compute_eq(self, array_2d):
         for eq_idx in range(self.eq_count):
-                self.model.compiled_eq[eq_idx](array_2d[eq_idx])
-
-
-        # for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
-        #     n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
-        #     self.model.compiled_eq[eq_idx](self.model.global_vars, n)
-        #     self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
+            self.model.compiled_eq[eq_idx](array_2d[eq_idx])
 
     def __func(self, _t, y):
         self.info["Number of Equation Calls"] += 1
         self.t_scope.update_states(y)
         self.model.global_vars[0] = _t
 
-        self.compute_eq(self.model.scope_variables_2d)
-
-        if self.sum_mapping:
-            sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var, self.model.sum_mapped)
+        self.compute()
 
         return self.t_scope.get_derivatives()
 
-    def stateless__func(self, _t, _):
-        self.info["Number of Equation Calls"] += 1
-
-        # scope_variables_2d = [[] for i in range(self.eq_count)]
-        # index_helper = []
-        # for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
-        #     index_helper.append(len(scope_variables_2d[eq_idx]))
-        #     scope_variables_2d[eq_idx].append(self.t_scope.flat_var[self.model.flat_scope_idx_from[i]])
-        # index_helper = np.array(index_helper)
-        #
-        # for i in range(len(scope_variables_2d)):
-        #     scope_variables_2d[i] = np.array(scope_variables_2d[i], dtype=np.float64)
-        # # self.scope_variables_2d = np.array(scope_variables_2d,dtype=object)
+    def compute(self):
+        # mapping_ = True
+        # b1 = np.copy(self.t_scope.flat_var)
+        # while mapping_:
+        mapping_from(self.model.compiled_eq_idxs, self.model.index_helper, self.model.scope_variables_2d,
+                     self.model.length, self.t_scope.flat_var, self.model.flat_scope_idx_from,
+                     self.model.flat_scope_idx_from_idx_1, self.model.flat_scope_idx_from_idx_2)
 
         self.compute_eq(self.model.scope_variables_2d)
 
-        # for i, eq_idx in enumerate(self.model.compiled_eq_idxs):
-        #     self.t_scope.flat_var[self.model.flat_scope_idx[i]] = scope_variables_2d[eq_idx][index_helper[i]]
-
-
+        mapping_to(self.model.compiled_eq_idxs, self.t_scope.flat_var, self.model.flat_scope_idx,
+                   self.model.scope_variables_2d,
+                   self.model.index_helper, self.model.length,
+                   self.model.flat_scope_idx_idx_1, self.model.flat_scope_idx_idx_2)
 
         if self.sum_mapping:
-            sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var, self.model.sum_mapped)
+            sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var,
+                         self.model.sum_mapped)
 
+        # mapping_ = not np.allclose(b1, self.t_scope.flat_var)
+        # b1 = np.copy(self.t_scope.flat_var)
+
+    def stateless__func(self, _t, _):
+        self.info["Number of Equation Calls"] += 1
+        self.compute()
         return np.array([])
+
+
+@njit(parallel=True)
+def mapping_to(compiled_eq_idxs, flat_var, flat_scope_idx, scope_variables_2d, index_helper, length, id1, id2):
+    for i in prange(compiled_eq_idxs.shape[0]):
+        eq_idx = compiled_eq_idxs[i]
+        flat_var[flat_scope_idx[id1[i]:id2[i]]] = \
+            scope_variables_2d[eq_idx][index_helper[i]][:length[i]]
+
+
+@njit(parallel=True)
+def mapping_from(compiled_eq_idxs, index_helper, scope_variables_2d, length, flat_var, flat_scope_idx_from, id1, id2):
+    for i in prange(compiled_eq_idxs.shape[0]):
+        eq_idx = compiled_eq_idxs[i]
+        scope_variables_2d[eq_idx][index_helper[i]][:length[i]] \
+            = flat_var[flat_scope_idx_from[id1[i]:id2[i]]]
 
 
 @njit(parallel=True)

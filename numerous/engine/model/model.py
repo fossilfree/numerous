@@ -198,8 +198,8 @@ class Model:
                 if eq_id in complied_equations_ids:
                     complied_equations_idx.append(complied_equations_ids.index(eq_id))
                     continue
-                eq_text = "def eval(global_variables, scope):\n   pass"
-            print(eq_text)
+                eq_text = "def test():\n   def eval(scope):\n      pass\n   return eval"
+            # print(eq_text)
             tree = ast.parse(eq_text, mode='exec')
             code = compile(tree, filename='test', mode='exec')
             namespace = {}
@@ -271,8 +271,8 @@ class Model:
             flat_scope_idx.append(np.array(flat_scope_idx_row))
 
         ##indication of ending
-        flat_scope_idx_from.append(np.array([-1]))
-        flat_scope_idx.append(np.array([-1]))
+        # flat_scope_idx_from.append(np.array([-1]))
+        # flat_scope_idx.append(np.array([-1]))
 
 
         self.flat_scope_idx_from = np.array(flat_scope_idx_from)
@@ -295,22 +295,69 @@ class Model:
         self.scope_to_variables_idx = np.array([np.array(x.idx_in_scope) for x in self.variables.values()])
 
         self.scope_variables_flat = np.array(self.scope_variables_flat, dtype=np.float64, order='F')
-        scope_variables_2d = [[] for i in range(np.unique(self.compiled_eq_idxs).shape[0])]
+
+        eq_count = np.unique(self.compiled_eq_idxs).shape[0]
+
+        scope_variables_2d = [[] for i in range(eq_count)]
         index_helper = []
+        max_scope_len = 0
         for i, eq_idx in enumerate(self.compiled_eq_idxs):
             index_helper.append(len(scope_variables_2d[eq_idx]))
             scope_variables_2d[eq_idx].append([self.scope_variables_flat[self.flat_scope_idx_from[i]]])
+            max_scope_len = max(max_scope_len,self.flat_scope_idx_from[i].shape[0])
 
+        self.index_helper=np.array(index_helper)
 
-        index_helper = np.array(index_helper)
+        scope_variables_2d_temp = np.empty([eq_count, np.max(self.index_helper)+1, max_scope_len])
+        for i, eq_idx in enumerate(self.compiled_eq_idxs):
+            shape_1 = scope_variables_2d_temp[eq_idx][self.index_helper[i]].shape[0]
+            a = scope_variables_2d[eq_idx][self.index_helper[i]][0]
+            shape_2 = a.shape[0]
+            scope_variables_2d_temp[eq_idx][self.index_helper[i]] =\
+                np.pad(a, (0, shape_1-shape_2), 'constant', constant_values = (0, 0))
 
-        for i in range(len(scope_variables_2d)):
-            scope_variables_2d[i] = np.array(scope_variables_2d[i],dtype=np.float64)
-        self.scope_variables_2d = np.array(scope_variables_2d,dtype=object)
+        self.scope_variables_2d = scope_variables_2d_temp
+
+        length= []
 
         for i, eq_idx in enumerate(self.compiled_eq_idxs):
-            self.scope_variables_flat[self.flat_scope_idx[i]] =  scope_variables_2d[eq_idx][index_helper[i]]
+            length_ = self.scope_variables_flat[self.flat_scope_idx[i]].shape[0]
+            self.scope_variables_flat[self.flat_scope_idx[i]] =\
+                self.scope_variables_2d[eq_idx][self.index_helper[i]][:length_]
+            length.append(length_)
 
+        flat_scope_idx_from_idx_1 = []
+        flat_scope_idx_from_idx_2 = []
+        i1 = 0
+        flat_scope_idx_from_flat = []
+        for element in self.flat_scope_idx_from:
+            flat_scope_idx_from_idx_1.append(i1)
+            i1 = i1+element.shape[0]
+            flat_scope_idx_from_idx_2.append(i1)
+            for i2 in element:
+                flat_scope_idx_from_flat.append(i2)
+
+        self.flat_scope_idx_from = np.array(flat_scope_idx_from_flat)
+
+        self.flat_scope_idx_from_idx_1 = np.array(flat_scope_idx_from_idx_1)
+        self.flat_scope_idx_from_idx_2 = np.array(flat_scope_idx_from_idx_2)
+
+        flat_scope_idx_idx_1 = []
+        flat_scope_idx_idx_2 = []
+        i1 = 0
+        flat_scope_idx_flat = []
+        for element in self.flat_scope_idx:
+            flat_scope_idx_idx_1.append(i1)
+            i1 = i1 + element.shape[0]
+            flat_scope_idx_idx_2.append(i1)
+            for i2 in element:
+                flat_scope_idx_flat.append(i2)
+
+        self.flat_scope_idx = np.array(flat_scope_idx_flat)
+        self.flat_scope_idx_idx_1 = np.array(flat_scope_idx_idx_1)
+        self.flat_scope_idx_idx_2 = np.array(flat_scope_idx_idx_2)
+
+        self.length = np.array(length)
 
         assemble_finish = time.time()
         self.info.update({"Assemble time": assemble_finish - assemble_start})
