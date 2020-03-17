@@ -209,7 +209,6 @@ class Model:
                     complied_equations_idx.append(complied_equations_ids.index(eq_id))
                     continue
                 eq_text = "def test():\n   def eval(scope):\n      pass\n   return eval"
-            # print(eq_text)
             tree = ast.parse(eq_text, mode='exec')
             code = compile(tree, filename='test', mode='exec')
             namespace = {}
@@ -222,10 +221,6 @@ class Model:
 
         self.compiled_eq = np.array(self.compiled_eq )
         self.compiled_eq_idxs = np.array(complied_equations_idx)
-
-
-
-
 
 
         for i, variable in enumerate(self.scope_variables.values()):
@@ -318,9 +313,13 @@ class Model:
             scope_variables_2d[eq_idx].append([self.scope_variables_flat[self.flat_scope_idx_from[i]]])
             max_scope_len = max(max_scope_len,self.flat_scope_idx_from[i].shape[0])
 
+        scope_variables_2d  = np.array(scope_variables_2d)
         self.index_helper=np.array(index_helper)
 
-        scope_variables_2d_temp = np.empty([eq_count, np.max(self.index_helper)+1, max_scope_len])
+
+        scope_variables_2d_temp = np.ones([eq_count, np.max(self.index_helper)+1, max_scope_len])
+
+
         for i, eq_idx in enumerate(self.compiled_eq_idxs):
             shape_1 = scope_variables_2d_temp[eq_idx][self.index_helper[i]].shape[0]
             a = scope_variables_2d[eq_idx][self.index_helper[i]][0]
@@ -329,6 +328,7 @@ class Model:
                 np.pad(a, (0, shape_1-shape_2), 'constant', constant_values = (0, 0))
 
         self.scope_variables_2d = scope_variables_2d_temp
+
 
         length= []
 
