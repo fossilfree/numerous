@@ -88,16 +88,16 @@ def test_race_condition_1():
     m1 = Model(s1, historian=SimpleHistoryDataFrame())
     m2 = Model(s2, historian=SimpleHistoryDataFrame())
 
-    sim1 = Simulation(m1, max_step=dt)
-    sim2 = Simulation(m2, max_step=dt)
+    sim1 = Simulation(m1, max_step=dt,num=500)
+    sim2 = Simulation(m2, max_step=dt, num=500)
 
     sim1.solve()
 
-    df1 = sim1.model.historian.df.set_index('time')
+    df1 = sim1.model.historian.df
 
     sim2.solve()
-    df2 = sim2.model.historian.df.set_index('time')
+    df2 = sim2.model.historian.df
 
     f = [df1, df2]
     df = pd.concat(f, axis=1, sort=False)
-    assert np.all(np.isclose(np.array(df['system.link.t1.S']), np.array(df['system.item2.t1.S'])))
+    assert np.all(np.isclose(np.array(df['system.link.t1.S']), np.array(df['system.item2.t1.S']),rtol=1e-02, atol=1e-04))

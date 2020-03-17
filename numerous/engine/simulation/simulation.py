@@ -1,3 +1,4 @@
+import time
 from datetime import datetime
 import numpy as np
 from numba import njit, prange
@@ -151,26 +152,29 @@ class Simulation:
         return self.t_scope.get_derivatives()
 
     def compute(self):
-        # mapping_ = True
-        # b1 = np.copy(self.t_scope.flat_var)
-        # while mapping_:
-        mapping_from(self.model.compiled_eq_idxs, self.model.index_helper, self.model.scope_variables_2d,
-                     self.model.length, self.t_scope.flat_var, self.model.flat_scope_idx_from,
-                     self.model.flat_scope_idx_from_idx_1, self.model.flat_scope_idx_from_idx_2)
-
-        self.compute_eq(self.model.scope_variables_2d)
-
-        mapping_to(self.model.compiled_eq_idxs, self.t_scope.flat_var, self.model.flat_scope_idx,
-                   self.model.scope_variables_2d,
-                   self.model.index_helper, self.model.length,
-                   self.model.flat_scope_idx_idx_1, self.model.flat_scope_idx_idx_2)
-
         if self.sum_mapping:
             sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var,
                          self.model.sum_mapped)
+        mapping_ = True
+        b1 = np.copy(self.t_scope.flat_var)
+        while mapping_:
+            mapping_from(self.model.compiled_eq_idxs, self.model.index_helper, self.model.scope_variables_2d,
+                         self.model.length, self.t_scope.flat_var, self.model.flat_scope_idx_from,
+                         self.model.flat_scope_idx_from_idx_1, self.model.flat_scope_idx_from_idx_2)
 
-        # mapping_ = not np.allclose(b1, self.t_scope.flat_var)
-        # b1 = np.copy(self.t_scope.flat_var)
+            self.compute_eq(self.model.scope_variables_2d)
+
+            mapping_to(self.model.compiled_eq_idxs, self.t_scope.flat_var, self.model.flat_scope_idx,
+                       self.model.scope_variables_2d,
+                       self.model.index_helper, self.model.length,
+                       self.model.flat_scope_idx_idx_1, self.model.flat_scope_idx_idx_2)
+
+            if self.sum_mapping:
+                sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var,
+                             self.model.sum_mapped)
+
+            mapping_ = not np.allclose(b1, self.t_scope.flat_var)
+            b1 = np.copy(self.t_scope.flat_var)
 
     def stateless__func(self, _t, _):
         self.info["Number of Equation Calls"] += 1
