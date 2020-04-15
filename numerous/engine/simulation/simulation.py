@@ -147,12 +147,12 @@ class Simulation:
 
     def __func(self, _t, y):
         self.info["Number of Equation Calls"] += 1
-        self.t_scope.update_states(y)
+        self.t_scope.update_states(y, self.t_scope.flat_var)
         self.model.global_vars[0] = _t
 
         self.compute()
 
-        return self.t_scope.get_derivatives()
+        return self.t_scope.get_derivatives(self.t_scope.flat_var)
 
     def compute(self):
         if self.sum_mapping:
@@ -185,7 +185,7 @@ class Simulation:
         return np.array([])
 
 
-@njit(parallel=True)
+@njit()
 def mapping_to(compiled_eq_idxs, flat_var, flat_scope_idx, scope_variables_2d, index_helper, length, id1, id2):
     for i in prange(compiled_eq_idxs.shape[0]):
         eq_idx = compiled_eq_idxs[i]
@@ -193,7 +193,7 @@ def mapping_to(compiled_eq_idxs, flat_var, flat_scope_idx, scope_variables_2d, i
             scope_variables_2d[eq_idx][index_helper[i]][:length[i]]
 
 
-@njit(parallel=True)
+@njit()
 def mapping_from(compiled_eq_idxs, index_helper, scope_variables_2d, length, flat_var, flat_scope_idx_from, id1, id2):
     for i in prange(compiled_eq_idxs.shape[0]):
         eq_idx = compiled_eq_idxs[i]
@@ -201,7 +201,7 @@ def mapping_from(compiled_eq_idxs, index_helper, scope_variables_2d, length, fla
             = flat_var[flat_scope_idx_from[id1[i]:id2[i]]]
 
 
-@njit(parallel=True)
+@njit()
 def sum_mappings(sum_idx, sum_mapped_idx, flat_var, sum_mapped):
     for i in prange(sum_idx.shape[0]):
         idx = sum_idx[i]

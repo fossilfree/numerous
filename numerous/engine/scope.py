@@ -103,7 +103,7 @@ class Scope:
         for var in self.variables_dict.values():
             var.allow_update = is_true
 
-
+from numba import njit
 class TemporaryScopeWrapper:
 
     def __init__(self, flat_scope_var, state_idx,deriv_idx):
@@ -113,51 +113,35 @@ class TemporaryScopeWrapper:
         self.result = {}
         self.name_idx = {}
 
-    def update_mappings(self, model):
-        self.flat_var[model.mapping_from] = self.flat_var[model.mapping_to]
+        @njit
+        def update_mappings(model, flat_var):
+            flat_var[model.mapping_from] = flat_var[model.mapping_to]
 
-        def scope_derivatives_dict(scope):
-            return {var.id: var \
-                    for var in scope.variables.values() \
-                    if var.type.value == VariableType.DERIVATIVE.value}
+        self.update_mappings = update_mappings
 
-        # list of dictionaries
-        resList_tmp = list(map(scope_derivatives_dict, self.scope_dict.values()))
+        @njit
+        def update_states(state_values, flat_var):
+            flat_var[state_idx] = state_values
+            #np.put(flat_var, state_idx, state_values)
 
-        resList = []
-        for item in resList_tmp:
-            for scope in item:
-                resList.append(item[scope])
+        self.update_states = update_states
 
-        self.resList = resList
+        @njit
+        def update_states_idx(state_value, idx, flat_var):
+            flat_var[idx] = state_value
+            #np.put(flat_var, idx, state_value)
 
-    def update_model_from_scope(self, model):
-        for scope in self.scope_dict.values():
-            for scope_var in scope.variables.values():
-                if model.variables[scope_var.id].get_value() != scope_var.get_value():
-                    model.variables[scope_var.id].value = scope_var.get_value()
+        self.update_states_idx = update_states_idx
 
-    def get_scope_vars(self, state):
-        if state.id in self.result:
-            return self.result[state.id]
-        else:
-            self.result[state.id] = []
-            for scope in [self.scope_dict[your_key] for your_key in state.associated_state_scope]:
-                var = scope.variables[state.tag]
-                if var.id == state.id:
-                    self.result[state.id].append((var, scope))
-        return self.result[state.id]
+        # return all derivatives
+        @njit
+        def get_derivatives(flat_var):
+            return flat_var[deriv_idx]
+        self.get_derivatives = get_derivatives
 
-    def update_states(self, state_values):
-        np.put(self.flat_var, self.state_idx, state_values)
+        # return derivate of state at index idx
+        @njit
+        def get_derivatives_idx(idx, flat_var):
+            return flat_var[idx]
 
-    def update_states_idx(self, state_value, idx):
-        np.put(self.flat_var, idx, state_value)
-
-    # return all derivatives
-    def get_derivatives(self):
-        return self.flat_var[self.deriv_idx]
-
-    # return derivate of state at index idx
-    def get_derivatives_idx(self, idx):
-        return self.flat_var[idx]
+        self.get_derivatives_idx = get_derivatives_idx
