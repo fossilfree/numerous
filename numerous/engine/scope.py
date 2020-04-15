@@ -101,7 +101,7 @@ class Scope:
         for var in self.variables_dict.values():
             var.allow_update = is_true
 
-
+from numba import njit
 class TemporaryScopeWrapper:
 
     def __init__(self, flat_scope_var, state_idx,deriv_idx):
@@ -111,19 +111,36 @@ class TemporaryScopeWrapper:
         self.result = {}
         self.name_idx = {}
 
-    def update_mappings(self, model):
-        self.flat_var[model.mapping_from] = self.flat_var[model.mapping_to]
+        @njit
+        def update_mappings(model, flat_var):
+            flat_var[model.mapping_from] = flat_var[model.mapping_to]
 
-    def update_states(self, state_values):
-        np.put(self.flat_var, self.state_idx, state_values)
+        self.update_mappings = update_mappings
 
-    def update_states_idx(self, state_value, idx):
-        np.put(self.flat_var, idx, state_value)
+        @njit
+        def update_states(state_values, flat_var):
+            flat_var[state_idx] = state_values
+            #np.put(flat_var, state_idx, state_values)
 
-    # return all derivatives
-    def get_derivatives(self):
-        return self.flat_var[self.deriv_idx]
+        self.update_states = update_states
 
-    # return derivate of state at index idx
-    def get_derivatives_idx(self, idx):
-        return self.flat_var[idx]
+        @njit
+        def update_states_idx(state_value, idx, flat_var):
+            flat_var[idx] = state_value
+            #np.put(flat_var, idx, state_value)
+
+        self.update_states_idx = update_states_idx
+
+        # return all derivatives
+        @njit
+        def get_derivatives(flat_var):
+            return flat_var[deriv_idx]
+
+        self.get_derivatives = get_derivatives
+
+        # return derivate of state at index idx
+        @njit
+        def get_derivatives_idx(idx, flat_var):
+            return flat_var[idx]
+
+        self.get_derivatives_idx = get_derivatives_idx
