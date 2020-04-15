@@ -215,7 +215,6 @@ class Model:
                 eq_text = eq_text_2 + "\n   return eval"
                 #eq_text = "def test():\n   from numba import guvectorize\n   import numpy as np\n"+eq_text
                 eq_text = "def test():\n   from numerous.engine.model.simple_vectorizer import simple_vectorize\n   import numpy as np\n" + eq_text
-                print(eq_text)
             else:
                 eq_id = "empty_equation"
                 if eq_id in compiled_equations_ids:
