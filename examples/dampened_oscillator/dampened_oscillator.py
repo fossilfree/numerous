@@ -4,6 +4,10 @@ from numerous.engine.system.item import Item
 from numerous.engine.system import Subsystem
 import numpy as np
 
+if __name__ == "__main__":
+    from numerous.engine import model, simulation
+    from time import time
+    from matplotlib import pyplot as plt
 
 class DampenedOscillator(EquationBase, Item):
     """
@@ -29,6 +33,7 @@ class DampenedOscillator(EquationBase, Item):
         #Implement equations for the dampened oscillation
         scope.v_dot = -scope.k * scope.x - scope.c * scope.v + scope.a*np.sign(scope.v)
         scope.x_dot = scope.v
+
 
 
 class OscillatorSystem(Subsystem):
