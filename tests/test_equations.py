@@ -2,6 +2,7 @@ from numerous import EquationBase, Equation
 
 
 class TestEq_input(EquationBase):
+    __test__ = False
     def __init__(self, P=10, T=0, R=1):
         super().__init__(tag='input_eq')
         self.add_parameter('P', P)
@@ -17,6 +18,7 @@ class TestEq_input(EquationBase):
 
 
 class Test_Eq(EquationBase):
+    __test__ = False
     def __init__(self, T=0, R=1):
         super().__init__(tag='T_eq')
         self.add_state('T', T)
@@ -33,6 +35,7 @@ class Test_Eq(EquationBase):
 
 
 class TestEq_ground(EquationBase):
+    __test__ = False
     def __init__(self, TG=10, RG=2):
         super().__init__(tag='ground_eq')
         self.add_constant('T', TG)
@@ -40,6 +43,7 @@ class TestEq_ground(EquationBase):
 
 
 class TestEq_dictState(EquationBase):
+    __test__ = False
     def __init__(self):
         super().__init__(tag='ground_eq')
         self.add_state('T', {})
