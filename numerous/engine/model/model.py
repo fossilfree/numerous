@@ -3,8 +3,9 @@ import copy
 import time
 import uuid
 import numpy as np
-import ast
-import re
+from numba import prange, njit
+
+from engine.model.equation_parser import Equation_Parser
 from numerous.engine.system.connector import Connector
 from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
 from numerous.engine.scope import Scope, TemporaryScopeWrapper, ScopeVariable
@@ -164,75 +165,8 @@ class Model:
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
 
-        # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping
-        # self.synchronized_scope to compiled_eq (by index)
-        # TODO @Artem: parsing logic should go somewhere else
-        compiled_equations_idx = []
-        compiled_equations_ids = [] # As equations can be non-unique, but they should?
-        for tt in self.synchronized_scope.keys():
-            eq_text = ""
-            eq_id = ""
-            # id of eq in list of eq)
-            if self.equation_dict[tt]:
-                if self.equation_dict[tt][0].id in compiled_equations_ids:
-                    compiled_equations_idx.append(compiled_equations_ids.index(self.equation_dict[tt][0].id))
-                    continue
-                lines = self.equation_dict[tt][0].lines.split("\n")
-                eq_id = self.equation_dict[tt][0].id
-                non_empty_lines = [line for line in lines if line.strip() != ""]
-
-                string_without_empty_lines = ""
-                for line in non_empty_lines:
-                    string_without_empty_lines += line + "\n"
-
-                eq_text = string_without_empty_lines + " \n"
-
-                eq_text = eq_text.replace("global_variables)", ")")
-                for i, tag in enumerate(self.global_variables_tags):
-                    p = re.compile(r"(?<=global_variables)\." + tag + r"(?=[^\w])")
-                    eq_text = p.sub("[" + str(i) + "]", eq_text)
-                for i, var in enumerate(self.synchronized_scope[tt].variables.values()):
-                    p = re.compile(r"(?<=scope)\." + var.tag + r"(?=[^\w])")
-                    eq_text = p.sub("[" + str(i) + "]", eq_text)
-
-                p = re.compile(r" +def +\w+(?=\()")
-                eq_text = p.sub("def eval", eq_text)
-
-                eq_text = eq_text.replace("@Equation()", "@simple_vectorize")
-                # eq_text = eq_text.replace("self,", "global_variables,")
-                eq_text = eq_text.replace("self,", "")
-                eq_text = eq_text.strip()
-                idx = eq_text.find('\n') + 1
-                # spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
-                # eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + " " * spaces_len \
-                #           + 'from numba import njit\n' + eq_text[idx:]
-                str_list = []
-                for line in eq_text.splitlines():
-                    str_list.append('   '+line)
-                eq_text_2 = '\n'.join(str_list)
-
-
-                eq_text = eq_text_2 + "\n   return eval"
-                #eq_text = "def test():\n   from numba import guvectorize\n   import numpy as np\n"+eq_text
-                eq_text = "def test():\n   from numerous.engine.model.simple_vectorizer import simple_vectorize\n   import numpy as np\n" + eq_text
-            else:
-                eq_id = "empty_equation"
-                if eq_id in compiled_equations_ids:
-                    compiled_equations_idx.append(compiled_equations_ids.index(eq_id))
-                    continue
-                eq_text = "def test():\n   def eval(scope):\n      pass\n   return eval"
-            tree = ast.parse(eq_text, mode='exec')
-            code = compile(tree, filename='test', mode='exec')
-            namespace = {}
-            exec(code, namespace)
-            compiled_equations_idx.append(len(compiled_equations_ids))
-            compiled_equations_ids.append(eq_id)
-
-
-            self.compiled_eq.append(list(namespace.values())[1]())
-
-        self.compiled_eq = np.array(self.compiled_eq)
-        self.compiled_eq_idxs = np.array(compiled_equations_idx)
+        equation_parser  = Equation_Parser()
+        self.compiled_eq, self.compiled_eq_idxs = equation_parser.parse(self)
 
 
         # 4. Create self.states_idx and self.derivatives_idx
@@ -572,6 +506,73 @@ class Model:
         for i, v_id in enumerate(self.flat_variables_ids):
             self.variables[v_id].value = self.flat_variables[i]
 
-    # def update_flat_scope(self,t_scope):
-    #     for variable in self.path_variables.values():
-    #         self.scope_variables_flat[variable.idx_in_scope] = variable.value
+
+    def get_diff_(self):
+        # Method that returns the differentiation function
+
+        @njit
+        def compute_eq(self, array_2d):
+            for eq_idx in range(self.eq_count):
+                self.model.compiled_eq[eq_idx](array_2d[eq_idx])
+
+        @njit
+        def compute(self):
+            if self.sum_mapping:
+                sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var,
+                             self.model.sum_mapped)
+            mapping_ = True
+            b1 = np.copy(self.t_scope.flat_var)
+            while mapping_:
+                mapping_from(self.model.compiled_eq_idxs, self.model.index_helper, self.model.scope_variables_2d,
+                             self.model.length, self.t_scope.flat_var, self.model.flat_scope_idx_from,
+                             self.model.flat_scope_idx_from_idx_1, self.model.flat_scope_idx_from_idx_2)
+
+                self.compute_eq(self.model.scope_variables_2d)
+
+                mapping_to(self.model.compiled_eq_idxs, self.t_scope.flat_var, self.model.flat_scope_idx,
+                           self.model.scope_variables_2d,
+                           self.model.index_helper, self.model.length,
+                           self.model.flat_scope_idx_idx_1, self.model.flat_scope_idx_idx_2)
+
+                if self.sum_mapping:
+                    sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var,
+                                 self.model.sum_mapped)
+
+                mapping_ = not np.allclose(b1, self.t_scope.flat_var)
+                b1 = np.copy(self.t_scope.flat_var)
+
+        @njit
+        def __func(self, _t, y, state):
+
+            self.info["Number of Equation Calls"] += 1
+
+            self.t_scope.update_states(y)
+            self.model.global_vars[0] = _t
+
+            self.compute()
+
+            return self.t_scope.get_derivatives()
+
+        return __func
+
+@njit()
+def mapping_to(compiled_eq_idxs, flat_var, flat_scope_idx, scope_variables_2d, index_helper, length, id1, id2):
+    for i in prange(compiled_eq_idxs.shape[0]):
+        eq_idx = compiled_eq_idxs[i]
+        flat_var[flat_scope_idx[id1[i]:id2[i]]] = \
+            scope_variables_2d[eq_idx][index_helper[i]][:length[i]]
+
+@njit()
+def mapping_from(compiled_eq_idxs, index_helper, scope_variables_2d, length, flat_var, flat_scope_idx_from, id1,
+                 id2):
+    for i in prange(compiled_eq_idxs.shape[0]):
+        eq_idx = compiled_eq_idxs[i]
+        scope_variables_2d[eq_idx][index_helper[i]][:length[i]] \
+            = flat_var[flat_scope_idx_from[id1[i]:id2[i]]]
+
+@njit()
+def sum_mappings(sum_idx, sum_mapped_idx, flat_var, sum_mapped):
+    for i in prange(sum_idx.shape[0]):
+        idx = sum_idx[i]
+        slice_ = sum_mapped_idx[i]
+        flat_var[idx] = np.sum(flat_var[sum_mapped[slice_[0]:slice_[1]]])
