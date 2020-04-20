@@ -159,14 +159,14 @@ class Simulation:
         b1 = np.copy(self.t_scope.flat_var)
         while mapping_:
             mapping_from(self.model.compiled_eq_idxs, self.model.index_helper, self.model.scope_variables_2d,
-                         self.model.length, self.t_scope.flat_var, self.model.flat_scope_idx_from,
+                         self.t_scope.flat_var, self.model.flat_scope_idx_from,
                          self.model.flat_scope_idx_from_idx_1, self.model.flat_scope_idx_from_idx_2)
 
             self.compute_eq(self.model.scope_variables_2d)
 
             mapping_to(self.model.compiled_eq_idxs, self.t_scope.flat_var, self.model.flat_scope_idx,
                        self.model.scope_variables_2d,
-                       self.model.index_helper, self.model.length,
+                       self.model.index_helper,
                        self.model.flat_scope_idx_idx_1, self.model.flat_scope_idx_idx_2)
 
             if self.sum_mapping:
@@ -183,18 +183,18 @@ class Simulation:
 
 
 @njit(parallel=True)
-def mapping_to(compiled_eq_idxs, flat_var, flat_scope_idx, scope_variables_2d, index_helper, length, id1, id2):
+def mapping_to(compiled_eq_idxs, flat_var, flat_scope_idx, scope_variables_2d, index_helper, id1, id2):
     for i in prange(compiled_eq_idxs.shape[0]):
         eq_idx = compiled_eq_idxs[i]
         flat_var[flat_scope_idx[id1[i]:id2[i]]] = \
-            scope_variables_2d[eq_idx][index_helper[i]][:length[i]]
+            scope_variables_2d[eq_idx][index_helper[i]]
 
 
 @njit(parallel=True)
-def mapping_from(compiled_eq_idxs, index_helper, scope_variables_2d, length, flat_var, flat_scope_idx_from, id1, id2):
+def mapping_from(compiled_eq_idxs, index_helper, scope_variables_2d, flat_var, flat_scope_idx_from, id1, id2):
     for i in prange(compiled_eq_idxs.shape[0]):
         eq_idx = compiled_eq_idxs[i]
-        scope_variables_2d[eq_idx][index_helper[i]][:length[i]] \
+        scope_variables_2d[eq_idx][index_helper[i]] \
             = flat_var[flat_scope_idx_from[id1[i]:id2[i]]]
 
 

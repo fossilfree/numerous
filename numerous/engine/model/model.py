@@ -5,6 +5,7 @@ import uuid
 import numpy as np
 import ast
 import re
+from numba.typed import List
 from numerous.engine.system.connector import Connector
 from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
 from numerous.engine.scope import Scope, TemporaryScopeWrapper, ScopeVariable
@@ -304,37 +305,23 @@ class Model:
             for path in variable.path.path[self.system.id]:
                 self.path_variables.update({path: variable})
 
-        # float64 array of all variables' current value
         self.flat_variables = np.array([x.value for x in self.variables.values()])
         self.flat_variables_ids = [x.id for x in self.variables.values()]
         self.scope_to_variables_idx = np.array([x.idx_in_scope for x in self.variables.values()])
 
-        self.scope_variables_flat = np.array(self.scope_variables_flat, dtype=np.float64, order='C')
-
-        # (eq_idx, ind_eq_access) -> scope_variable.value
-
-        # self.index_helper: how many of the same item type do we have?
-        # max_scope_len: maximum number of variables one item can have
-        # not correcly sized, as np.object
-        # (eq_idx, ind_of_eq_access, var_index_in_scope) -> scope_variable.value
-        eq_count = len(self.compiled_eq)
-        self.index_helper = np.empty(len(self.synchronized_scope), int)
-        max_scope_len = max(map(len, self.non_flat_scope_idx_from))
-        self.scope_variables_2d = np.ones([eq_count, np.max(self.num_uses_per_eq), max_scope_len])
-
-        self.length = np.array(list(map(len, self.non_flat_scope_idx)))
-
         _index_helper_counter = np.zeros(len(self.compiled_eq), int)
+        self.index_helper = np.empty(len(self.synchronized_scope), int)
         # self.scope_variables_2d = list(map(np.empty, zip(self.num_uses_per_eq, self.num_vars_per_eq)))
+        # numba needs to type this list
+        self.scope_variables_2d = List()
+        any(map(self.scope_variables_2d.append, map(np.empty,
+            zip(self.num_uses_per_eq, self.num_vars_per_eq))))
         for scope_idx, (_flat_scope_idx_from, eq_idx) in enumerate(
                 zip(self.non_flat_scope_idx_from, self.compiled_eq_idxs)):
             _idx = _index_helper_counter[eq_idx]
             _index_helper_counter[eq_idx] += 1
             self.index_helper[scope_idx] = _idx
-            _l = self.num_vars_per_eq[eq_idx]
-            self.scope_variables_2d[eq_idx][_idx,:_l] = self.scope_variables_flat[_flat_scope_idx_from]
-            self.scope_variables_2d[eq_idx][_idx,_l:] = 0
-
+            self.scope_variables_2d[eq_idx][_idx] = self.scope_variables_flat[_flat_scope_idx_from]
 
         # This can be done more efficiently using two num_scopes-sized view of a (num_scopes+1)-sized array
         flat_scope_idx_from_lengths = list(map(len, non_flat_scope_idx_from))
