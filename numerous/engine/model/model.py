@@ -223,19 +223,6 @@ class Model:
 
         # 4. Create self.states_idx and self.derivatives_idx
         # Fixes each variable's var_idx (position), updates variables[].idx_in_scope
-        '''
-        for var_idx, variable in enumerate(self.scope_variables.values()):
-            self.scope_variables_flat.append(variable.value)
-            variable.position = var_idx
-            self.variables[variable.id].idx_in_scope.append(var_idx)
-            if variable.type.value == VariableType.STATE.value:
-                self.states_idx.append(var_idx)
-            elif variable.type.value == VariableType.DERIVATIVE.value:
-                self.derivatives_idx.append(var_idx)
-
-        self.states_idx = np.array(self.states_idx)
-        self.derivatives_idx = np.array(self.derivatives_idx)
-        '''
         self.scope_variables_flat = np.fromiter(
             map(operator.attrgetter('value'), self.scope_variables.values()),
             np.float64)
@@ -251,7 +238,6 @@ class Model:
         self.derivatives_idx = np.fromiter(map(_fst, filter(
             _snd_is_derivative, enumerate(self.scope_variables.values()))),
                                            np.int64)
-
 
         def __get_mapping__idx(variable):
             if variable.mapping:
@@ -289,7 +275,6 @@ class Model:
         self.non_flat_scope_idx = np.array(non_flat_scope_idx)
         self.flat_scope_idx_from = np.array([x for xs in self.non_flat_scope_idx_from for x in xs])
         self.flat_scope_idx = np.array([x for xs in self.non_flat_scope_idx for x in xs])
-
         self.sum_idx = np.array(sum_idx)
         self.sum_mapped = np.array(sum_mapped)
         self.sum_mapped_idx = np.array(sum_mapped_idx)
