@@ -76,4 +76,129 @@ class Simulation:
     def __init_step(self):
         [x.initialize(simulation=self) for x in self.model.callbacks]
 
+    def solve(self):
+        """
+        solve the model.
+
+        Returns
+        -------
+        Solution : 'OdeSoulution'
+                returns the most recent OdeSolution from scipy
+
+        """
+
+        self.__init_step()  # initialize
+
+        result_status = "Success"
+        stop_condition = False
+        sol = None
+        event_steps = 0
+        try:
+            for t in tqdm(self.time[0:-1]):
+                step_not_finished = True
+                current_timestamp = t
+                while step_not_finished:
+                    t_eval = np.linspace(current_timestamp, t + self.delta_t, self.num_inner + 1)
+
+                    sol = solve_ivp(self.__func, (current_timestamp, t + self.delta_t), y0=self.y0, t_eval=t_eval,
+                                    events=self.events, dense_output=True,
+                                    **self.options)
+                    step_not_finished = False
+                    event_step = sol.status == 1
+
+                    if sol.status == 0:
+                        current_timestamp = t + self.delta_t
+                    if event_step:
+                        event_id = np.nonzero([x.size > 0 for x in sol.t_events])[0][0]
+                        # solution stuck
+                        stop_condition = False
+                        if (abs(sol.t_events[event_id][0] - current_timestamp) < 1e-6):
+                            event_steps += 1
+                        else:
+                            event_steps = 0
+
+                        if event_steps > self.max_event_steps:
+                            stop_condition = True
+                        current_timestamp = sol.t_events[event_id][0]
+
+                        step_not_finished = True
+
+                        self.__end_step(sol.sol(current_timestamp), current_timestamp, event_id=event_id)
+                    else:
+                        if sol.success:
+                            self.__end_step(sol.y[:, -1], current_timestamp)
+                        else:
+                            result_status = sol.message
+                    if stop_condition:
+                        break
+                if stop_condition:
+                    result_status = "Stopping condition reached"
+                    break
+        except Exception as e:
+            raise e
+        finally:
+            self.info.update({"Solving status": result_status})
+            list(map(lambda x: x.finalize(), self.model.callbacks))
+        return sol
+
+    def compute_eq(self, array_2d):
+        for eq_idx in range(self.eq_count):
+            self.model.compiled_eq[eq_idx](array_2d[eq_idx])
+
+    def __func(self, _t, y):
+        self.info["Number of Equation Calls"] += 1
+        self.t_scope.update_states(y)
+        self.model.global_vars[0] = _t
+
+        self.compute()
+
+        return self.t_scope.get_derivatives()
+
+    def compute(self):
+        if self.sum_mapping:
+            sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var,
+                         self.model.sum_mapped)
+        mapping_ = True
+        b1 = np.copy(self.t_scope.flat_var)
+        while mapping_:
+            mapping_from(self.model.compiled_eq_idxs, self.model.index_helper, self.model.scope_variables_2d,
+                         self.t_scope.flat_var, self.model.flat_scope_idx_from,
+                         self.model.flat_scope_idx_from_idx_1, self.model.flat_scope_idx_from_idx_2)
+
+            self.compute_eq(self.model.scope_variables_2d)
+
+            mapping_to(self.model.compiled_eq_idxs, self.t_scope.flat_var, self.model.flat_scope_idx,
+                       self.model.scope_variables_2d,
+                       self.model.index_helper,
+                       self.model.flat_scope_idx_idx_1, self.model.flat_scope_idx_idx_2)
+
+            if self.sum_mapping:
+                sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var,
+                             self.model.sum_mapped)
+
+            mapping_ = not np.allclose(b1, self.t_scope.flat_var)
+            b1 = np.copy(self.t_scope.flat_var)
+
+    def stateless__func(self, _t, _):
+        self.info["Number of Equation Calls"] += 1
+        self.compute()
+        return np.array([])
+
+
+@njit(parallel=True)
+def mapping_to(compiled_eq_idxs, flat_var, flat_scope_idx, scope_variables_2d, index_helper, id1, id2):
+    for i in prange(compiled_eq_idxs.shape[0]):
+        eq_idx = compiled_eq_idxs[i]
+        flat_var[flat_scope_idx[id1[i]:id2[i]]] = \
+            scope_variables_2d[eq_idx][index_helper[i]]
+
+
+@njit(parallel=True)
+def mapping_from(compiled_eq_idxs, index_helper, scope_variables_2d, flat_var, flat_scope_idx_from, id1, id2):
+    for i in prange(compiled_eq_idxs.shape[0]):
+        eq_idx = compiled_eq_idxs[i]
+        scope_variables_2d[eq_idx][index_helper[i]] \
+            = flat_var[flat_scope_idx_from[id1[i]:id2[i]]]
+
+
 
