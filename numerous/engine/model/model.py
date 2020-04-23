@@ -3,8 +3,8 @@ import copy
 import time
 import uuid
 import numpy as np
-from numba import prange, njit
-
+from numba import prange
+from numerous.utils.compile_decorators import basic_njit as njit
 from engine.model.equation_parser import Equation_Parser
 from numerous.engine.system.connector import Connector
 from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
@@ -496,60 +496,62 @@ class Model:
 
     def get_diff_(self):
         # Method that returns the differentiation function
+        obj = self
+
 
         @njit
-        def compute_eq(self, array_2d):
+        def compute_eq(array_2d):
             for eq_idx in range(self.eq_count):
-                self.model.compiled_eq[eq_idx](array_2d[eq_idx])
+                obj.model.compiled_eq[eq_idx](array_2d[eq_idx])
 
         @njit
-        def compute(self):
-            if self.sum_mapping:
-                sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var,
-                             self.model.sum_mapped)
+        def compute():
+            if obj.sum_mapping:
+                sum_mappings(obj.model.sum_idx, obj.model.sum_mapped_idx, obj.t_scope.flat_var,
+                             obj.model.sum_mapped)
             mapping_ = True
-            b1 = np.copy(self.t_scope.flat_var)
+            b1 = np.copy(obj.t_scope.flat_var)
             while mapping_:
-                mapping_from(self.model.compiled_eq_idxs, self.model.index_helper, self.model.scope_variables_2d,
-                             self.model.length, self.t_scope.flat_var, self.model.flat_scope_idx_from,
-                             self.model.flat_scope_idx_from_idx_1, self.model.flat_scope_idx_from_idx_2)
+                mapping_from(obj.model.compiled_eq_idxs, obj.model.index_helper, obj.model.scope_variables_2d,
+                             obj.model.length, obj.t_scope.flat_var, obj.model.flat_scope_idx_from,
+                             obj.model.flat_scope_idx_from_idx_1, obj.model.flat_scope_idx_from_idx_2)
 
-                self.compute_eq(self.model.scope_variables_2d)
+                obj.compute_eq(obj.model.scope_variables_2d)
 
-                mapping_to(self.model.compiled_eq_idxs, self.t_scope.flat_var, self.model.flat_scope_idx,
-                           self.model.scope_variables_2d,
-                           self.model.index_helper, self.model.length,
-                           self.model.flat_scope_idx_idx_1, self.model.flat_scope_idx_idx_2)
+                mapping_to(obj.model.compiled_eq_idxs, obj.t_scope.flat_var, obj.model.flat_scope_idx,
+                           obj.model.scope_variables_2d,
+                           obj.model.index_helper, obj.model.length,
+                           obj.model.flat_scope_idx_idx_1, obj.model.flat_scope_idx_idx_2)
 
-                if self.sum_mapping:
-                    sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var,
-                                 self.model.sum_mapped)
+                if obj.sum_mapping:
+                    sum_mappings(obj.model.sum_idx, obj.model.sum_mapped_idx, obj.t_scope.flat_var,
+                                 obj.model.sum_mapped)
 
-                mapping_ = not np.allclose(b1, self.t_scope.flat_var)
-                b1 = np.copy(self.t_scope.flat_var)
+                mapping_ = not np.allclose(b1, obj.t_scope.flat_var)
+                b1 = np.copy(obj.t_scope.flat_var)
 
         @njit
-        def __func(self, _t, y):
+        def __func(_t, y):
 
-            self.info["Number of Equation Calls"] += 1
+            obj.info["Number of Equation Calls"] += 1
 
-            self.t_scope.update_states(y)
-            self.model.global_vars[0] = _t
+            obj.t_scope.update_states(y)
+            obj.model.global_vars[0] = _t
 
-            self.compute()
+            obj.compute()
 
-            return self.t_scope.get_derivatives()
+            return obj.t_scope.get_derivatives()
 
-        return self.__func
+        return __func
 
-@njit()
+@njit
 def mapping_to(compiled_eq_idxs, flat_var, flat_scope_idx, scope_variables_2d, index_helper, length, id1, id2):
     for i in prange(compiled_eq_idxs.shape[0]):
         eq_idx = compiled_eq_idxs[i]
         flat_var[flat_scope_idx[id1[i]:id2[i]]] = \
             scope_variables_2d[eq_idx][index_helper[i]][:length[i]]
 
-@njit()
+@njit
 def mapping_from(compiled_eq_idxs, index_helper, scope_variables_2d, length, flat_var, flat_scope_idx_from, id1,
                  id2):
     for i in prange(compiled_eq_idxs.shape[0]):
@@ -557,7 +559,7 @@ def mapping_from(compiled_eq_idxs, index_helper, scope_variables_2d, length, fla
         scope_variables_2d[eq_idx][index_helper[i]][:length[i]] \
             = flat_var[flat_scope_idx_from[id1[i]:id2[i]]]
 
-@njit()
+@njit
 def sum_mappings(sum_idx, sum_mapped_idx, flat_var, sum_mapped):
     for i in prange(sum_idx.shape[0]):
         idx = sum_idx[i]
