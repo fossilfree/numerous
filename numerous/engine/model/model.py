@@ -529,7 +529,7 @@ class Model:
                 b1 = np.copy(self.t_scope.flat_var)
 
         @njit
-        def __func(self, _t, y, state):
+        def __func(self, _t, y):
 
             self.info["Number of Equation Calls"] += 1
 
@@ -540,7 +540,7 @@ class Model:
 
             return self.t_scope.get_derivatives()
 
-        return __func
+        return self.__func
 
 @njit()
 def mapping_to(compiled_eq_idxs, flat_var, flat_scope_idx, scope_variables_2d, index_helper, length, id1, id2):
