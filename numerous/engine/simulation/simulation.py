@@ -1,7 +1,6 @@
 from datetime import datetime
 import time
 import numpy as np
-
 from engine.simulation.solvers.base_solver import SolverType
 from engine.simulation.solvers.ivp_solver import IVP_solver
 
@@ -56,7 +55,7 @@ class Simulation:
         self.solver.callbacks = [x.callbacks for x in sorted(model.callbacks,
                                                       key=lambda callback: callback.priority,
                                                       reverse=True)]
-        self.t_scope = self.model._get_initial_scope_copy()
+
         self.solver.register_endstep(self.__end_step)
 
 
@@ -77,7 +76,7 @@ class Simulation:
 
 
     def __end_step(self, y, t, event_id=None, **kwargs):
-        self.model.update_model_from_scope(self.t_scope)
+        self.model.update_model_from_scope()
         self.model.sychronize_scope()
         for callback in self.callbacks:
             callback(t, self.model.path_variables, **kwargs)
