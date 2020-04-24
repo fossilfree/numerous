@@ -1,3 +1,6 @@
+import sys
+sys.path.append('/home/artem/Source/numerous-solver')
+
 from numerous_solver.interfaces import Model as NSM
 from numerous_solver.compile_decorators import basic_njit as njit
 from datetime import datetime

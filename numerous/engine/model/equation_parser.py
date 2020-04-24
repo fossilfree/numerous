@@ -43,6 +43,7 @@ class Equation_Parser():
                 p = re.compile(r" +def +\w+(?=\()")
                 eq_text = p.sub("def eval", eq_text)
 
+                # eq_text = eq_text.replace("@Equation()", "@guvectorize(['void(float64[:])'],'(n)',nopython=True)")
                 eq_text = eq_text.replace("@Equation()", "@simple_vectorize")
                 # eq_text = eq_text.replace("self,", "global_variables,")
                 eq_text = eq_text.replace("self,", "")
@@ -64,7 +65,7 @@ class Equation_Parser():
                 if eq_id in compiled_equations_ids:
                     compiled_equations_idx.append(compiled_equations_ids.index(eq_id))
                     continue
-                eq_text = "def eq_body():\n   def eval(scope):\n      pass\n   return eval"
+                eq_text = "def eq_body():\n   def eval(self,scope):\n      pass\n   return eval"
             tree = ast.parse(eq_text, mode='exec')
             code = compile(tree, filename='test', mode='exec')
             namespace = {}
@@ -74,5 +75,5 @@ class Equation_Parser():
 
             compiled_eq.append(list(namespace.values())[1]())
 
-        return np.array(compiled_eq),np.array(compiled_equations_idx)
+        return np.array(compiled_eq),np.array(compiled_equations_idx,dtype=np.int32)
 
