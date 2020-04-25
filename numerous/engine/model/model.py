@@ -1,18 +1,16 @@
-import copy
-
+import ast
+import itertools
+import numpy as np
+import operator
+import re
 import time
 import uuid
-import numpy as np
-import ast
-import re
 from numerous.engine.system.connector import Connector
 from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
-from numerous.engine.scope import Scope, TemporaryScopeWrapper, ScopeVariable
+from numerous.engine.scope import Scope, TemporaryScopeWrapper3d, ScopeVariable
 from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 from numerous.engine.system.subsystem import Subsystem
 from numerous.engine.variables import VariableType
-
-import operator
 
 class ModelNamespace:
 
@@ -91,7 +89,6 @@ class Model:
         self.mapping_to = []
         self.sum_mapping_from = []
         self.sum_mapping_to = []
-        self.scope_variables_flat = []
         self.states_idx = []
         self.derivatives_idx = []
         self.scope_to_variables_idx = []
@@ -107,14 +104,10 @@ class Model:
         for key, value in self.historian.get_last_state():
             self.scope_variables[key] = value
 
-    def sychronize_scope(self):
-        """
-        Synchronize the values between ScopeVariables and SystemVariables
-        """
-        self.scope_variables_flat = self.flat_variables[self.scope_to_variables_idx.flatten()]
-
     def _get_initial_scope_copy(self):
-        return TemporaryScopeWrapper(self.scope_variables_flat.copy(), self.states_idx, self.derivatives_idx)
+        return TemporaryScopeWrapper3d(self.scope_vars_3d.copy(),
+                                       self.state_idxs_3d,
+                                       self.deriv_idxs_3d)
 
     def __add_item(self, item):
         model_namespaces = []
@@ -235,7 +228,7 @@ class Model:
         self.states_idx = np.array(self.states_idx)
         self.derivatives_idx = np.array(self.derivatives_idx)
         '''
-        self.scope_variables_flat = np.fromiter(
+        scope_variables_flat = np.fromiter(
             map(operator.attrgetter('value'), self.scope_variables.values()),
             np.float64)
         for var_idx, var in enumerate(self.scope_variables.values()):
@@ -258,7 +251,9 @@ class Model:
             else:
                 return variable.idx_in_scope[0]
 
-        # Two lookup arrays: <(scope_idx, var_idx_in_scope)>, var_idx>
+        # maps flat var_idx to scope_idx
+        self.var_idx_to_scope_idx = np.full_like(scope_variables_flat, -1, int)
+        self.var_idx_to_scope_idx_from = np.full_like(scope_variables_flat, -1, int)
         non_flat_scope_idx_from = [[] for _ in range(len(self.synchronized_scope))]
         non_flat_scope_idx = [[] for _ in range(len(self.synchronized_scope))]
         sum_idx = []
@@ -269,6 +264,8 @@ class Model:
             for scope_var_idx, var in enumerate(scope.variables.values()):
                 _from = __get_mapping__idx(self.variables[var.mapping_id]) \
                     if var.mapping_id else var.position
+                self.var_idx_to_scope_idx[var.position] = scope_idx
+                self.var_idx_to_scope_idx_from[_from] = scope_idx
                 non_flat_scope_idx_from[scope_idx].append(_from)
                 non_flat_scope_idx[scope_idx].append(var.position)
                 if not var.mapping_id and var.sum_mapping_ids:
@@ -278,10 +275,6 @@ class Model:
                                    for _var_id in var.sum_mapping_ids]
                     end_idx = len(sum_mapped)
                     sum_mapped_idx.append([start_idx, end_idx])
-
-        ##indication of ending
-        # non_flat_scope_idx_from.append(np.array([-1]))
-        # non_flat_scope_idx.append(np.array([-1]))
 
         # TODO @Artem: document these
         self.non_flat_scope_idx_from = np.array(non_flat_scope_idx_from)
@@ -309,41 +302,40 @@ class Model:
         self.flat_variables_ids = [x.id for x in self.variables.values()]
         self.scope_to_variables_idx = np.array([x.idx_in_scope for x in self.variables.values()])
 
-        self.scope_variables_flat = np.array(self.scope_variables_flat, dtype=np.float64, order='C')
-
         # (eq_idx, ind_eq_access) -> scope_variable.value
 
         # self.index_helper: how many of the same item type do we have?
         # max_scope_len: maximum number of variables one item can have
         # not correcly sized, as np.object
         # (eq_idx, ind_of_eq_access, var_index_in_scope) -> scope_variable.value
-        eq_count = len(self.compiled_eq)
         self.index_helper = np.empty(len(self.synchronized_scope), int)
         max_scope_len = max(map(len, self.non_flat_scope_idx_from))
-        self.scope_variables_2d = np.ones([eq_count, np.max(self.num_uses_per_eq), max_scope_len])
+        self.scope_vars_3d = np.zeros([len(self.compiled_eq), np.max(self.num_uses_per_eq), max_scope_len])
 
         self.length = np.array(list(map(len, self.non_flat_scope_idx)))
 
         _index_helper_counter = np.zeros(len(self.compiled_eq), int)
-        # self.scope_variables_2d = list(map(np.empty, zip(self.num_uses_per_eq, self.num_vars_per_eq)))
+        # self.scope_vars_3d = list(map(np.empty, zip(self.num_uses_per_eq, self.num_vars_per_eq)))
         for scope_idx, (_flat_scope_idx_from, eq_idx) in enumerate(
                 zip(self.non_flat_scope_idx_from, self.compiled_eq_idxs)):
             _idx = _index_helper_counter[eq_idx]
             _index_helper_counter[eq_idx] += 1
             self.index_helper[scope_idx] = _idx
             _l = self.num_vars_per_eq[eq_idx]
-            self.scope_variables_2d[eq_idx][_idx,:_l] = self.scope_variables_flat[_flat_scope_idx_from]
-            self.scope_variables_2d[eq_idx][_idx,_l:] = 0
-
+            self.scope_vars_3d[eq_idx][_idx,:_l] = scope_variables_flat[_flat_scope_idx_from]
+        self.state_idxs_3d = self._var_idxs_to_3d_idxs(self.states_idx, False)
+        self.deriv_idxs_3d = self._var_idxs_to_3d_idxs(self.derivatives_idx, False)
+        _differing_idxs = self.flat_scope_idx != self.flat_scope_idx_from
+        self.var_idxs_pos_3d = self._var_idxs_to_3d_idxs(np.arange(len(self.variables)), False)
+        self.differing_idxs_from_flat = self.flat_scope_idx_from[_differing_idxs]
+        self.differing_idxs_pos_flat = self.flat_scope_idx[_differing_idxs]
+        self.differing_idxs_from_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_from_flat, False)
+        self.differing_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_pos_flat, False)
 
         # This can be done more efficiently using two num_scopes-sized view of a (num_scopes+1)-sized array
-        flat_scope_idx_from_lengths = list(map(len, non_flat_scope_idx_from))
-        self.flat_scope_idx_from_idx_2 = np.cumsum(flat_scope_idx_from_lengths)
-        self.flat_scope_idx_from_idx_1 = np.hstack([[0], self.flat_scope_idx_from_idx_2[:-1]])
-
-        flat_scope_idx_lengths = list(map(len, non_flat_scope_idx))
-        self.flat_scope_idx_idx_2 = np.cumsum(flat_scope_idx_lengths)
-        self.flat_scope_idx_idx_1 = np.hstack([[0], self.flat_scope_idx_idx_2[:-1]])
+        _flat_scope_idx_slices_lengths = list(map(len, non_flat_scope_idx))
+        self.flat_scope_idx_slices_end = np.cumsum(_flat_scope_idx_slices_lengths)
+        self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
 
         assemble_finish = time.time()
         self.info.update({"Assemble time": assemble_finish - assemble_start})
@@ -352,6 +344,18 @@ class Model:
         self.info.update({"Number of equation scopes": len(self.equation_dict)})
         self.info.update({"Number of equations": len(self.compiled_eq)})
         self.info.update({"Solver": {}})
+
+    def _var_idxs_to_3d_idxs(self, var_idxs, _from):
+        _scope_idxs = (self.var_idx_to_scope_idx_from if _from else
+                       self.var_idx_to_scope_idx)[var_idxs]
+        _non_flat_scope_idx = self.non_flat_scope_idx_from if _from else self.non_flat_scope_idx
+        return (
+            self.compiled_eq_idxs[_scope_idxs],
+            self.index_helper[_scope_idxs],
+            np.fromiter(itertools.starmap(list.index,
+                                          zip(map(list, _non_flat_scope_idx[_scope_idxs]),
+                                              var_idxs)),
+                        int))
 
     def get_states(self):
         """
@@ -417,7 +421,7 @@ class Model:
                     self.path_variables[state_name].value = list(last_states[state_name].values())[0]
                 if self.path_variables[state_name].type.value is VariableType.STATE.value:
                     r1.append(list(last_states[state_name].values())[0])
-        self.scope_variables_flat[self.states_idx] = np.array(r1)
+        self.scope_vars_3d[self.state_idxs_3d] = r1
 
     @property
     def states_as_vector(self):
@@ -429,10 +433,7 @@ class Model:
         state_values : array of state values
 
         """
-        if self.states_idx.size == 0:
-            return np.array([])
-        else:
-            return self.scope_variables_flat[self.states_idx]
+        return self.scope_vars_3d[self.state_idxs_3d]
 
     def get_variable_path(self, id, item):
         for (variable, namespace) in item.get_variables():
@@ -569,14 +570,12 @@ class Model:
 
     def update_model_from_scope(self, t_scope):
         '''
-        Reads t_scope.flat_var, and converts flat variables to non-flat variables.
-        Called by __end_step (called by Simulation.solve() ) and steady_state_solver.solve()
-        Called every step.
+        Updates all the values of all Variable instances stored in
+        `self.variables` with the values stored in `t_scope`.
         '''
-        self.flat_variables = t_scope.flat_var[self.scope_to_variables_idx].sum(1)
-        for var_id, flat_var in zip(self.flat_variables_ids, self.flat_variables):
-            self.variables[var_id].value = flat_var
-
-    # def update_flat_scope(self,t_scope):
-    #     for variable in self.path_variables.values():
-    #         self.scope_variables_flat[variable.idx_in_scope] = variable.value
+        # consider using a view here
+        # @Artem: TODO: implement summing
+        #self.flat_variables = t_scope.flat_var[self.scope_to_variables_idx].sum(1)
+        for variable, value in zip(self.variables.values(),
+                                   t_scope.scope_vars_3d[self.var_idxs_pos_3d]):
+            variable.value = value

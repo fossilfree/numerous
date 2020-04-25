@@ -50,6 +50,7 @@ class Simulation:
         self.max_event_steps = max_event_steps
         self.info = model.info["Solver"]
         self.info["Number of Equation Calls"] = 0
+
         self.y0 = self.model.states_as_vector
         if self.y0.size == 0:
             self.__func = self.stateless__func
@@ -61,13 +62,12 @@ class Simulation:
 
     def __end_step(self, y, t, event_id=None, **kwargs):
         self.model.update_model_from_scope(self.t_scope)
-        self.model.sychronize_scope()
         for callback in self.callbacks:
             callback(t, self.model.path_variables, **kwargs)
         if event_id is not None:
             list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
-        # self.model.update_flat_scope(self.t_scope)
 
+        self.model.scope_vars_3d[:] = self.t_scope.scope_vars_3d
         self.y0 = self.model.states_as_vector
 
     def __init_step(self):
@@ -140,7 +140,7 @@ class Simulation:
 
     def compute_eq(self, array_2d):
         for eq_idx in range(self.eq_count):
-            self.model.compiled_eq[eq_idx](array_2d[eq_idx])
+            self.model.compiled_eq[eq_idx](array_2d[eq_idx,:self.model.num_uses_per_eq[eq_idx]])
 
     def __func(self, _t, y):
         self.info["Number of Equation Calls"] += 1
@@ -153,54 +153,31 @@ class Simulation:
 
     def compute(self):
         if self.sum_mapping:
-            sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var,
+            sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.scope_vars_3d,
                          self.model.sum_mapped)
         mapping_ = True
-        b1 = np.copy(self.t_scope.flat_var)
+        prev_scope_vars_3d = self.t_scope.scope_vars_3d.copy()
         while mapping_:
-            mapping_from(self.model.compiled_eq_idxs, self.model.index_helper, self.model.scope_variables_2d,
-                         self.model.length, self.t_scope.flat_var, self.model.flat_scope_idx_from,
-                         self.model.flat_scope_idx_from_idx_1, self.model.flat_scope_idx_from_idx_2)
-
-            self.compute_eq(self.model.scope_variables_2d)
-
-            mapping_to(self.model.compiled_eq_idxs, self.t_scope.flat_var, self.model.flat_scope_idx,
-                       self.model.scope_variables_2d,
-                       self.model.index_helper, self.model.length,
-                       self.model.flat_scope_idx_idx_1, self.model.flat_scope_idx_idx_2)
+            self.t_scope.scope_vars_3d[self.model.differing_idxs_pos_3d] = self.t_scope.scope_vars_3d[self.model.differing_idxs_from_3d]
+            self.compute_eq(self.t_scope.scope_vars_3d)
 
             if self.sum_mapping:
-                sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.flat_var,
+                sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.scope_vars_3d,
                              self.model.sum_mapped)
 
-            mapping_ = not np.allclose(b1, self.t_scope.flat_var)
-            b1 = np.copy(self.t_scope.flat_var)
+            mapping_ = not np.allclose(prev_scope_vars_3d, self.t_scope.scope_vars_3d)
+            np.copyto(prev_scope_vars_3d, self.t_scope.scope_vars_3d)
 
     def stateless__func(self, _t, _):
         self.info["Number of Equation Calls"] += 1
         self.compute()
         return np.array([])
 
-
-@njit(parallel=True)
-def mapping_to(compiled_eq_idxs, flat_var, flat_scope_idx, scope_variables_2d, index_helper, length, id1, id2):
-    for i in prange(compiled_eq_idxs.shape[0]):
-        eq_idx = compiled_eq_idxs[i]
-        flat_var[flat_scope_idx[id1[i]:id2[i]]] = \
-            scope_variables_2d[eq_idx][index_helper[i]][:length[i]]
-
-
-@njit(parallel=True)
-def mapping_from(compiled_eq_idxs, index_helper, scope_variables_2d, length, flat_var, flat_scope_idx_from, id1, id2):
-    for i in prange(compiled_eq_idxs.shape[0]):
-        eq_idx = compiled_eq_idxs[i]
-        scope_variables_2d[eq_idx][index_helper[i]][:length[i]] \
-            = flat_var[flat_scope_idx_from[id1[i]:id2[i]]]
-
-
-@njit(parallel=True)
+#@njit(parallel=True)
 def sum_mappings(sum_idx, sum_mapped_idx, flat_var, sum_mapped):
+    raise ValueError
     for i in prange(sum_idx.shape[0]):
         idx = sum_idx[i]
         slice_ = sum_mapped_idx[i]
         flat_var[idx] = np.sum(flat_var[sum_mapped[slice_[0]:slice_[1]]])
+
