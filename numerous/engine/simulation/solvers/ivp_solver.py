@@ -66,10 +66,10 @@ class IVP_solver(BaseSolver):
 
                             step_not_finished = True
 
-                            self.__end_step(sol.sol(current_timestamp), current_timestamp, event_id=event_id)
+                            self.__end_step(self, sol.sol(current_timestamp), current_timestamp, event_id=event_id)
                         else:
                             if sol.success:
-                                self.__end_step(sol.y[:, -1], current_timestamp)
+                                self.__end_step(self, sol.y[:, -1], current_timestamp)
                             else:
                                 result_status = sol.message
                         if stop_condition:
