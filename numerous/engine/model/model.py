@@ -1,9 +1,12 @@
+import ast
 import copy
 
 import time
 import uuid
 import numpy as np
 from numba import prange, jitclass
+
+from engine.model.numba_model import NumbaModel, numba_model_spec
 from numerous.utils.compile_decorators import basic_njit as njit
 from engine.model.equation_parser import Equation_Parser
 from numerous.engine.system.connector import Connector
@@ -489,126 +492,24 @@ class Model:
 
     # Method that returns the differentiation function
     def get_diff_(self):
-        compiled_eq = self.compiled_eq
-        eq_count =  len(compiled_eq)
-
-        from numba import int32,float64,int64,boolean
-        from numba import types
-        spec = [
-            ('sum_idx', int32[:]),
-            ('sum_mapped_idx', int32[:]),
-            ('sum_mapped', float64[:]),
-            ('sum_mapping', boolean),
-            ('compiled_eq_idxs', int32[:]),
-            ('index_helper', int64[:]),
-            ('length', int64[:]),
-            ('flat_scope_idx_from', int64[:]),
-            ('flat_scope_idx_from_idx_1', int64[:]),
-            ('flat_scope_idx_from_idx_2', int64[:]),
-            ('flat_scope_idx', int64[:]),
-            ('flat_scope_idx_idx_1', int64[:]),
-            ('flat_scope_idx_idx_2', int64[:]),
-            ('flat_var', float64[:]),
-            ('state_idx', int32[:]),
-            ('deriv_idx', int32[:]),
-            ('global_vars', float64[:]),
-            ('scope_variables_2d', float64[:,:,:]),
-        ]
-
-
-
-        class NumbaModel:
-            def __init__(self,
-                         sum_idx, sum_mapped_idx,
-                        sum_mapped, compiled_eq_idxs,
-                        index_helper, length, flat_scope_idx_from,
-                        flat_scope_idx_from_idx_1,flat_scope_idx_from_idx_2,
-                        flat_scope_idx, flat_scope_idx_idx_1,flat_scope_idx_idx_2,
-                        flat_scope_var, state_idx,deriv_idx, global_vars,scope_variables_2d):
-                self.sum_idx = sum_idx
-                self.sum_mapped_idx = sum_mapped_idx
-                self.sum_mapped = sum_mapped
-                self.sum_mapping = sum_idx.size != 0
-                self.compiled_eq_idxs = compiled_eq_idxs
-                self.index_helper = index_helper
-                self.length = length
-                self.flat_scope_idx_from = flat_scope_idx_from
-                self.flat_scope_idx_from_idx_1 = flat_scope_idx_from_idx_1
-                self.flat_scope_idx_from_idx_2 = flat_scope_idx_from_idx_2
-                self.flat_scope_idx = flat_scope_idx
-                self.flat_scope_idx_idx_1 = flat_scope_idx_idx_1
-                self.flat_scope_idx_idx_2 = flat_scope_idx_idx_2
-                self.flat_var = flat_scope_var
-                self.state_idx = state_idx
-                self.deriv_idx = deriv_idx
-                self.global_vars = global_vars
-                self.scope_variables_2d = scope_variables_2d
-
-
-            def update_states(self, state_values):
-                self.flat_var[self.state_idx] = state_values
-
-            def compute_eq(self,array_2d):
-                self.func0(array_2d[0])
-                for eq_idx in range(eq_count):
-                    compiled_eq[eq_idx](array_2d[eq_idx])
-
-            def update_states_idx(self, state_value, idx):
-                self.flat_var[idx] = state_value
-
-            def get_derivatives(self):
-                return self.flat_var[self.deriv_idx]
-
-            def get_derivatives_idx(self, idx):
-                return self.flat_var[idx]
-
-            def compute(self):
-                # if self.sum_mapping:
-                #     sum_mappings(self.sum_idx, self.sum_mapped_idx,
-                #                  self.flat_var,
-                #                  self.sum_mapped)
-                mapping_ = True
-                b1 = np.copy(self.flat_var)
-                while mapping_:
-                    mapping_from(self.compiled_eq_idxs, self.index_helper,
-                                 self.scope_variables_2d,
-                                 self.length, self.flat_var,
-                                 self.flat_scope_idx_from,
-                                 self.flat_scope_idx_from_idx_1,
-                                 self.flat_scope_idx_from_idx_2)
-
-                    self.compute_eq(self.scope_variables_2d)
-
-                    mapping_to(self.compiled_eq_idxs, self.flat_var,
-                               self.flat_scope_idx,
-                               self.scope_variables_2d,
-                               self.index_helper, self.length,
-                               self.flat_scope_idx_idx_1, self.flat_scope_idx_idx_2)
-
-                    # if self.sum_mapping:
-                    #     sum_mappings(self.sum_idx, self.sum_mapped_idx,
-                    #                  self.flat_var,
-                    #                  self.sum_mapped)
-
-                    mapping_ = not np.allclose(b1, self.flat_var)
-                    b1 = np.copy(self.flat_var)
-
-            def func(self, _t, y):
-
-                self.update_states(y)
-                self.global_vars[0] = _t
-                self.compute()
-
-                return self.get_derivatives()
-
+        eq_text = ""
         for i,function in enumerate(self.compiled_eq):
-            setattr(NumbaModel, 'func'+str(i), function)
+            method_name ='func'+str(i)
+            setattr(NumbaModel, method_name, function)
+            eq_text += "      self."+method_name +"(array_2d["+str(i) + "])\n"
+        eq_text = "def eval():\n   def compute_eq(self,array_2d):\n"+eq_text+"   return compute_eq"
+        tree = ast.parse(eq_text, mode='exec')
+        code = compile(tree, filename='test', mode='exec')
+        namespace = {}
+        exec(code, namespace)
+        setattr(NumbaModel, 'compute_eq', list(namespace.values())[1]())
 
-        @jitclass(spec)
+
+        @jitclass(numba_model_spec)
         class NumbaModel2(NumbaModel):
             pass
 
-        NM = NumbaModel2(self.sum_idx, self.sum_mapped_idx,
+        NM = NumbaModel2(len(self.compiled_eq), self.sum_idx, self.sum_mapped_idx,
                         self.sum_mapped, self.compiled_eq_idxs,
                         self.index_helper, self.length, self.flat_scope_idx_from,
                         self.flat_scope_idx_from_idx_1,self.flat_scope_idx_from_idx_2,
@@ -619,27 +520,3 @@ class Model:
 
         return NM.func
 
-
-@njit
-def mapping_to(compiled_eq_idxs, flat_var, flat_scope_idx, scope_variables_2d, index_helper, length, id1, id2):
-    for i in prange(compiled_eq_idxs.shape[0]):
-        eq_idx = compiled_eq_idxs[i]
-        flat_var[flat_scope_idx[id1[i]:id2[i]]] = \
-            scope_variables_2d[eq_idx][index_helper[i]][:length[i]]
-
-
-@njit
-def mapping_from(compiled_eq_idxs, index_helper, scope_variables_2d, length, flat_var, flat_scope_idx_from, id1,
-                 id2):
-    for i in prange(compiled_eq_idxs.shape[0]):
-        eq_idx = compiled_eq_idxs[i]
-        scope_variables_2d[eq_idx][index_helper[i]][:length[i]] \
-            = flat_var[flat_scope_idx_from[id1[i]:id2[i]]]
-
-
-@njit
-def sum_mappings(sum_idx, sum_mapped_idx, flat_var, sum_mapped):
-    for i in prange(sum_idx.shape[0]):
-        idx = sum_idx[i]
-        slice_ = sum_mapped_idx[i]
-        flat_var[idx] = np.sum(flat_var[sum_mapped[slice_[0]:slice_[1]]])

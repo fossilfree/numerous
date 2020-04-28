@@ -74,12 +74,10 @@ class Simulation:
         [x.initialize(simulation=self) for x in self.model.callbacks]
 
 
-    def __end_step(self, y, t, event_id=None, **kwargs):
-        self.model.update_model_from_scope()
-        self.model.sychronize_scope()
+    def __end_step(self, solver, y, t, event_id=None, **kwargs):
+        solver.y0 = y
+
         for callback in self.callbacks:
             callback(t, self.model.path_variables, **kwargs)
-        if event_id is not None:
-            list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
-
-        self.y0 = self.model.states_as_vector
+        # if event_id is not None:
+        #     list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
