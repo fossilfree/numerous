@@ -50,13 +50,25 @@ class Simulation:
         self.start_datetime = start_datetime
         self.info = model.info["Solver"]
         self.info["Number of Equation Calls"] = 0
-        self.solver.set_state_vector(self.model.states_as_vector)
-        self.solver.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
-        self.solver.callbacks = [x.callbacks for x in sorted(model.callbacks,
+
+        self.y0 = self.model.states_as_vector
+        if self.y0.size == 0:
+            self.__func = self.stateless__func
+        self.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
+        self.callbacks = [x.callbacks for x in sorted(model.callbacks,
                                                       key=lambda callback: callback.priority,
                                                       reverse=True)]
 
-        self.solver.register_endstep(self.__end_step)
+
+    def __end_step(self, y, t, event_id=None, **kwargs):
+        self.model.update_model_from_scope(self.t_scope)
+        for callback in self.callbacks:
+            callback(t, self.model.path_variables, **kwargs)
+        if event_id is not None:
+            list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
+
+        self.model.scope_vars_3d[:] = self.t_scope.scope_vars_3d
+        self.y0 = self.model.states_as_vector
 
 
 
@@ -71,16 +83,46 @@ class Simulation:
             list(map(lambda x: x.finalize(), self.model.callbacks))
         return sol
 
-    def __init_step(self):
-        [x.initialize(simulation=self) for x in self.model.callbacks]
+    def compute_eq(self, array_2d):
+        for eq_idx in range(self.eq_count):
+            self.model.compiled_eq[eq_idx](array_2d[eq_idx,:self.model.num_uses_per_eq[eq_idx]])
 
+    def __func(self, _t, y):
+        self.info["Number of Equation Calls"] += 1
+        self.t_scope.update_states(y)
+        self.model.global_vars[0] = _t
 
-    def __end_step(self, solver, y, t, event_id=None, **kwargs):
-        solver.y0 = y
+        self.compute()
 
-        for callback in self.callbacks:
-            callback(t, self.model.path_variables, **kwargs)
+        return self.t_scope.get_derivatives()
 
-        # if event_id is not None:
-        #     list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
+    def compute(self):
+        if self.sum_mapping:
+            sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.scope_vars_3d,
+                         self.model.sum_mapped)
+        mapping_ = True
+        prev_scope_vars_3d = self.t_scope.scope_vars_3d.copy()
+        while mapping_:
+
+            self.t_scope.scope_vars_3d[self.model.differing_idxs_pos_3d] = self.t_scope.scope_vars_3d[self.model.differing_idxs_from_3d]
+            self.compute_eq(self.t_scope.scope_vars_3d)
+           
+            if self.sum_mapping:
+                sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.scope_vars_3d,
+                             self.model.sum_mapped)
+
+            mapping_ = not np.allclose(prev_scope_vars_3d, self.t_scope.scope_vars_3d)
+            np.copyto(prev_scope_vars_3d, self.t_scope.scope_vars_3d)
+
+    def stateless__func(self, _t, _):
+        self.info["Number of Equation Calls"] += 1
+        self.compute()
+        return np.array([])
+
+def sum_mappings(sum_idx, sum_mapped_idx, flat_var, sum_mapped):
+    raise ValueError
+    for i in prange(sum_idx.shape[0]):
+        idx = sum_idx[i]
+        slice_ = sum_mapped_idx[i]
+        flat_var[idx] = np.sum(flat_var[sum_mapped[slice_[0]:slice_[1]]])
 
