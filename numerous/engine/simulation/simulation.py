@@ -158,9 +158,10 @@ class Simulation:
         mapping_ = True
         prev_scope_vars_3d = self.t_scope.scope_vars_3d.copy()
         while mapping_:
+
             self.t_scope.scope_vars_3d[self.model.differing_idxs_pos_3d] = self.t_scope.scope_vars_3d[self.model.differing_idxs_from_3d]
             self.compute_eq(self.t_scope.scope_vars_3d)
-
+           
             if self.sum_mapping:
                 sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.scope_vars_3d,
                              self.model.sum_mapped)
@@ -173,7 +174,6 @@ class Simulation:
         self.compute()
         return np.array([])
 
-#@njit(parallel=True)
 def sum_mappings(sum_idx, sum_mapped_idx, flat_var, sum_mapped):
     raise ValueError
     for i in prange(sum_idx.shape[0]):

@@ -5,12 +5,14 @@ import operator
 import re
 import time
 import uuid
+
 from numerous.engine.system.connector import Connector
 from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
 from numerous.engine.scope import Scope, TemporaryScopeWrapper3d, ScopeVariable
 from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 from numerous.engine.system.subsystem import Subsystem
 from numerous.engine.variables import VariableType
+
 
 class ModelNamespace:
 
@@ -244,7 +246,6 @@ class Model:
             _snd_is_derivative, enumerate(self.scope_variables.values()))),
                                            np.int64)
 
-
         def __get_mapping__idx(variable):
             if variable.mapping:
                 return __get_mapping__idx(variable.mapping)
@@ -254,6 +255,7 @@ class Model:
         # maps flat var_idx to scope_idx
         self.var_idx_to_scope_idx = np.full_like(scope_variables_flat, -1, int)
         self.var_idx_to_scope_idx_from = np.full_like(scope_variables_flat, -1, int)
+
         non_flat_scope_idx_from = [[] for _ in range(len(self.synchronized_scope))]
         non_flat_scope_idx = [[] for _ in range(len(self.synchronized_scope))]
         sum_idx = []
@@ -264,8 +266,10 @@ class Model:
             for scope_var_idx, var in enumerate(scope.variables.values()):
                 _from = __get_mapping__idx(self.variables[var.mapping_id]) \
                     if var.mapping_id else var.position
+                
                 self.var_idx_to_scope_idx[var.position] = scope_idx
                 self.var_idx_to_scope_idx_from[_from] = scope_idx
+
                 non_flat_scope_idx_from[scope_idx].append(_from)
                 non_flat_scope_idx[scope_idx].append(var.position)
                 if not var.mapping_id and var.sum_mapping_ids:
@@ -281,7 +285,6 @@ class Model:
         self.non_flat_scope_idx = np.array(non_flat_scope_idx)
         self.flat_scope_idx_from = np.array([x for xs in self.non_flat_scope_idx_from for x in xs])
         self.flat_scope_idx = np.array([x for xs in self.non_flat_scope_idx for x in xs])
-
         self.sum_idx = np.array(sum_idx)
         self.sum_mapped = np.array(sum_mapped)
         self.sum_mapped_idx = np.array(sum_mapped_idx)
@@ -321,6 +324,7 @@ class Model:
             _idx = _index_helper_counter[eq_idx]
             _index_helper_counter[eq_idx] += 1
             self.index_helper[scope_idx] = _idx
+
             _l = self.num_vars_per_eq[eq_idx]
             self.scope_vars_3d[eq_idx][_idx,:_l] = scope_variables_flat[_flat_scope_idx_from]
         self.state_idxs_3d = self._var_idxs_to_3d_idxs(self.states_idx, False)
@@ -336,6 +340,7 @@ class Model:
         _flat_scope_idx_slices_lengths = list(map(len, non_flat_scope_idx))
         self.flat_scope_idx_slices_end = np.cumsum(_flat_scope_idx_slices_lengths)
         self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
+
 
         assemble_finish = time.time()
         self.info.update({"Assemble time": assemble_finish - assemble_start})
@@ -579,3 +584,4 @@ class Model:
         for variable, value in zip(self.variables.values(),
                                    t_scope.scope_vars_3d[self.var_idxs_pos_3d]):
             variable.value = value
+
