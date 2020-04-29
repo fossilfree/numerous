@@ -61,13 +61,12 @@ class Simulation:
 
     def __end_step(self, y, t, event_id=None, **kwargs):
         self.model.update_model_from_scope(self.t_scope)
-        self.model.sychronize_scope()
         for callback in self.callbacks:
             callback(t, self.model.path_variables, **kwargs)
         if event_id is not None:
             list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
-        # self.model.update_flat_scope(self.t_scope)
 
+        self.model.scope_vars_3d[:] = self.t_scope.scope_vars_3d
         self.y0 = self.model.states_as_vector
 
     def __init_step(self):
