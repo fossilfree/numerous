@@ -1,14 +1,11 @@
-import ast
 import copy
 
 import time
 import uuid
 import numpy as np
-from numba import prange, jitclass
-
-from engine.model.numba_model import NumbaModel, numba_model_spec
-from numerous.utils.compile_decorators import basic_njit as njit
-from engine.model.equation_parser import Equation_Parser
+import ast
+import re
+from numba.typed import List
 from numerous.engine.system.connector import Connector
 from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
 from numerous.engine.scope import Scope, ScopeVariable
@@ -16,6 +13,7 @@ from numerous.engine.simulation.simulation_callbacks import _SimulationCallback,
 from numerous.engine.system.subsystem import Subsystem
 from numerous.engine.variables import VariableType
 
+import operator
 
 class ModelNamespace:
 
@@ -58,7 +56,6 @@ class ModelAssembler:
 
         return variables, scope_select, equation_dict
 
-
 class Model:
     """
      The model object traverses the system to collect all information needed to pass to the solver
@@ -81,7 +78,7 @@ class Model:
         self.flat_scope_idx_from = None
 
         self.global_variables_tags = ['time']
-        self.global_vars = np.array([0], dtype=np.float64)
+        self.global_vars = np.array([0])
 
         self.equation_dict = {}
         self.scope_variables = {}
@@ -117,6 +114,8 @@ class Model:
         """
         self.scope_variables_flat = self.flat_variables[self.scope_to_variables_idx.flatten()]
 
+    def _get_initial_scope_copy(self):
+        return TemporaryScopeWrapper(copy.copy(self.scope_variables_flat), self.states_idx, self.derivatives_idx)
 
     def __add_item(self, item):
         model_namespaces = []
@@ -155,8 +154,72 @@ class Model:
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
 
-        equation_parser = Equation_Parser()
-        self.compiled_eq, self.compiled_eq_idxs = equation_parser.parse(self)
+        # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping
+        # self.synchronized_scope to compiled_eq (by index)
+        # TODO @Artem: parsing logic should go somewhere else
+        compiled_equations_idx = []
+        compiled_equations_ids = [] # As equations can be non-unique, but they should?
+        for tt in self.synchronized_scope.keys():
+            eq_text = ""
+            eq_id = ""
+            # id of eq in list of eq)
+            if self.equation_dict[tt]:
+                if self.equation_dict[tt][0].id in compiled_equations_ids:
+                    compiled_equations_idx.append(compiled_equations_ids.index(self.equation_dict[tt][0].id))
+                    continue
+                lines = self.equation_dict[tt][0].lines.split("\n")
+                eq_id = self.equation_dict[tt][0].id
+                non_empty_lines = [line for line in lines if line.strip() != ""]
+
+                string_without_empty_lines = ""
+                for line in non_empty_lines:
+                    string_without_empty_lines += line + "\n"
+
+                eq_text = string_without_empty_lines + " \n"
+
+                eq_text = eq_text.replace("global_variables)", ")")
+                for i, tag in enumerate(self.global_variables_tags):
+                    p = re.compile(r"(?<=global_variables)\." + tag + r"(?=[^\w])")
+                    eq_text = p.sub("[" + str(i) + "]", eq_text)
+                for i, var in enumerate(self.synchronized_scope[tt].variables.values()):
+                    p = re.compile(r"(?<=scope)\." + var.tag + r"(?=[^\w])")
+                    eq_text = p.sub("[" + str(i) + "]", eq_text)
+
+                p = re.compile(r" +def +\w+(?=\()")
+                eq_text = p.sub("def eval", eq_text)
+
+                eq_text = eq_text.replace("@Equation()", "@guvectorize(['void(float64[:])'],'(n)',nopython=True)")
+                # eq_text = eq_text.replace("self,", "global_variables,")
+                eq_text = eq_text.replace("self,", "")
+                eq_text = eq_text.strip()
+                idx = eq_text.find('\n') + 1
+                # spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
+                # eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + " " * spaces_len \
+                #           + 'from numba import njit\n' + eq_text[idx:]
+                str_list = []
+                for line in eq_text.splitlines():
+                    str_list.append('   '+line)
+                eq_text_2 = '\n'.join(str_list)
+
+
+                eq_text = eq_text_2 + "\n   return eval"
+                eq_text = "def test():\n   from numba import guvectorize\n   import numpy as np\n"+eq_text
+            else:
+                eq_id = "empty_equation"
+                if eq_id in compiled_equations_ids:
+                    compiled_equations_idx.append(compiled_equations_ids.index(eq_id))
+                    continue
+                eq_text = "def test():\n   def eval(scope):\n      pass\n   return eval"
+            tree = ast.parse(eq_text, mode='exec')
+            code = compile(tree, filename='test', mode='exec')
+            namespace = {}
+            exec(code, namespace)
+            compiled_equations_idx.append(len(compiled_equations_ids))
+            compiled_equations_ids.append(eq_id)
+
+            self.compiled_eq.append(list(namespace.values())[1]())
+        self.compiled_eq = np.array(self.compiled_eq)
+        self.compiled_eq_idxs = np.array(compiled_equations_idx)
 
         # 4. Create self.states_idx and self.derivatives_idx
         # Fixes each variable's var_idx (position), updates variables[].idx_in_scope
@@ -169,8 +232,8 @@ class Model:
             elif variable.type.value == VariableType.DERIVATIVE.value:
                 self.derivatives_idx.append(var_idx)
 
-        self.states_idx = np.array(self.states_idx,dtype=np.int32)
-        self.derivatives_idx = np.array(self.derivatives_idx, dtype=np.int32)
+        self.states_idx = np.array(self.states_idx)
+        self.derivatives_idx = np.array(self.derivatives_idx)
 
         def __get_mapping__idx(variable):
             if variable.mapping:
@@ -199,12 +262,16 @@ class Model:
                     end_idx = len(sum_mapped)
                     sum_mapped_idx.append([start_idx, end_idx])
 
+        ##indication of ending
+        # flat_scope_idx_from.append(np.array([-1]))
+        # flat_scope_idx.append(np.array([-1]))
+
         # TODO @Artem: document these
         self.flat_scope_idx_from = np.array(flat_scope_idx_from)
         self.flat_scope_idx = np.array(flat_scope_idx)
-        self.sum_idx = np.array(sum_idx, dtype=np.int32)
-        self.sum_mapped = np.array(sum_mapped, dtype=np.float64)
-        self.sum_mapped_idx = np.array(sum_mapped_idx, dtype=np.int32)
+        self.sum_idx = np.array(sum_idx)
+        self.sum_mapped = np.array(sum_mapped)
+        self.sum_mapped_idx = np.array(sum_mapped_idx)
 
         # 6. Compute self.path_variables
         for variable in self.variables.values():
@@ -235,11 +302,11 @@ class Model:
         # (eq_idx, ind_of_eq_access, var_index_in_scope) -> scope_variable.value
         # Artem: are you sure "ones" is what you want for padding on axis 1?
         #        Otherwise the padding 5 lines down can be removed
-        self.scope_variables_2d = np.ones([eq_count, np.max(self.index_helper) + 1, max_scope_len],dtype=np.float64)
+        self.scope_variables_2d = np.ones([eq_count, np.max(self.index_helper)+1, max_scope_len])
         for eq_idx, _ind_of_eq_access in zip(self.compiled_eq_idxs, self.index_helper):
             _vals = _scope_variables_2d[eq_idx][_ind_of_eq_access]
-            self.scope_variables_2d[eq_idx, _ind_of_eq_access, :len(_vals)] = _vals
-            self.scope_variables_2d[eq_idx, _ind_of_eq_access, len(_vals):] = 0
+            self.scope_variables_2d[eq_idx,_ind_of_eq_access,:len(_vals)] = _vals
+            self.scope_variables_2d[eq_idx,_ind_of_eq_access,len(_vals):] = 0
 
         self.length = np.array(list(map(len, self.flat_scope_idx)))
 
@@ -248,7 +315,7 @@ class Model:
         self.flat_scope_idx_from_idx_1 = np.hstack([[0], self.flat_scope_idx_from_idx_2[:-1]])
         flat_scope_idx_from_flat = np.empty(sum(flat_scope_idx_from_lengths), int)
         for start_idx, item in zip(self.flat_scope_idx_from_idx_1, flat_scope_idx_from):
-            flat_scope_idx_from_flat[start_idx:start_idx + len(item)] = item
+            flat_scope_idx_from_flat[start_idx:start_idx+len(item)] = item
         self.flat_scope_idx_from = flat_scope_idx_from_flat
 
         flat_scope_idx_lengths = list(map(len, flat_scope_idx))
@@ -256,7 +323,7 @@ class Model:
         self.flat_scope_idx_idx_1 = np.hstack([[0], self.flat_scope_idx_idx_2[:-1]])
         flat_scope_idx_flat = np.empty(sum(flat_scope_idx_lengths), int)
         for start_idx, item in zip(self.flat_scope_idx_idx_1, flat_scope_idx):
-            flat_scope_idx_flat[start_idx:start_idx + len(item)] = item
+            flat_scope_idx_flat[start_idx:start_idx+len(item)] = item
         self.flat_scope_idx = flat_scope_idx_flat
 
         assemble_finish = time.time()
@@ -277,7 +344,8 @@ class Model:
         """
         return self.scope_variables[self.states_idx]
 
-    def update_states(self, y):
+
+    def update_states(self,y):
         self.scope_variables[self.states_idx] = y
 
     def validate(self):
@@ -308,9 +376,9 @@ class Model:
         for scope in self.synchronized_scope.values():
             for var in scope.variables.values():
                 if var.mapping_id:
-                    var.mapping = self.scope_variables[var.mapping_id]
+                    var.mapping=self.scope_variables[var.mapping_id]
                 if var.sum_mapping_id:
-                    var.sum_mapping = self.scope_variables[var.sum_mapping_id]
+                    var.sum_mapping=self.scope_variables[var.sum_mapping_id]
 
     def restore_state(self, timestep=-1):
         """
@@ -480,43 +548,16 @@ class Model:
             namespaces_list.append(model_namespace)
         return namespaces_list
 
-    def update_model_from_scope(self):
+    def update_model_from_scope(self, t_scope):
         '''
         Reads t_scope.flat_var, and converts flat variables to non-flat variables.
         Called by __end_step (called by Simulation.solve() ) and steady_state_solver.solve()
         Called every step.
         '''
-        self.flat_variables = self.scope_variables_flat[self.scope_to_variables_idx].sum(1)
+        self.flat_variables = t_scope.flat_var[self.scope_to_variables_idx].sum(1)
         for i, v_id in enumerate(self.flat_variables_ids):
             self.variables[v_id].value = self.flat_variables[i]
 
-    # Method that returns the differentiation function
-    def get_diff_(self):
-        eq_text = ""
-        for i,function in enumerate(self.compiled_eq):
-            method_name ='func'+str(i)
-            setattr(NumbaModel, method_name, function)
-            eq_text += "      self."+method_name +"(array_2d["+str(i) + "])\n"
-        eq_text = "def eval():\n   def compute_eq(self,array_2d):\n"+eq_text+"   return compute_eq"
-        tree = ast.parse(eq_text, mode='exec')
-        code = compile(tree, filename='test', mode='exec')
-        namespace = {}
-        exec(code, namespace)
-        setattr(NumbaModel, 'compute_eq', list(namespace.values())[1]())
-
-
-        @jitclass(numba_model_spec)
-        class NumbaModel2(NumbaModel):
-            pass
-
-        NM = NumbaModel2(len(self.compiled_eq), self.sum_idx, self.sum_mapped_idx,
-                        self.sum_mapped, self.compiled_eq_idxs,
-                        self.index_helper, self.length, self.flat_scope_idx_from,
-                        self.flat_scope_idx_from_idx_1,self.flat_scope_idx_from_idx_2,
-                        self.flat_scope_idx, self.flat_scope_idx_idx_1,self.flat_scope_idx_idx_2,
-                        self.scope_variables_flat, self.states_idx, self.derivatives_idx,
-                        self.global_vars, self.scope_variables_2d)
-
-
-        return NM.func
-
+    # def update_flat_scope(self,t_scope):
+    #     for variable in self.path_variables.values():
+    #         self.scope_variables_flat[variable.idx_in_scope] = variable.value
