@@ -75,5 +75,5 @@ class Equation_Parser():
 
             compiled_eq.append(list(namespace.values())[1]())
 
-        return np.array(compiled_eq),np.array(compiled_equations_idx,dtype=np.int32)
+        return np.array(compiled_eq),np.array(compiled_equations_idx,dtype=np.int64)
 
