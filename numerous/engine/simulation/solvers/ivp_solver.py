@@ -78,6 +78,7 @@ class IVP_solver(BaseSolver):
                         result_status = "Stopping condition reached"
                         break
         except Exception as e:
+            print(e)
             raise e
         finally:
             return sol, result_status
