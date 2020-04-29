@@ -1,13 +1,13 @@
-from numba import int32, float64, int64, prange, njit,types
+from numba import int32, float64, int64, prange, njit, types
 import numpy as np
 
 numba_model_spec = [
     ('eq_count', int32),
     ('scope_vars_3d', float64[:, :, :]),
-    ('state_idxs_3d', types.Tuple((int64[:],int64[:],int64[:]))),
-    ('deriv_idxs_3d', types.Tuple((int64[:],int64[:],int64[:]))),
-    ('differing_idxs_pos_3d', types.Tuple((int64[:],int64[:],int64[:]))),
-    ('differing_idxs_from_3d', types.Tuple((int64[:],int64[:],int64[:]))),
+    ('state_idxs_3d', types.Tuple((int64[:], int64[:], int64[:]))),
+    ('deriv_idxs_3d', types.Tuple((int64[:], int64[:], int64[:]))),
+    ('differing_idxs_pos_3d', types.Tuple((int64[:], int64[:], int64[:]))),
+    ('differing_idxs_from_3d', types.Tuple((int64[:], int64[:], int64[:]))),
     ('global_vars', float64[:]),
 ]
 
