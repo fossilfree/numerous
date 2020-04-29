@@ -2,10 +2,11 @@ import copy
 
 import time
 import uuid
-import numpy as np
-import ast
-import re
-from numba.typed import List
+from numba import jitclass
+
+from engine.model.equation_parser import Equation_Parser
+from engine.model.numba_model import numba_model_spec, NumbaModel
+
 from numerous.engine.system.connector import Connector
 from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
 from numerous.engine.scope import Scope, TemporaryScopeWrapper3d, ScopeVariable
@@ -79,7 +80,7 @@ class Model:
         self.flat_scope_idx_from = None
 
         self.global_variables_tags = ['time']
-        self.global_vars = np.array([0])
+        self.global_vars = np.array([0],dtype=np.float64)
 
         self.equation_dict = {}
         self.scope_variables = {}
@@ -112,10 +113,6 @@ class Model:
         for scope_var in self.scope_variables.values():
             if scope_var.get_value() != self.variables[scope_var.id].get_value():
                 scope_var.value = self.variables[scope_var.id].get_value()
-
-
-    def _get_initial_scope_copy(self):
-        return TemporaryScopeWrapper(copy.copy(self.scope_variables_flat), self.states_idx, self.derivatives_idx)
 
 
     def __add_item(self, item):
@@ -159,86 +156,27 @@ class Model:
 
         # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping
         # self.synchronized_scope to compiled_eq (by index)
-        # TODO @Artem: parsing logic should go somewhere else
-        compiled_equations_idx = []
-        compiled_equations_ids = [] # As equations can be non-unique, but they should?
-        for tt in self.synchronized_scope.keys():
-            eq_text = ""
-            eq_id = ""
-            # id of eq in list of eq)
-            if self.equation_dict[tt]:
-                if self.equation_dict[tt][0].id in compiled_equations_ids:
-                    compiled_equations_idx.append(compiled_equations_ids.index(self.equation_dict[tt][0].id))
-                    continue
-                lines = self.equation_dict[tt][0].lines.split("\n")
-                eq_id = self.equation_dict[tt][0].id
-                non_empty_lines = [line for line in lines if line.strip() != ""]
-
-                string_without_empty_lines = ""
-                for line in non_empty_lines:
-                    string_without_empty_lines += line + "\n"
-
-                eq_text = string_without_empty_lines + " \n"
-
-                eq_text = eq_text.replace("global_variables)", ")")
-                for i, tag in enumerate(self.global_variables_tags):
-                    p = re.compile(r"(?<=global_variables)\." + tag + r"(?=[^\w])")
-                    eq_text = p.sub("[" + str(i) + "]", eq_text)
-                for i, var in enumerate(self.synchronized_scope[tt].variables.values()):
-                    p = re.compile(r"(?<=scope)\." + var.tag + r"(?=[^\w])")
-                    eq_text = p.sub("[" + str(i) + "]", eq_text)
-
-                p = re.compile(r" +def +\w+(?=\()")
-                eq_text = p.sub("def eval", eq_text)
-
-                eq_text = eq_text.replace("@Equation()", "@guvectorize(['void(float64[:])'],'(n)',nopython=True)")
-                # eq_text = eq_text.replace("self,", "global_variables,")
-                eq_text = eq_text.replace("self,", "")
-                eq_text = eq_text.strip()
-                idx = eq_text.find('\n') + 1
-                # spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
-                # eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + " " * spaces_len \
-                #           + 'from numba import njit\n' + eq_text[idx:]
-                str_list = []
-                for line in eq_text.splitlines():
-                    str_list.append('   '+line)
-                eq_text_2 = '\n'.join(str_list)
-
-
-                eq_text = eq_text_2 + "\n   return eval"
-                eq_text = "def test():\n   from numba import guvectorize\n   import numpy as np\n"+eq_text
-            else:
-                eq_id = "empty_equation"
-                if eq_id in compiled_equations_ids:
-                    compiled_equations_idx.append(compiled_equations_ids.index(eq_id))
-                    continue
-                eq_text = "def test():\n   def eval(scope):\n      pass\n   return eval"
-            tree = ast.parse(eq_text, mode='exec')
-            code = compile(tree, filename='test', mode='exec')
-            namespace = {}
-            exec(code, namespace)
-            compiled_equations_idx.append(len(compiled_equations_ids))
-            compiled_equations_ids.append(eq_id)
-
-            self.compiled_eq.append(list(namespace.values())[1]())
-        self.compiled_eq = np.array(self.compiled_eq)
-        self.compiled_eq_idxs = np.array(compiled_equations_idx)
+        equation_parser = Equation_Parser()
+        self.compiled_eq, self.compiled_eq_idxs = equation_parser.parse(self)
 
 
         # 4. Create self.states_idx and self.derivatives_idx
         # Fixes each variable's var_idx (position), updates variables[].idx_in_scope
-        '''
-        for var_idx, variable in enumerate(self.scope_variables.values()):
-            self.scope_variables_flat.append(variable.value)
-            variable.position = var_idx
-            self.variables[variable.id].idx_in_scope.append(var_idx)
-            if variable.type.value == VariableType.STATE.value:
-                self.states_idx.append(var_idx)
-            elif variable.type.value == VariableType.DERIVATIVE.value:
-                self.derivatives_idx.append(var_idx)
-
-        self.states_idx = np.array(self.states_idx)
-        self.derivatives_idx = np.array(self.derivatives_idx)
+        scope_variables_flat = np.fromiter(
+            map(operator.attrgetter('value'), self.scope_variables.values()),
+            np.float64)
+        for var_idx, var in enumerate(self.scope_variables.values()):
+            var.position = var_idx
+            self.variables[var.id].idx_in_scope.append(var_idx)
+        _fst = operator.itemgetter(0)
+        _snd_is_derivative = lambda var: var[1].type == VariableType.DERIVATIVE
+        _snd_is_state = lambda var: var[1].type == VariableType.STATE
+        self.states_idx = np.fromiter(map(_fst, filter(
+            _snd_is_state, enumerate(self.scope_variables.values()))),
+                                      np.int64)
+        self.derivatives_idx = np.fromiter(map(_fst, filter(
+            _snd_is_derivative, enumerate(self.scope_variables.values()))),
+                                           np.int64)
 
         def __get_mapping__idx(variable):
             if variable.mapping:
@@ -571,10 +509,29 @@ class Model:
         `self.variables` with the values stored in `t_scope`.
         '''
 
-        self.flat_variables = t_scope.flat_var[self.scope_to_variables_idx].sum(1)
-        for i, v_id in enumerate(self.flat_variables_ids):
-            self.variables[v_id].value = self.flat_variables[i]
+    # Method that returns the differentiation function
+    def get_diff_(self):
+        eq_text = ""
+        for i, function in enumerate(self.compiled_eq):
+            method_name = 'func' + str(i)
+            setattr(NumbaModel, method_name, function)
+            eq_text += "      self." \
+                       "" + method_name + "(array_2d[" + str(i) + \
+                       ", :self.num_uses_per_eq[" + str(i)+"]])\n"
+        eq_text = "def eval():\n   def compute_eq(self,array_2d):\n" + eq_text + "   return compute_eq"
+        tree = ast.parse(eq_text, mode='exec')
+        code = compile(tree, filename='test', mode='exec')
+        namespace = {}
+        exec(code, namespace)
+        setattr(NumbaModel, 'compute_eq', list(namespace.values())[1]())
 
-    # def update_flat_scope(self,t_scope):
-    #     for variable in self.path_variables.values():
-    #         self.scope_variables_flat[variable.idx_in_scope] = variable.value
+        @jitclass(numba_model_spec)
+        class NumbaModel2(NumbaModel):
+            pass
+
+        NM = NumbaModel2(len(self.compiled_eq), self.scope_vars_3d,self.state_idxs_3d,self.deriv_idxs_3d,
+                 self.differing_idxs_pos_3d,self.differing_idxs_from_3d,
+                 self.global_vars)
+
+        return NM.func
+
