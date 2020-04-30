@@ -126,7 +126,7 @@ if __name__ == "__main__":
         start = time.time()
         # print(m.states_as_vector)
         # Define simulation
-        s = Simulation(m, t_start=0, t_stop=1, num=int(sys.argv[4]), num_inner=100, max_step=0.1)
+        s = Simulation(m, t_start=0, t_stop=100, num=int(sys.argv[4]), num_inner=100, max_step=0.1)
         #
         # solve simulation
         s.solve()
