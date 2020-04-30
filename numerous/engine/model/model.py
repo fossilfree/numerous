@@ -529,9 +529,10 @@ class Model:
         class NumbaModel2(NumbaModel):
             pass
 
-        NM = NumbaModel2(len(self.compiled_eq), self.scope_vars_3d,self.state_idxs_3d,self.deriv_idxs_3d,
-                 self.differing_idxs_pos_3d,self.differing_idxs_from_3d,
+        # self.scope_vars_3d[0][0][0] = 1000
+        # self.scope_vars_3d[0,0,0] = 1000
+        NM = NumbaModel2(len(self.compiled_eq),self.state_idxs_3d[0].shape[0], self.differing_idxs_pos_3d[0].shape[0],self.scope_vars_3d,self.state_idxs_3d,self.deriv_idxs_3d,
+                 self.differing_idxs_pos_3d,self.differing_idxs_from_3d,self.num_uses_per_eq,
                  self.global_vars)
 
         return NM.func
-
