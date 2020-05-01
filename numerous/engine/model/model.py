@@ -137,6 +137,15 @@ class Model:
         """
         Assembles the model.
         """
+
+        """
+        notation:
+        - _idx for single integers / tuples, 
+        - _idxs for lists / arrays of integers
+        - _pos as counterpart to _from
+        - Using _flat / _3d only as suffix
+
+        """
         assemble_start = time.time()
 
         # 1. Create list of model namespaces
@@ -193,6 +202,7 @@ class Model:
         sum_idx = []
         sum_mapped = []
         sum_mapped_idx = []
+        self.sum_mapping = False
 
         for scope_idx, scope in enumerate(self.synchronized_scope.values()):
             for scope_var_idx, var in enumerate(scope.variables.values()):
@@ -210,18 +220,25 @@ class Model:
                     sum_mapped += [self.variables[_var_id].idx_in_scope[0]
                                    for _var_id in var.sum_mapping_ids]
                     end_idx = len(sum_mapped)
-                    sum_mapped_idx.append([start_idx, end_idx])
+                    sum_mapped_idx.append(range(start_idx, end_idx))
+                    self.sum_mapping = True
 
         ##indication of ending
         # flat_scope_idx_from.append(np.array([-1]))
         # flat_scope_idx.append(np.array([-1]))
 
         # TODO @Artem: document these
-        self.flat_scope_idx_from = np.array(flat_scope_idx_from)
-        self.flat_scope_idx = np.array(flat_scope_idx)
+        self.non_flat_scope_idx_from = np.array(non_flat_scope_idx_from)
+        self.non_flat_scope_idx = np.array(non_flat_scope_idx)
+
+        self.flat_scope_idx_from = np.array([x for xs in self.non_flat_scope_idx_from for x in xs])
+        self.flat_scope_idx = np.array([x for xs in self.non_flat_scope_idx for x in xs])
         self.sum_idx = np.array(sum_idx)
         self.sum_mapped = np.array(sum_mapped)
-        self.sum_mapped_idx = np.array(sum_mapped_idx)
+        if self.sum_mapping:
+            self.sum_slice_idxs = np.array(sum_mapped_idx,dtype = np.int64)
+        else:
+            self.sum_slice_idxs = np.array([[]], dtype=np.int64)
 
         # eq_idx -> #variables used. Can this be deduced earlier in a more elegant way?
         self.num_vars_per_eq = np.fromiter(map(len, self.non_flat_scope_idx), np.int64)[
@@ -245,31 +262,40 @@ class Model:
         # max_scope_len: maximum number of variables one item can have
         # not correcly sized, as np.object
         # (eq_idx, ind_of_eq_access, var_index_in_scope) -> scope_variable.value
-        # Artem: are you sure "ones" is what you want for padding on axis 1?
-        #        Otherwise the padding 5 lines down can be removed
-        self.scope_variables_2d = np.ones([eq_count, np.max(self.index_helper)+1, max_scope_len])
-        for eq_idx, _ind_of_eq_access in zip(self.compiled_eq_idxs, self.index_helper):
-            _vals = _scope_variables_2d[eq_idx][_ind_of_eq_access]
-            self.scope_variables_2d[eq_idx,_ind_of_eq_access,:len(_vals)] = _vals
-            self.scope_variables_2d[eq_idx,_ind_of_eq_access,len(_vals):] = 0
+        self.index_helper = np.empty(len(self.synchronized_scope), int)
+        max_scope_len = max(map(len, self.non_flat_scope_idx_from))
+        self.scope_vars_3d = np.zeros([len(self.compiled_eq), np.max(self.num_uses_per_eq), max_scope_len])
 
-        self.length = np.array(list(map(len, self.flat_scope_idx)))
+        self.length = np.array(list(map(len, self.non_flat_scope_idx)))
 
-        flat_scope_idx_from_lengths = list(map(len, flat_scope_idx_from))
-        self.flat_scope_idx_from_idx_2 = np.cumsum(flat_scope_idx_from_lengths)
-        self.flat_scope_idx_from_idx_1 = np.hstack([[0], self.flat_scope_idx_from_idx_2[:-1]])
-        flat_scope_idx_from_flat = np.empty(sum(flat_scope_idx_from_lengths), int)
-        for start_idx, item in zip(self.flat_scope_idx_from_idx_1, flat_scope_idx_from):
-            flat_scope_idx_from_flat[start_idx:start_idx+len(item)] = item
-        self.flat_scope_idx_from = flat_scope_idx_from_flat
+        _index_helper_counter = np.zeros(len(self.compiled_eq), int)
+        # self.scope_vars_3d = list(map(np.empty, zip(self.num_uses_per_eq, self.num_vars_per_eq)))
+        for scope_idx, (_flat_scope_idx_from, eq_idx) in enumerate(
+                zip(self.non_flat_scope_idx_from, self.compiled_eq_idxs)):
+            _idx = _index_helper_counter[eq_idx]
+            _index_helper_counter[eq_idx] += 1
+            self.index_helper[scope_idx] = _idx
 
-        flat_scope_idx_lengths = list(map(len, flat_scope_idx))
-        self.flat_scope_idx_idx_2 = np.cumsum(flat_scope_idx_lengths)
-        self.flat_scope_idx_idx_1 = np.hstack([[0], self.flat_scope_idx_idx_2[:-1]])
-        flat_scope_idx_flat = np.empty(sum(flat_scope_idx_lengths), int)
-        for start_idx, item in zip(self.flat_scope_idx_idx_1, flat_scope_idx):
-            flat_scope_idx_flat[start_idx:start_idx+len(item)] = item
-        self.flat_scope_idx = flat_scope_idx_flat
+            _l = self.num_vars_per_eq[eq_idx]
+            self.scope_vars_3d[eq_idx][_idx,:_l] = scope_variables_flat[_flat_scope_idx_from]
+        self.state_idxs_3d = self._var_idxs_to_3d_idxs(self.states_idx, False)
+        self.deriv_idxs_3d = self._var_idxs_to_3d_idxs(self.derivatives_idx, False)
+        _differing_idxs = self.flat_scope_idx != self.flat_scope_idx_from
+        self.var_idxs_pos_3d = self._var_idxs_to_3d_idxs(np.arange(len(self.variables)), False)
+        self.differing_idxs_from_flat = self.flat_scope_idx_from[_differing_idxs]
+        self.differing_idxs_pos_flat = self.flat_scope_idx[_differing_idxs]
+        self.differing_idxs_from_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_from_flat, False)
+        self.differing_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_pos_flat, False)
+        self.sum_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.sum_idx, False)
+        self.sum_idxs_sum_3d = self._var_idxs_to_3d_idxs(self.sum_mapped, False)
+
+
+
+        # This can be done more efficiently using two num_scopes-sized view of a (num_scopes+1)-sized array
+        _flat_scope_idx_slices_lengths = list(map(len, non_flat_scope_idx))
+        self.flat_scope_idx_slices_end = np.cumsum(_flat_scope_idx_slices_lengths)
+        self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
+
 
 
         assemble_finish = time.time()
@@ -281,6 +307,9 @@ class Model:
         self.info.update({"Solver": {}})
 
     def _var_idxs_to_3d_idxs(self, var_idxs, _from):
+        if var_idxs.size == 0:
+            return (np.array([],dtype = np.int64),np.array([],dtype = np.int64)
+                    ,np.array([],dtype = np.int64))
         _scope_idxs = (self.var_idx_to_scope_idx_from if _from else
                        self.var_idx_to_scope_idx)[var_idxs]
         _non_flat_scope_idx = self.non_flat_scope_idx_from if _from else self.non_flat_scope_idx
@@ -526,13 +555,14 @@ class Model:
         setattr(NumbaModel, 'compute_eq', list(namespace.values())[1]())
 
         @jitclass(numba_model_spec)
-        class NumbaModel2(NumbaModel):
+        class NumbaModel_instance(NumbaModel):
             pass
 
-        # self.scope_vars_3d[0][0][0] = 1000
-        # self.scope_vars_3d[0,0,0] = 1000
-        NM = NumbaModel2(len(self.compiled_eq),self.state_idxs_3d[0].shape[0], self.differing_idxs_pos_3d[0].shape[0],self.scope_vars_3d,self.state_idxs_3d,self.deriv_idxs_3d,
-                 self.differing_idxs_pos_3d,self.differing_idxs_from_3d,self.num_uses_per_eq,
-                 self.global_vars)
+        NM_instance = NumbaModel_instance(len(self.compiled_eq),self.state_idxs_3d[0].shape[0],
+                 self.differing_idxs_pos_3d[0].shape[0],self.scope_vars_3d,self.state_idxs_3d,
+                 self.deriv_idxs_3d,self.differing_idxs_pos_3d,self.differing_idxs_from_3d,
+                 self.num_uses_per_eq,self.sum_idxs_pos_3d,self.sum_idxs_sum_3d,
+                 self.sum_slice_idxs,self.sum_mapping,self.global_vars)
 
-        return NM.func
+        return NM_instance.func
+

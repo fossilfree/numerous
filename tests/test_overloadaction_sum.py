@@ -12,6 +12,7 @@ class Item1(Item, EquationBase):
         super(Item1, self).__init__(tag)
         self.t1 = self.create_namespace('t1')
         self.add_state('x', 1)
+        self.add_state('x_2', 1)
         self.add_state('t', 0)
         self.t1.add_equations([self])
 
@@ -19,6 +20,7 @@ class Item1(Item, EquationBase):
     def eval(self, scope):
         scope.t_dot = 1
         scope.x_dot = -1 * np.exp(-1 * scope.t)
+        scope.x_2_dot = -1 * np.exp(-1 * scope.t)
 
 
 
@@ -27,16 +29,22 @@ class Subsystem1(Subsystem, EquationBase):
         super(Subsystem1, self).__init__(tag)
         self.t1 = self.create_namespace('t1')
         self.add_parameter('x_dot_mod', 0)
+        self.add_parameter('x_2_dot_mod', 0)
         self.t1.add_equations([self])
         self.register_items([item1])
 
         item1.t1.x_dot += self.t1.x_dot_mod
         item1.t1.x_dot += item1.t1.x_dot
+
+        item1.t1.x_2_dot += self.t1.x_2_dot_mod
+        item1.t1.x_2_dot += item1.t1.x_2_dot
+
         print(self.t1.x_dot_mod)
 
     @Equation()
     def eval(self, scope):
         scope.x_dot_mod = -1
+        scope.x_2_dot_mod = -1
 
 
 @pytest.fixture
