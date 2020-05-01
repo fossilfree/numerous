@@ -134,6 +134,15 @@ class Model:
         """
         Assembles the model.
         """
+
+        """
+        notation:
+        - _idx for single integers / tuples, 
+        - _idxs for lists / arrays of integers
+        - _pos as counterpart to _from
+        - Using _flat / _3d only as suffix
+
+        """
         assemble_start = time.time()
         # 1. Create list of model namespaces
         model_namespaces = [_ns
@@ -187,6 +196,7 @@ class Model:
         sum_idx = []
         sum_mapped = []
         sum_mapped_idx = []
+        self.sum_mapping = False
 
         for scope_idx, scope in enumerate(self.synchronized_scope.values()):
             for scope_var_idx, var in enumerate(scope.variables.values()):
@@ -204,16 +214,23 @@ class Model:
                     sum_mapped += [self.variables[_var_id].idx_in_scope[0]
                                    for _var_id in var.sum_mapping_ids]
                     end_idx = len(sum_mapped)
-                    sum_mapped_idx.append([start_idx, end_idx])
+                    sum_mapped_idx.append(range(start_idx, end_idx))
+                    self.sum_mapping = True
 
         # TODO @Artem: document these
         self.non_flat_scope_idx_from = np.array(non_flat_scope_idx_from)
         self.non_flat_scope_idx = np.array(non_flat_scope_idx)
+
         self.flat_scope_idx_from = np.array([x for xs in self.non_flat_scope_idx_from for x in xs])
         self.flat_scope_idx = np.array([x for xs in self.non_flat_scope_idx for x in xs])
+
+
         self.sum_idx = np.array(sum_idx)
         self.sum_mapped = np.array(sum_mapped)
-        self.sum_mapped_idx = np.array(sum_mapped_idx)
+        if self.sum_mapping:
+            self.sum_slice_idxs = np.array(sum_mapped_idx,dtype = np.int64)
+        else:
+            self.sum_slice_idxs = np.array([[]], dtype=np.int64)
 
         # eq_idx -> #variables used. Can this be deduced earlier in a more elegant way?
         self.num_vars_per_eq = np.fromiter(map(len, self.non_flat_scope_idx), np.int64)[
@@ -261,6 +278,10 @@ class Model:
         self.differing_idxs_pos_flat = self.flat_scope_idx[_differing_idxs]
         self.differing_idxs_from_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_from_flat, False)
         self.differing_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_pos_flat, False)
+        self.sum_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.sum_idx, False)
+        self.sum_idxs_sum_3d = self._var_idxs_to_3d_idxs(self.sum_mapped, False)
+
+
 
         # This can be done more efficiently using two num_scopes-sized view of a (num_scopes+1)-sized array
         _flat_scope_idx_slices_lengths = list(map(len, non_flat_scope_idx))
@@ -277,6 +298,9 @@ class Model:
         self.info.update({"Solver": {}})
 
     def _var_idxs_to_3d_idxs(self, var_idxs, _from):
+        if var_idxs.size == 0:
+            return (np.array([],dtype = np.int64),np.array([],dtype = np.int64)
+                    ,np.array([],dtype = np.int64))
         _scope_idxs = (self.var_idx_to_scope_idx_from if _from else
                        self.var_idx_to_scope_idx)[var_idxs]
         _non_flat_scope_idx = self.non_flat_scope_idx_from if _from else self.non_flat_scope_idx
@@ -528,13 +552,13 @@ class Model:
         setattr(NumbaModel, 'compute_eq', list(namespace.values())[1]())
 
         @jitclass(numba_model_spec)
-        class NumbaModel2(NumbaModel):
+        class NumbaModel_instance(NumbaModel):
             pass
 
-        # self.scope_vars_3d[0][0][0] = 1000
-        # self.scope_vars_3d[0,0,0] = 1000
-        NM = NumbaModel2(len(self.compiled_eq),self.state_idxs_3d[0].shape[0], self.differing_idxs_pos_3d[0].shape[0],self.scope_vars_3d,self.state_idxs_3d,self.deriv_idxs_3d,
-                 self.differing_idxs_pos_3d,self.differing_idxs_from_3d,self.num_uses_per_eq,
-                 self.global_vars)
+        NM_instance = NumbaModel_instance(len(self.compiled_eq),self.state_idxs_3d[0].shape[0],
+                 self.differing_idxs_pos_3d[0].shape[0],self.scope_vars_3d,self.state_idxs_3d,
+                 self.deriv_idxs_3d,self.differing_idxs_pos_3d,self.differing_idxs_from_3d,
+                 self.num_uses_per_eq,self.sum_idxs_pos_3d,self.sum_idxs_sum_3d,
+                 self.sum_slice_idxs,self.sum_mapping,self.global_vars)
 
-        return NM.func
+        return NM_instance.func

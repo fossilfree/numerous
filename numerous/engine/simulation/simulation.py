@@ -51,7 +51,7 @@ class Simulation:
         self.info["Number of Equation Calls"] = 0
         self.solver.set_state_vector(self.model.states_as_vector)
         self.solver.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
-        self.solver.callbacks = [x.callbacks for x in sorted(model.callbacks,
+        self.callbacks = [x.callbacks for x in sorted(model.callbacks,
                                                       key=lambda callback: callback.priority,
                                                       reverse=True)]
 
