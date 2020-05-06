@@ -4,7 +4,7 @@ from scipy.integrate import solve_ivp
 from tqdm import tqdm
 import numpy as np
 
-from engine.simulation.solvers.base_solver import BaseSolver
+from numerous.engine.simulation.solvers.base_solver import BaseSolver
 
 
 """
