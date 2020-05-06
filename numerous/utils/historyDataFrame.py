@@ -104,6 +104,7 @@ class SimpleHistoryDataFrame(HistoryDataFrame):
         self.ix = 0
         self.var_list = None
 
+
     def update(self, time, variables):
         # variables[dict_key_idx["S1.item1.t1.x"]] = 10
         varix = 1
