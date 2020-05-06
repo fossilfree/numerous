@@ -13,7 +13,8 @@ numba_model_spec = [
     ('num_uses_per_eq', int64[:]),
     ('sum_idxs_pos_3d', types.Tuple((int64[:], int64[:], int64[:]))),
     ('sum_idxs_sum_3d', types.Tuple((int64[:], int64[:], int64[:]))),
-    ('sum_slice_idxs', int64[:,:]),
+    ('sum_slice_idxs', int64[:]),
+    ('sum_slice_idxs_len', int64[:]),
     ('sum_mapping', boolean),
     ('global_vars', float64[:]),
 ]
@@ -22,7 +23,7 @@ numba_model_spec = [
 class NumbaModel:
     def __init__(self, eq_count, number_of_states, number_of_mappings, scope_vars_3d, state_idxs_3d, deriv_idxs_3d,
                  differing_idxs_pos_3d, differing_idxs_from_3d,num_uses_per_eq,
-                 sum_idxs_pos_3d,sum_idxs_sum_3d,sum_slice_idxs,sum_mapping,
+                 sum_idxs_pos_3d,sum_idxs_sum_3d,sum_slice_idxs,sum_slice_idxs_len,sum_mapping,
                  global_vars):
         self.eq_count = eq_count
         self.number_of_states = number_of_states
@@ -36,6 +37,7 @@ class NumbaModel:
         self.sum_idxs_pos_3d = sum_idxs_pos_3d
         self.sum_idxs_sum_3d = sum_idxs_sum_3d
         self.sum_slice_idxs = sum_slice_idxs
+        self.sum_slice_idxs_len = sum_slice_idxs_len
         self.sum_mapping = sum_mapping
         self.global_vars = global_vars
 
@@ -54,13 +56,21 @@ class NumbaModel:
         for i in range(self.number_of_states):
             result.append(self.scope_vars_3d[self.deriv_idxs_3d[0][i]][self.deriv_idxs_3d[1][i]][self.deriv_idxs_3d[2][i]])
         return result
+
+    def get_states(self):
+        result = []
+        for i in range(self.number_of_states):
+            result.append(self.scope_vars_3d[self.state_idxs_3d[0][i]][self.state_idxs_3d[1][i]][self.state_idxs_3d[2][i]])
+        return result
+
+
     def get_derivatives_idx(self, idx_3d):
         return self.scope_vars_3d[idx_3d]
 
     def compute(self):
         if self.sum_mapping:
             sum_mappings(self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
-                         self.sum_slice_idxs, self.scope_vars_3d)
+                         self.sum_slice_idxs, self.scope_vars_3d,self.sum_slice_idxs_len)
 
         mapping_ = True
         prev_scope_vars_3d = self.scope_vars_3d.copy()
@@ -72,7 +82,7 @@ class NumbaModel:
 
             if self.sum_mapping:
                 sum_mappings(self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
-                             self.sum_slice_idxs, self.scope_vars_3d)
+                             self.sum_slice_idxs, self.scope_vars_3d,self.sum_slice_idxs_len)
 
             mapping_ = not np.all(np.abs(prev_scope_vars_3d - self.scope_vars_3d) < 1e-6)
             prev_scope_vars_3d = np.copy(self.scope_vars_3d)
@@ -88,9 +98,11 @@ class NumbaModel:
 
 @njit
 def sum_mappings(sum_idxs_pos_3d, sum_idxs_sum_3d,
-                 sum_slice_idxs, scope_vars_3d):
-    for i in range(sum_slice_idxs.shape[0]):
-        scope_vars_3d[sum_idxs_pos_3d[0][i]][sum_idxs_pos_3d[1][i]][sum_idxs_pos_3d[2][i]] = 0
-        for j in sum_slice_idxs[i]:
-            scope_vars_3d[sum_idxs_pos_3d[0][i]][sum_idxs_pos_3d[1][i]][sum_idxs_pos_3d[2][i]] \
-                += scope_vars_3d[sum_idxs_sum_3d[0][j]][sum_idxs_sum_3d[1][j]][sum_idxs_sum_3d[2][j]]
+                 sum_slice_idxs, scope_vars_3d,sum_slice_idxs_len):
+    idx_sum = 0
+    for i, len_ in enumerate(sum_slice_idxs_len):
+        sum_ = 0
+        for j in sum_slice_idxs[idx_sum:idx_sum+len_]:
+            sum_ += scope_vars_3d[sum_idxs_sum_3d[0][j]][sum_idxs_sum_3d[1][j]][sum_idxs_sum_3d[2][j]]
+        idx_sum += len_
+        scope_vars_3d[sum_idxs_pos_3d[0][i]][sum_idxs_pos_3d[1][i]][sum_idxs_pos_3d[2][i]] = sum_

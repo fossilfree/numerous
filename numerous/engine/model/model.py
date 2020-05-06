@@ -4,9 +4,9 @@ import time
 import uuid
 from numba import jitclass
 
-from engine.model.equation_parser import Equation_Parser
-from engine.model.numba_model import numba_model_spec, NumbaModel
 
+from numerous.engine.model.equation_parser import Equation_Parser
+from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
 from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
 from numerous.engine.scope import Scope, TemporaryScopeWrapper3d, ScopeVariable
@@ -202,6 +202,7 @@ class Model:
         sum_idx = []
         sum_mapped = []
         sum_mapped_idx = []
+        sum_mapped_idx_len = []
         self.sum_mapping = False
 
         for scope_idx, scope in enumerate(self.synchronized_scope.values()):
@@ -220,7 +221,8 @@ class Model:
                     sum_mapped += [self.variables[_var_id].idx_in_scope[0]
                                    for _var_id in var.sum_mapping_ids]
                     end_idx = len(sum_mapped)
-                    sum_mapped_idx.append(range(start_idx, end_idx))
+                    sum_mapped_idx = sum_mapped_idx+list(range(start_idx, end_idx))
+                    sum_mapped_idx_len.append(end_idx - start_idx)
                     self.sum_mapping = True
 
         ##indication of ending
@@ -235,10 +237,11 @@ class Model:
         self.flat_scope_idx = np.array([x for xs in self.non_flat_scope_idx for x in xs])
         self.sum_idx = np.array(sum_idx)
         self.sum_mapped = np.array(sum_mapped)
+        self.sum_mapped_idxs_len = np.array(sum_mapped_idx_len, dtype=np.int64)
         if self.sum_mapping:
             self.sum_slice_idxs = np.array(sum_mapped_idx,dtype = np.int64)
         else:
-            self.sum_slice_idxs = np.array([[]], dtype=np.int64)
+            self.sum_slice_idxs = np.array([], dtype=np.int64)
 
         # eq_idx -> #variables used. Can this be deduced earlier in a more elegant way?
         self.num_vars_per_eq = np.fromiter(map(len, self.non_flat_scope_idx), np.int64)[
@@ -540,14 +543,6 @@ class Model:
             namespaces_list.append(model_namespace)
         return namespaces_list
 
-<<<<<<< HEAD
-    def update_model_from_scope(self, t_scope):
-        '''
-        Updates all the values of all Variable instances stored in
-        `self.variables` with the values stored in `t_scope`.
-        '''
-=======
->>>>>>> Model synchronization added.
 
     # Method that returns the differentiation function
     def get_diff_(self):
@@ -573,7 +568,7 @@ class Model:
                  self.differing_idxs_pos_3d[0].shape[0],self.scope_vars_3d,self.state_idxs_3d,
                  self.deriv_idxs_3d,self.differing_idxs_pos_3d,self.differing_idxs_from_3d,
                  self.num_uses_per_eq,self.sum_idxs_pos_3d,self.sum_idxs_sum_3d,
-                 self.sum_slice_idxs,self.sum_mapping,self.global_vars)
+                 self.sum_slice_idxs,self.sum_mapped_idxs_len,self.sum_mapping,self.global_vars)
 
         return NM_instance.func
 

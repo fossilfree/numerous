@@ -1,8 +1,8 @@
 from datetime import datetime
 import time
 import numpy as np
-from engine.simulation.solvers.base_solver import SolverType
-from engine.simulation.solvers.ivp_solver import IVP_solver
+from numerous.engine.simulation.solvers.base_solver import SolverType
+from numerous.engine.simulation.solvers.ivp_solver import IVP_solver
 
 
 class Simulation:
