@@ -322,6 +322,14 @@ class Model:
         """
         return self.scope_variables[self.states_idx]
 
+    def synchornize_scope(self):
+        '''
+        Updates all the values of all Variable instances stored in
+        `self.variables` with the values stored in `self.scope_vars_3d`.
+        '''
+        for variable, value in zip(self.variables.values(),
+                                   self.scope_vars_3d[self.var_idxs_pos_3d]):
+            variable.value = value
 
     def update_states(self,y):
         self.scope_variables[self.states_idx] = y
@@ -523,17 +531,6 @@ class Model:
             namespaces_list.append(model_namespace)
         return namespaces_list
 
-    def update_model_from_scope(self, t_scope):
-        '''
-        Updates all the values of all Variable instances stored in
-        `self.variables` with the values stored in `t_scope`.
-        '''
-        # consider using a view here
-        # @Artem: TODO: implement summing
-        #self.flat_variables = t_scope.flat_var[self.scope_to_variables_idx].sum(1)
-        for variable, value in zip(self.variables.values(),
-                                   t_scope.scope_vars_3d[self.var_idxs_pos_3d]):
-            variable.value = value
 
     # Method that returns the differentiation function
     def get_diff_(self):
