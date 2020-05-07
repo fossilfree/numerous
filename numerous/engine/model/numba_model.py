@@ -1,7 +1,12 @@
-from numba import int32, float64,boolean, int64, prange, njit, types
+from numba import int32, float64, boolean, int64, prange, njit, types, typed
 import numpy as np
 
+# key and value types
+kv_ty = (types.unicode_type,float64)
+
 numba_model_spec = [
+    ('var_idxs_pos_3d', types.Tuple((int64[:], int64[:], int64[:]))),
+    ('var_idxs_pos_3d_helper', int64[:]),
     ('eq_count', int32),
     ('number_of_states', int32),
     ('number_of_mappings', int32),
@@ -17,14 +22,17 @@ numba_model_spec = [
     ('sum_slice_idxs_len', int64[:]),
     ('sum_mapping', boolean),
     ('global_vars', float64[:]),
+    ('path_variables', types.DictType(*kv_ty)),
 ]
 
 
 class NumbaModel:
-    def __init__(self, eq_count, number_of_states, number_of_mappings, scope_vars_3d, state_idxs_3d, deriv_idxs_3d,
+    def __init__(self,var_idxs_pos_3d,var_idxs_pos_3d_helper, eq_count, number_of_states, number_of_mappings, scope_vars_3d, state_idxs_3d, deriv_idxs_3d,
                  differing_idxs_pos_3d, differing_idxs_from_3d,num_uses_per_eq,
                  sum_idxs_pos_3d,sum_idxs_sum_3d,sum_slice_idxs,sum_slice_idxs_len,sum_mapping,
                  global_vars):
+        self.var_idxs_pos_3d = var_idxs_pos_3d
+        self.var_idxs_pos_3d_helper = var_idxs_pos_3d_helper
         self.eq_count = eq_count
         self.number_of_states = number_of_states
         self.scope_vars_3d = scope_vars_3d
@@ -40,6 +48,7 @@ class NumbaModel:
         self.sum_slice_idxs_len = sum_slice_idxs_len
         self.sum_mapping = sum_mapping
         self.global_vars = global_vars
+        self.path_variables = typed.Dict.empty(*kv_ty)
 
 
     def update_states(self, state_values):
@@ -62,6 +71,19 @@ class NumbaModel:
         for i in range(self.number_of_states):
             result.append(self.scope_vars_3d[self.state_idxs_3d[0][i]][self.state_idxs_3d[1][i]][self.state_idxs_3d[2][i]])
         return result
+
+    def update_path_variables(self):
+        '''
+        Updates all the values of all Variable instances stored in
+        `self.variables` with the values stored in `self.scope_vars_3d`.
+        '''
+        for i in prange(len(self.path_variables)):
+            j = self.var_idxs_pos_3d_helper[i]
+            value =self.path_variables.keys()[i]
+            self.path_variables[value]\
+                = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
+                self.var_idxs_pos_3d[2][j]]
+
 
 
     def get_derivatives_idx(self, idx_3d):
