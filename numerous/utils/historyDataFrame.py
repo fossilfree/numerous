@@ -111,7 +111,7 @@ class SimpleHistoryDataFrame(HistoryDataFrame):
         ix = self.ix
         self.data[0][ix] = time
         for var in variables:
-            self.data[varix][ix] = variables[var].value
+            self.data[varix][ix] = variables[var]
             varix += 1
         self.ix += 1
 

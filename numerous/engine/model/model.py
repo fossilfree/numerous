@@ -249,10 +249,7 @@ class Model:
         # eq_idx -> # equation instances
         self.num_uses_per_eq = np.unique(self.compiled_eq_idxs, return_counts=True)[1]
 
-        # 6. Compute self.path_variables
-        for variable in self.variables.values():
-            for path in variable.path.path[self.system.id]:
-                self.path_variables.update({path: variable})
+
 
         # float64 array of all variables' current value
         self.flat_variables = np.array([x.value for x in self.variables.values()])
@@ -292,12 +289,23 @@ class Model:
         self.sum_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.sum_idx, False)
         self.sum_idxs_sum_3d = self._var_idxs_to_3d_idxs(self.sum_mapped, False)
 
-
+        # 6. Compute self.path_variables and updating var_idxs_pos_3d
+        # var_idxs_pos_3d_helper shows position for var_idxs_pos_3d for variables that have
+        # multiple path
+        #
+        var_idxs_pos_3d_helper = []
+        for i,variable in enumerate(self.variables.values()):
+            for path in variable.path.path[self.system.id]:
+                self.path_variables.update({path: variable.value})
+                var_idxs_pos_3d_helper.append(i)
+        self.var_idxs_pos_3d_helper = np.array(var_idxs_pos_3d_helper,dtype=np.int64)
 
         # This can be done more efficiently using two num_scopes-sized view of a (num_scopes+1)-sized array
         _flat_scope_idx_slices_lengths = list(map(len, non_flat_scope_idx))
         self.flat_scope_idx_slices_end = np.cumsum(_flat_scope_idx_slices_lengths)
         self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
+
+        self.numba_model = self.generate_numba_model()
 
 
 
@@ -334,7 +342,7 @@ class Model:
         """
         return self.scope_variables[self.states_idx]
 
-    def synchornize_scope(self):
+    def synchornize_variables(self):
         '''
         Updates all the values of all Variable instances stored in
         `self.variables` with the values stored in `self.scope_vars_3d`.
@@ -544,8 +552,8 @@ class Model:
         return namespaces_list
 
 
-    # Method that returns the differentiation function
-    def get_diff_(self):
+    # Method that generates numba_model
+    def generate_numba_model(self):
         eq_text = ""
         for i, function in enumerate(self.compiled_eq):
             method_name = 'func' + str(i)
@@ -564,11 +572,15 @@ class Model:
         class NumbaModel_instance(NumbaModel):
             pass
 
-        NM_instance = NumbaModel_instance(len(self.compiled_eq),self.state_idxs_3d[0].shape[0],
+        NM_instance = NumbaModel_instance(self.var_idxs_pos_3d,self.var_idxs_pos_3d_helper,
+                                          len(self.compiled_eq),self.state_idxs_3d[0].shape[0],
                  self.differing_idxs_pos_3d[0].shape[0],self.scope_vars_3d,self.state_idxs_3d,
                  self.deriv_idxs_3d,self.differing_idxs_pos_3d,self.differing_idxs_from_3d,
                  self.num_uses_per_eq,self.sum_idxs_pos_3d,self.sum_idxs_sum_3d,
                  self.sum_slice_idxs,self.sum_mapped_idxs_len,self.sum_mapping,self.global_vars)
 
-        return NM_instance.func
+        for key, value in self.path_variables.items():
+            NM_instance.path_variables[key] = value
+
+        return NM_instance
 

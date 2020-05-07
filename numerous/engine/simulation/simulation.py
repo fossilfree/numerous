@@ -45,7 +45,7 @@ class Simulation:
         self.time = time
         self.async_callback = []
         if solver_type == SolverType.SOLVER_IVP:
-            self.solver = IVP_solver(time, delta_t, model.get_diff_(), num_inner,max_event_steps,**kwargs)
+            self.solver = IVP_solver(time, delta_t, model.numba_model, num_inner,max_event_steps,**kwargs)
         self.model = model
         self.start_datetime = start_datetime
         self.info = model.info["Solver"]
@@ -122,9 +122,11 @@ def sum_mappings(sum_idx, sum_mapped_idx, flat_var, sum_mapped):
         #     callback(t, self.model.path_variables, **kwargs)
         # if event_id is not None:
         #     list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
-        self.model.synchornize_scope()
-        for callback in self.callbacks:
-            callback(t, self.model.path_variables, **kwargs)
+        solver.numba_model.update_path_variables()
+        # solver.numba_model.run_registered_callbacks()
+        # self.model.synchornize_variables()
+        # for callback in self.callbacks:
+        #     callback(t, solver.numba_model.path_variables, **kwargs)
         # if event_id is not None:
         #     list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
 

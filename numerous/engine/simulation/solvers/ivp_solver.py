@@ -12,12 +12,13 @@ Wraper for scipy ivp solver.
 """
 class IVP_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, diff_function, num_inner, max_event_steps, **kwargs):
+    def __init__(self, time, delta_t, numba_model, num_inner, max_event_steps, **kwargs):
         super().__init__()
         self.time = time
         self.num_inner = num_inner
         self.delta_t = delta_t
-        self.diff_function = diff_function
+        self.numba_model = numba_model
+        self.diff_function = numba_model.func
         self.max_event_steps = max_event_steps
         self.options = kwargs
 
