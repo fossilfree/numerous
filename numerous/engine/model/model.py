@@ -130,6 +130,7 @@ class Model:
                 model_namespaces.extend(self.__add_item(registered_item))
         return model_namespaces
 
+
     def assemble(self):
         """
         Assembles the model.
@@ -572,5 +573,6 @@ class Model:
 
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value
+            NM_instance.path_keys.append(key)
 
         return NM_instance
