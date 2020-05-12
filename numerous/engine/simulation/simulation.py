@@ -116,17 +116,17 @@ def sum_mappings(sum_idx, sum_mapped_idx, flat_var, sum_mapped):
         slice_ = sum_mapped_idx[i]
         flat_var[idx] = np.sum(flat_var[sum_mapped[slice_[0]:slice_[1]]])
 
-        # self.model.update_model_from_scope(self.t_scope)
+        # solver.numba_model.update_path_variables()
         # self.model.sychronize_scope()
         # for callback in self.callbacks:
         #     callback(t, self.model.path_variables, **kwargs)
         # if event_id is not None:
         #     list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
-        solver.numba_model.update_path_variables()
+        # self.model.sychronize_scope()
         # solver.numba_model.run_registered_callbacks()
         # self.model.synchornize_variables()
         # for callback in self.callbacks:
-        #     callback(t, solver.numba_model.path_variables, **kwargs)
+        #      callback(t, solver.numba_model.path_variables, **kwargs)
         # if event_id is not None:
         #     list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
 

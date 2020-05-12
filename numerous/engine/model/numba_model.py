@@ -23,6 +23,8 @@ numba_model_spec = [
     ('sum_mapping', boolean),
     ('global_vars', float64[:]),
     ('path_variables', types.DictType(*kv_ty)),
+    ('path_keys', types.ListType(types.unicode_type)),
+
 ]
 
 
@@ -49,6 +51,8 @@ class NumbaModel:
         self.sum_mapping = sum_mapping
         self.global_vars = global_vars
         self.path_variables = typed.Dict.empty(*kv_ty)
+        self.path_keys = typed.List.empty_list(types.unicode_type)
+
 
 
     def update_states(self, state_values):
@@ -79,7 +83,7 @@ class NumbaModel:
         '''
         for i in prange(len(self.path_variables)):
             j = self.var_idxs_pos_3d_helper[i]
-            value =self.path_variables.keys()[i]
+            value = self.path_keys[i]
             self.path_variables[value]\
                 = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
                 self.var_idxs_pos_3d[2][j]]
