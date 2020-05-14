@@ -72,51 +72,12 @@ class Simulation:
             self.info.update({"Solving status": result_status})
             list(map(lambda x: x.finalize(), self.model.callbacks))
         return sol
+    def __init_step(self):
+        [x.initialize(simulation=self) for x in self.model.callbacks]
 
-    def compute_eq(self, array_2d):
-        for eq_idx in range(self.eq_count):
-            self.model.compiled_eq[eq_idx](array_2d[eq_idx,:self.model.num_uses_per_eq[eq_idx]])
-
-    def __func(self, _t, y):
-        self.info["Number of Equation Calls"] += 1
-        self.t_scope.update_states(y)
-        self.model.global_vars[0] = _t
-
-        self.compute()
-
-        return self.t_scope.get_derivatives()
-
-    def compute(self):
-        if self.sum_mapping:
-            sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.scope_vars_3d,
-                         self.model.sum_mapped)
-        mapping_ = True
-        prev_scope_vars_3d = self.t_scope.scope_vars_3d.copy()
-        while mapping_:
-
-            self.t_scope.scope_vars_3d[self.model.differing_idxs_pos_3d] = self.t_scope.scope_vars_3d[self.model.differing_idxs_from_3d]
-            self.compute_eq(self.t_scope.scope_vars_3d)
-           
-            if self.sum_mapping:
-                sum_mappings(self.model.sum_idx, self.model.sum_mapped_idx, self.t_scope.scope_vars_3d,
-                             self.model.sum_mapped)
-
-            mapping_ = not np.allclose(prev_scope_vars_3d, self.t_scope.scope_vars_3d)
-            np.copyto(prev_scope_vars_3d, self.t_scope.scope_vars_3d)
-
-    def stateless__func(self, _t, _):
-        self.info["Number of Equation Calls"] += 1
-        self.compute()
-        return np.array([])
-
-def sum_mappings(sum_idx, sum_mapped_idx, flat_var, sum_mapped):
-    raise ValueError
-    for i in prange(sum_idx.shape[0]):
-        idx = sum_idx[i]
-        slice_ = sum_mapped_idx[i]
-        flat_var[idx] = np.sum(flat_var[sum_mapped[slice_[0]:slice_[1]]])
-
-        # solver.numba_model.update_path_variables()
+    def __end_step(self, solver, y, t, event_id=None, **kwargs):
+        solver.y0 = y
+        solver.numba_model.update_path_variables()
         # self.model.sychronize_scope()
         # for callback in self.callbacks:
         #     callback(t, self.model.path_variables, **kwargs)
