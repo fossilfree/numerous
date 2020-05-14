@@ -73,11 +73,10 @@ class Simulation:
     def __init_step(self):
         [x.initialize(simulation=self) for x in self.model.callbacks]
 
-
     def __end_step(self, solver, y, t, event_id=None, **kwargs):
         solver.y0 = y
 
-        # solver.numba_model.update_path_variables()
+        solver.numba_model.update_path_variables()
         # self.model.sychronize_scope()
         # for callback in self.callbacks:
         #     callback(t, self.model.path_variables, **kwargs)
