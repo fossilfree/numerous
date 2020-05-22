@@ -45,16 +45,17 @@ class Simulation:
         self.time = time
         self.async_callback = []
         if solver_type == SolverType.SOLVER_IVP:
-            self.solver = IVP_solver(time, delta_t, model.numba_model, num_inner,max_event_steps,**kwargs)
+            self.solver = IVP_solver(time, delta_t, model.generate_numba_model(len(self.time)),
+                                     num_inner,max_event_steps,**kwargs)
         self.model = model
         self.start_datetime = start_datetime
         self.info = model.info["Solver"]
         self.info["Number of Equation Calls"] = 0
         self.solver.set_state_vector(self.model.states_as_vector)
-        self.solver.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
-        self.callbacks = [x.callbacks for x in sorted(model.callbacks,
-                                                      key=lambda callback: callback.priority,
-                                                      reverse=True)]
+        # self.solver.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
+        # self.callbacks = [x.callbacks for x in sorted(model.callbacks,
+        #                                               key=lambda callback: callback.priority,
+        #                                               reverse=True)]
 
 
         self.solver.register_endstep(self.__end_step)
@@ -86,8 +87,8 @@ class Simulation:
         # self.model.sychronize_scope()
         # solver.numba_model.run_registered_callbacks()
         # self.model.synchornize_variables()
-        # for callback in self.callbacks:
-        #      callback(t, solver.numba_model.path_variables, **kwargs)
+        for callback in self.callbacks:
+             callback(t, solver.numba_model.path_variables, **kwargs)
         # if event_id is not None:
         #     list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
 

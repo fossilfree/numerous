@@ -53,6 +53,8 @@ class NumbaModel:
         self.global_vars = global_vars
         self.path_variables = typed.Dict.empty(*kv_ty)
         self.path_keys = typed.List.empty_list(types.unicode_type)
+        ##Function is genrated in model.py contains creation and initialization of all callback related variables
+        self.init_callbacks()
 
     def update_states(self, state_values):
         for i in range(self.number_of_states):
@@ -76,7 +78,7 @@ class NumbaModel:
                 self.scope_vars_3d[self.state_idxs_3d[0][i]][self.state_idxs_3d[1][i]][self.state_idxs_3d[2][i]])
         return result
 
-    def update_path_variables(self):
+    def run_callbacks_withot_update(self,time):
         '''
         Updates all the values of all Variable instances stored in
         `self.variables` with the values stored in `self.scope_vars_3d`.
@@ -87,9 +89,11 @@ class NumbaModel:
             self.path_variables[key] \
                 = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
                 self.var_idxs_pos_3d[2][j]]
+        self.run_callbacks(self.scope_vars_3d)
 
     def get_derivatives_idx(self, idx_3d):
         return self.scope_vars_3d[idx_3d]
+
 
     def compute(self):
         if self.sum_mapping:

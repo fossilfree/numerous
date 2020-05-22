@@ -34,11 +34,15 @@ class Equation_Parser():
 
                 eq_text = eq_text.replace("global_variables)", ")")
                 for i, tag in enumerate(model.global_variables_tags):
+                    ##TODO write coments to regex
                     p = re.compile(r"(?<=global_variables)\." + tag + r"(?=[^\w])")
                     eq_text = p.sub("[" + str(i) + "]", eq_text)
                 for i, var in enumerate(model.synchronized_scope[tt].variables.values()):
+                    ##TODO write coments to regex
                     p = re.compile(r"(?<=scope)\." + var.tag + r"(?=[^\w])")
                     eq_text = p.sub("[" + str(i) + "]", eq_text)
+
+                ##TODO write coments to regex
 
                 p = re.compile(r" +def +\w+(?=\()")
                 eq_text = p.sub("def eval", eq_text)

@@ -58,6 +58,7 @@ class ModelAssembler:
 
         return variables, scope_select, equation_dict
 
+
 class Model:
     """
      The model object traverses the system to collect all information needed to pass to the solver
@@ -67,10 +68,13 @@ class Model:
 
     def __init__(self, system=None, historian=None, assemble=True, validate=False):
 
+        self.numba_callbacks_init = []
+        self.numba_callbacks_variables = []
+        self.numba_callbacks = []
         self.system = system
         self.events = {}
         self.historian = historian or SimpleHistoryDataFrame()
-        self.callbacks = [self.historian.callback]
+        self.add_callback(self.historian)
         self.derivatives = {}
         self.model_items = {}
         self.state_history = {}
@@ -80,7 +84,7 @@ class Model:
         self.flat_scope_idx_from = None
 
         self.global_variables_tags = ['time']
-        self.global_vars = np.array([0],dtype=np.float64)
+        self.global_vars = np.array([0], dtype=np.float64)
 
         self.equation_dict = {}
         self.scope_variables = {}
@@ -114,7 +118,6 @@ class Model:
             if scope_var.get_value() != self.variables[scope_var.id].get_value():
                 scope_var.value = self.variables[scope_var.id].get_value()
 
-
     def __add_item(self, item):
         model_namespaces = []
         if item.id in self.model_items:
@@ -132,7 +135,6 @@ class Model:
             for registered_item in item.registered_items.values():
                 model_namespaces.extend(self.__add_item(registered_item))
         return model_namespaces
-
 
     def assemble(self):
         """
@@ -222,7 +224,7 @@ class Model:
                     sum_mapped += [self.variables[_var_id].idx_in_scope[0]
                                    for _var_id in var.sum_mapping_ids]
                     end_idx = len(sum_mapped)
-                    sum_mapped_idx = sum_mapped_idx+list(range(start_idx, end_idx))
+                    sum_mapped_idx = sum_mapped_idx + list(range(start_idx, end_idx))
                     sum_mapped_idx_len.append(end_idx - start_idx)
                     self.sum_mapping = True
 
@@ -240,7 +242,7 @@ class Model:
         self.sum_mapped = np.array(sum_mapped)
         self.sum_mapped_idxs_len = np.array(sum_mapped_idx_len, dtype=np.int64)
         if self.sum_mapping:
-            self.sum_slice_idxs = np.array(sum_mapped_idx,dtype = np.int64)
+            self.sum_slice_idxs = np.array(sum_mapped_idx, dtype=np.int64)
         else:
             self.sum_slice_idxs = np.array([], dtype=np.int64)
 
@@ -249,8 +251,6 @@ class Model:
             np.unique(self.compiled_eq_idxs, return_index=True)[1]]
         # eq_idx -> # equation instances
         self.num_uses_per_eq = np.unique(self.compiled_eq_idxs, return_counts=True)[1]
-
-
 
         # float64 array of all variables' current value
         self.flat_variables = np.array([x.value for x in self.variables.values()])
@@ -278,7 +278,7 @@ class Model:
             self.index_helper[scope_idx] = _idx
 
             _l = self.num_vars_per_eq[eq_idx]
-            self.scope_vars_3d[eq_idx][_idx,:_l] = scope_variables_flat[_flat_scope_idx_from]
+            self.scope_vars_3d[eq_idx][_idx, :_l] = scope_variables_flat[_flat_scope_idx_from]
         self.state_idxs_3d = self._var_idxs_to_3d_idxs(self.states_idx, False)
         self.deriv_idxs_3d = self._var_idxs_to_3d_idxs(self.derivatives_idx, False)
         _differing_idxs = self.flat_scope_idx != self.flat_scope_idx_from
@@ -295,21 +295,16 @@ class Model:
         # multiple path
         #
         var_idxs_pos_3d_helper = []
-        for i,variable in enumerate(self.variables.values()):
+        for i, variable in enumerate(self.variables.values()):
             for path in variable.path.path[self.system.id]:
                 self.path_variables.update({path: variable.value})
                 var_idxs_pos_3d_helper.append(i)
-        self.var_idxs_pos_3d_helper = np.array(var_idxs_pos_3d_helper,dtype=np.int64)
+        self.var_idxs_pos_3d_helper = np.array(var_idxs_pos_3d_helper, dtype=np.int64)
 
         # This can be done more efficiently using two num_scopes-sized view of a (num_scopes+1)-sized array
         _flat_scope_idx_slices_lengths = list(map(len, non_flat_scope_idx))
         self.flat_scope_idx_slices_end = np.cumsum(_flat_scope_idx_slices_lengths)
         self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
-
-        self.numba_model = self.generate_numba_model()
-
-
-
         assemble_finish = time.time()
         self.info.update({"Assemble time": assemble_finish - assemble_start})
         self.info.update({"Number of items": len(self.model_items)})
@@ -320,8 +315,8 @@ class Model:
 
     def _var_idxs_to_3d_idxs(self, var_idxs, _from):
         if var_idxs.size == 0:
-            return (np.array([],dtype = np.int64),np.array([],dtype = np.int64)
-                    ,np.array([],dtype = np.int64))
+            return (np.array([], dtype=np.int64), np.array([], dtype=np.int64)
+                    , np.array([], dtype=np.int64))
         _scope_idxs = (self.var_idx_to_scope_idx_from if _from else
                        self.var_idx_to_scope_idx)[var_idxs]
         _non_flat_scope_idx = self.non_flat_scope_idx_from if _from else self.non_flat_scope_idx
@@ -352,7 +347,7 @@ class Model:
                                    self.scope_vars_3d[self.var_idxs_pos_3d]):
             variable.value = value
 
-    def update_states(self,y):
+    def update_states(self, y):
         self.scope_variables[self.states_idx] = y
 
     def validate(self):
@@ -383,9 +378,9 @@ class Model:
         for scope in self.synchronized_scope.values():
             for var in scope.variables.values():
                 if var.mapping_id:
-                    var.mapping=self.scope_variables[var.mapping_id]
+                    var.mapping = self.scope_variables[var.mapping_id]
                 if var.sum_mapping_id:
-                    var.sum_mapping=self.scope_variables[var.sum_mapping_id]
+                    var.sum_mapping = self.scope_variables[var.sum_mapping_id]
 
     def restore_state(self, timestep=-1):
         """
@@ -513,7 +508,7 @@ class Model:
         """
         self.scope_variables[variable_name].alias = alias
 
-    def add_callback(self, name, callback_function):
+    def add_callback(self, callback_class):
         """
         Adding a callback
 
@@ -527,7 +522,75 @@ class Model:
             callback function
 
         """
-        self.callbacks.append(_SimulationCallback(name, callback_function))
+
+        lines = callback_class.update.lines.split("\n")
+        non_empty_lines = [line for line in lines if line.strip() != ""]
+
+        string_without_empty_lines = ""
+        for line in non_empty_lines:
+            string_without_empty_lines += line + "\n"
+
+        eq_text = string_without_empty_lines + " \n"
+
+        p = re.compile(r" +def +\w+(?=\()")
+        eq_text = p.sub("def eval", eq_text)
+
+        eq_text = eq_text.replace("@Equation()", "@njit")
+        eq_text = eq_text.strip()
+        idx = eq_text.find('\n') + 1
+        # spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
+        # eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + " " * spaces_len \
+        #           + 'from numba import njit\n' + eq_text[idx:]
+        str_list = []
+        for line in eq_text.splitlines():
+            str_list.append('   ' + line)
+        eq_text_2 = '\n'.join(str_list)
+
+        eq_text = eq_text_2 + "\n   return eval"
+        eq_text = "def eq_body():\n   from numba import njit\n   import numpy as np\n" + eq_text
+
+        tree = ast.parse(eq_text, mode='exec')
+        code = compile(tree, filename='test', mode='exec')
+        namespace = {}
+        exec(code, namespace)
+
+        self.numba_callbacks.append(list(namespace.values())[1]())
+
+
+
+        lines = callback_class.numba_initialize.lines.split("\n")
+        non_empty_lines = [line for line in lines if line.strip() != ""]
+
+        string_without_empty_lines = ""
+        for line in non_empty_lines:
+            string_without_empty_lines += line + "\n"
+
+        eq_text = string_without_empty_lines + " \n"
+
+        p = re.compile(r" +def +\w+(?=\()")
+        eq_text = p.sub("def eval", eq_text)
+
+        eq_text = eq_text.replace("@Equation()", "@njit")
+        eq_text = eq_text.strip()
+        idx = eq_text.find('\n') + 1
+        # spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
+        # eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + " " * spaces_len \
+        #           + 'from numba import njit\n' + eq_text[idx:]
+        str_list = []
+        for line in eq_text.splitlines():
+            str_list.append('   ' + line)
+        eq_text_2 = '\n'.join(str_list)
+
+        eq_text = eq_text_2 + "\n   return eval"
+        eq_text = "def eq_body():\n   from numba import njit\n   import numpy as np\n" + eq_text
+
+        tree = ast.parse(eq_text, mode='exec')
+        code = compile(tree, filename='test', mode='exec')
+        namespace = {}
+        exec(code, namespace)
+
+        self.numba_callbacks_init.append(list(namespace.values())[1]())
+        self.numba_callbacks_variables.append(callback_class.numba_params_spec)
 
     def create_model_namespaces(self, item):
         namespaces_list = []
@@ -552,16 +615,16 @@ class Model:
             namespaces_list.append(model_namespace)
         return namespaces_list
 
-
     # Method that generates numba_model
-    def generate_numba_model(self):
+    def generate_numba_model(self,number_of_timesteps):
         eq_text = ""
+
         for i, function in enumerate(self.compiled_eq):
             method_name = 'func' + str(i)
             setattr(NumbaModel, method_name, function)
             eq_text += "      self." \
                        "" + method_name + "(array_2d[" + str(i) + \
-                       ", :self.num_uses_per_eq[" + str(i)+"]])\n"
+                       ", :self.num_uses_per_eq[" + str(i) + "]])\n"
         eq_text = "def eval():\n   def compute_eq(self,array_2d):\n" + eq_text + "   return compute_eq"
         tree = ast.parse(eq_text, mode='exec')
         code = compile(tree, filename='test', mode='exec')
@@ -569,20 +632,53 @@ class Model:
         exec(code, namespace)
         setattr(NumbaModel, 'compute_eq', list(namespace.values())[1]())
 
+        ##Adding callbacks_varaibles to numba specs
+
+        ##Adding callbacks
+        for i, callback in enumerate(self.numba_callbacks):
+            method_name = 'callback_func' + str(i)
+            setattr(NumbaModel, method_name, callback)
+            eq_text += "      self." \
+                       "" + method_name + "(time, self.path_variables)\n"
+        eq_text = "def eval():\n   def run_callbacks(self,time):\n" + eq_text + "   return run_callbacks"
+        tree = ast.parse(eq_text, mode='exec')
+        code = compile(tree, filename='test', mode='exec')
+        namespace = {}
+        exec(code, namespace)
+        setattr(NumbaModel, 'run_callbacks', list(namespace.values())[1]())
+
+        for spec_dict in self.numba_callbacks_variables:
+            for item in spec_dict.items():
+                numba_model_spec.update(item)
+
+        ##add initialize callbacks
+        for i, callback in enumerate(self.numba_callbacks_init):
+            method_name = 'callback_func_init_' + str(i)
+            setattr(NumbaModel, method_name, callback)
+            eq_text += "      self." \
+                       "" + method_name + "(self.var_count,self.number_of_timesteps)\n"
+        eq_text = "def eval():\n   def run_callbacks(self):\n" + eq_text + "   return run_callbacks"
+        tree = ast.parse(eq_text, mode='exec')
+        code = compile(tree, filename='test', mode='exec')
+        namespace = {}
+        exec(code, namespace)
+        setattr(NumbaModel, 'init_callbacks', list(namespace.values())[1]())
+
         @jitclass(numba_model_spec)
         class NumbaModel_instance(NumbaModel):
             pass
 
-        NM_instance = NumbaModel_instance(self.var_idxs_pos_3d,self.var_idxs_pos_3d_helper,
-                                          len(self.compiled_eq),self.state_idxs_3d[0].shape[0],
-                 self.differing_idxs_pos_3d[0].shape[0],self.scope_vars_3d,self.state_idxs_3d,
-                 self.deriv_idxs_3d,self.differing_idxs_pos_3d,self.differing_idxs_from_3d,
-                 self.num_uses_per_eq,self.sum_idxs_pos_3d,self.sum_idxs_sum_3d,
-                 self.sum_slice_idxs,self.sum_mapped_idxs_len,self.sum_mapping,self.global_vars)
+        NM_instance = NumbaModel_instance(self.var_idxs_pos_3d, self.var_idxs_pos_3d_helper,
+                                          len(self.compiled_eq), self.state_idxs_3d[0].shape[0],
+                                          self.differing_idxs_pos_3d[0].shape[0], self.scope_vars_3d,
+                                          self.state_idxs_3d,
+                                          self.deriv_idxs_3d, self.differing_idxs_pos_3d, self.differing_idxs_from_3d,
+                                          self.num_uses_per_eq, self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
+                                          self.sum_slice_idxs, self.sum_mapped_idxs_len, self.sum_mapping,
+                                          self.global_vars)
 
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value
             NM_instance.path_keys.append(key)
 
         return NM_instance
-

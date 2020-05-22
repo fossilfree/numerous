@@ -1,11 +1,23 @@
 import pandas as pd
 from datetime import timedelta
 import numpy as np
+from numba import int64, float64
+
+from numerous import Equation
 from numerous.utils.output_filter import OutputFilter
 from numerous.engine.simulation.simulation_callbacks import _SimulationCallback
 
 
-class HistoryDataFrame:
+class NumbaCallback(object):
+
+    def __init__(self):
+        self.numba_params_spec = {}
+
+    def register_numba_varaible(self, variable_name, numba_variable_type):
+        self.numba_params_spec.update({variable_name: numba_variable_type})
+
+
+class HistoryDataFrame(NumbaCallback):
     """
        Historian class that saves states after each finished step of the simulation.
 
@@ -20,6 +32,7 @@ class HistoryDataFrame:
        """
 
     def __init__(self, start=None, filter=None, **kwargs):
+        super().__init__()
         self.df = pd.DataFrame(columns=['time'])
         self.df = self.df.set_index('time')
         if start:
@@ -32,7 +45,7 @@ class HistoryDataFrame:
             self.filter = filter
         else:
             self.filter = OutputFilter()
-        self.callback = _SimulationCallback("save to dataframe",priority = -1)
+        self.callback = _SimulationCallback("save to dataframe", priority=-1)
         self.callback.add_callback_function(self.update)
         self.callback.add_finalize_function(self.finalize)
         self.list_result = []
@@ -49,8 +62,8 @@ class HistoryDataFrame:
                 keys.append(key)
 
         self.list_result.append(pd.DataFrame([[y.get_value() for y in variables.values()]],
-                               columns=keys, index=[self.time +
-                                                    timedelta(seconds=self.time.total_seconds() + time)]))
+                                             columns=keys, index=[self.time +
+                                                                  timedelta(seconds=self.time.total_seconds() + time)]))
 
     def finalize(self):
         self.df = pd.concat([new_row for new_row in self.list_result], ignore_index=False)
@@ -104,9 +117,8 @@ class SimpleHistoryDataFrame(HistoryDataFrame):
         self.ix = 0
         self.var_list = None
 
-
-    def update(self, time, variables):
-        # variables[dict_key_idx["S1.item1.t1.x"]] = 10
+    @Equation()
+    def update(self, time, variables, **kwargs):
         varix = 1
         ix = self.ix
         self.data[0][ix] = time
@@ -120,15 +132,20 @@ class SimpleHistoryDataFrame(HistoryDataFrame):
         data = {'time': time}
 
         for i, var in enumerate(self.var_list):
-            data.update({var: self.data[i+1]})
+            data.update({var: self.data[i + 1]})
 
         self.df = pd.DataFrame(data)
         self.df = self.df.dropna(subset=['time'])
         self.df = self.df.set_index('time')
         self.df.index = pd.to_timedelta(self.df.index, unit='s')
 
-    def initialize(self, simulation=object):
+    @Equation()
+    def numba_initialize(self,var_count,number_of_timesteps):
+        self.ix = 0
+        self.data = np.ndarray([var_count + 1, number_of_timesteps])  ##* simulation.num_inner
+        self.data.fill(np.nan)
 
+    def initialize(self, simulation=object):
         variables = simulation.model.path_variables
         var_list = []
         for var in variables:
@@ -136,7 +153,6 @@ class SimpleHistoryDataFrame(HistoryDataFrame):
         self.var_list = var_list
         self.data = np.ndarray([len(var_list) + 1, len(simulation.time)])  ##* simulation.num_inner
         self.data.fill(np.nan)
-
+        self.register_numba_varaible('self.data', float64[:, :])
+        self.register_numba_varaible('self.ix', int64)
         self.update(simulation.time[0], variables)
-
-
