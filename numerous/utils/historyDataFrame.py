@@ -5,7 +5,7 @@ from numba import int64, float64
 
 from numerous import Equation
 from numerous.utils.output_filter import OutputFilter
-from numerous.engine.simulation.simulation_callbacks import _SimulationCallback
+# from numerous.engine.simulation.simulation_callbacks import _SimulationCallback
 
 
 class NumbaCallback(object):
@@ -45,9 +45,9 @@ class HistoryDataFrame(NumbaCallback):
             self.filter = filter
         else:
             self.filter = OutputFilter()
-        self.callback = _SimulationCallback("save to dataframe", priority=-1)
-        self.callback.add_callback_function(self.update)
-        self.callback.add_finalize_function(self.finalize)
+        # self.callback = _SimulationCallback("save to dataframe", priority=-1)
+        # self.callback.add_callback_function(self.update)
+        # self.callback.add_finalize_function(self.finalize)
         self.list_result = []
 
     def update(self, time, variables, **kwargs):
@@ -112,13 +112,15 @@ class HistoryDataFrame(NumbaCallback):
 class SimpleHistoryDataFrame(HistoryDataFrame):
     def __init__(self, start=None, filter=None):
         super().__init__(start, filter)
-        self.callback.add_initialize_function(self.initialize)
+        # self.callback.add_initialize_function(self.initialize)
         self.data = None
         self.ix = 0
         self.var_list = None
+        self.register_numba_varaible('data', float64[:, :])
+        self.register_numba_varaible('ix', int64)
 
     @Equation()
-    def update(self, time, variables, **kwargs):
+    def update(self, time, variables):
         varix = 1
         ix = self.ix
         self.data[0][ix] = time
@@ -142,8 +144,8 @@ class SimpleHistoryDataFrame(HistoryDataFrame):
     @Equation()
     def numba_initialize(self,var_count,number_of_timesteps):
         self.ix = 0
-        self.data = np.ndarray([var_count + 1, number_of_timesteps])  ##* simulation.num_inner
-        self.data.fill(np.nan)
+        self.data = np.empty((var_count + 1, number_of_timesteps), dtype = np.float64)  ##* simulation.num_inner
+        # self.data.fill(np.nan)
 
     def initialize(self, simulation=object):
         variables = simulation.model.path_variables
@@ -153,6 +155,5 @@ class SimpleHistoryDataFrame(HistoryDataFrame):
         self.var_list = var_list
         self.data = np.ndarray([len(var_list) + 1, len(simulation.time)])  ##* simulation.num_inner
         self.data.fill(np.nan)
-        self.register_numba_varaible('self.data', float64[:, :])
-        self.register_numba_varaible('self.ix', int64)
+
         self.update(simulation.time[0], variables)
