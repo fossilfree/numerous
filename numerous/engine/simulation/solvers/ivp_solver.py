@@ -45,7 +45,7 @@ class IVP_solver(BaseSolver):
                         t_eval = np.linspace(current_timestamp, t + self.delta_t, self.num_inner + 1)
 
                         sol = solve_ivp(self.diff_function, (current_timestamp, t + self.delta_t), y0=self.y0, t_eval=t_eval,
-                                        events=self.events, dense_output=True,
+                                         dense_output=True,
                                         **self.options)
                         step_not_finished = False
                         event_step = sol.status == 1

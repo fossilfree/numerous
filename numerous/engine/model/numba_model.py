@@ -8,6 +8,8 @@ numba_model_spec = [
     ('var_idxs_pos_3d', types.Tuple((int64[:], int64[:], int64[:]))),
     ('var_idxs_pos_3d_helper', int64[:]),
     ('eq_count', int32),
+    ('number_of_timesteps', int32),
+    ('number_of_variables', int32),
     ('number_of_states', int32),
     ('number_of_mappings', int32),
     ('scope_vars_3d', float64[:, :, :]),
@@ -33,7 +35,7 @@ class NumbaModel:
                  scope_vars_3d, state_idxs_3d, deriv_idxs_3d,
                  differing_idxs_pos_3d, differing_idxs_from_3d, num_uses_per_eq,
                  sum_idxs_pos_3d, sum_idxs_sum_3d, sum_slice_idxs, sum_slice_idxs_len, sum_mapping,
-                 global_vars):
+                 global_vars,number_of_timesteps,number_of_variables):
         self.var_idxs_pos_3d = var_idxs_pos_3d
         self.var_idxs_pos_3d_helper = var_idxs_pos_3d_helper
         self.eq_count = eq_count
@@ -53,6 +55,8 @@ class NumbaModel:
         self.global_vars = global_vars
         self.path_variables = typed.Dict.empty(*kv_ty)
         self.path_keys = typed.List.empty_list(types.unicode_type)
+        self.number_of_timesteps = number_of_timesteps
+        self.number_of_variables = number_of_variables
         ##Function is genrated in model.py contains creation and initialization of all callback related variables
         self.init_callbacks()
 
@@ -78,7 +82,7 @@ class NumbaModel:
                 self.scope_vars_3d[self.state_idxs_3d[0][i]][self.state_idxs_3d[1][i]][self.state_idxs_3d[2][i]])
         return result
 
-    def run_callbacks_withot_update(self,time):
+    def run_callbacks_with_updates(self, time: int) -> None:
         '''
         Updates all the values of all Variable instances stored in
         `self.variables` with the values stored in `self.scope_vars_3d`.
@@ -89,7 +93,15 @@ class NumbaModel:
             self.path_variables[key] \
                 = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
                 self.var_idxs_pos_3d[2][j]]
-        self.run_callbacks(self.scope_vars_3d)
+
+        self.run_callbacks(time)
+
+        for key, j in zip(self.path_keys,
+                          self.var_idxs_pos_3d_helper):
+            self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][self.var_idxs_pos_3d[2][j]]\
+                =self.path_variables[key]
+
+
 
     def get_derivatives_idx(self, idx_3d):
         return self.scope_vars_3d[idx_3d]

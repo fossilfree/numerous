@@ -3,7 +3,6 @@ import numpy as np
 from numerous.engine.simulation.solvers.base_solver import SolverType
 from numerous.engine.simulation.solvers.ivp_solver import IVP_solver
 
-
 class Simulation:
     """
     Class that wraps simulation solver. currently only solve_ivp.
@@ -22,7 +21,8 @@ class Simulation:
                Not unique tag that will be used in reports or printed output.
     """
 
-    def __init__(self, model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=20000, num=1000, num_inner=1, max_event_steps=100,
+    def __init__(self, model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=20000, num=1000, num_inner=1,
+                 max_event_steps=100,
 
                  start_datetime=datetime.now(), **kwargs):
         """
@@ -39,13 +39,20 @@ class Simulation:
                 Empty namespace with given name
         """
 
-        time,delta_t = np.linspace(t_start, t_stop, num + 1, retstep=True)
+        time, delta_t = np.linspace(t_start, t_stop, num + 1, retstep=True)
         self.callbacks = []
         self.time = time
         self.async_callback = []
+
+
+
+        numba_model = model.generate_numba_model(len(self.time))
+
+
+
         if solver_type == SolverType.SOLVER_IVP:
-            self.solver = IVP_solver(time, delta_t, model.generate_numba_model(len(self.time)),
-                                     num_inner,max_event_steps,**kwargs)
+            self.solver = IVP_solver(time, delta_t, numba_model,
+                                     num_inner, max_event_steps, **kwargs)
         self.model = model
         self.start_datetime = start_datetime
         self.info = model.info["Solver"]
@@ -58,8 +65,6 @@ class Simulation:
 
         self.solver.register_endstep(self.__end_step)
 
-
-
     def solve(self):
         self.__init_step()
         try:
@@ -68,16 +73,17 @@ class Simulation:
             raise e
         finally:
             self.info.update({"Solving status": result_status})
-            list(map(lambda x: x.finalize(), self.model.callbacks))
+            # list(map(lambda x: x.finalize(), self.model.callbacks))
         return sol
 
     def __init_step(self):
-        [x.initialize(simulation=self) for x in self.model.callbacks]
+        pass
+        # [x.initialize(simulation=self) for x in self.model.callbacks]
 
     def __end_step(self, solver, y, t, event_id=None, **kwargs):
         solver.y0 = y
 
-        solver.numba_model.update_path_variables()
+        # solver.numba_model.run_callbacks_with_updates(t)
         # self.model.sychronize_scope()
         # for callback in self.callbacks:
         #     callback(t, self.model.path_variables, **kwargs)
@@ -86,7 +92,7 @@ class Simulation:
         # self.model.sychronize_scope()
         # solver.numba_model.run_registered_callbacks()
         # self.model.synchornize_variables()
-        for callback in self.callbacks:
-             callback(t, solver.numba_model.path_variables, **kwargs)
+        # for callback in self.callbacks:
+        #      callback(t, solver.numba_model.path_variables, **kwargs)
         # if event_id is not None:
         #     list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)

@@ -13,7 +13,7 @@ from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
 from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
 from numerous.engine.scope import Scope, TemporaryScopeWrapper3d, ScopeVariable
-from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
+# from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 from numerous.engine.system.subsystem import Subsystem
 from numerous.engine.variables import VariableType
 
@@ -527,7 +527,7 @@ class Model:
         p = re.compile(r" +def +\w+(?=\()")
         eq_text = p.sub("def eval", eq_text)
 
-        eq_text = eq_text.replace("@Equation()", "@njit")
+        eq_text = eq_text.replace("@Equation()", "")
         eq_text = eq_text.strip()
         idx = eq_text.find('\n') + 1
         # spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
@@ -549,7 +549,6 @@ class Model:
         self.numba_callbacks.append(list(namespace.values())[1]())
 
 
-
         lines = callback_class.numba_initialize.lines.split("\n")
         non_empty_lines = [line for line in lines if line.strip() != ""]
 
@@ -562,7 +561,7 @@ class Model:
         p = re.compile(r" +def +\w+(?=\()")
         eq_text = p.sub("def eval", eq_text)
 
-        eq_text = eq_text.replace("@Equation()", "@njit")
+        eq_text = eq_text.replace("@Equation()", "")
         eq_text = eq_text.strip()
         idx = eq_text.find('\n') + 1
         # spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
@@ -625,7 +624,7 @@ class Model:
         setattr(NumbaModel, 'compute_eq', list(namespace.values())[1]())
 
         ##Adding callbacks_varaibles to numba specs
-
+        eq_text = ""
         ##Adding callbacks
         for i, callback in enumerate(self.numba_callbacks):
             method_name = 'callback_func' + str(i)
@@ -641,15 +640,15 @@ class Model:
 
         for spec_dict in self.numba_callbacks_variables:
             for item in spec_dict.items():
-                numba_model_spec.update(item)
-
+                numba_model_spec.append(item)
+        eq_text = ""
         ##add initialize callbacks
         for i, callback in enumerate(self.numba_callbacks_init):
             method_name = 'callback_func_init_' + str(i)
             setattr(NumbaModel, method_name, callback)
             eq_text += "      self." \
-                       "" + method_name + "(self.var_count,self.number_of_timesteps)\n"
-        eq_text = "def eval():\n   def run_callbacks(self):\n" + eq_text + "   return run_callbacks"
+                       "" + method_name + "(self.number_of_variables,self.number_of_timesteps)\n"
+        eq_text = "def eval():\n   def init_callbacks(self):\n" + eq_text + "   return init_callbacks"
         tree = ast.parse(eq_text, mode='exec')
         code = compile(tree, filename='test', mode='exec')
         namespace = {}
@@ -667,7 +666,7 @@ class Model:
                                           self.deriv_idxs_3d, self.differing_idxs_pos_3d, self.differing_idxs_from_3d,
                                           self.num_uses_per_eq, self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
                                           self.sum_slice_idxs, self.sum_mapped_idxs_len, self.sum_mapping,
-                                          self.global_vars)
+                                          self.global_vars,number_of_timesteps,len(self.path_variables))
 
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value

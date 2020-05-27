@@ -49,6 +49,7 @@ class Thermal_Capacitance(EquationBase, Item):
         scope.T_dot = scope.P / scope.C
 
 
+
 class Thermal_Conductor(ConnectorTwoWay):
     def __init__(self, tag="tm", k=100):
         super().__init__(tag, side1_name='side1', side2_name='side2')
