@@ -84,7 +84,7 @@ class Simulation:
 
     def __end_step(self, solver, y, t, event_id=None, **kwargs):
         solver.y0 = y
-        # solver.numba_model.run_callbacks_with_updates(t)
+        solver.numba_model.run_callbacks_with_updates(t)
 
         # self.model.sychronize_scope()
         # for callback in self.callbacks:
