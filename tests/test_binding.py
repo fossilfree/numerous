@@ -80,9 +80,9 @@ def test_binding_2(two_way_connector_item, simple_item_1):
     assert simple_item_1.test_namespace.P.value == 0
     two_way_connector_item.bind(side1=simple_item_1)
 
-    assert simple_item_1.test_namespace.P.value == 11
+    assert simple_item_1.test_namespace.P.get_value() == 11
     two_way_connector_item.test_namespace.P1.value = 10
-    assert simple_item_1.test_namespace.P.value == 10
+    assert simple_item_1.test_namespace.P.get_value() == 10
 
 
 def test_binding_3(two_way_connector_item, simple_item_1, simple_item_2):

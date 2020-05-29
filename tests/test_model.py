@@ -19,7 +19,7 @@ def test_eq1():
             self.add_state('T2', 0)
             self.add_state('T3', 0)
             self.add_state('T4', 0)
-            self.add_parameter('T_4', {})
+            self.add_parameter('T_4', 0)
             self.add_constant('TG', 10)
             self.add_constant('R1', 10)
             self.add_constant('R2', 5)
@@ -32,6 +32,7 @@ def test_eq1():
             scope.T2_dot = (scope.T1 - scope.T2) / scope.R1 - (scope.T2 - scope.T3) / scope.R2
             scope.T3_dot = (scope.T2 - scope.T3) / scope.R2 - (scope.T3 - scope.T4) / scope.R3
             scope.T4_dot = (scope.T3 - scope.T4) / scope.R3 - (scope.T4 - scope.TG) / scope.RG
+
 
     return TestEq1(P=100)
 
@@ -182,7 +183,7 @@ def test_model_var_referencing(ms1):
     m1 = Model(ms1)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
     s1.solve()
-    assert approx(m1.states_as_vector[::-1], rel=0.01) == [2010, 1010, 510, 210]
+    assert approx(list(m1.states_as_vector[::-1]), rel=0.01) == [2010, 1010, 510, 210]
 
 
 def test_model_save_only_aliases(ms3):
@@ -215,7 +216,7 @@ def test_1_item_model(ms1):
 
 def test_callback_step_item_model(ms1):
     def simple_callback(_, variables):
-        if variables['test_item.t1.T2'].value > 1000:
+        if variables['S1.test_item.t1.T2'].value > 1000:
             raise ValueError("Overflow of state2")
 
     m1 = Model(ms1)
@@ -243,8 +244,36 @@ def test_chain_item_model(ms2):
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
 
+def test_chain_item_binding_model_nested(ms3):
+    ms4 = Subsystem('new_s')
+    ms4.register_item(ms3)
+    m1 = Model(ms4)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
+    s1.solve()
+    assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
+
+def test_chain_item_binding_model_nested2(ms3):
+    ms4 = Subsystem('new_s4')
+    ms4.register_item(ms3)
+    ms5 = Subsystem('new_s5')
+    ms5.register_item(ms3)
+    ms6 = Subsystem('new_s6')
+    ms6.register_item(ms4)
+    ms6.register_item(ms5)
+    ms7 = Subsystem('new_s7')
+    ms7.register_item(ms6)
+    m1 = Model(ms7)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
+    s1.solve()
+    assert len(m1.path_variables) == 50
+    assert len(m1.variables) == 25
+    assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
+
+
+
+
 def test_chain_item_binding_model(ms3):
     m1 = Model(ms3)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]

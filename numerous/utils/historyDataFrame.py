@@ -1,6 +1,6 @@
 import pandas as pd
 from datetime import timedelta
-
+import numpy as np
 from numerous.utils.output_filter import OutputFilter
 from numerous.engine.simulation.simulation_callbacks import _SimulationCallback
 
@@ -19,7 +19,7 @@ class HistoryDataFrame:
             filter : :class:`numerous.engine.utils.OutputFilter`
        """
 
-    def __init__(self, start=None, filter=None):
+    def __init__(self, start=None, filter=None, **kwargs):
         self.df = pd.DataFrame(columns=['time'])
         self.df = self.df.set_index('time')
         if start:
@@ -33,9 +33,11 @@ class HistoryDataFrame:
         else:
             self.filter = OutputFilter()
         self.callback = _SimulationCallback("save to dataframe")
-        self.callback.add_callback_function(self.__update)
+        self.callback.add_callback_function(self.update)
+        self.callback.add_finalize_function(self.finalize)
+        self.list_result = []
 
-    def __update(self, time, variables):
+    def update(self, time, variables, **kwargs):
         if self.filter:
             variables = self.filter.filter_varaibles(variables)
 
@@ -46,10 +48,12 @@ class HistoryDataFrame:
             else:
                 keys.append(key)
 
-        new_row = pd.DataFrame([[y.value for y in variables.values()]],
+        self.list_result.append(pd.DataFrame([[y.get_value() for y in variables.values()]],
                                columns=keys, index=[self.time +
-                                                    timedelta(seconds=self.time.total_seconds() + time)])
-        self.df = pd.concat([self.df, new_row], ignore_index=False)
+                                                    timedelta(seconds=self.time.total_seconds() + time)]))
+
+    def finalize(self):
+        self.df = pd.concat([new_row for new_row in self.list_result], ignore_index=False)
 
     @staticmethod
     def load(filename):
@@ -78,7 +82,7 @@ class HistoryDataFrame:
         filename:
             path to file
         """
-
+        self.finalize()
         self.df.to_csv(filename, index_label='time')
 
     def get_last_state(self):
@@ -90,3 +94,46 @@ class HistoryDataFrame:
                 last saved state
         """
         return self.df.tail(1).to_dict()
+
+
+class SimpleHistoryDataFrame(HistoryDataFrame):
+    def __init__(self, start=None, filter=None):
+        super().__init__(start, filter)
+        self.callback.add_initialize_function(self.initialize)
+        self.data = None
+        self.ix = 0
+        self.var_list = None
+
+    def update(self, time, variables):
+
+        varix = 1
+        ix = self.ix
+        self.data[0][ix] = time
+        for var in variables:
+            self.data[varix][ix] = variables[var].get_value()
+            varix += 1
+        self.ix += 1
+
+    def finalize(self):
+        time = self.data[0]
+        data = {'time': time}
+
+        for i, var in enumerate(self.var_list):
+            data.update({var: self.data[i+1]})
+
+        self.df = pd.DataFrame(data)
+        self.df.set_index('time')
+
+    def initialize(self, simulation=object):
+
+        variables = simulation.model.path_variables
+        var_list = []
+        for var in variables:
+            var_list.append(var)
+        self.var_list = var_list
+        self.data = np.ndarray([len(var_list) + 1, len(simulation.time) * simulation.num_inner])
+        self.data.fill(np.nan)
+
+        self.update(simulation.time[0], variables)
+
+

@@ -1,6 +1,7 @@
 # #We can have multiple equation_function in same equation class. Since equation_functions that is decorated as
 # differential equations should be treated differently we have two types of decorators.
 from functools import wraps
+import inspect
 
 
 class Equation(object):
@@ -13,8 +14,8 @@ class Equation(object):
         @wraps(func)
         def wrapper(self,scope):
             func(self,scope)
-
         wrapper._equation = True
+        wrapper.lines = inspect.getsource(func)
         return wrapper
 
 

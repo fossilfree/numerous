@@ -44,12 +44,12 @@ def test_add_mapping(item_with_namespace):
 
     test_namespace.A_parameter = test_namespace.B_state
 
-    assert test_namespace.A_parameter.value == 0
+    assert test_namespace.A_parameter.get_value() == 0
     assert len(test_namespace.A_parameter.mapping) == 1
     assert test_namespace.B_state in test_namespace.A_parameter.mapping
 
     test_namespace.B_state.value = 10
-    assert test_namespace.A_parameter.value == 10
+    assert test_namespace.A_parameter.get_value() == 10
 
     test_namespace.A_parameter.value = 20
-    assert test_namespace.B_state.value == 10
+    assert test_namespace.B_state.get_value() == 10

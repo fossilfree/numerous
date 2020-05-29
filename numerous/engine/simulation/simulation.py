@@ -1,4 +1,3 @@
-import time
 from datetime import datetime
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -39,7 +38,7 @@ class Simulation:
 
         self.time, self.delta_t = np.linspace(t_start, t_stop, num + 1, retstep=True)
         self.callbacks = []
-        self.recent_scope = None
+        # self.recent_scope = None
         self.async_callback = []
         self.model = model
         self.start_datetime = start_datetime
@@ -48,19 +47,26 @@ class Simulation:
         self.max_event_steps = max_event_steps
         self.info = model.info["Solver"]
         self.info["Number of Equation Calls"] = 0
-        self.y0 = [y for y, _ in [(x.value, x.update_ix(i)) for i, x in enumerate(self.model.states.values())]]
+        # self.y0 = [y for y, _ in [(x.get_value(), x.update_ix(i)) for i, x in enumerate(self.model.states.values())]]
+        self.y0 = self.model.states_as_vector
+        if self.y0.size == 0:
+            self.__func = self.stateless__func
         self.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
         self.callbacks = [x.callbacks for x in model.callbacks]
+        self.t_scope = self.model._get_initial_scope_copy()
 
-    def __end_step(self, y, t, event_id=None):
-        self.model._update_scope_states(y)
-        self.recent_scope.update_model_from_scope()
-        for callback in self.callbacks:
-            callback(t, self.model.variables)
-        if event_id is not None:
-            list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.variables)
-        self.y0 = self.model.states_as_vector
+    def __end_step(self, y, t, event_id=None, **kwargs):
+        self.model.update_model_from_scope(self.t_scope)
         self.model.sychronize_scope()
+        for callback in self.callbacks:
+            callback(t, self.model.path_variables, **kwargs)
+        if event_id is not None:
+            list(self.model.events.items())[event_id][1]._callbacks_call(t, self.model.path_variables)
+
+        self.y0 = self.model.states_as_vector
+
+    def __init_step(self):
+        [x.initialize(simulation=self) for x in self.model.callbacks]
 
     def solve(self):
         """
@@ -69,68 +75,88 @@ class Simulation:
         Returns
         -------
         Solution : 'OdeSoulution'
-                returns the most recent OdeSoulution from scipy
+                returns the most recent OdeSolution from scipy
 
         """
+
+        self.__init_step()  # initialize
+
         result_status = "Success"
         stop_condition = False
-
+        sol = None
         event_steps = 0
-        for t in tqdm(self.time[0:-1]):
-            step_not_finished = True
-            current_timestamp = t
-            while step_not_finished:
-                t_eval = np.linspace(current_timestamp, t + self.delta_t, self.num_inner + 1)
+        try:
+            for t in tqdm(self.time[0:-1]):
+                step_not_finished = True
+                current_timestamp = t
+                while step_not_finished:
+                    t_eval = np.linspace(current_timestamp, t + self.delta_t, self.num_inner + 1)
 
-                sol = solve_ivp(self.__func, (current_timestamp, t + self.delta_t), y0=self.y0, t_eval=t_eval,
-                                events=self.events, dense_output=True,
-                                **self.options)
-                step_not_finished = False
-                event_step = sol.status == 1
+                    sol = solve_ivp(self.__func, (current_timestamp, t + self.delta_t), y0=self.y0, t_eval=t_eval,
+                                    events=self.events, dense_output=True,
+                                    **self.options)
+                    step_not_finished = False
+                    event_step = sol.status == 1
 
-                if sol.status == 0:
-                    current_timestamp = t + self.delta_t
-                if event_step:
-                    event_id = np.nonzero([x.size > 0 for x in sol.t_events])[0][0]
-                    # solution stuck
-                    stop_condition = False
-                    if (abs(sol.t_events[event_id][0] - current_timestamp) < 1e-6):
-                        event_steps += 1
+                    if sol.status == 0:
+                        current_timestamp = t + self.delta_t
+                    if event_step:
+                        event_id = np.nonzero([x.size > 0 for x in sol.t_events])[0][0]
+                        # solution stuck
+                        stop_condition = False
+                        if (abs(sol.t_events[event_id][0] - current_timestamp) < 1e-6):
+                            event_steps += 1
+                        else:
+                            event_steps = 0
+
+                        if event_steps > self.max_event_steps:
+                            stop_condition = True
+                        current_timestamp = sol.t_events[event_id][0]
+
+                        step_not_finished = True
+
+                        self.__end_step(sol.sol(current_timestamp), current_timestamp, event_id=event_id)
                     else:
-                        event_steps = 0
-
-                    if event_steps > self.max_event_steps:
-                        stop_condition = True
-                    current_timestamp = sol.t_events[event_id][0]
-
-                    step_not_finished = True
-
-                    self.__end_step(sol.sol(current_timestamp), current_timestamp, event_id=event_id)
-                else:
-                    if sol.success:
-                        self.__end_step(sol.y[:, -1], current_timestamp)
-                    else:
-                        result_status = sol.message
+                        if sol.success:
+                            self.__end_step(sol.y[:, -1], current_timestamp)
+                        else:
+                            result_status = sol.message
+                    if stop_condition:
+                        break
                 if stop_condition:
+                    result_status = "Stopping condition reached"
                     break
-            if stop_condition:
-                result_status = "Stopping condition reached"
-                break
-        time.sleep(1)
-        self.info.update({"Solving status": result_status})
+            # time.sleep(1)
+        except Exception as e:
+            raise e
+        finally:
+            self.info.update({"Solving status": result_status})
+            list(map(lambda x: x.finalize(), self.model.callbacks))
         return sol
 
     def __func(self, _t, y):
-        t_scope = self.model._get_initial_scope_copy()
+        self.info["Number of Equation Calls"] += 1
+        self.t_scope.update_states(y)
 
-        t_scope.update_states(y)
-        t_scope.update_mappings_and_time(timestamp=_t)
-        self.info["Number of Equation Calls"] = self.info["Number of Equation Calls"] + 1
+        for i, eq in enumerate(self.model.compiled_eq):
+            n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
+            eq(n)
+            self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
+            # + \
+            # self.model.sum_mapping_mask * self.t_scope.flat_var[
+            #     self.model.flat_scope_idx[i]]
 
-        for key, eq in self.model.equation_dict.items():
-            scope = t_scope.scope_dict[key]
-            for eq_method in eq.equations:
-                eq_method(scope)
-        result = t_scope.get_derivatives()
-        self.recent_scope = t_scope
-        return [x.value for x in result]
+        return self.t_scope.get_derivatives()
+
+    def stateless__func(self, _t, _):
+        self.info["Number of Equation Calls"] += 1
+
+        for i, eq in enumerate(self.model.compiled_eq):
+            n = self.t_scope.flat_var[self.model.flat_scope_idx_from[i]]
+            eq(n)
+            self.t_scope.flat_var[self.model.flat_scope_idx[i]] = n
+            # + \
+            # self.model.sum_mapping_mask * self.t_scope.flat_var[
+            #     self.model.flat_scope_idx[i]]
+
+        return np.array([])
