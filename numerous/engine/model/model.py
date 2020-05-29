@@ -74,8 +74,6 @@ class Model:
         self.numba_callbacks = []
         self.system = system
         self.events = {}
-        self.historian = historian or SimpleHistoryDataFrame()
-        self.add_callback(self.historian)
         self.derivatives = {}
         self.model_items = {}
         self.state_history = {}
@@ -103,6 +101,7 @@ class Model:
         self.states_idx = []
         self.derivatives_idx = []
         self.scope_to_variables_idx = []
+        self.numba_model = None
 
         self.info = {}
         if assemble:
@@ -672,4 +671,4 @@ class Model:
             NM_instance.path_variables[key] = value
             NM_instance.path_keys.append(key)
 
-        return NM_instance
+        self.numba_model =  NM_instance
