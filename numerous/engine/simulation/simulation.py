@@ -73,7 +73,7 @@ class Simulation:
             raise e
         finally:
             self.info.update({"Solving status": result_status})
-            # list(map(lambda x: x.finalize(), self.model.callbacks))
+            list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model), self.model.callbacks))
         return sol
 
     def __init_step(self):

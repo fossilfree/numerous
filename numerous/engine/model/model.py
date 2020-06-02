@@ -7,7 +7,7 @@ import time
 import uuid
 
 from numba import jitclass
-
+import pandas as pd
 from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
@@ -341,6 +341,18 @@ class Model:
     def update_states(self, y):
         self.scope_variables[self.states_idx] = y
 
+    def history_as_dataframe(self):
+        time = self.data[0]
+        data = {'time': time}
+
+        for i, var in enumerate(self.var_list):
+            data.update({var: self.data[i + 1]})
+
+        self.df = pd.DataFrame(data)
+        self.df = self.df.dropna(subset=['time'])
+        self.df = self.df.set_index('time')
+        self.df.index = pd.to_timedelta(self.df.index, unit='s')
+
     def validate(self):
         """
         Checks that all bindings are fulfilled.
@@ -509,10 +521,12 @@ class Model:
         name : string
             name of the callback
 
-        callback_function : callable
-            callback function
+        callback_class : NumbaCallback
+            callback class
 
         """
+
+        self.callbacks.append(callback_class)
 
         lines = callback_class.update.lines.split("\n")
         non_empty_lines = [line for line in lines if line.strip() != ""]

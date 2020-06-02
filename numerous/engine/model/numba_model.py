@@ -1,4 +1,4 @@
-from numba import int32, float64, boolean, int64, prange, njit, types, typed
+from numba import int32, float64, boolean, int64, njit, types, typed
 import numpy as np
 
 # key and value types
@@ -59,6 +59,7 @@ class NumbaModel:
         self.number_of_variables = number_of_variables
         ##Function is genrated in model.py contains creation and initialization of all callback related variables
         self.init_callbacks()
+        self.run_init_callbacks()
 
     def update_states(self, state_values):
         for i in range(self.number_of_states):
