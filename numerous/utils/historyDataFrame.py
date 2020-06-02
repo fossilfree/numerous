@@ -3,7 +3,6 @@ from datetime import timedelta
 import numpy as np
 from numba import int64, float64
 
-from engine.simulation import Simulation
 from utils.callback_decorators import NumbaCallback, CallbackMethodType
 from utils.numba_callback import NumbaCallbackBase
 
