@@ -46,7 +46,7 @@ class Simulation:
 
 
 
-        numba_model = model.generate_numba_model(len(self.time))
+        numba_model = model.generate_numba_model(t_start,len(self.time))
 
 
 
@@ -73,7 +73,8 @@ class Simulation:
             raise e
         finally:
             self.info.update({"Solving status": result_status})
-            list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model), self.model.callbacks))
+            list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,self.model.path_variables), self.model.callbacks))
+            self.model.create_historian_df()
         return sol
 
     def __init_step(self):
@@ -83,7 +84,7 @@ class Simulation:
     def __end_step(self, solver, y, t, event_id=None, **kwargs):
         solver.y0 = y
 
-        solver.numba_model.run_callbacks_with_updates(t)
+        solver.numba_model.historian_update(t)
         # self.model.sychronize_scope()
         # for callback in self.callbacks:
         #     callback(t, self.model.path_variables, **kwargs)

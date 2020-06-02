@@ -9,10 +9,10 @@ class NumbaCallbackBase(ABC):
     def register_numba_varaible(self, variable_name, numba_variable_type):
         self.numba_params_spec.update({variable_name: numba_variable_type})
 
-    def restore_variables_from_numba(self,numba_model):
+    def restore_variables_from_numba(self,numba_model,var_list):
         for variables_name in self.numba_params_spec.keys():
             self.__setattr__(variables_name,getattr(numba_model, variables_name))
-        self.finalize()
+        self.finalize(var_list)
 
     @abstractmethod
     def initialize(self):

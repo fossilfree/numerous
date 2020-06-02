@@ -3,13 +3,14 @@ from datetime import timedelta
 import numpy as np
 from numba import int64, float64
 
-from utils.callback_decorators import NumbaCallback, CallbackMethodType
-from utils.numba_callback import NumbaCallbackBase
+from numerous.utils.callback_decorators import CallbackMethodType, NumbaCallback
+from numerous.utils.numba_callback import NumbaCallbackBase
 
 
 class HistoryDataFrameCallback(NumbaCallbackBase):
 
     def __init__(self):
+        super(HistoryDataFrameCallback, self).__init__()
         self.register_numba_varaible('data', float64[:, :])
         self.register_numba_varaible('ix', int64)
 
@@ -30,11 +31,11 @@ class HistoryDataFrameCallback(NumbaCallbackBase):
             varix += 1
         self.ix += 1
 
-    def finalize(self):
+    def finalize(self,var_list):
         time = self.data[0]
         data = {'time': time}
 
-        for i, var in enumerate(self.var_list):
+        for i, var in enumerate(var_list):
             data.update({var: self.data[i + 1]})
 
         self.df = pd.DataFrame(data)

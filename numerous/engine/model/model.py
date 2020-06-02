@@ -11,8 +11,8 @@ import pandas as pd
 from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
-from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
-from numerous.engine.scope import Scope, TemporaryScopeWrapper3d, ScopeVariable
+from examples.historyDataFrameCallbackExample import HistoryDataFrameCallback
+from numerous.engine.scope import Scope, ScopeVariable
 # from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 from numerous.engine.system.subsystem import Subsystem
 from numerous.engine.variables import VariableType
@@ -72,6 +72,9 @@ class Model:
         self.numba_callbacks_init = []
         self.numba_callbacks_variables = []
         self.numba_callbacks = []
+        self.numba_callbacks_init_run = []
+        self.callbacks = []
+
         self.system = system
         self.events = {}
         self.derivatives = {}
@@ -81,6 +84,8 @@ class Model:
         self.compiled_eq = []
         self.flat_scope_idx = None
         self.flat_scope_idx_from = None
+        self.historian_df = None
+
 
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
@@ -540,7 +545,8 @@ class Model:
         p = re.compile(r" +def +\w+(?=\()")
         eq_text = p.sub("def eval", eq_text)
 
-        eq_text = eq_text.replace("@Equation()", "")
+        p = re.compile(r"@NumbaCallback.+")
+        eq_text = p.sub("", eq_text)
         eq_text = eq_text.strip()
         idx = eq_text.find('\n') + 1
         # spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
@@ -561,8 +567,10 @@ class Model:
 
         self.numba_callbacks.append(list(namespace.values())[1]())
 
+        if callback_class.update.run_after_init:
+            self.numba_callbacks_init_run.append(list(namespace.values())[1]())
 
-        lines = callback_class.numba_initialize.lines.split("\n")
+        lines = callback_class.initialize.lines.split("\n")
         non_empty_lines = [line for line in lines if line.strip() != ""]
 
         string_without_empty_lines = ""
@@ -574,12 +582,9 @@ class Model:
         p = re.compile(r" +def +\w+(?=\()")
         eq_text = p.sub("def eval", eq_text)
 
-        eq_text = eq_text.replace("@Equation()", "")
+        p = re.compile(r"@NumbaCallback.+")
+        eq_text = p.sub("", eq_text)
         eq_text = eq_text.strip()
-        idx = eq_text.find('\n') + 1
-        # spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
-        # eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + " " * spaces_len \
-        #           + 'from numba import njit\n' + eq_text[idx:]
         str_list = []
         for line in eq_text.splitlines():
             str_list.append('   ' + line)
@@ -620,7 +625,7 @@ class Model:
         return namespaces_list
 
     # Method that generates numba_model
-    def generate_numba_model(self,number_of_timesteps):
+    def generate_numba_model(self, start_time, number_of_timesteps):
         eq_text = ""
 
         for i, function in enumerate(self.compiled_eq):
@@ -639,12 +644,15 @@ class Model:
         ##Adding callbacks_varaibles to numba specs
         eq_text = ""
         ##Adding callbacks
-        for i, callback in enumerate(self.numba_callbacks):
-            method_name = 'callback_func' + str(i)
-            setattr(NumbaModel, method_name, callback)
-            eq_text += "      self." \
-                       "" + method_name + "(time, self.path_variables)\n"
-        eq_text = "def eval():\n   def run_callbacks(self,time):\n" + eq_text + "   return run_callbacks"
+        if self.numba_callbacks:
+            for i, callback in enumerate(self.numba_callbacks):
+                method_name = 'callback_func' + str(i)
+                setattr(NumbaModel, method_name, callback)
+                eq_text += "      self." \
+                           "" + method_name + "(time, self.path_variables)\n"
+            eq_text = "def eval():\n   def run_callbacks(self,time):\n" + eq_text + "   return run_callbacks"
+        else:
+            eq_text = "def eval():\n   def run_callbacks(self,scope):\n      pass\n   return run_callbacks"
         tree = ast.parse(eq_text, mode='exec')
         code = compile(tree, filename='test', mode='exec')
         namespace = {}
@@ -654,19 +662,40 @@ class Model:
         for spec_dict in self.numba_callbacks_variables:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
+
         eq_text = ""
         ##add initialize callbacks
-        for i, callback in enumerate(self.numba_callbacks_init):
-            method_name = 'callback_func_init_' + str(i)
-            setattr(NumbaModel, method_name, callback)
-            eq_text += "      self." \
-                       "" + method_name + "(self.number_of_variables,self.number_of_timesteps)\n"
-        eq_text = "def eval():\n   def init_callbacks(self):\n" + eq_text + "   return init_callbacks"
+        if self.numba_callbacks_init:
+            for i, callback in enumerate(self.numba_callbacks_init):
+                method_name = 'callback_func_init_' + str(i)
+                setattr(NumbaModel, method_name, callback)
+                eq_text += "      self." \
+                           "" + method_name + "(self.number_of_variables,self.number_of_timesteps)\n"
+            eq_text = "def eval():\n   def init_callbacks(self):\n" + eq_text + "   return init_callbacks"
+        else:
+            eq_text = "def eval():\n   def init_callbacks(self,scope):\n      pass\n   return init_callbacks"
         tree = ast.parse(eq_text, mode='exec')
         code = compile(tree, filename='test', mode='exec')
         namespace = {}
         exec(code, namespace)
         setattr(NumbaModel, 'init_callbacks', list(namespace.values())[1]())
+
+        eq_text = ""
+        ##add initialize callbacks
+        if self.numba_callbacks_init_run:
+            for i, callback in enumerate(self.numba_callbacks_init_run):
+                method_name = 'callback_func_init_pre_update' + str(i)
+                setattr(NumbaModel, method_name, callback)
+                eq_text += "      self." \
+                           "" + method_name + "(time, self.path_variables)\n"
+            eq_text = "def eval():\n   def run_init_callbacks(self,time):\n" + eq_text + "   return run_init_callbacks"
+        else:
+            eq_text = "def eval():\n   def run_init_callbacks(self,scope):\n      pass\n   return run_init_callbacks"
+        tree = ast.parse(eq_text, mode='exec')
+        code = compile(tree, filename='test', mode='exec')
+        namespace = {}
+        exec(code, namespace)
+        setattr(NumbaModel, 'run_init_callbacks', list(namespace.values())[1]())
 
         @jitclass(numba_model_spec)
         class NumbaModel_instance(NumbaModel):
@@ -679,10 +708,25 @@ class Model:
                                           self.deriv_idxs_3d, self.differing_idxs_pos_3d, self.differing_idxs_from_3d,
                                           self.num_uses_per_eq, self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
                                           self.sum_slice_idxs, self.sum_mapped_idxs_len, self.sum_mapping,
-                                          self.global_vars,number_of_timesteps,len(self.path_variables))
+                                          self.global_vars, number_of_timesteps, len(self.path_variables), start_time)
 
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value
             NM_instance.path_keys.append(key)
+        NM_instance.run_init_callbacks(start_time)
 
-        self.numba_model =  NM_instance
+        NM_instance.historian_update(start_time)
+        self.numba_model = NM_instance
+        return self.numba_model
+
+    def create_historian_df(self):
+        time = self.numba_model.historian_data[0]
+        data = {'time': time}
+
+        for i, var in enumerate(self.path_variables):
+            data.update({var: self.numba_model.historian_data[i + 1]})
+
+        self.historian_df = pd.DataFrame(data)
+        self.historian_df = self.historian_df.dropna(subset=['time'])
+        self.historian_df = self.historian_df.set_index('time')
+        self.historian_df.index = pd.to_timedelta(self.historian_df.index, unit='s')

@@ -2,7 +2,6 @@ from pytest import approx
 
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
-from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
 from numerous.engine.system import Subsystem, Item
 from numerous.multiphysics import EquationBase, Equation
 import pandas as pd
@@ -85,18 +84,18 @@ def test_race_condition_1():
     s1 = System(item=Link(item1=Item1(omega=omega0)))
     s2 = System(item=Item2(omega=omega0))
 
-    m1 = Model(s1, historian=SimpleHistoryDataFrame())
-    m2 = Model(s2, historian=SimpleHistoryDataFrame())
+    m1 = Model(s1)
+    m2 = Model(s2)
 
     sim1 = Simulation(m1, max_step=dt,num=500)
     sim2 = Simulation(m2, max_step=dt, num=500)
 
     sim1.solve()
 
-    df1 = sim1.model.historian.df
+    df1 = sim1.model.historian_df
 
     sim2.solve()
-    df2 = sim2.model.historian.df
+    df2 = sim2.model.historian_df
 
     f = [df1, df2]
     df = pd.concat(f, axis=1, sort=False)
