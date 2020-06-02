@@ -9,7 +9,7 @@ class NumbaCallback(object):
 
     """
 
-    def __init__(self, method_type, run_after_init):
+    def __init__(self, method_type, run_after_init=False):
         """
         Parameters
         ----------
@@ -27,7 +27,7 @@ class NumbaCallback(object):
         @wraps(func)
         def wrapper(f_self, scope):
             func(f_self, scope)
-
+        wrapper.run_after_init  = self.run_after_init
         wrapper.lines = inspect.getsource(func)
         wrapper.id = self.id
         return wrapper
