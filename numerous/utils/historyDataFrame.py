@@ -3,9 +3,9 @@ from datetime import timedelta
 import numpy as np
 from numba import int64, float64
 
-from numerous import Equation
-from numerous.utils.output_filter import OutputFilter
-# from numerous.engine.simulation.simulation_callbacks import _SimulationCallback
+from utils.callback_decorators import NumbaCallback, CallbackMethodType
+from utils.numba_callback import NumbaCallbackBase
+
 
 
 class NumbaCallback(object):
