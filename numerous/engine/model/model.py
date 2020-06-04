@@ -16,6 +16,7 @@ from numerous.engine.scope import Scope, ScopeVariable
 
 from numerous.engine.system.subsystem import Subsystem
 from numerous.engine.variables import VariableType
+from numerous.utils.numba_callback import NumbaCallbackBase
 
 import operator
 
@@ -86,7 +87,6 @@ class Model:
         self.flat_scope_idx = None
         self.flat_scope_idx_from = None
         self.historian_df = None
-
 
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
@@ -514,87 +514,22 @@ class Model:
         """
         self.scope_variables[variable_name].alias = alias
 
-    def add_callback(self, callback_class):
+    def add_callback(self, callback_class: NumbaCallbackBase) -> None:
         """
-        Adding a callback
-
-
-        Parameters
-        ----------
-        name : string
-            name of the callback
-
-        callback_function : callable
-            callback function
 
         """
 
-        lines = callback_class.update.lines.split("\n")
-        non_empty_lines = [line for line in lines if line.strip() != ""]
-
-        string_without_empty_lines = ""
-        for line in non_empty_lines:
-            string_without_empty_lines += line + "\n"
-
-        eq_text = string_without_empty_lines + " \n"
-
-        p = re.compile(r" +def +\w+(?=\()")
-        eq_text = p.sub("def eval", eq_text)
-
-        p = re.compile(r"@NumbaCallback.+")
-        eq_text = p.sub("", eq_text)
-        eq_text = eq_text.strip()
-        idx = eq_text.find('\n') + 1
-        # spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
-        # eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + " " * spaces_len \
-        #           + 'from numba import njit\n' + eq_text[idx:]
-        str_list = []
-        for line in eq_text.splitlines():
-            str_list.append('   ' + line)
-        eq_text_2 = '\n'.join(str_list)
-
-        eq_text = eq_text_2 + "\n   return eval"
-        eq_text = "def eq_body():\n   from numba import njit\n   import numpy as np\n" + eq_text
-
-        tree = ast.parse(eq_text, mode='exec')
-        code = compile(tree, filename='test', mode='exec')
-        namespace = {}
-        exec(code, namespace)
-
-        self.numba_callbacks.append(list(namespace.values())[1]())
+        self.callbacks.append(callback_class)
+        numba_update_function = Equation_Parser.parse_non_numba_function(callback_class.update, r"@NumbaCallback.+")
+        self.numba_callbacks.append(numba_update_function)
 
         if callback_class.update.run_after_init:
-            self.numba_callbacks_init_run.append(list(namespace.values())[1]())
+            self.numba_callbacks_init_run.append(numba_update_function)
 
-        lines = callback_class.initialize.lines.split("\n")
-        non_empty_lines = [line for line in lines if line.strip() != ""]
+        numba_initialize_function = Equation_Parser.parse_non_numba_function(callback_class.initialize,
+                                                                             r"@NumbaCallback.+")
 
-        string_without_empty_lines = ""
-        for line in non_empty_lines:
-            string_without_empty_lines += line + "\n"
-
-        eq_text = string_without_empty_lines + " \n"
-
-        p = re.compile(r" +def +\w+(?=\()")
-        eq_text = p.sub("def eval", eq_text)
-
-        p = re.compile(r"@NumbaCallback.+")
-        eq_text = p.sub("", eq_text)
-        eq_text = eq_text.strip()
-        str_list = []
-        for line in eq_text.splitlines():
-            str_list.append('   ' + line)
-        eq_text_2 = '\n'.join(str_list)
-
-        eq_text = eq_text_2 + "\n   return eval"
-        eq_text = "def eq_body():\n   from numba import njit\n   import numpy as np\n" + eq_text
-
-        tree = ast.parse(eq_text, mode='exec')
-        code = compile(tree, filename='test', mode='exec')
-        namespace = {}
-        exec(code, namespace)
-
-        self.numba_callbacks_init.append(list(namespace.values())[1]())
+        self.numba_callbacks_init.append(numba_initialize_function)
         self.numba_callbacks_variables.append(callback_class.numba_params_spec)
 
     def create_model_namespaces(self, item):
@@ -622,76 +557,40 @@ class Model:
 
     # Method that generates numba_model
     def generate_numba_model(self, start_time, number_of_timesteps):
-        eq_text = ""
-
-        for i, function in enumerate(self.compiled_eq):
-            method_name = 'func' + str(i)
-            setattr(NumbaModel, method_name, function)
-            eq_text += "      self." \
-                       "" + method_name + "(array_2d[" + str(i) + \
-                       ", :self.num_uses_per_eq[" + str(i) + "]])\n"
-        eq_text = "def eval():\n   def compute_eq(self,array_2d):\n" + eq_text + "   return compute_eq"
-        tree = ast.parse(eq_text, mode='exec')
-        code = compile(tree, filename='test', mode='exec')
-        namespace = {}
-        exec(code, namespace)
-        setattr(NumbaModel, 'compute_eq', list(namespace.values())[1]())
-
-        ##Adding callbacks_varaibles to numba specs
-        eq_text = ""
-        ##Adding callbacks
-        if self.numba_callbacks:
-            for i, callback in enumerate(self.numba_callbacks):
-                method_name = 'callback_func' + str(i)
-                setattr(NumbaModel, method_name, callback)
-                eq_text += "      self." \
-                           "" + method_name + "(time, self.path_variables)\n"
-            eq_text = "def eval():\n   def run_callbacks(self,time):\n" + eq_text + "   return run_callbacks"
-        else:
-            eq_text = "def eval():\n   def run_callbacks(self,scope):\n      pass\n   return run_callbacks"
-        tree = ast.parse(eq_text, mode='exec')
-        code = compile(tree, filename='test', mode='exec')
-        namespace = {}
-        exec(code, namespace)
-        setattr(NumbaModel, 'run_callbacks', list(namespace.values())[1]())
 
         for spec_dict in self.numba_callbacks_variables:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
 
-        eq_text = ""
-        ##add initialize callbacks
-        if self.numba_callbacks_init:
-            for i, callback in enumerate(self.numba_callbacks_init):
-                method_name = 'callback_func_init_' + str(i)
-                setattr(NumbaModel, method_name, callback)
-                eq_text += "      self." \
-                           "" + method_name + "(self.number_of_variables,self.number_of_timesteps)\n"
-            eq_text = "def eval():\n   def init_callbacks(self):\n" + eq_text + "   return init_callbacks"
-        else:
-            eq_text = "def eval():\n   def init_callbacks(self,scope):\n      pass\n   return init_callbacks"
-        tree = ast.parse(eq_text, mode='exec')
-        code = compile(tree, filename='test', mode='exec')
-        namespace = {}
-        exec(code, namespace)
-        setattr(NumbaModel, 'init_callbacks', list(namespace.values())[1]())
+        def create_eq_call(eq_method_name: str, i: int):
+            return "      self." \
+                   "" + eq_method_name + "(array_2d[" + str(i) + \
+                   ", :self.num_uses_per_eq[" + str(i) + "]])\n"
 
-        eq_text = ""
-        ##add initialize callbacks
-        if self.numba_callbacks_init_run:
-            for i, callback in enumerate(self.numba_callbacks_init_run):
-                method_name = 'callback_func_init_pre_update' + str(i)
-                setattr(NumbaModel, method_name, callback)
-                eq_text += "      self." \
-                           "" + method_name + "(time, self.path_variables)\n"
-            eq_text = "def eval():\n   def run_init_callbacks(self,time):\n" + eq_text + "   return run_init_callbacks"
-        else:
-            eq_text = "def eval():\n   def run_init_callbacks(self,scope):\n      pass\n   return run_init_callbacks"
-        tree = ast.parse(eq_text, mode='exec')
-        code = compile(tree, filename='test', mode='exec')
-        namespace = {}
-        exec(code, namespace)
-        setattr(NumbaModel, 'run_init_callbacks', list(namespace.values())[1]())
+        Equation_Parser.create_numba_iterations(NumbaModel, self.compiled_eq, "compute_eq", "func"
+                                                , create_eq_call, "array_2d")
+
+        ##Adding callbacks_varaibles to numba specs
+        def create_cbi_call(_method_name: str, i: int):
+            return "      self." \
+                   "" + _method_name + "(time, self.path_variables)\n"
+
+        Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks, "run_callbacks", "callback_func"
+                                                , create_cbi_call, "time")
+
+        def create_cbi2_call(_method_name: str, i: int):
+            return "      self." \
+                   "" + _method_name + "(self.number_of_variables,self.number_of_timesteps)\n"
+
+        Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init, "init_callbacks",
+                                                "callback_func_init_", create_cbi2_call, "")
+
+        def create_cbiu_call(_method_name: str, i: int):
+            return "      self." \
+                   "" + _method_name + "(time, self.path_variables)\n"
+
+        Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init_run, "run_init_callbacks",
+                                                "callback_func_init_pre_update", create_cbiu_call, "time")
 
         @jitclass(numba_model_spec)
         class NumbaModel_instance(NumbaModel):
@@ -716,8 +615,8 @@ class Model:
         return self.numba_model
 
     def create_historian_df(self):
-        time = self.numba_model.historian_data[0]
-        data = {'time': time}
+        _time = self.numba_model.historian_data[0]
+        data = {'time': _time}
 
         for i, var in enumerate(self.path_variables):
             data.update({var: self.numba_model.historian_data[i + 1]})
