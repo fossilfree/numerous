@@ -154,13 +154,6 @@ class NumbaModel:
         self.update_states(y)
         self.global_vars[0] = _t
         self.compute()
-
-        # self.run_callbacks_with_updates(_t)
-        # for key in self.path_variables:
-        #     print(key, '->', self.path_variables[key])
-        # # print(self.get_derivatives())
-        # raise Exception()
-        # return None
         return self.get_derivatives()
 
 
