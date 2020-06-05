@@ -12,7 +12,6 @@ class Item1(Item, EquationBase):
         super(Item1, self).__init__(tag)
         self.t1 = self.create_namespace('t1')
         self.add_state('x', 1)
-        self.add_state('x_2', 1)
         self.add_state('t', 0)
         self.t1.add_equations([self])
 
@@ -20,7 +19,6 @@ class Item1(Item, EquationBase):
     def eval(self, scope):
         scope.t_dot = 1
         scope.x_dot = -1 * np.exp(-1 * scope.t)
-        scope.x_2_dot = -1 * np.exp(-1 * scope.t)
 
 
 
@@ -36,15 +34,28 @@ class Subsystem1(Subsystem, EquationBase):
         item1.t1.x_dot += self.t1.x_dot_mod
         item1.t1.x_dot += item1.t1.x_dot
 
-        item1.t1.x_2_dot += self.t1.x_2_dot_mod
-        item1.t1.x_2_dot += item1.t1.x_2_dot
 
         print(self.t1.x_dot_mod)
 
     @Equation()
     def eval(self, scope):
         scope.x_dot_mod = -1
-        scope.x_2_dot_mod = -1
+
+
+class Item2(Item, EquationBase):
+    def __init__(self, tag='item1'):
+        super(Item2, self).__init__(tag)
+        self.t1 = self.create_namespace('t1')
+        self.add_state('x', 1)
+        self.add_state('x_2', 1)
+        self.add_state('t', 0)
+        self.t1.add_equations([self])
+
+    @Equation()
+    def eval(self, scope):
+        scope.t_dot = 1
+        scope.x_dot = -1 * np.exp(-1 * scope.t)
+        scope.x_2_dot = -1 * np.exp(-1 * scope.t)
 
 
 class Subsystem2(Subsystem, EquationBase):
@@ -81,7 +92,7 @@ def system1():
 
 @pytest.fixture
 def system2():
-    return System(subsystem=Subsystem2(item1=Item1()))
+    return System(subsystem=Subsystem2(item1=Item2()))
 
 def expected_sol(t):
     return -1*(t*np.exp(t) -1)*np.exp(-t)
