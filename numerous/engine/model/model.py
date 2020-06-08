@@ -239,6 +239,7 @@ class Model:
         # flat_scope_idx.append(np.array([-1]))
 
         # TODO @Artem: document these
+        # non_flat_scope_idx is #scopes x  number_of variables indexing?
         self.non_flat_scope_idx_from = np.array(non_flat_scope_idx_from)
         self.non_flat_scope_idx = np.array(non_flat_scope_idx)
 
@@ -615,13 +616,23 @@ class Model:
         return self.numba_model
 
     def create_historian_df(self):
-        _time = self.numba_model.historian_data[0]
-        data = {'time': _time}
+        # _time = self.numba_model.historian_data[0]
+        # data = {'time': _time}
+        #
+        # for i, var in enumerate(self.path_variables):
+        #     data.update({var: self.numba_model.historian_data[i + 1]})
+        #
+        # self.historian_df = pd.DataFrame(data)
+        # self.historian_df = self.historian_df.dropna(subset=['time'])
+        # self.historian_df = self.historian_df.set_index('time')
+        # self.historian_df.index = pd.to_timedelta(self.historian_df.index, unit='s')
+
+
+        time = self.numba_model.historian_data[0]
+        data = {'time': time}
 
         for i, var in enumerate(self.path_variables):
-            data.update({var: self.numba_model.historian_data[i + 1]})
+             data.update({var: self.numba_model.historian_data[i + 1]})
 
         self.historian_df = pd.DataFrame(data)
-        self.historian_df = self.historian_df.dropna(subset=['time'])
-        self.historian_df = self.historian_df.set_index('time')
-        self.historian_df.index = pd.to_timedelta(self.historian_df.index, unit='s')
+        # self.df.set_index('time')

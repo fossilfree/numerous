@@ -6,7 +6,7 @@ from numerous.engine.model import  Model
 from numerous.engine.simulation import Simulation
 from numerous.engine.system import Item, ConnectorTwoWay, Subsystem
 
-from numerous import EquationBase, SimpleHistoryDataFrame
+from numerous import EquationBase
 from numerous.multiphysics import Equation
 
 
@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
     for i in range(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])):
         T0 = [random.randrange(1, 101, 1) for _ in range(i)]
-        m = Model(ThermalCapacitancesSeries("tcs", T0), historian=SimpleHistoryDataFrame())
+        m = Model(ThermalCapacitancesSeries("tcs", T0))
         start = time.time()
         # print(m.states_as_vector)
         # Define simulation
