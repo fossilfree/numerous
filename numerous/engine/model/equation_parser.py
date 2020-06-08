@@ -11,6 +11,13 @@ class Equation_Parser():
     def __init__(self):
         pass
 
+    def get_complex_id(self,eq_dict):
+        id = ""
+        for i in range(len(eq_dict)):
+            id += eq_dict[i].id
+        return id
+
+
     def parse(self, model):
         compiled_equations_idx = []
         compiled_eq = []
@@ -18,15 +25,13 @@ class Equation_Parser():
         for tt in model.synchronized_scope.keys():
             eq_text = ""
             eq_id = ""
-            eq_not_found = False
             # id of eq in list of eq)
             if model.equation_dict[tt]:
                 eq_text_2 = ""
+                if self.get_complex_id(model.equation_dict[tt]) in compiled_equations_ids:
+                    compiled_equations_idx.append(compiled_equations_ids.index(self.get_complex_id(model.equation_dict[tt])))
+                    continue
                 for i in range(len(model.equation_dict[tt])):
-                    if model.equation_dict[tt][i].id in compiled_equations_ids:
-                        compiled_equations_idx.append(compiled_equations_ids.index(model.equation_dict[tt][i].id))
-                        continue
-                    eq_not_found = True
                     lines = model.equation_dict[tt][i].lines.split("\n")
                     eq_id = model.equation_dict[tt][i].id
                     non_empty_lines = [line for line in lines if line.strip() != ""]
@@ -70,20 +75,19 @@ class Equation_Parser():
                     # eq_text = "def test():\n   from numba import guvectorize\n   import numpy as np\n"+eq_text
                     eq_text = "def eq_body():\n   from numerous.engine.model.simple_vectorizer import simple_vectorize\n   import numpy as np\n" + eq_text
             else:
-                eq_not_found = True
                 eq_id = "empty_equation"
                 if eq_id in compiled_equations_ids:
                     compiled_equations_idx.append(compiled_equations_ids.index(eq_id))
                     continue
                 eq_text = "def eq_body():\n   def eval(self,scope):\n      pass\n   return eval"
-            if eq_not_found:
-                tree = ast.parse(eq_text, mode='exec')
-                code = compile(tree, filename='test', mode='exec')
-                namespace = {}
-                exec(code, namespace)
-                compiled_equations_idx.append(len(compiled_equations_ids))
-                compiled_equations_ids.append(eq_id)
-                compiled_eq.append(list(namespace.values())[1]())
+
+            tree = ast.parse(eq_text, mode='exec')
+            code = compile(tree, filename='test', mode='exec')
+            namespace = {}
+            exec(code, namespace)
+            compiled_equations_idx.append(len(compiled_equations_ids))
+            compiled_equations_ids.append(eq_id)
+            compiled_eq.append(list(namespace.values())[1]())
 
         return np.array(compiled_eq), np.array(compiled_equations_idx, dtype=np.int64)
 
