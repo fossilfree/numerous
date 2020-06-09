@@ -1,3 +1,4 @@
+import time
 from datetime import datetime
 import time
 import numpy as np
@@ -40,19 +41,20 @@ class Simulation:
                 Empty namespace with given name
         """
 
-        time, delta_t = np.linspace(t_start, t_stop, num + 1, retstep=True)
+        time_, delta_t = np.linspace(t_start, t_stop, num + 1, retstep=True)
         self.callbacks = []
-        self.time = time
+        self.time = time_
         self.async_callback = []
 
 
-
-        numba_model = model.generate_numba_model(t_start,len(self.time))
-
-
+        print("Generating Numba Model")
+        generation_start = time.time()
+        numba_model = model.generate_numba_model(t_start, len(self.time))
+        generation_finish = time.time()
+        print("Generation time: ", generation_finish - generation_start)
 
         if solver_type == SolverType.SOLVER_IVP:
-            self.solver = IVP_solver(time, delta_t, numba_model,
+            self.solver = IVP_solver(time_, delta_t, numba_model,
                                      num_inner, max_event_steps, **kwargs)
         self.model = model
         self.start_datetime = start_datetime
