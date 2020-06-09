@@ -150,6 +150,7 @@ class Model:
         - Using _flat / _3d only as suffix
 
         """
+        print("Assembling numerous Model")
         assemble_start = time.time()
         # 1. Create list of model namespaces
         model_namespaces = [_ns
@@ -303,6 +304,7 @@ class Model:
         self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
 
         assemble_finish = time.time()
+        print("Assemble time: ",assemble_finish - assemble_start)
         self.info.update({"Assemble time": assemble_finish - assemble_start})
         self.info.update({"Number of items": len(self.model_items)})
         self.info.update({"Number of variables": len(self.scope_variables)})

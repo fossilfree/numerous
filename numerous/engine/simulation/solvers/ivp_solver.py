@@ -1,4 +1,4 @@
-
+import time
 
 from scipy.integrate import solve_ivp
 from tqdm import tqdm
@@ -32,57 +32,70 @@ class IVP_solver(BaseSolver):
                 returns the most recent OdeSolution from scipy
 
         """
-
-        result_status = "Success"
-        stop_condition = False
-        sol = None
-        event_steps = 0
+        self.result_status = "Success"
+        self.sol = None
         try:
-            for t in tqdm(self.time[0:-1]):
-                    step_not_finished = True
-                    current_timestamp = t
-                    while step_not_finished:
-                        t_eval = np.linspace(current_timestamp, t + self.delta_t, self.num_inner + 1)
-
-                        sol = solve_ivp(self.diff_function, (current_timestamp, t + self.delta_t), y0=self.y0, t_eval=t_eval,
-                                         dense_output=True,
-                                        **self.options)
-                        step_not_finished = False
-                        event_step = sol.status == 1
-
-                        if sol.status == 0:
-                            current_timestamp = t + self.delta_t
-                        if event_step:
-                            event_id = np.nonzero([x.size > 0 for x in sol.t_events])[0][0]
-                            # solution stuck
-                            stop_condition = False
-                            if (abs(sol.t_events[event_id][0] - current_timestamp) < 1e-6):
-                                event_steps += 1
-                            else:
-                                event_steps = 0
-
-                            if event_steps > self.max_event_steps:
-                                stop_condition = True
-                            current_timestamp = sol.t_events[event_id][0]
-
-                            step_not_finished = True
-
-                            self.__end_step(self, sol.sol(current_timestamp), current_timestamp, event_id=event_id)
-                        else:
-                            if sol.success:
-                                self.__end_step(self, sol.y[:, -1], current_timestamp)
-                            else:
-                                result_status = sol.message
-                        if stop_condition:
-                            break
-                    if stop_condition:
-                        result_status = "Stopping condition reached"
-                        break
+            print("Compiling Numba equations")
+            compilation_start = time.time()
+            self.solver_step(self.time[0])
+            compilation_finished = time.time()
+            print("Compilation time: ", compilation_finished - compilation_start)
+            for t in tqdm(self.time[1:-1]):
+                if self.solver_step(t):
+                    break
         except Exception as e:
             print(e)
             raise e
         finally:
-            return sol, result_status
+            return  self.sol,  self.result_status
+
+
+    def solver_step(self,t):
+        step_not_finished = True
+        current_timestamp = t
+        event_steps = 0
+
+
+        stop_condition = False
+
+        while step_not_finished:
+            t_eval = np.linspace(current_timestamp, t + self.delta_t, self.num_inner + 1)
+
+            self.sol = solve_ivp(self.diff_function, (current_timestamp, t + self.delta_t), y0=self.y0, t_eval=t_eval,
+                            dense_output=True,
+                            **self.options)
+            step_not_finished = False
+            event_step = self.sol.status == 1
+
+            if self.sol.status == 0:
+                current_timestamp = t + self.delta_t
+            if event_step:
+                event_id = np.nonzero([x.size > 0 for x in self.sol.t_events])[0][0]
+                # solution stuck
+                stop_condition = False
+                if (abs(self.sol.t_events[event_id][0] - current_timestamp) < 1e-6):
+                    event_steps += 1
+                else:
+                    event_steps = 0
+
+                if event_steps > self.max_event_steps:
+                    stop_condition = True
+                current_timestamp = self.sol.t_events[event_id][0]
+
+                step_not_finished = True
+
+                self.__end_step(self, sol.self.sol(current_timestamp), current_timestamp, event_id=event_id)
+            else:
+                if self.sol.success:
+                    self.__end_step(self, self.sol.y[:, -1], current_timestamp)
+                else:
+                    self.result_status = self.sol.message
+            if stop_condition:
+                break
+        if stop_condition:
+            self.result_status = "Stopping condition reached"
+            return True
+        return False
 
 
     def set_state_vector(self, states_as_vector):
