@@ -31,9 +31,10 @@ class Equation_Parser():
                 if self.get_complex_id(model.equation_dict[tt]) in compiled_equations_ids:
                     compiled_equations_idx.append(compiled_equations_ids.index(self.get_complex_id(model.equation_dict[tt])))
                     continue
+                eq_id = self.get_complex_id(model.equation_dict[tt])
                 for i in range(len(model.equation_dict[tt])):
                     lines = model.equation_dict[tt][i].lines.split("\n")
-                    eq_id = model.equation_dict[tt][i].id
+
                     non_empty_lines = [line for line in lines if line.strip() != ""]
 
                     string_without_empty_lines = ""
