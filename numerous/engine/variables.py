@@ -41,7 +41,7 @@ class DetailedVariableDescription(VariableDescription):
 
 
 class MappedValue(object):
-    def __init__(self,id):
+    def __init__(self, id):
         self.id = id
         self.mapping = None
         self.sum_mapping = []
@@ -49,15 +49,14 @@ class MappedValue(object):
         self.addself = False
 
     def add_mapping(self, variable):
-
         if not self.special_mapping:
             if variable.id == self.id:
-                raise RecursionError("Variable {0} cannot be mapped to itself",self.id)
-            self.mapping=variable
+                raise RecursionError("Variable {0} cannot be mapped to itself", self.id)
+            self.mapping = variable
         self.special_mapping = False
 
     def add_sum_mapping(self, variable):
-            self.sum_mapping.append(variable)
+        self.sum_mapping.append(variable)
 
     def __iadd__(self, other):
         if isinstance(other, Variable):
@@ -71,7 +70,7 @@ class MappedValue(object):
         else:
             object.__iadd__(self, other)
 
-    def __get_value(self,ids):
+    def __get_value(self, ids):
         if self.id in ids:
             return self.value
         else:
@@ -83,6 +82,7 @@ class MappedValue(object):
 
             else:
                 return self.value
+
     def get_value(self):
         if self.mapping:
             return self.mapping.get_value()
@@ -91,6 +91,7 @@ class MappedValue(object):
 
         else:
             return self.value
+
 
 class VariablePath:
 
@@ -103,12 +104,13 @@ class VariablePath:
         return iter(self.path.values())
 
     def extend_path(self, current_id, new_id, new_tag):
-        if not (current_id+new_id in self.used_id_pairs):
-            if new_id in  self.path:
-                self.path[new_id].extend([new_tag+'.'+x for x in self.path[current_id]])
+        if not (current_id + new_id in self.used_id_pairs):
+            if new_id in self.path:
+                self.path[new_id].extend([new_tag + '.' + x for x in self.path[current_id]])
             else:
-                self.path.update({new_id: [new_tag+'.'+x for x in self.path[current_id]]})
-            self.used_id_pairs.append(current_id+new_id)
+                self.path.update({new_id: [new_tag + '.' + x for x in self.path[current_id]]})
+            self.used_id_pairs.append(current_id + new_id)
+
 
 class Variable(MappedValue):
 
@@ -119,7 +121,7 @@ class Variable(MappedValue):
         self.namespace = detailed_variable_description.namespace
         self.tag = detailed_variable_description.tag
         self.type = detailed_variable_description.type
-        self.path = VariablePath([detailed_variable_description.tag],self.id)
+        self.path = VariablePath([detailed_variable_description.tag], self.id)
         self.alias = None
         if base_variable:
 
@@ -133,7 +135,6 @@ class Variable(MappedValue):
         self.allow_update = detailed_variable_description.allow_update
         self.associated_scope = []
         self.idx_in_scope = []
-
 
     def update_value(self, value):
         self.value = value
@@ -167,6 +168,7 @@ class Variable(MappedValue):
     #                                  ' in differential equation'.format(self.tag))
     #
     #     object.__setattr__(self, key, value)
+
 
 class _VariableFactory:
 

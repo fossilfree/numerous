@@ -21,8 +21,9 @@ from numerous.utils.numba_callback import NumbaCallbackBase
 
 class ModelNamespace:
 
-    def __init__(self, tag):
+    def __init__(self, tag,outgoing_mappings):
         self.tag = tag
+        self.outgoing_mappings = outgoing_mappings
         self.equation_dict = {}
         self.eq_variables_ids = []
         self.variables = {}
@@ -56,7 +57,7 @@ class ModelAssembler:
                                                       map(namespace.variables.get, namespace.eq_variables_ids[i]),
                                                       namespace, tag, variables)
                 scope_select.update({scope.id: scope})
-                equation_dict.update({scope.id: eq_methods})
+                equation_dict.update({scope.id: (eq_methods, namespace.outgoing_mappings)})
 
         return variables, scope_select, equation_dict
 
@@ -100,6 +101,7 @@ class Model:
         self.period = 1
         self.mapping_from = []
         self.mapping_to = []
+        self.eq_outgoing_mappings = []
         self.sum_mapping_from = []
         self.sum_mapping_to = []
         self.scope_variables_flat = []
@@ -169,7 +171,7 @@ class Model:
         # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping
         # self.synchronized_scope to compiled_eq (by index)
         equation_parser = Equation_Parser()
-        self.compiled_eq, self.compiled_eq_idxs = equation_parser.parse(self)
+        self.compiled_eq, self.compiled_eq_idxs,self.eq_outgoing_mappings = equation_parser.parse(self)
 
         # 4. Create self.states_idx and self.derivatives_idx
         # Fixes each variable's var_idx (position), updates variables[].idx_in_scope
@@ -540,7 +542,7 @@ class Model:
     def create_model_namespaces(self, item):
         namespaces_list = []
         for namespace in item.registered_namespaces.values():
-            model_namespace = ModelNamespace(namespace.tag)
+            model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings)
             equation_dict = {}
             eq_variables_ids = []
             for eq in namespace.associated_equations.values():
@@ -573,7 +575,7 @@ class Model:
                    ", :self.num_uses_per_eq[" + str(i) + "]])\n"
 
         Equation_Parser.create_numba_iterations(NumbaModel, self.compiled_eq, "compute_eq", "func"
-                                                , create_eq_call, "array_2d")
+                                                , create_eq_call, "array_2d", map_sorting=self.eq_outgoing_mappings)
 
         ##Adding callbacks_varaibles to numba specs
         def create_cbi_call(_method_name: str, i: int):
