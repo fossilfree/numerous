@@ -1,6 +1,7 @@
 import random
 import time
 
+
 from numerous.engine.model import  Model
 from numerous.engine.simulation import Simulation
 from numerous.engine.system import Item, ConnectorTwoWay, Subsystem
@@ -90,6 +91,7 @@ class ThermalCapacitancesSeries(Subsystem):
 
             #Create thermal conductor
             node = Thermal_Capacitance('node' + str(i), C=100, T0=T0_)
+
             if prev_node:
                 # Connect the last node to the new node with a conductor
                 thermal_conductor = Thermal_Conductor('thermal_conductor' + str(i), k=1)
