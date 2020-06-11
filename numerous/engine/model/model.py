@@ -69,14 +69,14 @@ class Model:
      so they can be accessed as variable values there.
     """
 
-    def __init__(self, system=None, historian=None, assemble=True, validate=False):
+    def __init__(self, system=None, historian_filter=None, assemble=True, validate=False):
 
         self.numba_callbacks_init = []
         self.numba_callbacks_variables = []
         self.numba_callbacks = []
         self.numba_callbacks_init_run = []
         self.callbacks = []
-
+        self.historian_filter = historian_filter
         self.system = system
         self.events = {}
         self.derivatives = {}

@@ -187,16 +187,16 @@ def test_model_var_referencing(ms1):
 
 
 def test_model_save_only_aliases(ms3):
-    hdf = HistoryDataFrame(filter=OutputFilter(only_aliases=True))
-    m1 = Model(ms3, historian=hdf)
+    of = OutputFilter(only_aliases=True)
+    m1 = Model(ms3, historian_filter=of)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
     s1.solve()
-    assert hdf.df.empty
+    assert m1.historian_df.empty
 
 
 def test_model_save_only_aliases2(ms3):
-    hdf = HistoryDataFrame(filter=OutputFilter(only_aliases=True))
-    m1 = Model(ms3, historian=hdf)
+    of = OutputFilter(only_aliases=True)
+    m1 = Model(ms3, historian_filter=of)
     item = m1.search_items('2')[0]
     columns_number = 0
     for i, var in enumerate(item.get_variables()):
@@ -205,7 +205,7 @@ def test_model_save_only_aliases2(ms3):
 
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
     s1.solve()
-    assert hdf.df.columns.size == columns_number
+    assert  m1.historian_df.columns.size == columns_number
 
 
 def test_1_item_model(ms1):
