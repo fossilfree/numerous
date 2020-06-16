@@ -5,7 +5,6 @@ from numerous.engine.system import Subsystem, Item
 from numerous.multiphysics import EquationBase, Equation
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
-from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
 import numpy as np
 
 
@@ -76,24 +75,24 @@ def system51():
 
 
 def test_system_link_1_5(system15):
-    model = Model(system15, historian=SimpleHistoryDataFrame())
+    model = Model(system15)
 
     sim = Simulation(model, t_start=0, t_stop=100, num=200)
 
     sim.solve()
-    df = sim.model.historian.df
+    df = sim.model.historian_df
 
-    assert approx(np.array(df['root.linkersubsystem_4.item_0.t1.x'])[1:], rel=1) == \
-           expected(len(df['time'][:-1]), 5, 0.9)
+    assert approx(np.array(df['root.linkersubsystem_4.item_0.t1.x'])[1:]) == \
+           expected(len(df.index[:-1]), 5, 0.9)
 
 
 def test_system_link_5_1(system51):
-    model = Model(system51, historian=SimpleHistoryDataFrame())
+    model = Model(system51)
 
     sim = Simulation(model, t_start=0, t_stop=100, num=200)
 
     sim.solve()
-    df = sim.model.historian.df
+    df = sim.model.historian_df
 
-    assert approx(np.array(df['root.linkersubsystem_0.item_4.t1.x'])[1:], rel=1) == \
-           expected(len(df['time'][:-1]), 5, 0.9)
+    assert approx(np.array(df['root.linkersubsystem_0.item_4.t1.x'])[1:]) == \
+           expected(len(df.index[:-1]), 5, 0.9)

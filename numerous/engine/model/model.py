@@ -1,21 +1,29 @@
-import copy
+import ast
+import itertools
+import numpy as np
+import operator
+import re
 import time
 import uuid
-import numpy as np
-import ast
-import re
+
+from numba import jitclass
+import pandas as pd
+from numerous.engine.model.equation_parser import Equation_Parser
+from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
-from numerous.utils.historyDataFrame import HistoryDataFrame
-from numerous.engine.scope import Scope, TemporaryScopeWrapper, ScopeVariable
-from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
+from examples.historyDataFrameCallbackExample import HistoryDataFrameCallback
+from numerous.engine.scope import Scope, ScopeVariable
+# from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 from numerous.engine.system.subsystem import Subsystem
 from numerous.engine.variables import VariableType
+from numerous.utils.numba_callback import NumbaCallbackBase
 
 
 class ModelNamespace:
 
-    def __init__(self, tag):
+    def __init__(self, tag,outgoing_mappings):
         self.tag = tag
+        self.outgoing_mappings = outgoing_mappings
         self.equation_dict = {}
         self.eq_variables_ids = []
         self.variables = {}
@@ -24,11 +32,13 @@ class ModelNamespace:
 class ModelAssembler:
 
     @staticmethod
-    def __create_scope(eq_tag, eq_variables, namespace, tag, variables):
+    def __create_scope(eq_tag, eq_methods, eq_variables, namespace, tag, variables):
         scope_id = "{0}_{1}_{2}".format(eq_tag, namespace.tag, tag, str(uuid.uuid4()))
         scope = Scope(scope_id)
         for variable in eq_variables:
             scope.add_variable(variable)
+            variable.bound_equation_methods = eq_methods
+            variable.parent_scope_id = scope_id
             # Needed for updating states after solve run
             if variable.type.value == VariableType.STATE.value:
                 variable.associated_state_scope.append(scope_id)
@@ -43,11 +53,11 @@ class ModelAssembler:
         tag, namespaces = input_namespace
         for namespace in namespaces:
             for i, (eq_tag, eq_methods) in enumerate(namespace.equation_dict.items()):
-                scope = ModelAssembler.__create_scope(eq_tag,
+                scope = ModelAssembler.__create_scope(eq_tag, eq_methods,
                                                       map(namespace.variables.get, namespace.eq_variables_ids[i]),
                                                       namespace, tag, variables)
                 scope_select.update({scope.id: scope})
-                equation_dict.update({scope.id: eq_methods})
+                equation_dict.update({scope.id: (eq_methods, namespace.outgoing_mappings)})
 
         return variables, scope_select, equation_dict
 
@@ -61,10 +71,14 @@ class Model:
 
     def __init__(self, system=None, historian=None, assemble=True, validate=False):
 
+        self.numba_callbacks_init = []
+        self.numba_callbacks_variables = []
+        self.numba_callbacks = []
+        self.numba_callbacks_init_run = []
+        self.callbacks = []
+
         self.system = system
         self.events = {}
-        self.historian = historian if historian else HistoryDataFrame()
-        self.callbacks = [self.historian.callback]
         self.derivatives = {}
         self.model_items = {}
         self.state_history = {}
@@ -72,6 +86,10 @@ class Model:
         self.compiled_eq = []
         self.flat_scope_idx = None
         self.flat_scope_idx_from = None
+        self.historian_df = None
+
+        self.global_variables_tags = ['time']
+        self.global_vars = np.array([0], dtype=np.float64)
 
         self.equation_dict = {}
         self.scope_variables = {}
@@ -83,12 +101,14 @@ class Model:
         self.period = 1
         self.mapping_from = []
         self.mapping_to = []
+        self.eq_outgoing_mappings = []
         self.sum_mapping_from = []
         self.sum_mapping_to = []
         self.scope_variables_flat = []
         self.states_idx = []
         self.derivatives_idx = []
         self.scope_to_variables_idx = []
+        self.numba_model = None
 
         self.info = {}
         if assemble:
@@ -100,15 +120,6 @@ class Model:
     def __restore_state(self):
         for key, value in self.historian.get_last_state():
             self.scope_variables[key] = value
-
-    def sychronize_scope(self):
-        """
-        Synchronize the values between ScopeVariables and SystemVariables
-        """
-        self.scope_variables_flat = self.flat_variables[self.scope_to_variables_idx.flatten()]
-
-    def _get_initial_scope_copy(self):
-        return TemporaryScopeWrapper(copy.copy(self.scope_variables_flat), self.states_idx, self.derivatives_idx)
 
     def __add_item(self, item):
         model_namespaces = []
@@ -132,106 +143,191 @@ class Model:
         """
         Assembles the model.
         """
-        assemble_start = time.time()
-        model_namespaces = []
-        for item in self.system.registered_items.values():
-            model_namespaces.extend(self.__add_item(item))
 
-        for (variables, scope_select, equation_dict) in map(ModelAssembler.t_1, model_namespaces):
+        """
+        notation:
+        - _idx for single integers / tuples, 
+        - _idxs for lists / arrays of integers
+        - _pos as counterpart to _from
+        - Using _flat / _3d only as suffix
+
+        """
+        print("Assembling numerous Model")
+        assemble_start = time.time()
+        # 1. Create list of model namespaces
+        model_namespaces = [_ns
+                            for item in self.system.registered_items.values()
+                            for _ns in self.__add_item(item)]
+
+        # 2. Compute dictionaries
+        # equation_dict <scope_id, [Callable]>
+        # synchronized_scope <scope_id, Scope>
+        # scope_variables <variable_id, Variable>
+        for variables, scope_select, equation_dict in map(ModelAssembler.t_1, model_namespaces):
             self.equation_dict.update(equation_dict)
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
 
-        for tt in self.synchronized_scope.keys():
-            eq_text = ""
-            if self.equation_dict[tt]:
-                eq_text = self.equation_dict[tt][0].lines
+        # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping
+        # self.synchronized_scope to compiled_eq (by index)
+        equation_parser = Equation_Parser()
+        self.compiled_eq, self.compiled_eq_idxs,self.eq_outgoing_mappings = equation_parser.parse(self)
 
-                for i, var in enumerate(self.synchronized_scope[tt].variables.values()):
-                    p = re.compile(r"\." + var.tag + r"(?=[^\w*])")
-                    eq_text = p.sub("[" + str(i) + "]", eq_text)
-                eq_text = eq_text.replace("@Equation()", "")
-                eq_text = eq_text.replace("self,", "")
-                eq_text = eq_text.strip()
-                idx = eq_text.find('\n') + 1
-                spaces_len = len(eq_text[idx:]) - len(eq_text[idx:].lstrip())
-                eq_text = eq_text[:idx] + " " * spaces_len + 'import numpy as np\n' + eq_text[idx:]
+        # 4. Create self.states_idx and self.derivatives_idx
+        # Fixes each variable's var_idx (position), updates variables[].idx_in_scope
+        scope_variables_flat = np.fromiter(
+            map(operator.attrgetter('value'), self.scope_variables.values()),
+            np.float64)
+        for var_idx, var in enumerate(self.scope_variables.values()):
+            var.position = var_idx
+            self.variables[var.id].idx_in_scope.append(var_idx)
+        _fst = operator.itemgetter(0)
+        _snd_is_derivative = lambda var: var[1].type == VariableType.DERIVATIVE
+        _snd_is_state = lambda var: var[1].type == VariableType.STATE
+        self.states_idx = np.fromiter(map(_fst, filter(
+            _snd_is_state, enumerate(self.scope_variables.values()))),
+                                      np.int64)
+        self.derivatives_idx = np.fromiter(map(_fst, filter(
+            _snd_is_derivative, enumerate(self.scope_variables.values()))),
+                                           np.int64)
+
+        def __get_mapping__idx(variable):
+            if variable.mapping:
+                return __get_mapping__idx(variable.mapping)
             else:
-                eq_text = "def eval(scope):\n   pass"
-            tree = ast.parse(eq_text, mode='exec')
-            code = compile(tree, filename='test', mode='exec')
-            namespace = {}
-            exec(code, namespace)
-            self.compiled_eq.append(list(namespace.values())[1])
+                return variable.idx_in_scope[0]
 
-        for i, variable in enumerate(self.scope_variables.values()):
-            self.scope_variables_flat.append(variable.value)
-            variable.position = i
-            self.variables[variable.id].idx_in_scope.append(i)
-            if variable.type.value == VariableType.STATE.value:
-                self.states_idx.append(i)
-            if variable.type.value == VariableType.DERIVATIVE.value:
-                self.derivatives_idx.append(i)
+        # maps flat var_idx to scope_idx
+        self.var_idx_to_scope_idx = np.full_like(scope_variables_flat, -1, int)
+        self.var_idx_to_scope_idx_from = np.full_like(scope_variables_flat, -1, int)
 
-        for i, variable in enumerate(self.scope_variables.values()):
-            for mapping_id in variable.mapping_ids:
-                self.mapping_from.append(i)
-                ##TODO [0] is mapping to 1 var in scope_vars/ is it correct?
-                if len(self.variables[mapping_id].idx_in_scope) > 1:
-                    raise ValueError("Mapping to more then 1 variable")
-                self.mapping_to.append(self.variables[mapping_id].idx_in_scope[0])
-            for sum_mapping_id in variable.sum_mapping_ids:
-                self.sum_mapping_from.append(i)
-                self.sum_mapping_to.append(self.variables[sum_mapping_id].idx_in_scope[0])
+        non_flat_scope_idx_from = [[] for _ in range(len(self.synchronized_scope))]
+        non_flat_scope_idx = [[] for _ in range(len(self.synchronized_scope))]
+        sum_idx = []
+        sum_mapped = []
+        sum_mapped_idx = []
+        sum_mapped_idx_len = []
+        self.sum_mapping = False
 
-        result = []
-        for i, scope in enumerate(self.synchronized_scope.values()):
-            row = []
-            for j, var in enumerate(scope.variables.values()):
-                row.append(var.position)
-            result.append(np.array(row))
-        result.append(np.array([0]))
-        self.flat_scope_idx = np.array(result)
-        self.flat_scope_idx_from = np.copy(self.flat_scope_idx)
-        self.sum_mapping_mask = copy.deepcopy(self.flat_scope_idx)
+        for scope_idx, scope in enumerate(self.synchronized_scope.values()):
+            for scope_var_idx, var in enumerate(scope.variables.values()):
+                _from = __get_mapping__idx(self.variables[var.mapping_id]) \
+                    if var.mapping_id else var.position
 
-        for scope in self.sum_mapping_mask:
-            for i, idx in enumerate(scope):
-                scope[i]=0
+                self.var_idx_to_scope_idx[var.position] = scope_idx
+                self.var_idx_to_scope_idx_from[_from] = scope_idx
 
-        for k, scope in enumerate(self.flat_scope_idx):
-            for i, idx in enumerate(scope):
-                for j, mapping_idx in enumerate(self.mapping_from):
-                    if mapping_idx == idx:
-                        scope[i] = self.mapping_to[j]
-                for j, mapping_idx in enumerate(self.sum_mapping_from):
-                    if mapping_idx == idx:
-                        scope[i] = self.sum_mapping_to[j]
-                        self.sum_mapping_mask[k][i] = 1
+                non_flat_scope_idx_from[scope_idx].append(_from)
+                non_flat_scope_idx[scope_idx].append(var.position)
+                if not var.mapping_id and var.sum_mapping_ids:
+                    sum_idx.append(self.variables[var.id].idx_in_scope[0])
+                    start_idx = len(sum_mapped)
+                    sum_mapped += [self.variables[_var_id].idx_in_scope[0]
+                                   for _var_id in var.sum_mapping_ids]
+                    end_idx = len(sum_mapped)
+                    sum_mapped_idx = sum_mapped_idx + list(range(start_idx, end_idx))
+                    sum_mapped_idx_len.append(end_idx - start_idx)
+                    self.sum_mapping = True
 
-        self.scope_variables_flat = np.array(self.scope_variables_flat, dtype=np.float32)
-        self.states_idx = np.array(self.states_idx)
-        self.derivatives_idx = np.array(self.derivatives_idx)
+        # TODO @Artem: document these
+        # non_flat_scope_idx is #scopes x  number_of variables indexing?
+        self.non_flat_scope_idx_from = np.array(non_flat_scope_idx_from)
+        self.non_flat_scope_idx = np.array(non_flat_scope_idx)
 
-        for variable in self.variables.values():
-            for path in variable.path.path[self.system.id]:
-                self.path_variables.update({path: variable})
+        self.flat_scope_idx_from = np.array([x for xs in self.non_flat_scope_idx_from for x in xs])
+        self.flat_scope_idx = np.array([x for xs in self.non_flat_scope_idx for x in xs])
 
-        for variable in self.scope_variables.values():
-            for path in self.variables[variable.id].path.path[self.system.id]:
-                self.path_scope_variables.update({path: variable})
+        self.sum_idx = np.array(sum_idx)
+        self.sum_mapped = np.array(sum_mapped)
+        self.sum_mapped_idxs_len = np.array(sum_mapped_idx_len, dtype=np.int64)
+        if self.sum_mapping:
+            self.sum_slice_idxs = np.array(sum_mapped_idx, dtype=np.int64)
+        else:
+            self.sum_slice_idxs = np.array([], dtype=np.int64)
 
-        self.__create_scope_mappings()
+        # eq_idx -> #variables used. Can this be deduced earlier in a more elegant way?
+        self.num_vars_per_eq = np.fromiter(map(len, self.non_flat_scope_idx), np.int64)[
+            np.unique(self.compiled_eq_idxs, return_index=True)[1]]
+        # eq_idx -> # equation instances
+        self.num_uses_per_eq = np.unique(self.compiled_eq_idxs, return_counts=True)[1]
 
+        # float64 array of all variables' current value
         self.flat_variables = np.array([x.value for x in self.variables.values()])
         self.flat_variables_ids = [x.id for x in self.variables.values()]
-        self.scope_to_variables_idx = np.array([np.array(x.idx_in_scope) for x in self.variables.values()])
+        self.scope_to_variables_idx = np.array([x.idx_in_scope for x in self.variables.values()])
+
+        # (eq_idx, ind_eq_access) -> scope_variable.value
+
+        # self.index_helper: how many of the same item type do we have?
+        # max_scope_len: maximum number of variables one item can have
+        # not correcly sized, as np.object
+        # (eq_idx, ind_of_eq_access, var_index_in_scope) -> scope_variable.value
+        self.index_helper = np.empty(len(self.synchronized_scope), int)
+        max_scope_len = max(map(len, self.non_flat_scope_idx_from))
+        self.scope_vars_3d = np.zeros([len(self.compiled_eq), np.max(self.num_uses_per_eq), max_scope_len])
+
+        self.length = np.array(list(map(len, self.non_flat_scope_idx)))
+
+        _index_helper_counter = np.zeros(len(self.compiled_eq), int)
+        # self.scope_vars_3d = list(map(np.empty, zip(self.num_uses_per_eq, self.num_vars_per_eq)))
+        for scope_idx, (_flat_scope_idx_from, eq_idx) in enumerate(
+                zip(self.non_flat_scope_idx_from, self.compiled_eq_idxs)):
+            _idx = _index_helper_counter[eq_idx]
+            _index_helper_counter[eq_idx] += 1
+            self.index_helper[scope_idx] = _idx
+
+            _l = self.num_vars_per_eq[eq_idx]
+            self.scope_vars_3d[eq_idx][_idx, :_l] = scope_variables_flat[_flat_scope_idx_from]
+        self.state_idxs_3d = self._var_idxs_to_3d_idxs(self.states_idx, False)
+        self.deriv_idxs_3d = self._var_idxs_to_3d_idxs(self.derivatives_idx, False)
+        _differing_idxs = self.flat_scope_idx != self.flat_scope_idx_from
+        self.var_idxs_pos_3d = self._var_idxs_to_3d_idxs(np.arange(len(self.variables)), False)
+        self.differing_idxs_from_flat = self.flat_scope_idx_from[_differing_idxs]
+        self.differing_idxs_pos_flat = self.flat_scope_idx[_differing_idxs]
+        self.differing_idxs_from_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_from_flat, False)
+        self.differing_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_pos_flat, False)
+        self.sum_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.sum_idx, False)
+        self.sum_idxs_sum_3d = self._var_idxs_to_3d_idxs(self.sum_mapped, False)
+
+        # 6. Compute self.path_variables and updating var_idxs_pos_3d
+        # var_idxs_pos_3d_helper shows position for var_idxs_pos_3d for variables that have
+        # multiple path
+        #
+        var_idxs_pos_3d_helper = []
+        for i, variable in enumerate(self.variables.values()):
+            for path in variable.path.path[self.system.id]:
+                self.path_variables.update({path: variable.value})
+                var_idxs_pos_3d_helper.append(i)
+        self.var_idxs_pos_3d_helper = np.array(var_idxs_pos_3d_helper, dtype=np.int64)
+
+        # This can be done more efficiently using two num_scopes-sized view of a (num_scopes+1)-sized array
+        _flat_scope_idx_slices_lengths = list(map(len, non_flat_scope_idx))
+        self.flat_scope_idx_slices_end = np.cumsum(_flat_scope_idx_slices_lengths)
+        self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
+
         assemble_finish = time.time()
+        print("Assemble time: ",assemble_finish - assemble_start)
         self.info.update({"Assemble time": assemble_finish - assemble_start})
         self.info.update({"Number of items": len(self.model_items)})
         self.info.update({"Number of variables": len(self.scope_variables)})
         self.info.update({"Number of equation scopes": len(self.equation_dict)})
+        self.info.update({"Number of equations": len(self.compiled_eq)})
         self.info.update({"Solver": {}})
+
+    def _var_idxs_to_3d_idxs(self, var_idxs, _from):
+        if var_idxs.size == 0:
+            return (np.array([], dtype=np.int64), np.array([], dtype=np.int64)
+                    , np.array([], dtype=np.int64))
+        _scope_idxs = (self.var_idx_to_scope_idx_from if _from else
+                       self.var_idx_to_scope_idx)[var_idxs]
+        _non_flat_scope_idx = self.non_flat_scope_idx_from if _from else self.non_flat_scope_idx
+        return (
+            self.compiled_eq_idxs[_scope_idxs],
+            self.index_helper[_scope_idxs],
+            np.fromiter(itertools.starmap(list.index,
+                                          zip(map(list, _non_flat_scope_idx[_scope_idxs]),
+                                              var_idxs)),
+                        int))
 
     def get_states(self):
         """
@@ -242,6 +338,30 @@ class Model:
             list of all states.
         """
         return self.scope_variables[self.states_idx]
+
+    def synchornize_variables(self):
+        '''
+        Updates all the values of all Variable instances stored in
+        `self.variables` with the values stored in `self.scope_vars_3d`.
+        '''
+        for variable, value in zip(self.variables.values(),
+                                   self.scope_vars_3d[self.var_idxs_pos_3d]):
+            variable.value = value
+
+    def update_states(self, y):
+        self.scope_variables[self.states_idx] = y
+
+    def history_as_dataframe(self):
+        time = self.data[0]
+        data = {'time': time}
+
+        for i, var in enumerate(self.var_list):
+            data.update({var: self.data[i + 1]})
+
+        self.df = pd.DataFrame(data)
+        self.df = self.df.dropna(subset=['time'])
+        self.df = self.df.set_index('time')
+        self.df.index = pd.to_timedelta(self.df.index, unit='s')
 
     def validate(self):
         """
@@ -270,10 +390,10 @@ class Model:
     def __create_scope_mappings(self):
         for scope in self.synchronized_scope.values():
             for var in scope.variables.values():
-                for mapping_id in var.mapping_ids:
-                    var.mapping.append(self.scope_variables[mapping_id])
-                for mapping_id in var.sum_mapping_ids:
-                    var.sum_mapping.append(self.scope_variables[mapping_id])
+                if var.mapping_id:
+                    var.mapping = self.scope_variables[var.mapping_id]
+                if var.sum_mapping_id:
+                    var.sum_mapping = self.scope_variables[var.sum_mapping_id]
 
     def restore_state(self, timestep=-1):
         """
@@ -293,7 +413,7 @@ class Model:
                     self.path_variables[state_name].value = list(last_states[state_name].values())[0]
                 if self.path_variables[state_name].type.value is VariableType.STATE.value:
                     r1.append(list(last_states[state_name].values())[0])
-        self.scope_variables_flat[self.states_idx] = np.array(r1)
+        self.scope_vars_3d[self.state_idxs_3d] = r1
 
     @property
     def states_as_vector(self):
@@ -305,10 +425,7 @@ class Model:
         state_values : array of state values
 
         """
-        if self.states_idx.size == 0:
-            return np.array([])
-        else:
-            return self.scope_variables_flat[self.states_idx]
+        return self.scope_vars_3d[self.state_idxs_3d]
 
     def get_variable_path(self, id, item):
         for (variable, namespace) in item.get_variables():
@@ -404,26 +521,28 @@ class Model:
         """
         self.scope_variables[variable_name].alias = alias
 
-    def add_callback(self, name, callback_function):
+    def add_callback(self, callback_class: NumbaCallbackBase) -> None:
         """
-        Adding a callback
-
-
-        Parameters
-        ----------
-        name : string
-            name of the callback
-
-        callback_function : callable
-            callback function
 
         """
-        self.callbacks.append(_SimulationCallback(name, callback_function))
+
+        self.callbacks.append(callback_class)
+        numba_update_function = Equation_Parser.parse_non_numba_function(callback_class.update, r"@NumbaCallback.+")
+        self.numba_callbacks.append(numba_update_function)
+
+        if callback_class.update.run_after_init:
+            self.numba_callbacks_init_run.append(numba_update_function)
+
+        numba_initialize_function = Equation_Parser.parse_non_numba_function(callback_class.initialize,
+                                                                             r"@NumbaCallback.+")
+
+        self.numba_callbacks_init.append(numba_initialize_function)
+        self.numba_callbacks_variables.append(callback_class.numba_params_spec)
 
     def create_model_namespaces(self, item):
         namespaces_list = []
         for namespace in item.registered_namespaces.values():
-            model_namespace = ModelNamespace(namespace.tag)
+            model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings)
             equation_dict = {}
             eq_variables_ids = []
             for eq in namespace.associated_equations.values():
@@ -432,7 +551,7 @@ class Model:
                 for equation in eq.equations:
                     equations.append(equation)
                 for vardesc in eq.variables_descriptions:
-                    variable = namespace.get_variable(vardesc)
+                    variable = namespace.get_variable(vardesc.tag)
                     self.variables.update({variable.id: variable})
                     ids.append(variable.id)
                 equation_dict.update({eq.tag: equations})
@@ -443,8 +562,83 @@ class Model:
             namespaces_list.append(model_namespace)
         return namespaces_list
 
-    def update_model_from_scope(self, t_scope):
-        self.flat_variables = t_scope.flat_var[self.scope_to_variables_idx].sum(1)
-        for i, v_id in enumerate(self.flat_variables_ids):
-            # if not np.isclose(self.variables[v_id].value, self.flat_variables[i]):
-            self.variables[v_id].value = self.flat_variables[i]
+    # Method that generates numba_model
+    def generate_numba_model(self, start_time, number_of_timesteps):
+
+        for spec_dict in self.numba_callbacks_variables:
+            for item in spec_dict.items():
+                numba_model_spec.append(item)
+
+        def create_eq_call(eq_method_name: str, i: int):
+            return "      self." \
+                   "" + eq_method_name + "(array_2d[" + str(i) + \
+                   ", :self.num_uses_per_eq[" + str(i) + "]])\n"
+
+        Equation_Parser.create_numba_iterations(NumbaModel, self.compiled_eq, "compute_eq", "func"
+                                                , create_eq_call, "array_2d", map_sorting=self.eq_outgoing_mappings)
+
+        ##Adding callbacks_varaibles to numba specs
+        def create_cbi_call(_method_name: str, i: int):
+            return "      self." \
+                   "" + _method_name + "(time, self.path_variables)\n"
+
+        Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks, "run_callbacks", "callback_func"
+                                                , create_cbi_call, "time")
+
+        def create_cbi2_call(_method_name: str, i: int):
+            return "      self." \
+                   "" + _method_name + "(self.number_of_variables,self.number_of_timesteps)\n"
+
+        Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init, "init_callbacks",
+                                                "callback_func_init_", create_cbi2_call, "")
+
+        def create_cbiu_call(_method_name: str, i: int):
+            return "      self." \
+                   "" + _method_name + "(time, self.path_variables)\n"
+
+        Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init_run, "run_init_callbacks",
+                                                "callback_func_init_pre_update", create_cbiu_call, "time")
+
+        @jitclass(numba_model_spec)
+        class NumbaModel_instance(NumbaModel):
+            pass
+
+        NM_instance = NumbaModel_instance(self.var_idxs_pos_3d, self.var_idxs_pos_3d_helper,
+                                          len(self.compiled_eq), self.state_idxs_3d[0].shape[0],
+                                          self.differing_idxs_pos_3d[0].shape[0], self.scope_vars_3d,
+                                          self.state_idxs_3d,
+                                          self.deriv_idxs_3d, self.differing_idxs_pos_3d, self.differing_idxs_from_3d,
+                                          self.num_uses_per_eq, self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
+                                          self.sum_slice_idxs, self.sum_mapped_idxs_len, self.sum_mapping,
+                                          self.global_vars, number_of_timesteps, len(self.path_variables), start_time)
+
+        for key, value in self.path_variables.items():
+            NM_instance.path_variables[key] = value
+            NM_instance.path_keys.append(key)
+        NM_instance.run_init_callbacks(start_time)
+
+        NM_instance.historian_update(start_time)
+        self.numba_model = NM_instance
+        return self.numba_model
+
+    def create_historian_df(self):
+        # _time = self.numba_model.historian_data[0]
+        # data = {'time': _time}
+        #
+        # for i, var in enumerate(self.path_variables):
+        #     data.update({var: self.numba_model.historian_data[i + 1]})
+        #
+        # self.historian_df = pd.DataFrame(data)
+        # self.historian_df = self.historian_df.dropna(subset=['time'])
+        # self.historian_df = self.historian_df.set_index('time')
+        # self.historian_df.index = pd.to_timedelta(self.historian_df.index, unit='s')
+
+
+        time = self.numba_model.historian_data[0]
+        data = {'time': time}
+
+        for i, var in enumerate(self.path_variables):
+             data.update({var: self.numba_model.historian_data[i + 1]})
+
+        self.historian_df = pd.DataFrame(data)
+        # self.df.set_index('time')

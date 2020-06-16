@@ -3,9 +3,9 @@ from pytest import approx
 
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
-from numerous.engine.simulation.simulation_callbacks import _SimulationCallback
+
 from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
-from numerous import EquationBase, HistoryDataFrame, OutputFilter, Equation
+from numerous import EquationBase, OutputFilter, Equation
 from .test_equations import TestEq_ground, Test_Eq, TestEq_input
 
 
