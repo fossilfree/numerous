@@ -1,4 +1,5 @@
 import copy
+import itertools
 
 import time
 import uuid
@@ -10,7 +11,6 @@ from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
 
-from examples.historyDataFrameCallbackExample import HistoryDataFrameCallback
 from numerous.engine.scope import Scope, ScopeVariable
 # from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 
