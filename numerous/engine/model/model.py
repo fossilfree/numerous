@@ -1,16 +1,17 @@
-import copy
+import ast
 import itertools
-
+import numpy as np
+import operator
+import re
 import time
 import uuid
-import numpy as np
+
 from numba import jitclass
-
-
+import pandas as pd
 from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
-
+from examples.historyDataFrameCallbackExample import HistoryDataFrameCallback
 from numerous.engine.scope import Scope, ScopeVariable
 # from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 
@@ -118,14 +119,6 @@ class Model:
             self.validate()
 
 
-    def sychronize_scope(self):
-        """
-        Synchronize the values between ScopeVariables and SystemVariables
-        """
-        for scope_var in self.scope_variables.values():
-            if scope_var.get_value() != self.variables[scope_var.id].get_value():
-                scope_var.value = self.variables[scope_var.id].get_value()
-
     def __add_item(self, item):
         model_namespaces = []
         if item.id in self.model_items:
@@ -148,7 +141,6 @@ class Model:
         """
         Assembles the model.
         """
-
         """
         notation:
         - _idx for single integers / tuples, 
@@ -221,7 +213,7 @@ class Model:
             for scope_var_idx, var in enumerate(scope.variables.values()):
                 _from = __get_mapping__idx(self.variables[var.mapping_id]) \
                     if var.mapping_id else var.position
-                
+
                 self.var_idx_to_scope_idx[var.position] = scope_idx
                 self.var_idx_to_scope_idx_from[_from] = scope_idx
 
@@ -237,9 +229,7 @@ class Model:
                     sum_mapped_idx_len.append(end_idx - start_idx)
                     self.sum_mapping = True
 
-        ##indication of ending
-        # flat_scope_idx_from.append(np.array([-1]))
-        # flat_scope_idx.append(np.array([-1]))
+
 
         # TODO @Artem: document these
         # non_flat_scope_idx is #scopes x  number_of variables indexing?
@@ -248,6 +238,7 @@ class Model:
 
         self.flat_scope_idx_from = np.array([x for xs in self.non_flat_scope_idx_from for x in xs])
         self.flat_scope_idx = np.array([x for xs in self.non_flat_scope_idx for x in xs])
+        
         self.sum_idx = np.array(sum_idx)
         self.sum_mapped = np.array(sum_mapped)
         self.sum_mapped_idxs_len = np.array(sum_mapped_idx_len, dtype=np.int64)
@@ -315,6 +306,7 @@ class Model:
         _flat_scope_idx_slices_lengths = list(map(len, non_flat_scope_idx))
         self.flat_scope_idx_slices_end = np.cumsum(_flat_scope_idx_slices_lengths)
         self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
+
         assemble_finish = time.time()
         print("Assemble time: ",assemble_finish - assemble_start)
         self.info.update({"Assemble time": assemble_finish - assemble_start})
@@ -360,6 +352,20 @@ class Model:
 
     def update_states(self, y):
         self.scope_variables[self.states_idx] = y
+
+
+    def history_as_dataframe(self):
+        time = self.data[0]
+        data = {'time': time}
+
+        for i, var in enumerate(self.var_list):
+            data.update({var: self.data[i + 1]})
+
+        self.df = pd.DataFrame(data)
+        self.df = self.df.dropna(subset=['time'])
+        self.df = self.df.set_index('time')
+        self.df.index = pd.to_timedelta(self.df.index, unit='s')
+
 
     def validate(self):
         """

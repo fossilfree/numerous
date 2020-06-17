@@ -2,7 +2,6 @@
 from .variables import Variable, VariableType, MappedValue
 import numpy as np
 
-
 class ScopeVariable(MappedValue):
     """
                Variable inside the scope.
@@ -25,6 +24,7 @@ class ScopeVariable(MappedValue):
         self.associated_state_scope = []
         self.bound_equation_methods = None
         self.parent_scope_id = None
+        self.position = None
 
 
     def update_ix(self, ix):
@@ -104,7 +104,6 @@ class Scope:
             var.allow_update = is_true
 
 class TemporaryScopeWrapper3d:
-
     def __init__(self, scope_vars_3d, state_idxs_3d, deriv_idxs_3d):
         self.scope_vars_3d = scope_vars_3d
         self.state_idxs_3d = state_idxs_3d
@@ -116,32 +115,11 @@ class TemporaryScopeWrapper3d:
     def get_states(self):
         return self.scope_vars_3d[self.state_idxs_3d]
 
-    def get_derivatives(self):
-        return self.scope_vars_3d[self.deriv_idxs_3d]
-
-class TemporaryScopeWrapper:
-
-    def __init__(self, flat_scope_var, state_idx,deriv_idx):
-        self.flat_var = flat_scope_var
-        self.state_idx = state_idx
-        self.deriv_idx = deriv_idx
-        self.result = {}
-        self.name_idx = {}
-
-    def update_mappings(self, model):
-        self.flat_var[model.mapping_from] = self.flat_var[model.mapping_to]
-
-    def update_states(self, state_values):
-        np.put(self.flat_var, self.state_idx, state_values)
-
     def update_states_idx(self, state_value, idx):
         np.put(self.flat_var, idx, state_value)
 
     # return all derivatives
     def get_derivatives(self):
-        return self.flat_var[self.deriv_idx]
+        return self.scope_vars_3d[self.deriv_idxs_3d]
 
-    # return derivate of state at index idx
-    def get_derivatives_idx(self, idx):
-        return self.flat_var[idx]
 

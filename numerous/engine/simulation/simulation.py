@@ -66,9 +66,7 @@ class Simulation:
         #                                               key=lambda callback: callback.priority,
         #                                               reverse=True)]
 
-
         self.solver.register_endstep(self.__end_step)
-
 
     def solve(self):
         self.__init_step()
@@ -78,10 +76,10 @@ class Simulation:
             raise e
         finally:
             self.info.update({"Solving status": result_status})
-
             list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,self.model.path_variables), self.model.callbacks))
             self.model.create_historian_df()
         return sol
+
     def __init_step(self):
         pass
         # [x.initialize(simulation=self) for x in self.model.callbacks]

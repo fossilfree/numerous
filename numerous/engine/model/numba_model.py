@@ -1,4 +1,4 @@
-from numba import int32, float64, boolean, int64, prange, njit, types, typed
+from numba import int32, float64, boolean, int64, njit, types, typed
 import numpy as np
 
 # key and value types
