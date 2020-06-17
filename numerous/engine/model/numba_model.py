@@ -135,11 +135,18 @@ class NumbaModel:
         mapping_ = True
         prev_scope_vars_3d = self.scope_vars_3d.copy()
         while mapping_:
-            for i in range(self.number_of_mappings):
-                self.scope_vars_3d[self.differing_idxs_pos_3d[0][i]][self.differing_idxs_pos_3d[1][i]][
-                    self.differing_idxs_pos_3d[2][i]] = self.scope_vars_3d[
-                    self.differing_idxs_from_3d[0][i]][self.differing_idxs_from_3d[1][i]][
-                    self.differing_idxs_from_3d[2][i]]
+            mapping_2 = True
+            prev_scope_vars_3d_2 = self.scope_vars_3d.copy()
+
+            while mapping_2:
+                for i in range(self.number_of_mappings):
+                    self.scope_vars_3d[self.differing_idxs_pos_3d[0][i]][self.differing_idxs_pos_3d[1][i]][
+                        self.differing_idxs_pos_3d[2][i]] = self.scope_vars_3d[
+                        self.differing_idxs_from_3d[0][i]][self.differing_idxs_from_3d[1][i]][
+                        self.differing_idxs_from_3d[2][i]]
+                mapping_2 = not np.all(np.abs(prev_scope_vars_3d_2 - self.scope_vars_3d) < 1e-6)
+                prev_scope_vars_3d_2 = np.copy(self.scope_vars_3d)
+
             self.compute_eq(self.scope_vars_3d)
 
             if self.sum_mapping:

@@ -84,7 +84,7 @@ class IVP_solver(BaseSolver):
 
                 step_not_finished = True
 
-                self.__end_step(self, sol.self.sol(current_timestamp), current_timestamp, event_id=event_id)
+                self.__end_step(self,self.sol(current_timestamp), current_timestamp, event_id=event_id)
             else:
                 if self.sol.success:
                     self.__end_step(self, self.sol.y[:, -1], current_timestamp)
