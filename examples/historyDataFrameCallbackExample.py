@@ -43,8 +43,3 @@ class HistoryDataFrameCallback(NumbaCallbackBase):
         self.df = self.df.set_index('time')
         self.df.index = pd.to_timedelta(self.df.index, unit='s')
 
-
-
-
-
-

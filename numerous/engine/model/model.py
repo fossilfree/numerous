@@ -14,10 +14,12 @@ from numerous.engine.system.connector import Connector
 from examples.historyDataFrameCallbackExample import HistoryDataFrameCallback
 from numerous.engine.scope import Scope, ScopeVariable
 # from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
+
 from numerous.engine.system.subsystem import Subsystem
 from numerous.engine.variables import VariableType
 from numerous.utils.numba_callback import NumbaCallbackBase
 
+import operator
 
 class ModelNamespace:
 
@@ -104,7 +106,6 @@ class Model:
         self.eq_outgoing_mappings = []
         self.sum_mapping_from = []
         self.sum_mapping_to = []
-        self.scope_variables_flat = []
         self.states_idx = []
         self.derivatives_idx = []
         self.scope_to_variables_idx = []
@@ -117,9 +118,6 @@ class Model:
         if validate:
             self.validate()
 
-    def __restore_state(self):
-        for key, value in self.historian.get_last_state():
-            self.scope_variables[key] = value
 
     def __add_item(self, item):
         model_namespaces = []
@@ -143,7 +141,6 @@ class Model:
         """
         Assembles the model.
         """
-
         """
         notation:
         - _idx for single integers / tuples, 
@@ -154,6 +151,7 @@ class Model:
         """
         print("Assembling numerous Model")
         assemble_start = time.time()
+
         # 1. Create list of model namespaces
         model_namespaces = [_ns
                             for item in self.system.registered_items.values()
@@ -164,6 +162,7 @@ class Model:
         # synchronized_scope <scope_id, Scope>
         # scope_variables <variable_id, Variable>
         for variables, scope_select, equation_dict in map(ModelAssembler.t_1, model_namespaces):
+
             self.equation_dict.update(equation_dict)
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
@@ -172,6 +171,7 @@ class Model:
         # self.synchronized_scope to compiled_eq (by index)
         equation_parser = Equation_Parser()
         self.compiled_eq, self.compiled_eq_idxs,self.eq_outgoing_mappings = equation_parser.parse(self)
+
 
         # 4. Create self.states_idx and self.derivatives_idx
         # Fixes each variable's var_idx (position), updates variables[].idx_in_scope
@@ -229,6 +229,8 @@ class Model:
                     sum_mapped_idx_len.append(end_idx - start_idx)
                     self.sum_mapping = True
 
+
+
         # TODO @Artem: document these
         # non_flat_scope_idx is #scopes x  number_of variables indexing?
         self.non_flat_scope_idx_from = np.array(non_flat_scope_idx_from)
@@ -236,7 +238,7 @@ class Model:
 
         self.flat_scope_idx_from = np.array([x for xs in self.non_flat_scope_idx_from for x in xs])
         self.flat_scope_idx = np.array([x for xs in self.non_flat_scope_idx for x in xs])
-
+        
         self.sum_idx = np.array(sum_idx)
         self.sum_mapped = np.array(sum_mapped)
         self.sum_mapped_idxs_len = np.array(sum_mapped_idx_len, dtype=np.int64)
@@ -351,6 +353,7 @@ class Model:
     def update_states(self, y):
         self.scope_variables[self.states_idx] = y
 
+
     def history_as_dataframe(self):
         time = self.data[0]
         data = {'time': time}
@@ -362,6 +365,7 @@ class Model:
         self.df = self.df.dropna(subset=['time'])
         self.df = self.df.set_index('time')
         self.df.index = pd.to_timedelta(self.df.index, unit='s')
+
 
     def validate(self):
         """
