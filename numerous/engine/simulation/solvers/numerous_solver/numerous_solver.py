@@ -1,4 +1,3 @@
-import sys
 import time
 from copy import deepcopy
 import numpy as np
@@ -6,12 +5,7 @@ from numba import njit
 from tqdm import tqdm
 
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
-
-sys.path.append("/home/artem/Source/numerous-solver")
-from numerous_solver.solver_methods import LevenbergMarquardt, BackwardEuler, BDF5
-
-
-
+from numerous.engine.simulation.solvers.numerous_solver.solver_methods import BDF5
 
 
 class Numerous_solver(BaseSolver):
