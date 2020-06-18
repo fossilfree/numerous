@@ -37,7 +37,7 @@ class NumbaModel:
                  scope_vars_3d, state_idxs_3d, deriv_idxs_3d,
                  differing_idxs_pos_3d, differing_idxs_from_3d, num_uses_per_eq,
                  sum_idxs_pos_3d, sum_idxs_sum_3d, sum_slice_idxs, sum_slice_idxs_len, sum_mapping,
-                 global_vars, number_of_timesteps, number_of_variables, start_time):
+                 global_vars,number_of_timesteps,number_of_variables,start_time):
         self.var_idxs_pos_3d = var_idxs_pos_3d
         self.var_idxs_pos_3d_helper = var_idxs_pos_3d_helper
         self.eq_count = eq_count
@@ -66,6 +66,7 @@ class NumbaModel:
         self.historian_data.fill(np.nan)
         ##Function is genrated in model.py contains creation and initialization of all callback related variables
 
+
     def update_states(self, state_values):
         for i in range(self.number_of_states):
             self.scope_vars_3d[self.state_idxs_3d[0][i]][self.state_idxs_3d[1][i]][self.state_idxs_3d[2][i]] \
@@ -81,20 +82,14 @@ class NumbaModel:
                 self.scope_vars_3d[self.deriv_idxs_3d[0][i]][self.deriv_idxs_3d[1][i]][self.deriv_idxs_3d[2][i]])
         return result
 
-    def get_mapped_variables(self, scope_3d):
-        result = []
-        for i in range(self.number_of_mappings):
-            result.append(
-                scope_3d[self.differing_idxs_from_3d[0][i]][self.differing_idxs_from_3d[1][i]]
-                [self.differing_idxs_from_3d[2][i]])
-        return np.array(result, dtype=np.float64)
-
     def get_states(self):
         result = []
         for i in range(self.number_of_states):
             result.append(
                 self.scope_vars_3d[self.state_idxs_3d[0][i]][self.state_idxs_3d[1][i]][self.state_idxs_3d[2][i]])
         return result
+
+
 
     def historian_update(self, time: int) -> None:
         ix = self.historian_ix
@@ -114,6 +109,7 @@ class NumbaModel:
 
         for key, j in zip(self.path_keys,
                           self.var_idxs_pos_3d_helper):
+
             self.path_variables[key] \
                 = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
                 self.var_idxs_pos_3d[2][j]]
@@ -122,11 +118,14 @@ class NumbaModel:
 
         for key, j in zip(self.path_keys,
                           self.var_idxs_pos_3d_helper):
-            self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][self.var_idxs_pos_3d[2][j]] \
-                = self.path_variables[key]
+            self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][self.var_idxs_pos_3d[2][j]]\
+                =self.path_variables[key]
+
+
 
     def get_derivatives_idx(self, idx_3d):
         return self.scope_vars_3d[idx_3d]
+
 
     def compute(self):
         if self.sum_mapping:
@@ -136,26 +135,18 @@ class NumbaModel:
         mapping_ = True
         prev_scope_vars_3d = self.scope_vars_3d.copy()
         while mapping_:
-            mapping_2 = True
-            prev_scope_vars_3d_2 = self.scope_vars_3d.copy()
-
-            while mapping_2:
-                for i in range(self.number_of_mappings):
-                    self.scope_vars_3d[self.differing_idxs_pos_3d[0][i]][self.differing_idxs_pos_3d[1][i]][
-                        self.differing_idxs_pos_3d[2][i]] = self.scope_vars_3d[
-                        self.differing_idxs_from_3d[0][i]][self.differing_idxs_from_3d[1][i]][
-                        self.differing_idxs_from_3d[2][i]]
-                mapping_2 = not np.all(np.abs(prev_scope_vars_3d_2 - self.scope_vars_3d) < 1e-6)
-                prev_scope_vars_3d_2 = np.copy(self.scope_vars_3d)
-
+            for i in range(self.number_of_mappings):
+                self.scope_vars_3d[self.differing_idxs_pos_3d[0][i]][self.differing_idxs_pos_3d[1][i]][
+                    self.differing_idxs_pos_3d[2][i]] = self.scope_vars_3d[
+                    self.differing_idxs_from_3d[0][i]][self.differing_idxs_from_3d[1][i]][
+                    self.differing_idxs_from_3d[2][i]]
             self.compute_eq(self.scope_vars_3d)
 
             if self.sum_mapping:
                 sum_mappings(self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
                              self.sum_slice_idxs, self.scope_vars_3d, self.sum_slice_idxs_len)
 
-            mapping_ = not np.all(np.abs(self.get_mapped_variables(prev_scope_vars_3d)
-                                         - self.get_mapped_variables(self.scope_vars_3d)) < 1e-6)
+            mapping_ = not np.all(np.abs(prev_scope_vars_3d - self.scope_vars_3d) < 1e-6)
             prev_scope_vars_3d = np.copy(self.scope_vars_3d)
 
     def func(self, _t, y):
