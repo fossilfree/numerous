@@ -1,3 +1,7 @@
+imageVersion=1.0.0
+imageName= mariuscristian/numerous-requirements:${imageVersion}
+
+
 install:
 	pip3 install -e .
 
@@ -10,5 +14,10 @@ run-benchmark:
 benchmark:
 	@echo python3 ./benchmark/tst.py $(filter-out $@,$(MAKECMDGOALS))
 
+image:
+	docker image build -t ${imageName} .
+	docker push imageName
+
 %:
 	@:
+
