@@ -8,7 +8,6 @@ from numerous.engine.system import Subsystem, Item
 from numerous.multiphysics import EquationBase, Equation
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
-from numerous.utils.historyDataFrame import SimpleHistoryDataFrame
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -118,30 +117,30 @@ def test_system_link_Success1():
     N_inner = 5
     N_outer = 2
     system = Success1(N_outer=N_outer, N_inner=N_inner)
-    model = Model(system, historian=SimpleHistoryDataFrame())
+    model = Model(system)
 
     sim = Simulation(model, t_start=0, t_stop=100, num=200)
 
     sim.solve()
-    df = sim.model.historian.df
+    df = sim.model.historian_df
 
     assert approx(np.array(df['works.linkersubsystem_2.boundary.t1.x'])[1:], rel=1) == \
-           expected(len(df['time'][:-1]),  (N_outer-1)*N_inner, 0.9)
+           expected(len(df.index[:-1]),  (N_outer-1)*N_inner, 0.9)
 
 
 def test_system_link_Success2():
     N_inner = 5
     N_outer = 2
     system = Success2(N_outer=N_outer, N_inner=N_inner)
-    model = Model(system, historian=SimpleHistoryDataFrame())
+    model = Model(system)
 
     sim = Simulation(model, t_start=0, t_stop=100, num=200)
 
     sim.solve()
-    df = sim.model.historian.df
+    df = sim.model.historian_df
 
     assert approx(np.array(df['doesnotwork.linkersubsystem_2.boundary.t1.x'])[1:], rel=1) == \
-           expected(len(df['time'][:-1]), (N_outer-1)*N_inner, 0.9)
+           expected(len(df.index[:-1]), (N_outer-1)*N_inner, 0.9)
 
 
 

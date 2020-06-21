@@ -10,11 +10,13 @@ class VariableNamespaceBase:
     Represents a set of variables.
 
     """
+
     def __init__(self, item, tag, is_connector=False, _id=uuid.uuid1()):
         self.is_connector = is_connector
         self.item = item
         self.id = str(_id)
         self.tag = tag
+        self.outgoing_mappings = 0
         self.associated_equations = {}
         self.variables = _DictWrapper(self.__dict__, Variable)
 
@@ -23,11 +25,12 @@ class VariableNamespaceBase:
 
     def __setattr__(self, name, value):
         if isinstance(value, Variable):
+
+            self.outgoing_mappings += 1
+
             self[name].add_mapping(value)
         else:
             object.__setattr__(self, name, value)
-
-
 
     def create_variable(self, name):
         """
@@ -52,10 +55,10 @@ class VariableNamespaceBase:
         on_assign_overload : 'OverloadAction'
             action on assign overload
                """
-        variable = _VariableFactory._create_from_variable_desc(self,self.item, variable_description)
+        variable = _VariableFactory._create_from_variable_desc(self, self.item, variable_description)
         self.register_variable(variable)
 
-    def get_variable(self, var_description):
+    def get_variable(self, var_tag):
         """
         Get a variable with given description.
 
@@ -70,8 +73,8 @@ class VariableNamespaceBase:
                 returns a variable matching description or None
 
         """
-        if var_description.tag in self.variables.internal_dict.keys():
-            return self.variables.internal_dict[var_description.tag]
+        if var_tag in self.variables.internal_dict.keys():
+            return self.variables.internal_dict[var_tag]
         else:
             return None
 
@@ -88,8 +91,8 @@ class VariableNamespaceBase:
         if variable.tag not in self.variables:
             self.variables[variable.tag] = variable
 
-            variable.path.extend_path(variable.id,self.id, self.tag)
-            variable.path.extend_path(self.id,self.item.id, self.item.tag)
+            variable.path.extend_path(variable.id, self.id, self.tag)
+            variable.path.extend_path(self.id, self.item.id, self.item.tag)
         else:
             logging.warning("Variable {0} is already in namespace {1} of item {2}".format(variable.tag,
                                                                                           self.tag, self.item.tag))

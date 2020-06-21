@@ -1,6 +1,6 @@
-from .variables import Variable, MappedValue
-import numpy as np
 
+from .variables import Variable, VariableType, MappedValue
+import numpy as np
 
 class ScopeVariable(MappedValue):
     """
@@ -8,17 +8,24 @@ class ScopeVariable(MappedValue):
     """
 
     def __init__(self, base_variable):
-        super().__init__()
+        super().__init__(base_variable.id)
         self.updated = False
-        self.mapping_ids = [var.id for var in base_variable.mapping]
-        self.sum_mapping_ids = [var.id for var in base_variable.sum_mapping]
+        self.mapping_id = base_variable.mapping.id if base_variable.mapping else None
+
+        if base_variable.sum_mapping is not None:
+            self.sum_mapping_ids = [x.id for x in base_variable.sum_mapping]
+        else:
+            self.sum_mapping_ids = None
+
         self.value = base_variable.get_value()
         self.type = base_variable.type
         self.tag = base_variable.tag
-        self.id = base_variable.id
         self.state_ix = None
         self.associated_state_scope = []
+        self.bound_equation_methods = None
+        self.parent_scope_id = None
         self.position = None
+
 
     def update_ix(self, ix):
         self.state_ix = ix
@@ -96,21 +103,23 @@ class Scope:
         for var in self.variables_dict.values():
             var.allow_update = is_true
 
-
-class TemporaryScopeWrapper:
-
-    def __init__(self, flat_scope_var, state_idx,deriv_idx):
-        self.flat_var = flat_scope_var
-        self.state_idx = state_idx
-        self.deriv_idx = deriv_idx
-        self.result = {}
-        self.name_idx = {}
-
-    def update_mappings(self, model):
-        self.flat_var[model.mapping_from] = self.flat_var[model.mapping_to]
+class TemporaryScopeWrapper3d:
+    def __init__(self, scope_vars_3d, state_idxs_3d, deriv_idxs_3d):
+        self.scope_vars_3d = scope_vars_3d
+        self.state_idxs_3d = state_idxs_3d
+        self.deriv_idxs_3d = deriv_idxs_3d
 
     def update_states(self, state_values):
-        np.put(self.flat_var, self.state_idx, state_values)
+        self.scope_vars_3d[self.state_idxs_3d] = state_values
 
+    def get_states(self):
+        return self.scope_vars_3d[self.state_idxs_3d]
+
+    def update_states_idx(self, state_value, idx):
+        np.put(self.flat_var, idx, state_value)
+
+    # return all derivatives
     def get_derivatives(self):
-        return np.take(self.flat_var, self.deriv_idx)
+        return self.scope_vars_3d[self.deriv_idxs_3d]
+
+

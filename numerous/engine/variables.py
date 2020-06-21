@@ -41,17 +41,18 @@ class DetailedVariableDescription(VariableDescription):
 
 
 class MappedValue(object):
-    def __init__(self):
-        self.mapping = []
+    def __init__(self, id):
+        self.id = id
+        self.mapping = None
         self.sum_mapping = []
         self.special_mapping = False
+        self.addself = False
 
     def add_mapping(self, variable):
-
         if not self.special_mapping:
             if variable.id == self.id:
-                raise RecursionError("Variable {0} cannot be mapped to itself",self.id)
-            self.mapping.append(variable)
+                raise RecursionError("Variable {0} cannot be mapped to itself", self.id)
+            self.mapping = variable
         self.special_mapping = False
 
     def add_sum_mapping(self, variable):
@@ -69,13 +70,28 @@ class MappedValue(object):
         else:
             object.__iadd__(self, other)
 
+    def __get_value(self, ids):
+        if self.id in ids:
+            return self.value
+        else:
+            if self.mapping:
+                return self.mapping.get_value()
+            if self.sum_mapping:
+                ids.append(self.id)
+                return reduce(add, [x.__get_value(ids) for x in self.sum_mapping])
+
+            else:
+                return self.value
+
     def get_value(self):
         if self.mapping:
-            return reduce(add, [x.get_value() for x in self.mapping])
+            return self.mapping.get_value()
         if self.sum_mapping:
-            return self.value + reduce(add, [x.get_value() for x in self.sum_mapping])
+            return reduce(add, [x.__get_value([self.id]) for x in self.sum_mapping])
+
         else:
             return self.value
+
 
 class VariablePath:
 
@@ -88,24 +104,24 @@ class VariablePath:
         return iter(self.path.values())
 
     def extend_path(self, current_id, new_id, new_tag):
-        if not (current_id+new_id in self.used_id_pairs):
-            if new_id in  self.path:
-                self.path[new_id].extend([new_tag+'.'+x for x in self.path[current_id]])
+        if not (current_id + new_id in self.used_id_pairs):
+            if new_id in self.path:
+                self.path[new_id].extend([new_tag + '.' + x for x in self.path[current_id]])
             else:
-                self.path.update({new_id: [new_tag+'.'+x for x in self.path[current_id]]})
-            self.used_id_pairs.append(current_id+new_id)
+                self.path.update({new_id: [new_tag + '.' + x for x in self.path[current_id]]})
+            self.used_id_pairs.append(current_id + new_id)
+
 
 class Variable(MappedValue):
 
     def __init__(self, detailed_variable_description, base_variable=None):
 
-        super().__init__()
+        super().__init__(detailed_variable_description.id)
         self.detailed_description = detailed_variable_description
         self.namespace = detailed_variable_description.namespace
         self.tag = detailed_variable_description.tag
-        self.id = detailed_variable_description.id
         self.type = detailed_variable_description.type
-        self.path = VariablePath([detailed_variable_description.tag],self.id)
+        self.path = VariablePath([detailed_variable_description.tag], self.id)
         self.alias = None
         if base_variable:
 
@@ -119,7 +135,6 @@ class Variable(MappedValue):
         self.allow_update = detailed_variable_description.allow_update
         self.associated_scope = []
         self.idx_in_scope = []
-
 
     def update_value(self, value):
         self.value = value
@@ -154,6 +169,7 @@ class Variable(MappedValue):
     #
     #     object.__setattr__(self, key, value)
 
+
 class _VariableFactory:
 
     @staticmethod
@@ -165,7 +181,7 @@ class _VariableFactory:
                                value=var_desc.initial_value,
                                item=item,
                                metadata={},
-                               mapping=[],
+                               mapping=None,
                                update_counter=0,
                                allow_update=(var_desc.type != VariableType.CONSTANT)
                                )
@@ -179,7 +195,7 @@ class _VariableFactory:
                              value=initial_value,
                              item=None,
                              metadata={},
-                             mapping=[],
+                             mapping=None,
                              update_counter=0,
                              allow_update=(variable_description.type != VariableType.CONSTANT))
 

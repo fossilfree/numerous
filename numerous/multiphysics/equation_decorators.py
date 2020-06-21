@@ -1,13 +1,14 @@
 # #We can have multiple equation_function in same equation class. Since equation_functions that is decorated as
 # differential equations should be treated differently we have two types of decorators.
+import uuid
 from functools import wraps
 import inspect
 
 
 class Equation(object):
 
-    # def __init__(self):
-    # self._equation = True
+    def __init__(self):
+        self.id =str(uuid.uuid1())
     # self.func = func
 
     def __call__(self, func):
@@ -16,6 +17,8 @@ class Equation(object):
             func(self,scope)
         wrapper._equation = True
         wrapper.lines = inspect.getsource(func)
+        wrapper.id = self.id
+        # wrapper.i = self.i
         return wrapper
 
 
