@@ -14,8 +14,8 @@ run-benchmark:
 benchmark:
 	@echo python3 ./benchmark/tst.py $(filter-out $@,$(MAKECMDGOALS))
 
-image:
-	docker image build -t ${imageName} .
+library-image:
+	docker image build -t ${imageName} - < Dockerfile_library
 	docker push ${imageName}
 
 # Pushing an image to gcr instead of dockerhub:
@@ -27,4 +27,3 @@ image:
 
 %:
 	@:
-
