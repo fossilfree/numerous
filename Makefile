@@ -1,5 +1,6 @@
 imageVersion=1.0.0
-imageName= mariuscristian/numerous-requirements:${imageVersion}
+libraryImageName= mariuscristian/numerous-requirements:${imageVersion}
+imageName = mariuscristian/numerous:${imageVersion}
 
 
 install:
@@ -15,7 +16,11 @@ benchmark:
 	@echo python3 ./benchmark/tst.py $(filter-out $@,$(MAKECMDGOALS))
 
 library-image:
-	docker image build -t ${imageName} - < Dockerfile_library
+	docker image build -t ${libraryImageName} - < Dockerfile_library
+	docker push ${libraryImageName}
+
+image-circle-ci:
+	docker image build -t ${imageName}  .
 	docker push ${imageName}
 
 # Pushing an image to gcr instead of dockerhub:
