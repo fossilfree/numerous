@@ -9,4 +9,4 @@ jobs:
       - run:
           name: Tests
           command: |
-            python3 -m numerous/pytest
+            python3 -m pytest
