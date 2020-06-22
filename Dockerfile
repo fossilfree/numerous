@@ -1,11 +1,6 @@
-FROM ubuntu:latest
-
-RUN apt-get install python3 python3-pip -y
-
-RUN mkdir -p numerous
+FROM mariuscristian/numerous-requirements:1.0.0
 
 WORKDIR numerous
 
-COPY requirments.txt ./
+COPY . .
 
-RUN pip install -r requirements.txt
