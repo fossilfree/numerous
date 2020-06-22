@@ -1,6 +1,9 @@
 ![Numerous Logo](./docs/source/_static/img/logo_cropped_numerous_transparent-back.svg)
 ---------------------------------------------------------------------------------------------------
 
+[![CircleCI](https://circleci.com/gh/circleci/circleci-docs.svg?style=shield)](https://circleci.com/gh/circleci/circleci-docs)
+---------------------------------------------------------------------------------------------------
+
 Numerous — an object-oriented modelling and simulation engine 
 ================================================================
 
