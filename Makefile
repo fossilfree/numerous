@@ -1,4 +1,4 @@
-imageVersion=1.0.0
+imageVersion=1.0.1
 libraryImageName= mariuscristian/numerous-requirements:${imageVersion}
 imageName = mariuscristian/numerous:${imageVersion}
 
