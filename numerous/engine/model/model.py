@@ -146,9 +146,18 @@ class Model:
         - _idx for single integers / tuples, 
         - _idxs for lists / arrays of integers
         - _pos as counterpart to _from
-        - Using _flat / _3d only as suffix
+        -  _flat
+        -  _3d 
 
         """
+        def __get_mapping__idx(variable):
+            if variable.mapping:
+                return __get_mapping__idx(variable.mapping)
+            else:
+                return variable.idx_in_scope[0]
+
+
+
         print("Assembling numerous Model")
         assemble_start = time.time()
 
@@ -162,10 +171,22 @@ class Model:
         # synchronized_scope <scope_id, Scope>
         # scope_variables <variable_id, Variable>
         for variables, scope_select, equation_dict in map(ModelAssembler.t_1, model_namespaces):
-
             self.equation_dict.update(equation_dict)
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
+        self.mappings = []
+        def __get_mapping__variable(variable):
+            if variable.mapping:
+                return __get_mapping__idx(variable.mapping)
+            else:
+                return variable
+
+        for scope_var_idx, var in enumerate(self.scope_variables.values()):
+            if var.mapping_id:
+                _from = __get_mapping__variable(var)
+                self.mappings.append((var.id, _from.id))
+            if not var.mapping_id and var.sum_mapping_ids:
+                self.mappings.append((var.id,var.sum_mapping_ids))
 
         # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping
         # self.synchronized_scope to compiled_eq (by index)
@@ -191,11 +212,7 @@ class Model:
             _snd_is_derivative, enumerate(self.scope_variables.values()))),
                                            np.int64)
 
-        def __get_mapping__idx(variable):
-            if variable.mapping:
-                return __get_mapping__idx(variable.mapping)
-            else:
-                return variable.idx_in_scope[0]
+
 
         # maps flat var_idx to scope_idx
         self.var_idx_to_scope_idx = np.full_like(scope_variables_flat, -1, int)
@@ -229,10 +246,9 @@ class Model:
                     sum_mapped_idx_len.append(end_idx - start_idx)
                     self.sum_mapping = True
 
-
-
-        # TODO @Artem: document these
+######################################### TODO @Artem: document these
         # non_flat_scope_idx is #scopes x  number_of variables indexing?
+        # flat_scope_idx_from - rename to flat_var?
         self.non_flat_scope_idx_from = np.array(non_flat_scope_idx_from)
         self.non_flat_scope_idx = np.array(non_flat_scope_idx)
 
@@ -254,9 +270,9 @@ class Model:
         self.num_uses_per_eq = np.unique(self.compiled_eq_idxs, return_counts=True)[1]
 
         # float64 array of all variables' current value
-        self.flat_variables = np.array([x.value for x in self.variables.values()])
-        self.flat_variables_ids = [x.id for x in self.variables.values()]
-        self.scope_to_variables_idx = np.array([x.idx_in_scope for x in self.variables.values()])
+        # self.flat_variables = np.array([x.value for x in self.variables.values()])
+        # self.flat_variables_ids = [x.id for x in self.variables.values()]
+        # self.scope_to_variables_idx = np.array([x.idx_in_scope for x in self.variables.values()])
 
         # (eq_idx, ind_eq_access) -> scope_variable.value
 
@@ -286,6 +302,8 @@ class Model:
         self.var_idxs_pos_3d = self._var_idxs_to_3d_idxs(np.arange(len(self.variables)), False)
         self.differing_idxs_from_flat = self.flat_scope_idx_from[_differing_idxs]
         self.differing_idxs_pos_flat = self.flat_scope_idx[_differing_idxs]
+
+
         self.differing_idxs_from_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_from_flat, False)
         self.differing_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_pos_flat, False)
         self.sum_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.sum_idx, False)
@@ -575,11 +593,11 @@ class Model:
 
         def create_eq_call(eq_method_name: str, i: int):
             return "      self." \
-                   "" + eq_method_name + "(array_2d[" + str(i) + \
+                   "" + eq_method_name + "(array_3d[" + str(i) + \
                    ", :self.num_uses_per_eq[" + str(i) + "]])\n"
 
         Equation_Parser.create_numba_iterations(NumbaModel, self.compiled_eq, "compute_eq", "func"
-                                                , create_eq_call, "array_2d", map_sorting=self.eq_outgoing_mappings)
+                                                , create_eq_call, "array_3d", map_sorting=self.eq_outgoing_mappings)
 
         ##Adding callbacks_varaibles to numba specs
         def create_cbi_call(_method_name: str, i: int):

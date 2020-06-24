@@ -1,3 +1,5 @@
+import time
+
 from numba import int32, float64, boolean, int64, njit, types, typed
 import numpy as np
 
@@ -141,8 +143,10 @@ class NumbaModel:
                     self.differing_idxs_pos_3d[2][i]] = self.scope_vars_3d[
                     self.differing_idxs_from_3d[0][i]][self.differing_idxs_from_3d[1][i]][
                     self.differing_idxs_from_3d[2][i]]
+            assemble_start = time.time()
             self.compute_eq(self.scope_vars_3d)
-
+            assemble_stop = time.time()
+            print(assemble_stop-assemble_start)
             if self.sum_mapping:
                 sum_mappings(self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
                              self.sum_slice_idxs, self.scope_vars_3d, self.sum_slice_idxs_len)
