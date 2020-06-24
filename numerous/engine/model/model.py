@@ -177,7 +177,7 @@ class Model:
         self.mappings = []
         def __get_mapping__variable(variable):
             if variable.mapping:
-                return __get_mapping__idx(variable.mapping)
+                return __get_mapping__variable(variable.mapping)
             else:
                 return variable
 
