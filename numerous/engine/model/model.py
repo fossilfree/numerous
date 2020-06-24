@@ -174,6 +174,7 @@ class Model:
             self.equation_dict.update(equation_dict)
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
+
         self.mappings = []
         def __get_mapping__variable(variable):
             if variable.mapping:
@@ -188,6 +189,22 @@ class Model:
             if not var.mapping_id and var.sum_mapping_ids:
                 self.mappings.append((var.id,var.sum_mapping_ids))
 
+        from numerous.engine.model.parser_ast import parse_eq
+        from numerous.engine.model.graph import Graph
+
+        print(self.equation_dict)
+        gg = Graph()
+        c = 0
+        for scope_id, eq in self.equation_dict.items():
+            print('scope_id: ', 's'+str(c))
+
+            parse_eq('s'+str(c), eq, gg)
+            c += 1
+
+        for m in self.mappings:
+            print(m)
+        gg.draw_graph()
+        print('n nodes: ', len(gg.nodes))
         # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping
         # self.synchronized_scope to compiled_eq (by index)
         equation_parser = Equation_Parser()

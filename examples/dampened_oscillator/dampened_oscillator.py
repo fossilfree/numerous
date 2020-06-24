@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
     # Define simulation
     s = simulation.Simulation(
-        model.Model(OscillatorSystem('system',  c=0, a=0, n=10000)),
+        model.Model(OscillatorSystem('system',  c=0, a=0, n=2)),
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1
     )
     # Solve and plot
