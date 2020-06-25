@@ -96,9 +96,11 @@ class OscillatorSystem(Subsystem):
             oscillators.append(oscillator)
 
         # 3. Valve_1 is one instance of valve class
+
         spc = SpringCoupling('spc', k=1)
         spc.bind(side1=oscillators[0], side2=oscillators[1])
-
+        spc.side1.mechanics.v_dot += spc.mechanics.F1
+        spc.side2.mechanics.v_dot += spc.mechanics.F2
         #Register the items to the subsystem to make it recognize them.
         self.register_items(oscillators+[spc])
 
@@ -109,7 +111,7 @@ if __name__ == "__main__":
 
     # Define simulation
     s = simulation.Simulation(
-        model.Model(OscillatorSystem('system',  c=0, a=0, n=2)),
+        model.Model(OscillatorSystem('system',  c=0, a=0, n=10)),
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1
     )
     # Solve and plot

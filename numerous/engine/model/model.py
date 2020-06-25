@@ -185,13 +185,13 @@ class Model:
         for scope_var_idx, var in enumerate(self.scope_variables.values()):
             if var.mapping_id:
                 _from = __get_mapping__variable(self.variables[var.mapping_id])
-                self.mappings.append((self.variables[var.id].path.path[self.system.id], _from.path.path[self.system.id]))
+                self.mappings.append((var.id, [_from.id]))
             if not var.mapping_id and var.sum_mapping_ids:
                 sum_mapping = []
                 for mapping_id in var.sum_mapping_ids:
                     _from = __get_mapping__variable(self.variables[mapping_id])
-                    sum_mapping.append(_from.path.path[self.system.id])
-                self.mappings.append((self.variables[var.id].path.path[self.system.id], sum_mapping))
+                    sum_mapping.append(_from.id)
+                self.mappings.append((var.id, sum_mapping))
 
         from numerous.engine.model.parser_ast import parse_eq
         from numerous.engine.model.graph import Graph

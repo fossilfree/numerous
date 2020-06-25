@@ -84,23 +84,29 @@ class Graph:
     def __init__(self, nodes=None, edges=None):
 
         self.nodes_map = {n.id: i for i, n in enumerate(nodes)} if nodes else {}
-        self.nodes = self.nodes_map.values()
+
+        self.nodes = list(self.nodes_map.values())
+        self.lower_nodes_map = {n: i for i, n in enumerate(self.nodes)}
         self.edges = edges if edges else []
         self.lower_graph = None
 
     def make_lower_graph(self):
+
         self.lower_graph = _Graph(len(self.nodes), self.lower_edges())
 
     def lower_edges(self):
+        self.lower_nodes_map = {n[0]: i for i, n in enumerate(self.nodes)}
+
         self.lowered_edges = np.zeros((len(self.edges), 2))
         for i, e in enumerate(self.edges):
-            self.lowered_edges[i, :] = (self.nodes_map[e[0]], self.nodes_map[e[1]])
+            self.lowered_edges[i, :] = (self.lower_nodes_map[e[0]], self.lower_nodes_map[e[1]],)
 
         return np.array(self.lowered_edges, np.int)
 
     def higher_nodes(self, nodes):
-
-        return np.array(self.nodes)[nodes]
+        #return np.array(self.nodes)[list(nodes)]
+        print(self.nodes)
+        return [self.nodes[i] for i in nodes]
 
     def higher_edges(self, edges):
         return [tuple(self.nodes[e]) for e in edges]
@@ -113,7 +119,7 @@ class Graph:
         if not n[0] in self.nodes_map:
             self.nodes_map[n[0]] = n
             self.lower_graph = None
-            self.nodes = self.nodes_map.values()
+            self.nodes =  list(self.nodes_map.values())
         elif not ignore_exist:
             raise ValueError('Node <',n[0],'> already in graph!!')
         else:
@@ -135,7 +141,7 @@ class Graph:
 
         for e in self.edges:
             if e[1] == node[0]:
-                if not label or label==e[2].label:
+                if not label or label in e[2].label:
                     found.append(e)
         return found
 
@@ -144,12 +150,14 @@ class Graph:
 
         for e in self.edges:
             if e[0] == node[0]:
-                if not label or label==e[2].label:
+                if not label or label in e[2].label:
                     found.append(e)
         return found
 
 
     def topological_nodes(self):
+
+
         if not self.lower_graph:
             self.make_lower_graph()
 

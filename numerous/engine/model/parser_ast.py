@@ -155,7 +155,7 @@ def parse_(ao, g: Graph, prefix='_', parent: EquationEdge=None):
         # Unary op
         op_sym = get_op_sym(ao.op)
         operand_edge = EquationEdge(label='operand')
-        en = EquationNode(label = ''+op_sym, ast_type=ast.UnaryOp, node_type=NodeTypes.OP)
+        en = EquationNode(label = ''+op_sym, ast_type=ast.UnaryOp, node_type=NodeTypes.OP, ast_op=ao.op)
         operand_edge.end = en.id
 
         g.add_edge((operand_edge.start, operand_edge.end, operand_edge), ignore_missing_nodes=True)
@@ -173,14 +173,15 @@ def parse_(ao, g: Graph, prefix='_', parent: EquationEdge=None):
 
         for i, sa in enumerate(ao.args):
             edge_i = EquationEdge(end=en.id, label=f'args{i}')
-            g.add_edge((edge_i.start, edge_i.end, edge_i), ignore_missing_nodes=True)
+
             parse_(ao.args[i], g, prefix=prefix, parent=edge_i.set_start)
+            g.add_edge((edge_i.start, edge_i.end, edge_i), ignore_missing_nodes=True)
 
 
     elif isinstance(ao, ast.BinOp):
 
         op_sym = get_op_sym(ao.op) # astor.get_op_symbol(ao.op)
-        en = EquationNode(label=''+op_sym, left=None, right=None, ast_type=ast.BinOp, node_type=NodeTypes.OP)
+        en = EquationNode(label=''+op_sym, left=None, right=None, ast_type=ast.BinOp, node_type=NodeTypes.OP, ast_op=ao.op)
 
         for a in ['left', 'right']:
 
@@ -233,7 +234,7 @@ def parse_eq(scope_id, item, global_graph):
             ast_tree = ast.parse(dedent(source))
             g = Graph()
             parse_(ast_tree, g)
-            g.as_graphviz()
+            #g.as_graphviz()
             parsed_eq[eq_key] = (eq, source, g)
         else:
             print('skip parsing')
