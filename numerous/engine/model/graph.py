@@ -2,6 +2,9 @@ from numba import njit, prange, intp, boolean
 from numba.experimental import jitclass
 import numpy as np, networkx
 from time import time
+from graphviz import Digraph
+
+
 
 # intp = np.int
 
@@ -143,7 +146,24 @@ class Graph:
 
         return ndg
 
+    def as_graphviz(self):
+        dot = Digraph()
+        for id, n in self.nodes_map.items():
+            dot.node(id, label=n.label)
+        for e in self.edges:
+            if e.start and e.end:
+
+                dot.edge(e.start, e.end)
+
+        print(dot.source)
+        dot.render('g.gv', view=True)
+
+
+
     def draw_graph(self):
+
+
+
         ndg = self.as_networkx_digraph()
         import matplotlib.pyplot as plt
 

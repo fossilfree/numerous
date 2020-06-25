@@ -201,9 +201,8 @@ class Model:
             parse_eq('s'+str(c), eq, gg)
             c += 1
 
-        for m in self.mappings:
-            print(m)
-        gg.draw_graph()
+        print('mappings: ',self.mappings)
+        gg.as_graphviz()
         print('n nodes: ', len(gg.nodes))
         # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping
         # self.synchronized_scope to compiled_eq (by index)

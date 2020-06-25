@@ -4,7 +4,7 @@ import ast#, astor
 from textwrap import dedent
 from numerous.engine.model.graph import Graph
 
-op_sym_map = {ast.Add: '+', ast.Sub: '-', ast.Div: '/', ast.Mult: '*', ast.Pow: '**', ast.USub: '(-)'}
+op_sym_map = {ast.Add: '+', ast.Sub: '-', ast.Div: '/', ast.Mult: '*', ast.Pow: '**', ast.USub: '*-1'}
 
 def get_op_sym(op):
     return op_sym_map[type(op)]
@@ -58,10 +58,11 @@ def ass(a):
     return a
 
 class EquationNode:
-    def __init__(self, id=None, node_type:NodeTypes=NodeTypes.VAR, label='', **attrs):
+    def __init__(self, label, id=None, node_type:NodeTypes=NodeTypes.VAR, **attrs):
         if not id:
             id = tmp(label)
         self.id = id
+        self.label = label
 
         for k, v in attrs.items():
             setattr(self, k, v)
@@ -121,7 +122,7 @@ def parse_(ao, g: Graph, prefix='_', parent: EquationEdge=None):
         target_edge = EquationEdge()
         value_edge = EquationEdge()
 
-        en = EquationNode(target=target_edge, source=value_edge, label='scope=', ast_type=ast.Assign, node_type=NodeTypes.ASSIGN)
+        en = EquationNode(target=target_edge, source=value_edge, label='=', ast_type=ast.Assign, node_type=NodeTypes.ASSIGN)
         target_edge.start = en.id
         value_edge.end = en.id
 
@@ -153,7 +154,7 @@ def parse_(ao, g: Graph, prefix='_', parent: EquationEdge=None):
         # Unary op
         op_sym = get_op_sym(ao.op)
         operand_edge = EquationEdge()
-        en = EquationNode(label = 'scope'+op_sym, operand=operand_edge, ast_type=ast.UnaryOp, node_type=NodeTypes.OP)
+        en = EquationNode(label = ''+op_sym, operand=operand_edge, ast_type=ast.UnaryOp, node_type=NodeTypes.OP)
         operand_edge.end = en.id
 
         g.add_edge(operand_edge, ignore_missing_nodes=True)
@@ -165,7 +166,7 @@ def parse_(ao, g: Graph, prefix='_', parent: EquationEdge=None):
 
         op_name = recurse_Attribute(ao.func, sep='.')
 
-        en = EquationNode(label='scope'+op_name, func=ao.func, args=[], ast_type=ast.Call, node_type=NodeTypes.OP)
+        en = EquationNode(label=''+op_name, func=ao.func, args=[], ast_type=ast.Call, node_type=NodeTypes.OP)
 
 
 
@@ -178,7 +179,7 @@ def parse_(ao, g: Graph, prefix='_', parent: EquationEdge=None):
     elif isinstance(ao, ast.BinOp):
 
         op_sym = get_op_sym(ao.op) # astor.get_op_symbol(ao.op)
-        en = EquationNode(label='scope'+op_sym, left=None, right=None, ast_type=ast.BinOp, node_type=NodeTypes.OP)
+        en = EquationNode(label=''+op_sym, left=None, right=None, ast_type=ast.BinOp, node_type=NodeTypes.OP)
 
         for a in ['left', 'right']:
 
@@ -202,20 +203,22 @@ def parse_(ao, g: Graph, prefix='_', parent: EquationEdge=None):
 
 def qualify_equation(prefix, g):
     g_qual = Graph()
-    g_qual.set_node_map({n.id.replace('scope', prefix): n for nid, n in g.nodes_map.items()})
+    g_qual.set_node_map({prefix +'_'+n.id: n for nid, n in g.nodes_map.items()})
 
     for e in g.edges:
-        g_qual.add_edge(EquationEdge(start=e.start.replace('scope', prefix), end=e.end.replace('scope', prefix)))
+        g_qual.add_edge(EquationEdge(start=prefix +'_'+e.start, end=prefix +'_'+e.end))
 
     return g_qual
 
 parsed_eq = {}
 
 def parse_eq(scope_id, item, global_graph):
-
+    print(item)
     for eq in item[0]:
+        print('name: ', eq.__name__)
         #dont now how Kosher this is: https://stackoverflow.com/questions/20059011/check-if-two-python-functions-are-equal
-        eq_key = eq.__code__.co_code
+        eq_key = eq.__qualname__
+        print(eq_key)
         if not eq_key in parsed_eq:
 
             source = inspect.getsource(eq)
@@ -223,9 +226,11 @@ def parse_eq(scope_id, item, global_graph):
             ast_tree = ast.parse(dedent(source))
             g = Graph()
             parse_(ast_tree, g)
-            g.draw_graph()
+            g.as_graphviz()
             print('n nodes local: ', len(g.nodes))
             parsed_eq[eq_key] = (eq, source, g)
+        else:
+            print('skip parsing')
 
         g = parsed_eq[eq_key][2]
         g_qualified = qualify_equation(scope_id, g)
