@@ -56,7 +56,8 @@ class Simulation:
             self.solver = IVP_solver(time_, delta_t, numba_model,
                                      num_inner, max_event_steps, **kwargs)
         if solver_type == SolverType.NUMEROUS:
-            self.solver =
+            self.solver =IVP_solver(time_, delta_t, numba_model,
+                                     num_inner, max_event_steps, **kwargs)
         self.model = model
         self.start_datetime = start_datetime
         self.info = model.info["Solver"]
