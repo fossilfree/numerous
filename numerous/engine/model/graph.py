@@ -110,25 +110,44 @@ class Graph:
         return np.max(lowered) + 1, lowered
 
     def add_node(self, n, ignore_exist=False):
-        if not n.id in self.nodes_map:
-            self.nodes_map[n.id] = n
+        if not n[0] in self.nodes_map:
+            self.nodes_map[n[0]] = n
             self.lower_graph = None
             self.nodes = self.nodes_map.values()
         elif not ignore_exist:
-            raise ValueError('Node <',n.id,'> already in graph!!')
+            raise ValueError('Node <',n[0],'> already in graph!!')
         else:
             pass#print('node ignored')
 
     def add_edge(self, e, ignore_missing_nodes=False):
         #check nodes exist
         if not ignore_missing_nodes:
-            if not e.start in self.nodes_map:
-                raise ValueError('start node not in map! '+e.start + ' '+e.end)
-            if not e.end in self.nodes_map:
+            if not e[0] in self.nodes_map:
+                raise ValueError('start node not in map! '+e[0] + ' '+e[1])
+            if not e[1] in self.nodes_map:
                 raise ValueError('end node not in map!')
 
         self.edges.append(e)
         self.lower_graph = None
+
+    def edges_end(self, node, label=None):
+        found = []
+
+        for e in self.edges:
+            if e[1] == node[0]:
+                if not label or label==e[2].label:
+                    found.append(e)
+        return found
+
+    def edges_start(self, node, label=None):
+        found = []
+
+        for e in self.edges:
+            if e[0] == node[0]:
+                if not label or label==e[2].label:
+                    found.append(e)
+        return found
+
 
     def topological_nodes(self):
         if not self.lower_graph:
@@ -149,13 +168,13 @@ class Graph:
     def as_graphviz(self):
         dot = Digraph()
         for id, n in self.nodes_map.items():
-            dot.node(id, label=n.label)
+            dot.node(id, label=n[1].label)
         for e in self.edges:
-            if e.start and e.end:
+            if e[0] and e[1]:
 
-                dot.edge(e.start, e.end)
+                dot.edge(e[0], e[1])
 
-        print(dot.source)
+
         dot.render('g.gv', view=True)
 
 

@@ -199,13 +199,28 @@ class Model:
         print(self.equation_dict)
         gg = Graph()
         c = 0
+        scope_ids = []
         for scope_id, eq in self.equation_dict.items():
-            print('scope_id: ', 's'+str(c))
+            if not scope_id in scope_ids:
+                scope_ids.append(scope_id)
 
-            parse_eq('s'+str(c), eq, gg)
+            print('scope_id: ', scope_id)
+            s_id = f's{scope_ids.index(scope_id)}'
+            parse_eq(s_id, eq, gg)
             c += 1
 
-        print('mappings: ',self.mappings)
+        for n in gg.nodes:
+            print(n[0])
+
+        print('mapping: ',self.mappings)
+        from numerous.engine.model.parser_ast import process_mappings
+        process_mappings(self.mappings, gg, self.scope_variables, scope_ids)
+
+        from numerous.engine.model.generate_code import generate_code
+        generate_code(gg)
+
+
+
         gg.as_graphviz()
         print('n nodes: ', len(gg.nodes))
         # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping

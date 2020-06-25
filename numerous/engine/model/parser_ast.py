@@ -58,11 +58,12 @@ def ass(a):
     return a
 
 class EquationNode:
-    def __init__(self, label, id=None, node_type:NodeTypes=NodeTypes.VAR, **attrs):
+    def __init__(self, label, id=None, ast_type=None, node_type:NodeTypes=NodeTypes.VAR, **attrs):
         if not id:
             id = tmp(label)
         self.id = id
         self.label = label
+        self.ast_type = ast_type
 
         for k, v in attrs.items():
             setattr(self, k, v)
@@ -74,8 +75,8 @@ class EquationNode:
         return self.id == other.id
 
 class EquationEdge:
-    def __init__(self, start: str = None, end: str = None):
-
+    def __init__(self, label, start: str = None, end: str = None):
+        self.label = label
         self.start = start
         self.end = end
 
@@ -119,18 +120,18 @@ def parse_(ao, g: Graph, prefix='_', parent: EquationEdge=None):
         else:
             raise AttributeError('Unknown type of target: ', type(ao.targets[0]))
 
-        target_edge = EquationEdge()
-        value_edge = EquationEdge()
+        target_edge = EquationEdge(label='target0')
+        value_edge = EquationEdge(label='value')
 
-        en = EquationNode(target=target_edge, source=value_edge, label='=', ast_type=ast.Assign, node_type=NodeTypes.ASSIGN)
+        en = EquationNode(label='=', ast_type=ast.Assign, node_type=NodeTypes.ASSIGN)
         target_edge.start = en.id
         value_edge.end = en.id
 
 
 
 
-        g.add_edge(target_edge, ignore_missing_nodes=True)
-        g.add_edge(value_edge, ignore_missing_nodes=True)
+        g.add_edge((target_edge.start, target_edge.end, target_edge), ignore_missing_nodes=True)
+        g.add_edge((value_edge.start, value_edge.end, value_edge), ignore_missing_nodes=True)
 
         parse_(ao.value, g, prefix, parent=value_edge.set_start)
         parse_(ao.targets[0], g, prefix, parent=target_edge.set_end)
@@ -153,11 +154,11 @@ def parse_(ao, g: Graph, prefix='_', parent: EquationEdge=None):
     elif isinstance(ao, ast.UnaryOp):
         # Unary op
         op_sym = get_op_sym(ao.op)
-        operand_edge = EquationEdge()
-        en = EquationNode(label = ''+op_sym, operand=operand_edge, ast_type=ast.UnaryOp, node_type=NodeTypes.OP)
+        operand_edge = EquationEdge(label='operand')
+        en = EquationNode(label = ''+op_sym, ast_type=ast.UnaryOp, node_type=NodeTypes.OP)
         operand_edge.end = en.id
 
-        g.add_edge(operand_edge, ignore_missing_nodes=True)
+        g.add_edge((operand_edge.start, operand_edge.end, operand_edge), ignore_missing_nodes=True)
 
         parse_(ao.operand, g, prefix, parent=operand_edge.set_start)
 
@@ -166,13 +167,13 @@ def parse_(ao, g: Graph, prefix='_', parent: EquationEdge=None):
 
         op_name = recurse_Attribute(ao.func, sep='.')
 
-        en = EquationNode(label=''+op_name, func=ao.func, args=[], ast_type=ast.Call, node_type=NodeTypes.OP)
+        en = EquationNode(label=''+op_name, func=ao.func, ast_type=ast.Call, node_type=NodeTypes.OP)
 
 
 
         for i, sa in enumerate(ao.args):
-            edge_i = EquationEdge(end=en.id)
-            g.add_edge(edge_i, ignore_missing_nodes=True)
+            edge_i = EquationEdge(end=en.id, label=f'args{i}')
+            g.add_edge((edge_i.start, edge_i.end, edge_i), ignore_missing_nodes=True)
             parse_(ao.args[i], g, prefix=prefix, parent=edge_i.set_start)
 
 
@@ -183,9 +184,9 @@ def parse_(ao, g: Graph, prefix='_', parent: EquationEdge=None):
 
         for a in ['left', 'right']:
 
-            operand_edge = EquationEdge(end=en.id)
+            operand_edge = EquationEdge(end=en.id, label=a)
 
-            g.add_edge(operand_edge, ignore_missing_nodes=True)
+            g.add_edge((operand_edge.start, operand_edge.end, operand_edge), ignore_missing_nodes=True)
             setattr(en,a,operand_edge)
             parse_(getattr(ao, a), g, prefix, parent=operand_edge.set_start)
 
@@ -195,18 +196,24 @@ def parse_(ao, g: Graph, prefix='_', parent: EquationEdge=None):
         raise TypeError('Cannot parse <' + str(type(ao)) + '>')
 
     if en:
-        g.add_node(en, ignore_exist=True)
+        g.add_node((en.id, en), ignore_exist=True)
 
     if parent:
 
         parent(en.id)
 
+def qualify(s, prefix):
+    return prefix + '_' + s.replace('scope.', '')
+
 def qualify_equation(prefix, g):
+    def q(s):
+        return qualify(s, prefix)
+
     g_qual = Graph()
-    g_qual.set_node_map({prefix +'_'+n.id: n for nid, n in g.nodes_map.items()})
+    g_qual.set_node_map({q(n[0]): (q(n[0]), n[1]) for nid, n in g.nodes_map.items()})
 
     for e in g.edges:
-        g_qual.add_edge(EquationEdge(start=prefix +'_'+e.start, end=prefix +'_'+e.end))
+        g_qual.add_edge((q(e[2].start),q(e[2].end), EquationEdge(start=q(e[2].start), end=q(e[2].end), label=e[2].label)))
 
     return g_qual
 
@@ -215,7 +222,7 @@ parsed_eq = {}
 def parse_eq(scope_id, item, global_graph):
     print(item)
     for eq in item[0]:
-        print('name: ', eq.__name__)
+
         #dont now how Kosher this is: https://stackoverflow.com/questions/20059011/check-if-two-python-functions-are-equal
         eq_key = eq.__qualname__
         print(eq_key)
@@ -227,16 +234,52 @@ def parse_eq(scope_id, item, global_graph):
             g = Graph()
             parse_(ast_tree, g)
             g.as_graphviz()
-            print('n nodes local: ', len(g.nodes))
             parsed_eq[eq_key] = (eq, source, g)
         else:
             print('skip parsing')
 
         g = parsed_eq[eq_key][2]
         g_qualified = qualify_equation(scope_id, g)
-        for n in g_qualified.nodes_map.keys():
-            print(n)
+
         global_graph.update(g_qualified)
+
+def process_mappings(mappings,gg:Graph, scope_vars, scope_map):
+
+    for m in mappings:
+        target_var = scope_vars[m[0]]
+        #prefix = scope_map[target_var.parent_scope_id]
+        prefix = f's{scope_map.index(target_var.parent_scope_id)}'
+        target_var_id = qualify(target_var.tag, prefix)
+        assign = EquationNode(label='=', ast_type=ast.Assign, node_type=NodeTypes.ASSIGN, targets=[], value=None)
+        gg.add_node((assign.id, assign))
+        target_node = EquationNode(id=target_var_id, label=target_var.tag, ast_type=ast.Attribute(attr_ast(m[0])), node_type=NodeTypes.VAR)
+        gg.add_node((target_node.id, target_node), ignore_exist=True)
+        gg.add_edge((assign.id, target_node.id, EquationEdge(start=assign.id, end=target_node.id, label='target0')))
+        
+
+        add = ast.Add()
+        prev = None
+
+
+        for i in m[1]:
+            ivar_var = scope_vars[i]
+            prefix = f's{scope_map.index(ivar_var.parent_scope_id)}'
+            ivar_id = qualify(ivar_var.tag, prefix)
+            ivar = EquationNode(id=ivar_id, label=ivar_var.tag, ast_type=ast.Attribute(attr_ast(i)), node_type=NodeTypes.VAR)
+            gg.add_node((ivar.id, ivar), ignore_exist=True)
+
+            if prev:
+                binop = EquationNode(label=get_op_sym(add), ast_type=ast.BinOp, node_type=NodeTypes.OP, op=add)
+                gg.add_node((binop.id, binop))
+                gg.add_edge((prev.id, binop.id, EquationEdge(start=prev.id, end=binop.id,label='left')))
+                gg.add_edge((ivar.id, binop.id, EquationEdge(start=ivar.id, end=binop.id,labe='right')))
+                prev = binop
+            else:
+                prev = ivar
+
+        gg.add_edge((prev.id, assign.id, EquationEdge(start=prev.id, end=assign.id, label='value')))
+
+        #ast.Assign(targets=ast.Attribute(attr_ast(m[0])), value = None)
 
 
 
