@@ -1,5 +1,5 @@
 from numba import njit, prange, intp, boolean
-from numba.experimental import jitclass
+from numba import jitclass
 import numpy as np, networkx
 from time import time
 from graphviz import Digraph
