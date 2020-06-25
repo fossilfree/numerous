@@ -20,6 +20,7 @@ class Equation_Parser():
     def parse(self, model):
         compiled_equations_idx = []
         compiled_eq = []
+        eq_texts = []
         compiled_eq_m = []
         compiled_equations_ids = []  # As equations can be non-unique, but they should?
         for tt in model.synchronized_scope.keys():
@@ -86,6 +87,7 @@ class Equation_Parser():
                 eq_text = "def eq_body():\n   def eval(self,scope):\n      pass\n   return eval"
 
             tree = ast.parse(eq_text, mode='exec')
+            eq_texts.append(eq_text)
             code = compile(tree, filename='test', mode='exec')
             namespace = {}
             exec(code, namespace)
