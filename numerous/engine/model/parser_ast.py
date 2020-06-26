@@ -4,7 +4,8 @@ import ast#, astor
 from textwrap import dedent
 from numerous.engine.model.graph import Graph
 
-op_sym_map = {ast.Add: '+', ast.Sub: '-', ast.Div: '/', ast.Mult: '*', ast.Pow: '**', ast.USub: '*-1'}
+op_sym_map = {ast.Add: '+', ast.Sub: '-', ast.Div: '/', ast.Mult: '*', ast.Pow: '**', ast.USub: '*-1',
+              ast.Lt: '<', ast.LtE: '<=', ast.Gt: '>', ast.GtE: '>=', ast.Eq: '==', ast.NotEq: '!='}
 
 def get_op_sym(op):
     return op_sym_map[type(op)]
@@ -141,7 +142,7 @@ def parse_(ao, g: Graph, tag_vars, prefix='_', parent: EquationEdge=None):
         # Constant
         #source_var = Variable('c' + str(ao.value), Variable.CONSTANT, val=ao.value)
         source_id = 'c' + str(ao.value)
-        en = EquationNode(id=source_id, value = ao.value, node_type=NodeTypes.VAR)
+        en = EquationNode(label=source_id, value = ao.value, node_type=NodeTypes.VAR)
 
 
         # Check if simple name
@@ -196,7 +197,32 @@ def parse_(ao, g: Graph, tag_vars, prefix='_', parent: EquationEdge=None):
             setattr(en,a,operand_edge)
             parse_(getattr(ao, a), g, tag_vars, prefix, parent=operand_edge.set_start)
 
+    elif isinstance(ao, ast.Compare):
+        ops_sym = [get_op_sym(o) for o in ao.ops]
+        en = EquationNode(label=' '.join(ops_sym), ast_type=ast.Compare, node_type=NodeTypes.OP, ops=ao.ops)
 
+        edge_l = EquationEdge(end=en.id, label=f'left')
+
+        parse_(ao.left, g, tag_vars, prefix=prefix, parent=edge_l.set_start)
+        g.add_edge((edge_l.start, edge_l.end, edge_l), ignore_missing_nodes=True)
+
+        for i, sa in enumerate(ao.comparators):
+            edge_i = EquationEdge(end=en.id, label=f'args{i}')
+
+            parse_(sa, g, tag_vars, prefix=prefix, parent=edge_i.set_start)
+            g.add_edge((edge_i.start, edge_i.end, edge_i), ignore_missing_nodes=True)
+
+    elif isinstance(ao, ast.IfExp):
+
+       # astor.get_op_symbol(ao.op)
+        en = EquationNode(label='if_exp', ast_type=ast.IfExp, node_type=NodeTypes.OP)
+
+        for a in ['body', 'orelse', 'test']:
+            operand_edge = EquationEdge(end=en.id, label=a)
+
+            g.add_edge((operand_edge.start, operand_edge.end, operand_edge), ignore_missing_nodes=True)
+            setattr(en, a, operand_edge)
+            parse_(getattr(ao, a), g, tag_vars, prefix, parent=operand_edge.set_start)
 
     else:
         raise TypeError('Cannot parse <' + str(type(ao)) + '>')
@@ -237,13 +263,30 @@ def parse_eq(scope_id, item, global_graph, tag_vars):
 
         if not eq_key in parsed_eq:
 
-            source = inspect.getsource(eq)
-            #print(source)
-            ast_tree = ast.parse(dedent(source))
+            dsource = inspect.getsource(eq)
+            #print()
+            #print(eq_key)
+            #print()
+            #print(dsource)
+            tries=0
+            while tries<5:
+                try:
+                    dsource = dedent(dsource)
+                    ast_tree = ast.parse(dsource)
+                    break
+                except IndentationError:
+                    tries+=1
+                    if tries > 5-1:
+                        raise
+
+
+
+
+
             g = Graph()
             parse_(ast_tree, g, tag_vars)
             #g.as_graphviz()
-            parsed_eq[eq_key] = (eq, source, g)
+            parsed_eq[eq_key] = (eq, dsource, g)
         else:
             pass
             #print('skip parsing')
@@ -280,10 +323,10 @@ def process_mappings(mappings,gg:Graph, scope_vars, scope_map):
             gg.add_node((ivar.id, ivar, ivar_var.id, ), ignore_exist=True)
 
             if prev:
-                binop = EquationNode(label=get_op_sym(add), ast_type=ast.BinOp, node_type=NodeTypes.OP, op=add)
+                binop = EquationNode(label=get_op_sym(add), ast_type=ast.BinOp, node_type=NodeTypes.OP, ast_op=add)
                 gg.add_node((binop.id, binop, None,))
                 gg.add_edge((prev.id, binop.id, EquationEdge(start=prev.id, end=binop.id,label='left')))
-                gg.add_edge((ivar.id, binop.id, EquationEdge(start=ivar.id, end=binop.id,labe='right')))
+                gg.add_edge((ivar.id, binop.id, EquationEdge(start=ivar.id, end=binop.id,label='right')))
                 prev = binop
             else:
                 prev = ivar

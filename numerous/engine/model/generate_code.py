@@ -44,7 +44,7 @@ def node_to_ast(n: EquationNode, g: Graph):
 
         return ast_Call
 
-
+    #TODO implement missing code ast objects
     raise TypeError(f'Cannot convert {n[1]},{n[1].ast_type}')
 
 
@@ -135,7 +135,7 @@ def generate_code(g: Graph, var_map, indcs, func_name='kernel'):
     print('Compiling')
     import timeit
     print('Compile time: ', timeit.timeit(
-        lambda: exec(source, globals()),  number=1))
+            lambda: exec(source, globals()),  number=1))
 
     return kernel
     #from numba.pycc import CC

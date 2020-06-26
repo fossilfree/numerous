@@ -28,7 +28,7 @@ class LowerMethod(IntEnum):
     Codegen=1
 
 
-lower_method = LowerMethod.Tensor
+lower_method = LowerMethod.Codegen
 
 
 class ModelNamespace:
@@ -276,12 +276,14 @@ class Model:
         self.info.update({"Solver": {}})
 
     def lower_model_codegen(self):
+        #if len(self.gg.nodes)<100:
+        self.gg.as_graphviz()
+
         from numerous.engine.model.generate_code import generate_code
         self.compiled_compute = generate_code(self.gg, self.vars_ordered_map, ((0, self.states_end_ix),(self.states_end_ix, self.deriv_end_ix), (self.deriv_end_ix, self.mapping_end_ix)))
 
 
-        if len(self.gg.nodes)<100:
-            self.gg.as_graphviz()
+
         print('n nodes: ', len(self.gg.nodes))
         self.info.update({"Solver": {}})
 
