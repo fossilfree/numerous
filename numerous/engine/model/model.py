@@ -6,7 +6,7 @@ import re
 import time
 import uuid
 
-from numba.experimental import jitclass
+from numba import jitclass
 import pandas as pd
 from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
@@ -28,7 +28,7 @@ class LowerMethod(IntEnum):
     Codegen=1
 
 
-lower_method = LowerMethod.Tensor
+lower_method = LowerMethod.Codegen
 
 
 class ModelNamespace:
@@ -166,11 +166,7 @@ class Model:
         -  _3d 
 
         """
-        def __get_mapping__idx(variable):
-            if variable.mapping:
-                return __get_mapping__idx(variable.mapping)
-            else:
-                return variable.idx_in_scope[0]
+
 
 
 
@@ -270,6 +266,15 @@ class Model:
             self.lower_model_tensor()
             self.generate_numba_model = self.generate_numba_model_tensor
 
+        assemble_finish = time.time()
+        print("Assemble time: ",assemble_finish - assemble_start)
+        self.info.update({"Assemble time": assemble_finish - assemble_start})
+        self.info.update({"Number of items": len(self.model_items)})
+        self.info.update({"Number of variables": len(self.scope_variables)})
+        self.info.update({"Number of equation scopes": len(self.equation_dict)})
+        self.info.update({"Number of equations": len(self.compiled_eq)})
+        self.info.update({"Solver": {}})
+
     def lower_model_codegen(self):
         from numerous.engine.model.generate_code import generate_code
         self.compiled_eq = generate_code(self.gg, self.vars_ordered_map, ((0, self.states_end_ix),(self.states_end_ix, self.deriv_end_ix), (self.deriv_end_ix, self.mapping_end_ix)))
@@ -281,7 +286,6 @@ class Model:
         self.info.update({"Solver": {}})
 
     def lower_model_tensor(self):
-
         # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping
         # self.synchronized_scope to compiled_eq (by index)
         equation_parser = Equation_Parser()
@@ -320,9 +324,15 @@ class Model:
         sum_mapped_idx_len = []
         self.sum_mapping = False
 
+        def __get_mapping__idx(variable):
+            if variable.mapping:
+                return __get_mapping__idx(variable.mapping)
+            else:
+                return variable.idx_in_scope[0]
+
         for scope_idx, scope in enumerate(self.synchronized_scope.values()):
             for scope_var_idx, var in enumerate(scope.variables.values()):
-                _from = self.__get_mapping__idx(var, self.variables[var.mapping_id]) \
+                _from = __get_mapping__idx(self.variables[var.mapping_id]) \
                     if var.mapping_id else var.position
 
                 self.var_idx_to_scope_idx[var.position] = scope_idx
@@ -419,14 +429,7 @@ class Model:
         self.flat_scope_idx_slices_end = np.cumsum(_flat_scope_idx_slices_lengths)
         self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
 
-        assemble_finish = time.time()
-        print("Assemble time: ",assemble_finish - assemble_start)
-        self.info.update({"Assemble time": assemble_finish - assemble_start})
-        self.info.update({"Number of items": len(self.model_items)})
-        self.info.update({"Number of variables": len(self.scope_variables)})
-        self.info.update({"Number of equation scopes": len(self.equation_dict)})
-        self.info.update({"Number of equations": len(self.compiled_eq)})
-        self.info.update({"Solver": {}})
+
 
     def _var_idxs_to_3d_idxs(self, var_idxs, _from):
         if var_idxs.size == 0:
@@ -795,13 +798,22 @@ class Model:
         # self.historian_df = self.historian_df.set_index('time')
         # self.historian_df.index = pd.to_timedelta(self.historian_df.index, unit='s')
 
+        if lower_method == LowerMethod.Codegen:
+            time = self.numba_model.historian_data[:,0]
+            data = {'time': time}
 
-        time = self.numba_model.historian_data[:,0]
-        data = {'time': time}
+            for i, var in enumerate(self.vars_ordered):
 
-        for i, var in enumerate(self.vars_ordered):
+                 data.update({".".join(self.variables[var.id].path.path[self.system.id]): self.numba_model.historian_data[:,i+1]})
 
-             data.update({".".join(self.variables[var.id].path.path[self.system.id]): self.numba_model.historian_data[:,i + 1]})
+            self.historian_df = pd.DataFrame(data)
 
-        self.historian_df = pd.DataFrame(data)
+        if lower_method == LowerMethod.Tensor:
+            time = self.numba_model.historian_data[0]
+            data = {'time': time}
+
+            for i, var in enumerate(self.path_variables):
+                 data.update({var: self.numba_model.historian_data[i + 1]})
+
+            self.historian_df = pd.DataFrame(data)
         # self.df.set_index('time')
