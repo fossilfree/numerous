@@ -99,7 +99,7 @@ def generate_code(g: Graph, var_map, indcs, func_name='kernel'):
     for n in top_nodes:
         lineno_count+=1
 
-        if n[1].ast_type == ast.Assign:
+        if n[1].ast_type == ast.Assign or n[1].ast_type == ast.AugAssign:
             #n[1].id = n[0]
             value_node = g.nodes_map[g.edges_end(n, label='value')[0][0]]
             value_ast = node_to_ast(value_node, g)
@@ -108,7 +108,10 @@ def generate_code(g: Graph, var_map, indcs, func_name='kernel'):
             target_ast = node_to_ast(target_node, g)
 
             if value_ast and target_ast:
-                ast_assign = ast.Assign(targets=[target_ast], value=value_ast)
+                if n[1].ast_type == ast.Assign:
+                    ast_assign = ast.Assign(targets=[target_ast], value=value_ast)
+                else:
+                    ast_assign = ast.AugAssign(target=target_ast, value=value_ast, op=ast.Add())
                 f.body.append(ast_assign)
 
 

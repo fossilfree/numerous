@@ -261,7 +261,7 @@ def process_mappings(mappings,gg:Graph, scope_vars, scope_map):
         #prefix = scope_map[target_var.parent_scope_id]
         prefix = f's{scope_map.index(target_var.parent_scope_id)}'
         target_var_id = qualify(target_var.tag, prefix)
-        assign = EquationNode(label='=', ast_type=ast.Assign, node_type=NodeTypes.ASSIGN, targets=[], value=None)
+        assign = EquationNode(label='=', ast_type=ast.AugAssign, node_type=NodeTypes.ASSIGN, targets=[], value=None)
         gg.add_node((assign.id, assign, None))
         target_node = EquationNode(id=target_var_id, label=target_var.tag, ast_type=ast.Attribute(attr_ast(m[0])), node_type=NodeTypes.VAR)
         gg.add_node((target_node.id, target_node, target_var.id), ignore_exist=True)

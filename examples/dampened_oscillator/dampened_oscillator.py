@@ -55,7 +55,11 @@ class Spring_Equation(EquationBase):
         F = (np.abs(scope.x1 - scope.x2) - scope.dx0)* scope.k
 
         scope.F1 = F  # [kg/s]
+
         scope.F2 = F
+
+
+
 
     # Define the valve as a connector item - connecting two tanks
 class SpringCoupling(ConnectorTwoWay):
@@ -80,8 +84,6 @@ class SpringCoupling(ConnectorTwoWay):
         # This is needed to update the values of the variables in the binding according to the equtions of the items
         mechanics.x1 = self.side1.mechanics.x
         mechanics.x2 = self.side2.mechanics.x
-
-
 
         self.side1.mechanics.v_dot += mechanics.F1
         self.side2.mechanics.v_dot += mechanics.F2
@@ -111,7 +113,7 @@ if __name__ == "__main__":
 
     # Define simulation
     s = simulation.Simulation(
-        model.Model(OscillatorSystem('system',  c=0, a=0, n=10)),
+        model.Model(OscillatorSystem('system',  c=0, a=0, n=2)),
         t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
     )
     # Solve and plot

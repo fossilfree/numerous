@@ -21,6 +21,16 @@ from numerous.utils.numba_callback import NumbaCallbackBase
 
 import operator
 
+from enum import IntEnum, unique
+
+class LowerMethod(IntEnum):
+    Tensor=0
+    Codegen=1
+
+
+lower_method = LowerMethod.Tensor
+
+
 class ModelNamespace:
 
     def __init__(self, tag,outgoing_mappings):
@@ -137,6 +147,12 @@ class Model:
                 model_namespaces.extend(self.__add_item(registered_item))
         return model_namespaces
 
+    def __get_mapping__variable(self, var, variable):
+        if var.mapping:
+            return self.__get_mapping__variable(variable.mapping)
+        else:
+            return variable
+
     def assemble(self):
         """
         Assembles the model.
@@ -176,20 +192,15 @@ class Model:
             self.scope_variables.update(variables)
 
         self.mappings = []
-        def __get_mapping__variable(variable):
-            if var.mapping:
-                return __get_mapping__variable(variable.mapping)
-            else:
-                return variable
 
         for scope_var_idx, var in enumerate(self.scope_variables.values()):
             if var.mapping_id:
-                _from = __get_mapping__variable(self.variables[var.mapping_id])
+                _from = self.__get_mapping__variable(var, self.variables[var.mapping_id])
                 self.mappings.append((var.id, [_from.id]))
             if not var.mapping_id and var.sum_mapping_ids:
                 sum_mapping = []
                 for mapping_id in var.sum_mapping_ids:
-                    _from = __get_mapping__variable(self.variables[mapping_id])
+                    _from = self.__get_mapping__variable(var, self.variables[mapping_id])
                     sum_mapping.append(_from.id)
                 self.mappings.append((var.id, sum_mapping))
 
@@ -197,7 +208,7 @@ class Model:
         from numerous.engine.model.graph import Graph
 
         #print(self.equation_dict)
-        gg = Graph()
+        self.gg = Graph()
 
         scope_ids = []
         print('parsing equations starting')
@@ -208,7 +219,7 @@ class Model:
 
             #print('scope_id: ', scope_id)
             s_id = f's{scope_ids.index(scope_id)}'
-            parse_eq(s_id, eq, gg, tag_vars)
+            parse_eq(s_id, eq, self.gg, tag_vars)
         print('parsing equations completed')
         #for n in gg.nodes:
         #    print(n[0])
@@ -216,7 +227,7 @@ class Model:
         print('mapping: ',self.mappings)
         #Process mappings add update the global graph
         from numerous.engine.model.parser_ast import process_mappings
-        process_mappings(self.mappings, gg, self.scope_variables, scope_ids)
+        process_mappings(self.mappings, self.gg, self.scope_variables, scope_ids)
 
         #Process variables
         states = []
@@ -233,38 +244,44 @@ class Model:
             else:
                 other.append(sv)
 
-        vars_ordered = states + deriv + mapping + other
-        states_end_ix = len(states)
-        self.states_end_ix = states_end_ix
-        deriv_end_ix = states_end_ix+len(deriv)
-        mapping_end_ix = deriv_end_ix + len(mapping)
+        self.vars_ordered = states + deriv + mapping + other
+        self.states_end_ix = len(states)
+
+        self.deriv_end_ix = self.states_end_ix+len(deriv)
+        self.mapping_end_ix = self.deriv_end_ix + len(mapping)
         #print('gg nodes: ', gg.nodes)
-        self.vars_ordered_values = np.array([v.value for v in vars_ordered], dtype=np.float64)
-        vars_node_id = {n[2]: n[0] for n in gg.nodes if n[2]}
-        self.vars_ordered = vars_ordered
+        self.vars_ordered_values = np.array([v.value for v in self.vars_ordered], dtype=np.float64)
+        vars_node_id = {n[2]: n[0] for n in self.gg.nodes if n[2]}
         #print('var nod id: ', vars_node_id)
         count = 0
-        vars_ordered_map = []
-        for v in vars_ordered:
+        self.vars_ordered_map = []
+        for v in self.vars_ordered:
             if v.id in vars_node_id:
-                vars_ordered_map.append(vars_node_id[v.id])
+                self.vars_ordered_map.append(vars_node_id[v.id])
             else:
                 #vars_ordered_map.append(f'dummy__{count}')
-                vars_ordered_map.append(v.id)
+                self.vars_ordered_map.append(v.id)
                 count+=1
 
+        if lower_method == LowerMethod.Codegen:
+            self.lower_model_codegen()
+            self.generate_numba_model = self.generate_numba_model_code_gen
+        elif lower_method == LowerMethod.Tensor:
+            self.lower_model_tensor()
+            self.generate_numba_model = self.generate_numba_model_tensor
 
-
-
+    def lower_model_codegen(self):
         from numerous.engine.model.generate_code import generate_code
-        self.compiled_eq = generate_code(gg, vars_ordered_map, ((0, states_end_ix),(states_end_ix, deriv_end_ix), (deriv_end_ix, mapping_end_ix)))
+        self.compiled_eq = generate_code(self.gg, self.vars_ordered_map, ((0, self.states_end_ix),(self.states_end_ix, self.deriv_end_ix), (self.deriv_end_ix, self.mapping_end_ix)))
 
 
-        if len(gg.nodes)<100:
-            gg.as_graphviz()
-        print('n nodes: ', len(gg.nodes))
+        if len(self.gg.nodes)<100:
+            self.gg.as_graphviz()
+        print('n nodes: ', len(self.gg.nodes))
         self.info.update({"Solver": {}})
-        """
+
+    def lower_model_tensor(self):
+
         # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping
         # self.synchronized_scope to compiled_eq (by index)
         equation_parser = Equation_Parser()
@@ -305,7 +322,7 @@ class Model:
 
         for scope_idx, scope in enumerate(self.synchronized_scope.values()):
             for scope_var_idx, var in enumerate(scope.variables.values()):
-                _from = __get_mapping__idx(self.variables[var.mapping_id]) \
+                _from = self.__get_mapping__idx(var, self.variables[var.mapping_id]) \
                     if var.mapping_id else var.position
 
                 self.var_idx_to_scope_idx[var.position] = scope_idx
@@ -425,7 +442,7 @@ class Model:
                                           zip(map(list, _non_flat_scope_idx[_scope_idxs]),
                                               var_idxs)),
                         int))
-"""
+
     def get_states(self):
         """
 
@@ -664,7 +681,7 @@ class Model:
 
     # Method that generates numba_model
 
-    def generate_numba_model(self, start_time, number_of_timesteps):
+    def generate_numba_model_code_gen(self, start_time, number_of_timesteps):
         from numba import float64, int32
         compute = self.compiled_eq
 
@@ -700,7 +717,11 @@ class Model:
         self.numba_model.func(0, self.vars_ordered_values[0:self.states_end_ix])
 
         print('completed numba model')
-        """
+
+        return self.numba_model
+
+    def generate_numba_model_tensor(self, start_time, number_of_timesteps):
+
         for spec_dict in self.numba_callbacks_variables:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
@@ -758,7 +779,7 @@ class Model:
         NM_instance.historian_update(start_time)
         self.numba_model = NM_instance
         
-        """
+
 
         return self.numba_model
 
