@@ -112,14 +112,15 @@ if __name__ == "__main__":
     # Define simulation
     s = simulation.Simulation(
         model.Model(OscillatorSystem('system',  c=0, a=0, n=10)),
-        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1
+        t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
     )
     # Solve and plot
     tic = time()
     s.solve()
     toc = time()
     print('Execution time: ', toc-tic)
-    print(len(list(s.model.historian.df)))
-    s.model.historian.df['system.oscillator0.mechanics.x'].plot()
+    print(s.model.historian_df)
+    print(len(list(s.model.historian_df)))
+    s.model.historian_df['system.oscillator0.mechanics.x'].plot()
     plt.show()
     plt.interactive(False)

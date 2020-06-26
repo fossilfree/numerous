@@ -40,9 +40,13 @@ class IVP_solver(BaseSolver):
             self.solver_step(self.time[0])
             compilation_finished = time.time()
             print("Compilation time: ", compilation_finished - compilation_start)
+            solve_start = time.time()
             for t in tqdm(self.time[1:-1]):
                 if self.solver_step(t):
                     break
+            solve_finished = time.time()
+            print("Solve time: ", solve_finished - solve_start)
+
         except Exception as e:
             print(e)
             raise e

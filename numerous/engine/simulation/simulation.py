@@ -70,13 +70,17 @@ class Simulation:
 
     def solve(self):
         self.__init_step()
+        print('Solving!')
         try:
             sol, result_status = self.solver.solve()
+
         except Exception as e:
+            print('Caught error')
             raise e
         finally:
+            print('completed solve')
             self.info.update({"Solving status": result_status})
-            list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,self.model.path_variables), self.model.callbacks))
+        #    list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,self.model.path_variables), self.model.callbacks))
             self.model.create_historian_df()
         return sol
 
@@ -85,6 +89,7 @@ class Simulation:
         # [x.initialize(simulation=self) for x in self.model.callbacks]
 
     def __end_step(self, solver, y, t, event_id=None, **kwargs):
+
         solver.y0 = y
         solver.numba_model.historian_update(t)
         # solver.numba_model.run_callbacks_with_updates(t)

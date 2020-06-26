@@ -105,7 +105,7 @@ class Graph:
 
     def higher_nodes(self, nodes):
         #return np.array(self.nodes)[list(nodes)]
-        print(self.nodes)
+        #print(self.nodes)
         return [self.nodes[i] for i in nodes]
 
     def higher_edges(self, edges):
@@ -156,10 +156,12 @@ class Graph:
 
 
     def topological_nodes(self):
-
+        import timeit
 
         if not self.lower_graph:
-            self.make_lower_graph()
+            print('lowering and sorting time: ', timeit.timeit(
+            lambda: self.make_lower_graph(), number=1))
+        #self.make_lower_graph()
 
         return self.higher_nodes(self.lower_graph.topological_sorted_nodes)
 
@@ -208,7 +210,7 @@ class Graph:
         self.nodes = self.nodes_map.values()
 
     def update(self, other):
-        print('update!')
+        #print('update!')
         self.nodes_map.update(other.nodes_map)
         self.nodes = self.nodes_map.values()
         for e in other.edges:

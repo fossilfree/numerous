@@ -6,7 +6,7 @@ import re
 import time
 import uuid
 
-from numba import jitclass
+from numba.experimental import jitclass
 import pandas as pd
 from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
@@ -196,33 +196,75 @@ class Model:
         from numerous.engine.model.parser_ast import parse_eq
         from numerous.engine.model.graph import Graph
 
-        print(self.equation_dict)
+        #print(self.equation_dict)
         gg = Graph()
-        c = 0
+
         scope_ids = []
+        print('parsing equations starting')
         for scope_id, eq in self.equation_dict.items():
+            tag_vars = {v.tag: v for v in self.scope_variables.values() if v.parent_scope_id==scope_id}
             if not scope_id in scope_ids:
                 scope_ids.append(scope_id)
 
-            print('scope_id: ', scope_id)
+            #print('scope_id: ', scope_id)
             s_id = f's{scope_ids.index(scope_id)}'
-            parse_eq(s_id, eq, gg)
-            c += 1
-
-        for n in gg.nodes:
-            print(n[0])
+            parse_eq(s_id, eq, gg, tag_vars)
+        print('parsing equations completed')
+        #for n in gg.nodes:
+        #    print(n[0])
 
         print('mapping: ',self.mappings)
+        #Process mappings add update the global graph
         from numerous.engine.model.parser_ast import process_mappings
         process_mappings(self.mappings, gg, self.scope_variables, scope_ids)
 
+        #Process variables
+        states = []
+        deriv = []
+        mapping = []
+        other = []
+        for sv_id, sv in self.scope_variables.items():
+            if sv.type == VariableType.STATE:
+                states.append(sv)
+            elif sv.type == VariableType.DERIVATIVE:
+                deriv.append(sv)
+            elif sv.sum_mapping_ids or sv.mapping_id:
+                mapping.append(sv)
+            else:
+                other.append(sv)
+
+        vars_ordered = states + deriv + mapping + other
+        states_end_ix = len(states)
+        self.states_end_ix = states_end_ix
+        deriv_end_ix = states_end_ix+len(deriv)
+        mapping_end_ix = deriv_end_ix + len(mapping)
+        #print('gg nodes: ', gg.nodes)
+        self.vars_ordered_values = np.array([v.value for v in vars_ordered], dtype=np.float64)
+        vars_node_id = {n[2]: n[0] for n in gg.nodes if n[2]}
+        self.vars_ordered = vars_ordered
+        #print('var nod id: ', vars_node_id)
+        count = 0
+        vars_ordered_map = []
+        for v in vars_ordered:
+            if v.id in vars_node_id:
+                vars_ordered_map.append(vars_node_id[v.id])
+            else:
+                #vars_ordered_map.append(f'dummy__{count}')
+                vars_ordered_map.append(v.id)
+                count+=1
+
+
+
+
         from numerous.engine.model.generate_code import generate_code
-        generate_code(gg)
+        self.compiled_eq = generate_code(gg, vars_ordered_map, ((0, states_end_ix),(states_end_ix, deriv_end_ix), (deriv_end_ix, mapping_end_ix)))
 
 
-
-        gg.as_graphviz()
+        if len(gg.nodes)<100:
+            gg.as_graphviz()
         print('n nodes: ', len(gg.nodes))
+        self.info.update({"Solver": {}})
+        """
         # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping
         # self.synchronized_scope to compiled_eq (by index)
         equation_parser = Equation_Parser()
@@ -383,7 +425,7 @@ class Model:
                                           zip(map(list, _non_flat_scope_idx[_scope_idxs]),
                                               var_idxs)),
                         int))
-
+"""
     def get_states(self):
         """
 
@@ -482,7 +524,8 @@ class Model:
         state_values : array of state values
 
         """
-        return self.scope_vars_3d[self.state_idxs_3d]
+        #return self.scope_vars_3d[self.state_idxs_3d]
+        return self.vars_ordered_values[0:self.states_end_ix]
 
     def get_variable_path(self, id, item):
         for (variable, namespace) in item.get_variables():
@@ -620,12 +663,49 @@ class Model:
         return namespaces_list
 
     # Method that generates numba_model
-    def generate_numba_model(self, start_time, number_of_timesteps):
 
+    def generate_numba_model(self, start_time, number_of_timesteps):
+        from numba import float64, int32
+        compute = self.compiled_eq
+
+        spec = [
+            ('variables', float64[:]),
+            ('historian_data', float64[:,:]),
+            ('historian_ix', int32),
+
+        ]
+
+        @jitclass(spec)
+        class CompiledModel:
+            def __init__(self, variables_init):
+
+                self.variables = variables_init
+                self.historian_data = np.zeros((number_of_timesteps, len(self.variables)+1), dtype=np.float64)
+                #self.historian_data = np.zeros((2,2), dtype=np.float64)
+                self.historian_ix = 0
+
+            def func(self, _t, y):
+
+                return compute(self.variables, y)
+
+            def historian_update(self, t):
+
+                self.historian_data[self.historian_ix][0] = t
+                self.historian_data[self.historian_ix][1:] = self.variables[:]
+
+                self.historian_ix += 1
+
+        self.numba_model = CompiledModel(self.vars_ordered_values)
+
+        self.numba_model.func(0, self.vars_ordered_values[0:self.states_end_ix])
+
+        print('completed numba model')
+        """
         for spec_dict in self.numba_callbacks_variables:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
-
+        
+        
         def create_eq_call(eq_method_name: str, i: int):
             return "      self." \
                    "" + eq_method_name + "(array_3d[" + str(i) + \
@@ -633,7 +713,8 @@ class Model:
 
         Equation_Parser.create_numba_iterations(NumbaModel, self.compiled_eq, "compute_eq", "func"
                                                 , create_eq_call, "array_3d", map_sorting=self.eq_outgoing_mappings)
-
+        
+        
         ##Adding callbacks_varaibles to numba specs
         def create_cbi_call(_method_name: str, i: int):
             return "      self." \
@@ -655,7 +736,7 @@ class Model:
 
         Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init_run, "run_init_callbacks",
                                                 "callback_func_init_pre_update", create_cbiu_call, "time")
-
+        
         @jitclass(numba_model_spec)
         class NumbaModel_instance(NumbaModel):
             pass
@@ -676,6 +757,9 @@ class Model:
 
         NM_instance.historian_update(start_time)
         self.numba_model = NM_instance
+        
+        """
+
         return self.numba_model
 
     def create_historian_df(self):
@@ -691,11 +775,12 @@ class Model:
         # self.historian_df.index = pd.to_timedelta(self.historian_df.index, unit='s')
 
 
-        time = self.numba_model.historian_data[0]
+        time = self.numba_model.historian_data[:,0]
         data = {'time': time}
 
-        for i, var in enumerate(self.path_variables):
-             data.update({var: self.numba_model.historian_data[i + 1]})
+        for i, var in enumerate(self.vars_ordered):
+
+             data.update({".".join(self.variables[var.id].path.path[self.system.id]): self.numba_model.historian_data[:,i + 1]})
 
         self.historian_df = pd.DataFrame(data)
         # self.df.set_index('time')
