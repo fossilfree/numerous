@@ -28,7 +28,7 @@ class LowerMethod(IntEnum):
     Codegen=1
 
 
-lower_method = LowerMethod.Codegen
+lower_method = LowerMethod.Tensor
 
 
 class ModelNamespace:
@@ -277,7 +277,7 @@ class Model:
 
     def lower_model_codegen(self):
         from numerous.engine.model.generate_code import generate_code
-        self.compiled_eq = generate_code(self.gg, self.vars_ordered_map, ((0, self.states_end_ix),(self.states_end_ix, self.deriv_end_ix), (self.deriv_end_ix, self.mapping_end_ix)))
+        self.compiled_compute = generate_code(self.gg, self.vars_ordered_map, ((0, self.states_end_ix),(self.states_end_ix, self.deriv_end_ix), (self.deriv_end_ix, self.mapping_end_ix)))
 
 
         if len(self.gg.nodes)<100:
@@ -686,7 +686,7 @@ class Model:
 
     def generate_numba_model_code_gen(self, start_time, number_of_timesteps):
         from numba import float64, int32
-        compute = self.compiled_eq
+        compute = self.compiled_compute
 
         spec = [
             ('variables', float64[:]),
