@@ -59,7 +59,7 @@ def ass(a):
     return a
 
 class EquationNode:
-    def __init__(self, label, id=None, ast_type=None, node_type:NodeTypes=NodeTypes.VAR, scope_var=None,**attrs):
+    def __init__(self, label, ast_type, id=None, node_type:NodeTypes=NodeTypes.VAR, scope_var=None,**attrs):
         if not id:
             id = tmp(label)
         self.id = id
@@ -142,18 +142,25 @@ def parse_(ao, g: Graph, tag_vars, prefix='_', parent: EquationEdge=None):
         # Constant
         #source_var = Variable('c' + str(ao.value), Variable.CONSTANT, val=ao.value)
         source_id = 'c' + str(ao.value)
-        en = EquationNode(label=source_id, value = ao.value, node_type=NodeTypes.VAR)
+        en = EquationNode(label=source_id, ast_type=ast.Num, value = ao.value, node_type=NodeTypes.VAR)
 
 
         # Check if simple name
     elif isinstance(ao, ast.Name) or isinstance(ao, ast.Attribute):
         local_id = recurse_Attribute(ao)
+
         source_id = local_id
         if source_id[:6]=='scope.':
             scope_var = tag_vars[source_id[6:]]
+
+
             #print('scope var: ',scope_var.id)
         else:
             scope_var=None
+
+        if '-' in source_id:
+            raise ValueError(f'Bad character -')
+
         en = EquationNode(id=source_id, local_id=local_id, ast_type=type(ao), label=source_id, node_type=NodeTypes.VAR, scope_var=scope_var)
 
 
@@ -202,12 +209,11 @@ def parse_(ao, g: Graph, tag_vars, prefix='_', parent: EquationEdge=None):
         en = EquationNode(label=' '.join(ops_sym), ast_type=ast.Compare, node_type=NodeTypes.OP, ops=ao.ops)
 
         edge_l = EquationEdge(end=en.id, label=f'left')
-
         parse_(ao.left, g, tag_vars, prefix=prefix, parent=edge_l.set_start)
         g.add_edge((edge_l.start, edge_l.end, edge_l), ignore_missing_nodes=True)
 
         for i, sa in enumerate(ao.comparators):
-            edge_i = EquationEdge(end=en.id, label=f'args{i}')
+            edge_i = EquationEdge(end=en.id, label=f'comp{i}')
 
             parse_(sa, g, tag_vars, prefix=prefix, parent=edge_i.set_start)
             g.add_edge((edge_i.start, edge_i.end, edge_i), ignore_missing_nodes=True)
@@ -238,6 +244,11 @@ def qualify(s, prefix):
     return prefix + '_' + s.replace('scope.', '')
 
 def qualify_equation(prefix, g, tag_vars):
+    #for k, v in tag_vars.items():
+    #    if '-' in v.id:
+     #       print(v.id)
+     #       raise ValueError('arg!')
+
     def q(s):
         return qualify(s, prefix)
 
@@ -304,9 +315,13 @@ def process_mappings(mappings,gg:Graph, scope_vars, scope_map):
         #prefix = scope_map[target_var.parent_scope_id]
         prefix = f's{scope_map.index(target_var.parent_scope_id)}'
         target_var_id = qualify(target_var.tag, prefix)
+
+        if '-' in target_var_id:
+            raise ValueError('argh')
+
         assign = EquationNode(label='=', ast_type=ast.AugAssign, node_type=NodeTypes.ASSIGN, targets=[], value=None)
         gg.add_node((assign.id, assign, None))
-        target_node = EquationNode(id=target_var_id, label=target_var.tag, ast_type=ast.Attribute(attr_ast(m[0])), node_type=NodeTypes.VAR)
+        target_node = EquationNode(id=target_var_id, label=target_var.tag, ast_type=ast.Attribute, node_type=NodeTypes.VAR)
         gg.add_node((target_node.id, target_node, target_var.id), ignore_exist=True)
         gg.add_edge((assign.id, target_node.id, EquationEdge(start=assign.id, end=target_node.id, label='target0')))
         
@@ -319,7 +334,10 @@ def process_mappings(mappings,gg:Graph, scope_vars, scope_map):
             ivar_var = scope_vars[i]
             prefix = f's{scope_map.index(ivar_var.parent_scope_id)}'
             ivar_id = qualify(ivar_var.tag, prefix)
-            ivar = EquationNode(id=ivar_id, label=ivar_var.tag, ast_type=ast.Attribute(attr_ast(i)), node_type=NodeTypes.VAR)
+            if '-' in ivar_id:
+                raise ValueError('argh')
+
+            ivar = EquationNode(id=ivar_id, label=ivar_var.tag, ast_type=ast.Attribute, node_type=NodeTypes.VAR)
             gg.add_node((ivar.id, ivar, ivar_var.id, ), ignore_exist=True)
 
             if prev:

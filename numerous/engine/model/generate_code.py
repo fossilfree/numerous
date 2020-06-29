@@ -8,42 +8,75 @@ class dot_dict:
             setattr(self, k, v)
 
 def node_to_ast(n: EquationNode, g: Graph):
-    if n[1].ast_type == ast.Attribute:
-        return attr_ast(n[0])
-    elif n[1].ast_type == ast.Name:
-        return attr_ast(n[0])
-    elif n[1].ast_type == ast.Num:
-        return attr_ast(n[0])
-    elif n[1].ast_type == ast.BinOp:
+    try:
+        if n[1].ast_type == ast.Attribute:
+            return attr_ast(n[0])
+        elif n[1].ast_type == ast.Name:
+            return attr_ast(n[0])
+        elif n[1].ast_type == ast.Num:
+            return ast.Num(value=n[1].value)
+        elif n[1].ast_type == ast.BinOp:
 
-        left_node = g.nodes_map[g.edges_end(n, label='left')[0][0]]
-        left_ast = node_to_ast(left_node, g)
+            left_node = g.nodes_map[g.edges_end(n, label='left')[0][0]]
+            left_ast = node_to_ast(left_node, g)
 
-        right_node = g.nodes_map[g.edges_end(n, label='right')[0][0]]
-        right_ast = node_to_ast(right_node, g)
+            right_node = g.nodes_map[g.edges_end(n, label='right')[0][0]]
+            right_ast = node_to_ast(right_node, g)
 
-        ast_binop = ast.BinOp(left=left_ast, right=right_ast, op=n[1].ast_op)
-        return ast_binop
+            ast_binop = ast.BinOp(left=left_ast, right=right_ast, op=n[1].ast_op)
+            return ast_binop
 
-    elif n[1].ast_type == ast.UnaryOp:
-        operand = g.nodes_map[g.edges_end(n, label='operand')[0][0]]
-        operand_ast = node_to_ast(operand, g)
+        elif n[1].ast_type == ast.UnaryOp:
+            operand = g.nodes_map[g.edges_end(n, label='operand')[0][0]]
+            operand_ast = node_to_ast(operand, g)
 
-        ast_unop = ast.UnaryOp(operand=operand_ast, op=n[1].ast_op)
-        return ast_unop
+            ast_unop = ast.UnaryOp(operand=operand_ast, op=n[1].ast_op)
+            return ast_unop
 
-    elif n[1].ast_type == ast.Call:
+        elif n[1].ast_type == ast.Call:
 
-        args = [g.nodes_map[ii[0]] for ii in g.edges_end(n, label='args')]
-        args_ast = []
-        for a in args:
-            a_ast = node_to_ast(a, g)
-            args_ast.append(a_ast)
+            args = [g.nodes_map[ii[0]] for ii in g.edges_end(n, label='args')]
+            args_ast = []
+            for a in args:
+                a_ast = node_to_ast(a, g)
+                args_ast.append(a_ast)
 
-        ast_Call = ast.Call(args=args_ast, func=n[1].func, keywords={})
+            ast_Call = ast.Call(args=args_ast, func=n[1].func, keywords={})
 
-        return ast_Call
+            return ast_Call
 
+        elif n[1].ast_type == ast.IfExp:
+            body = g.nodes_map[g.edges_end(n, label='body')[0][0]]
+            body_ast = node_to_ast(body, g)
+
+            orelse = g.nodes_map[g.edges_end(n, label='orelse')[0][0]]
+            orelse_ast = node_to_ast(orelse, g)
+
+            test = g.nodes_map[g.edges_end(n, label='test')[0][0]]
+            test_ast = node_to_ast(test, g)
+
+            ast_ifexp = ast.IfExp(body=body_ast, orelse=orelse_ast, test=test_ast)
+
+            return ast_ifexp
+
+        elif n[1].ast_type == ast.Compare:
+            comp = [g.nodes_map[ii[0]] for ii in g.edges_end(n, label='comp')]
+            comp_ast = []
+            for a in comp:
+                a_ast = node_to_ast(a, g)
+                comp_ast.append(a_ast)
+
+            left = g.nodes_map[g.edges_end(n, label='left')[0][0]]
+            left_ast = node_to_ast(left, g)
+
+
+            ast_Comp = ast.Compare(left=left_ast, comparators=comp_ast, ops=n[1].ops)
+
+            return ast_Comp
+    except:
+        print('node:')
+        print(n)
+        raise
     #TODO implement missing code ast objects
     raise TypeError(f'Cannot convert {n[1]},{n[1].ast_type}')
 
@@ -131,6 +164,10 @@ def generate_code(g: Graph, var_map, indcs, func_name='kernel'):
     if len(source)<10000:
         print('Source code')
         print(source)
+
+    with open('generated code.py', 'w') as f:
+        f.write(source)
+
 
     print('Compiling')
     import timeit

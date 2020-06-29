@@ -256,7 +256,7 @@ class Model:
                 self.vars_ordered_map.append(vars_node_id[v.id])
             else:
                 #vars_ordered_map.append(f'dummy__{count}')
-                self.vars_ordered_map.append(v.id)
+                self.vars_ordered_map.append(v.id.replace('-','_').replace('.','_'))
                 count+=1
 
         if lower_method == LowerMethod.Codegen:

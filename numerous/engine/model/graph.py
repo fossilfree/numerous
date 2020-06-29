@@ -79,6 +79,8 @@ class _Graph:
         # print(sorted_nodes)
         self.topological_sorted_nodes = sorted_nodes
 
+    def
+
 
 class Graph:
     def __init__(self, nodes=None, edges=None):
