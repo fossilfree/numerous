@@ -1,6 +1,6 @@
 import logging
 import uuid
-
+import inspect
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.variables import Variable, VariableDescription, _VariableFactory, OverloadAction
 
@@ -27,7 +27,9 @@ class VariableNamespaceBase:
         if isinstance(value, Variable):
 
             self.outgoing_mappings += 1
-
+            #curframe = inspect.currentframe()
+            #calframe = inspect.getouterframes(curframe, 2)
+            #print(name,' mapped to: ', value, ' by ',calframe[1][3])
             self[name].add_mapping(value)
         else:
             object.__setattr__(self, name, value)

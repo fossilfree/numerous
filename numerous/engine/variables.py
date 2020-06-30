@@ -52,6 +52,8 @@ class MappedValue(object):
         if not self.special_mapping:
             if variable.id == self.id:
                 raise RecursionError("Variable {0} cannot be mapped to itself", self.id)
+            #location_context =
+            #self.mapping = (variable, location_context)
             self.mapping = variable
         self.special_mapping = False
 
@@ -64,6 +66,12 @@ class MappedValue(object):
                 raise ValueError('It is not possible to add a summation to {0}. Variable already have mapping'
                                  ''.format(self.tag))
             else:
+                #import inspect
+                #curframe = inspect.currentframe()
+                #calframe = inspect.getouterframes(curframe, 2)
+                #print(calframe)
+                #print(self.tag, ' mapped to: ', other.tag, ' by ', calframe[1][3])
+
                 self.add_sum_mapping(other)
                 self.special_mapping = True
                 return self

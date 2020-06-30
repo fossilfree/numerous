@@ -13,15 +13,20 @@ from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
 from examples.historyDataFrameCallbackExample import HistoryDataFrameCallback
 from numerous.engine.scope import Scope, ScopeVariable
+
 # from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 
 from numerous.engine.system.subsystem import Subsystem
 from numerous.engine.variables import VariableType
 from numerous.utils.numba_callback import NumbaCallbackBase
+from numerous.engine.model.generate_code import generate_code
 
 import operator
 
 from enum import IntEnum, unique
+from numerous.engine.model.parser_ast import parse_eq
+from numerous.engine.model.graph import Graph
+from numerous.engine.model.parser_ast import process_mappings
 
 class LowerMethod(IntEnum):
     Tensor=0
@@ -33,12 +38,14 @@ lower_method = LowerMethod.Codegen
 
 class ModelNamespace:
 
-    def __init__(self, tag,outgoing_mappings):
+    def __init__(self, tag, outgoing_mappings, item_tag):
         self.tag = tag
+        self.item_tag = item_tag
         self.outgoing_mappings = outgoing_mappings
         self.equation_dict = {}
         self.eq_variables_ids = []
         self.variables = {}
+        self.full_tag = item_tag + '_' + tag
 
 
 class ModelAssembler:
@@ -62,6 +69,7 @@ class ModelAssembler:
         scope_select = {}
         variables = {}
         equation_dict = {}
+        name_spaces_dict = {}
         tag, namespaces = input_namespace
         for namespace in namespaces:
             for i, (eq_tag, eq_methods) in enumerate(namespace.equation_dict.items()):
@@ -70,8 +78,8 @@ class ModelAssembler:
                                                       namespace, tag, variables)
                 scope_select.update({scope.id: scope})
                 equation_dict.update({scope.id: (eq_methods, namespace.outgoing_mappings)})
-
-        return variables, scope_select, equation_dict
+                name_spaces_dict.update({scope.id: input_namespace})
+        return variables, scope_select, equation_dict, name_spaces_dict
 
 
 class Model:
@@ -105,6 +113,7 @@ class Model:
 
         self.equation_dict = {}
         self.scope_variables = {}
+        self.name_spaces = {}
         self.variables = {}
         self.flat_variables = {}
         self.path_variables = {}
@@ -182,10 +191,11 @@ class Model:
         # equation_dict <scope_id, [Callable]>
         # synchronized_scope <scope_id, Scope>
         # scope_variables <variable_id, Variable>
-        for variables, scope_select, equation_dict in map(ModelAssembler.t_1, model_namespaces):
+        for variables, scope_select, equation_dict, name_space in map(ModelAssembler.t_1, model_namespaces):
             self.equation_dict.update(equation_dict)
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
+            self.name_spaces.update(name_space)
 
         self.mappings = []
 
@@ -200,29 +210,36 @@ class Model:
                     sum_mapping.append(_from.id)
                 self.mappings.append((var.id, sum_mapping))
 
-        from numerous.engine.model.parser_ast import parse_eq
-        from numerous.engine.model.graph import Graph
+
 
         #print(self.equation_dict)
         self.gg = Graph()
 
-        scope_ids = []
+        scope_ids = {}
+        for s in self.synchronized_scope.keys():
+            s_id = f'{self.name_spaces[s][1][0].full_tag}'
+            scope_ids[s] = s_id
+
+        scope_item_tag = {}
+
+
         print('parsing equations starting')
         for scope_id, eq in self.equation_dict.items():
             tag_vars = {v.tag: v for v in self.scope_variables.values() if v.parent_scope_id==scope_id}
-            if not scope_id in scope_ids:
-                scope_ids.append(scope_id)
+
 
             #print('scope_id: ', scope_id)
-            s_id = f's{scope_ids.index(scope_id)}'
-            parse_eq(s_id, eq, self.gg, tag_vars)
+            #s_id = f's{scope_ids.index(scope_id)}'
+            print(eq)
+            if len(eq[0])>0:
+
+                parse_eq(scope_ids[scope_id], eq, self.gg, tag_vars)
         print('parsing equations completed')
         #for n in gg.nodes:
         #    print(n[0])
 
         print('mapping: ',self.mappings)
         #Process mappings add update the global graph
-        from numerous.engine.model.parser_ast import process_mappings
         process_mappings(self.mappings, self.gg, self.scope_variables, scope_ids)
 
         #Process variables
@@ -247,7 +264,7 @@ class Model:
         self.mapping_end_ix = self.deriv_end_ix + len(mapping)
         #print('gg nodes: ', gg.nodes)
         self.vars_ordered_values = np.array([v.value for v in self.vars_ordered], dtype=np.float64)
-        vars_node_id = {n[2]: n[0] for n in self.gg.nodes if n[2]}
+        vars_node_id = {n[2]: n[0] for n in self.gg.get_nodes() if n[2]}
         #print('var nod id: ', vars_node_id)
         count = 0
         self.vars_ordered_map = []
@@ -277,14 +294,13 @@ class Model:
 
     def lower_model_codegen(self):
         #if len(self.gg.nodes)<100:
-        self.gg.as_graphviz()
+        #self.gg.as_graphviz('global')
 
-        from numerous.engine.model.generate_code import generate_code
         self.compiled_compute = generate_code(self.gg, self.vars_ordered_map, ((0, self.states_end_ix),(self.states_end_ix, self.deriv_end_ix), (self.deriv_end_ix, self.mapping_end_ix)))
 
 
 
-        print('n nodes: ', len(self.gg.nodes))
+        print('n nodes: ', len(self.gg.get_nodes()))
         self.info.update({"Solver": {}})
 
     def lower_model_tensor(self):
@@ -664,7 +680,7 @@ class Model:
     def create_model_namespaces(self, item):
         namespaces_list = []
         for namespace in item.registered_namespaces.values():
-            model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings)
+            model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag)
             equation_dict = {}
             eq_variables_ids = []
             for eq in namespace.associated_equations.values():

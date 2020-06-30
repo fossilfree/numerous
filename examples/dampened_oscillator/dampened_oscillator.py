@@ -52,8 +52,8 @@ class Spring_Equation(EquationBase):
     @Equation()
     def eval(self, scope):
 
-        F = (np.abs(scope.x1 - scope.x2) - scope.dx0)* scope.k
-
+        F = (np.abs(scope.x1 - scope.x2) - scope.dx0) * scope.k
+        z = F + F * F
         scope.F1 = F  # [kg/s]
 
         scope.F2 = F
@@ -85,8 +85,8 @@ class SpringCoupling(ConnectorTwoWay):
         mechanics.x1 = self.side1.mechanics.x
         mechanics.x2 = self.side2.mechanics.x
 
-        self.side1.mechanics.v_dot += mechanics.F1
-        self.side2.mechanics.v_dot += mechanics.F2
+        #self.side1.mechanics.v_dot += mechanics.F1
+        #self.side2.mechanics.v_dot += mechanics.F2
 
 class OscillatorSystem(Subsystem):
     def __init__(self, tag, c=1, k=1, x0=10, a=1, n=1):
