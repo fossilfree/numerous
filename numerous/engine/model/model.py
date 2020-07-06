@@ -6,12 +6,12 @@ import re
 import time
 import uuid
 
-from numba import jitclass
+from numba.experimental import jitclass
 import pandas as pd
 from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
-from examples.historyDataFrameCallbackExample import HistoryDataFrameCallback
+#from examples.historyDataFrameCallbackExample import HistoryDataFrameCallback
 from numerous.engine.scope import Scope, ScopeVariable
 
 # from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
@@ -27,6 +27,7 @@ from enum import IntEnum, unique
 from numerous.engine.model.parser_ast import parse_eq
 from numerous.engine.model.graph import Graph
 from numerous.engine.model.parser_ast import process_mappings
+from numerous.engine.model.generate_model import generate
 
 class LowerMethod(IntEnum):
     Tensor=0
@@ -215,10 +216,19 @@ class Model:
         #print(self.equation_dict)
         self.gg = Graph()
 
+
+
         scope_ids = {}
         for s in self.synchronized_scope.keys():
             s_id = f'{self.name_spaces[s][1][0].full_tag}'
-            scope_ids[s] = s_id
+            s_id_ = s_id
+            count = 1
+            while s_id_ in list(scope_ids.values()):
+                s_id_ = s_id + '_' + str(count)
+                count += 1
+
+            scope_ids[s] = s_id_
+            #print(s_id_)
 
         scope_item_tag = {}
 
@@ -230,7 +240,7 @@ class Model:
 
             #print('scope_id: ', scope_id)
             #s_id = f's{scope_ids.index(scope_id)}'
-            print(eq)
+            #print(eq)
             if len(eq[0])>0:
 
                 parse_eq(scope_ids[scope_id], eq, self.gg, tag_vars)
@@ -238,11 +248,15 @@ class Model:
         #for n in gg.nodes:
         #    print(n[0])
 
-        print('mapping: ',self.mappings)
+        #print('mapping: ',self.mappings)
         #Process mappings add update the global graph
         process_mappings(self.mappings, self.gg, self.scope_variables, scope_ids)
 
-        #Process variables
+
+
+
+              
+    #Process variables
         states = []
         deriv = []
         mapping = []
@@ -276,6 +290,8 @@ class Model:
                 self.vars_ordered_map.append(v.id.replace('-','_').replace('.','_'))
                 count+=1
 
+        generate(self.gg, self.vars_ordered_map)
+        dsdfsdfsd = sdfsdf
         if lower_method == LowerMethod.Codegen:
             self.lower_model_codegen()
             self.generate_numba_model = self.generate_numba_model_code_gen
@@ -291,6 +307,8 @@ class Model:
         self.info.update({"Number of equation scopes": len(self.equation_dict)})
         self.info.update({"Number of equations": len(self.compiled_eq)})
         self.info.update({"Solver": {}})
+
+
 
     def lower_model_codegen(self):
         #if len(self.gg.nodes)<100:

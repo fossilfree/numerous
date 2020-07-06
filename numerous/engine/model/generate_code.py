@@ -14,7 +14,7 @@ def node_to_ast(n: EquationNode, g: Graph):
     elif n[1].ast_type == ast.Name:
         return attr_ast(n[0])
     elif n[1].ast_type == ast.Num:
-        return ast.Num(value=n[1].value)
+        return ast.Call(args=[ast.Num(value=n[1].value)], func=ast.Name(id='float64'), keywords={})
     elif n[1].ast_type == ast.BinOp:
 
         left_node = g.nodes_map[g.edges_end(n, label='left')[0][0]]
@@ -103,6 +103,7 @@ def generate_code(g: Graph, var_map, indcs, func_name='kernel'):
         targets=[ast.Name(id='mapping_ix')],
         value=ast.Tuple(elts=[ast.Num(n=i) for i in indcs[2]])))
     """
+
     f = ast.FunctionDef(func_name)
     f.body = []
     f.body.append(ast.Assign(
@@ -116,12 +117,13 @@ def generate_code(g: Graph, var_map, indcs, func_name='kernel'):
 
 
     #f.decorator_list = [ast.Call(func=ast.Name(id='njit'), keywords=[], args=[ast.Str(s='f8[:](f8[:], i4[:])')])]
-    f.decorator_list = [ast.Call(func=ast.Name(id='njit'), keywords=[], args=[ast.Str(s='f8[:](f8[:], f8[:])')])]
+    f.decorator_list = [ast.Call(func=ast.Name(id='njit'), keywords=[ast.keyword(arg='locals', value=ast.Dict(keys=[ast.Str(s=v) for v in var_map], values=[ast.Name(id='float64') for v in var_map]))], args=[ast.Str(s='(float64[:], float64[:])')])]
 
     f.args = dot_dict(args=[ast.Name(id='variables'), ast.Name(id='y')], vararg=None, defaults=[], kwarg=None)
 
-    f.body.append(ast.Assign(targets=[ast.Tuple(elts=[attr_ast(v) for v in var_map])],value=ast.Name(id='variables')))
-
+    #f.body.append(ast.Assign(targets=[ast.Tuple(elts=[attr_ast(v) for v in var_map])],value=ast.Name(id='variables')))
+    for i, v in enumerate(var_map):
+        f.body.append(ast.Assign(targets=[ast.Name(v)], value=ast.Subscript(slice=ast.Index(value=ast.Num(i)), value=ast.Name(id='variables'))))
     lineno_count = 1
     top_nodes = g.topological_nodes()
     #top_nodes=[]
@@ -146,16 +148,16 @@ def generate_code(g: Graph, var_map, indcs, func_name='kernel'):
 
 
             #f.body.append(assign)
-    f.body.append(ast.Assign(targets=[ast.Subscript(slice=ast.Slice(lower=None, upper=None, step=None), value=ast.Name(id='variables'))], value=ast.Tuple(elts=[attr_ast(v) for v in var_map])))
+    #f.body.append(ast.Assign(targets=[ast.Subscript(slice=ast.Slice(lower=None, upper=None, step=None), value=ast.Name(id='variables'))], value=ast.Tuple(elts=[attr_ast(v) for v in var_map])))
 
-    f.body.append(ast.Return(
-        value=ast.Subscript(slice=ast.Slice(lower=ast.Num(n=indcs[1][0]),upper=ast.Num(n=indcs[1][1]), step=None), value=ast.Name(id='variables'))
-    ))
+    #f.body.append(ast.Return(
+    #    value=ast.Subscript(slice=ast.Slice(lower=ast.Num(n=indcs[1][0]),upper=ast.Num(n=indcs[1][1]), step=None), value=ast.Name(id='variables'))
+    #))
 
     mod.body.append(f)
     print('Code generation')
 
-    source = "from numba import njit\nimport numpy as np\n"+astor.to_source(mod, indent_with=' ' * 4, add_line_information=False,
+    source = "from numba import njit, float64\nimport numpy as np\n"+astor.to_source(mod, indent_with=' ' * 4, add_line_information=False,
                              source_generator_class=astor.SourceGenerator)
 
     if len(source)<10000:
