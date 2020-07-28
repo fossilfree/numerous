@@ -2,14 +2,11 @@ from numerous.engine.variables import VariableType
 import ast, astor
 from numerous.engine.model.graph import Graph
 from numerous.engine.model.parser_ast import EquationNode, EquationEdge, attr_ast
-from numerous.engine.model.utils import NodeTypes
+from numerous.engine.model.utils import NodeTypes, wrap_module, wrap_function, dot_dict, generate_code_file
 
 import numpy as np
 
-class dot_dict:
-    def __init__(self, **d):
-        for k, v in d.items():
-            setattr(self, k, v)
+
 
 
 def node_to_ast(n: EquationNode, g: Graph, var_def):
@@ -85,18 +82,7 @@ def node_to_ast(n: EquationNode, g: Graph, var_def):
         raise
 
 
-def wrap_module(body):
-    mod = ast.Module()
-    mod.body = body
-    return mod
 
-
-def wrap_function(name, body, args, decorators):
-    f = ast.FunctionDef(name)
-    f.body = body
-    f.decorator_list = decorators
-    f.args = args
-    return f
 
 
 class Vardef:
@@ -179,15 +165,7 @@ def switchboard_function(funcs_map):
 
 
 
-def generate_code_file(mod_body, file):
-    mod = wrap_module(mod_body)
-    print('Generating Source')
-    source = "from numba import njit, float64\nimport numpy as np\n" + astor.to_source(mod, indent_with=' ' * 4,
-                                                                                       add_line_information=False,
-                                                                                       source_generator_class=astor.SourceGenerator)
 
-    with open(file, 'w') as f:
-        f.write(source)
 
 def generate(global_graph, vars_map, special_indcs):
     count=0

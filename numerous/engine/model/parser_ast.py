@@ -2,7 +2,7 @@ import inspect
 import ast#, astor
 from textwrap import dedent
 from numerous.engine.model.graph import Graph
-from numerous.engine.model.utils import NodeTypes
+from numerous.engine.model.utils import NodeTypes, recurse_Attribute
 from numerous.engine.variables import VariableType
 
 op_sym_map = {ast.Add: '+', ast.Sub: '-', ast.Div: '/', ast.Mult: '*', ast.Pow: '**', ast.USub: '*-1',
@@ -34,13 +34,7 @@ def attr_ast(attr):
         attr_ast = ast.Name(id=attr_[0])
     return attr_ast
 
-def recurse_Attribute(attr, sep='.'):
-    if hasattr(attr,'id'):
-        return attr.id
-    elif isinstance(attr.value,ast.Name):
-        return attr.value.id+sep+attr.attr
-    elif isinstance(attr.value, ast.Attribute):
-        return recurse_Attribute(attr.value)+sep+attr.attr
+
 # Parse a function
 
 # Add nodes and edges to a graph

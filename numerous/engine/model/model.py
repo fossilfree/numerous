@@ -28,6 +28,7 @@ from numerous.engine.model.parser_ast import parse_eq
 from numerous.engine.model.graph import Graph
 from numerous.engine.model.parser_ast import process_mappings
 from numerous.engine.model.generate_model import generate
+from numerous.engine.model.generate_program import generate_program
 
 class LowerMethod(IntEnum):
     Tensor=0
@@ -317,6 +318,8 @@ class Model:
     def lower_model_codegen(self):
         #if len(self.gg.nodes)<100:
         #self.gg.as_graphviz('global')
+        generate_program(self.gg)
+        asdsad=asdsfsf
         self.compiled_compute = generate(self.gg, self.vars_ordered_map, self.special_indcs)
 
         #self.compiled_compute = generate_code(self.gg, self.vars_ordered_map, ((0, self.states_end_ix),(self.states_end_ix, self.deriv_end_ix), (self.deriv_end_ix, self.mapping_end_ix)))
