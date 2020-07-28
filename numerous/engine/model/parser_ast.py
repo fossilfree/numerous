@@ -102,6 +102,7 @@ class EquationEdge:
 def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='_', parent: EquationEdge=None):
     # print(ao)
     en=None
+    is_mapped = None
 
     if isinstance(ao, ast.Module):
         for b in ao.body:
@@ -135,14 +136,16 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='_', parent: EquationE
         target_edge = EquationEdge(label='target0')
         value_edge = EquationEdge(label='value')
 
-        en = EquationNode(ao, file, name, ln,  label='=', ast_type=ast.Assign, node_type=NodeTypes.ASSIGN)
+
+
+        parse_(ao.value, name, file, ln, g, tag_vars,prefix, parent=value_edge.set_start)
+        mapped = parse_(ao.targets[0], name, file, ln, g, tag_vars, prefix, parent=target_edge.set_end)
+
+        en = EquationNode(ao, file, name, ln, label='+=' if mapped else '=', ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN)
         g.add_node((en.id, en, None), ignore_exist=True)
 
         target_edge.start = en.id
         value_edge.end = en.id
-
-        parse_(ao.value, name, file, ln, g, tag_vars,prefix, parent=value_edge.set_start)
-        parse_(ao.targets[0], name, file, ln, g, tag_vars, prefix, parent=target_edge.set_end)
 
         g.add_edge((value_edge.start, value_edge.end, value_edge, 0), ignore_missing_nodes=False)
         g.add_edge((target_edge.start, target_edge.end, target_edge, 0), ignore_missing_nodes=False)
@@ -178,11 +181,15 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='_', parent: EquationE
             else:
                 node_type = NodeTypes.VAR
 
+            is_mapped = scope_var.sum_mapping_ids or scope_var.mapping_id
+
         else:
             node_type = NodeTypes.VAR
 
         en = EquationNode(ao, file, name, ln, id=source_id, local_id=local_id, ast_type=type(ao), label=source_id, node_type=node_type, scope_var=scope_var)
         g.add_node((en.id, en, None), ignore_exist=True)
+
+
 
     elif isinstance(ao, ast.UnaryOp):
         # Unary op
@@ -266,6 +273,8 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='_', parent: EquationE
     if parent:
 
         parent(en.id)
+
+    return is_mapped
 
 def qualify(s, prefix):
     return prefix + '_' + s.replace('scope.', '')

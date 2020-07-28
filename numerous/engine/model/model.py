@@ -276,6 +276,8 @@ class Model:
 
         self.deriv_end_ix = self.states_end_ix+len(deriv)
         self.mapping_end_ix = self.deriv_end_ix + len(mapping)
+
+        self.special_indcs = [self.states_end_ix, self.deriv_end_ix, self.mapping_end_ix]
         #print('gg nodes: ', gg.nodes)
         self.vars_ordered_values = np.array([v.value for v in self.vars_ordered], dtype=np.float64)
         vars_node_id = {n[2]: n[0] for n in self.gg.get_nodes() if n[2]}
@@ -290,8 +292,8 @@ class Model:
                 self.vars_ordered_map.append(v.id.replace('-','_').replace('.','_'))
                 count+=1
 
-        generate(self.gg, self.vars_ordered_map)
-        dsdfsdfsd = sdfsdf
+
+        #dsdfsdfsd = sdfsdf
         if lower_method == LowerMethod.Codegen:
             self.lower_model_codegen()
             self.generate_numba_model = self.generate_numba_model_code_gen
@@ -313,8 +315,9 @@ class Model:
     def lower_model_codegen(self):
         #if len(self.gg.nodes)<100:
         #self.gg.as_graphviz('global')
+        self.compiled_compute = generate(self.gg, self.vars_ordered_map, self.special_indcs)
 
-        self.compiled_compute = generate_code(self.gg, self.vars_ordered_map, ((0, self.states_end_ix),(self.states_end_ix, self.deriv_end_ix), (self.deriv_end_ix, self.mapping_end_ix)))
+        #self.compiled_compute = generate_code(self.gg, self.vars_ordered_map, ((0, self.states_end_ix),(self.states_end_ix, self.deriv_end_ix), (self.deriv_end_ix, self.mapping_end_ix)))
 
 
 

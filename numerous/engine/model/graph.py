@@ -220,9 +220,10 @@ class _Graph:
 
 
     def in_degree(self):
+
         for j in range(self.n_edges):
             self.indegree_map[self.edges[j][1]] += 1
-        # print('in: ',self.indegree_map)
+        return self.indegree_map
 
     def make_children_map(self):
 
@@ -325,7 +326,7 @@ class _Graph:
         dep_derivatives =  np.zeros(len(self.edges), dtype=int64)
         ix, n_visited, deriv_dep = walk_parents(self.parent_edges, self.edges, n, edges, ix, edges_visited, n_visited, self.node_types, 0, dep_derivatives)
         edges = edges[:ix,:]
-        edges[:ix, 3] = 2
+        edges[:ix, 3] = 1
 
 
         nodes = np.zeros(2*len(edges), dtype=int64)
@@ -404,9 +405,9 @@ class _Graph:
 
     def get_anc_dep_graph(self, n):
         anc_nodes, anc_edges, deriv_dependencies = self.get_ancestor_graph(n)
-        print(anc_nodes)
-        state_nodes = np.array([ancn for ancn in anc_nodes if self.node_types[ancn]==4], np.int64)
-        print('states: ', state_nodes)
+        #print(anc_nodes)
+        state_nodes = np.array([ancn for ancn in anc_nodes if self.node_types[ancn]>=3], np.int64)
+        #print('states: ', state_nodes)
         if len(state_nodes)>0:
             nodes, edges = self.get_dependants_graph_subgraph(state_nodes, anc_edges)
 
@@ -438,7 +439,7 @@ class Graph:
     def __init__(self, nodes=[], edges=None):
 
         if len(nodes) >0:
-            print('ss', nodes)
+            #print('ss', nodes)
             self.nodes_map = {n[0]: n for i, n in enumerate(nodes)}
         else:
             self.nodes_map = {}
@@ -466,11 +467,21 @@ class Graph:
             #print('sorting topo')
             self.lower_graph.topological_sort()
 
+    def in_degree(self):
+        nodes = self.higher_nodes(self.lower_graph.nodes)
+        in_degree_map = {}
+        return {n[0]: in_deg for n, in_deg in zip(nodes, self.lower_graph.in_degree())}
+
+
+
     def lower_edges(self):
 
         self.lower_nodes_map = {n if isinstance(n, str) else n[0]: i for i, n in enumerate(self.get_nodes())}
 
-        self.lowered_edges= [(self.lower_nodes_map[e[0]], self.lower_nodes_map[e[1]], i, 0) for i, e in enumerate(self.edges)]
+        if len(self.edges)>0:
+            self.lowered_edges= [(self.lower_nodes_map[e[0]], self.lower_nodes_map[e[1]], i, 0) for i, e in enumerate(self.edges)]
+        else:
+            self.lowered_edges = np.zeros((0,4), np.int64)
 
         return np.array(self.lowered_edges, np.int64)
 
