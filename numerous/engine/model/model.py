@@ -252,7 +252,9 @@ class Model:
         #Process mappings add update the global graph
         process_mappings(self.mappings, self.gg, self.scope_variables, scope_ids)
 
-
+        nodes = self.gg.get_nodes()
+        for n in nodes:
+            print(n[0], ' ', n[1].scope_var.type if hasattr(n[1], 'scope_var') and n[1].scope_var else "No type?!")
 
 
               
@@ -293,7 +295,7 @@ class Model:
                 count+=1
 
 
-        #dsdfsdfsd = sdfsdf
+        # #dsdfsdfsd = sdfsdf
         if lower_method == LowerMethod.Codegen:
             self.lower_model_codegen()
             self.generate_numba_model = self.generate_numba_model_code_gen

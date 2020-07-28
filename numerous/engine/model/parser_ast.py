@@ -360,9 +360,18 @@ def process_mappings(mappings,gg:Graph, scope_vars, scope_map):
         if '-' in target_var_id:
             raise ValueError('argh')
 
+        if target_var.type == VariableType.DERIVATIVE:
+            node_type = NodeTypes.DERIV
+        elif target_var.type == VariableType.STATE:
+            node_type = NodeTypes.STATE
+        else:
+            node_type = NodeTypes.VAR
+
         assign = EquationNode(None, file='mapping', name=m, ln=0, label='=', ast_type=ast.AugAssign, node_type=NodeTypes.ASSIGN, targets=[], value=None)
         gg.add_node((assign.id, assign, None))
-        target_node = EquationNode(None, file='mapping', name=m, ln=0, id=target_var_id, label=target_var.tag, ast_type=ast.Attribute, node_type=NodeTypes.VAR)
+
+
+        target_node = EquationNode(None, file='mapping', name=m, ln=0, id=target_var_id, label=target_var.tag, ast_type=ast.Attribute, node_type=node_type, scope_var=target_var)
         gg.add_node((target_node.id, target_node, target_var.id), ignore_exist=True)
         gg.add_edge((assign.id, target_node.id, EquationEdge(start=assign.id, end=target_node.id, label='target0'), 0), ignore_missing_nodes=False)
         

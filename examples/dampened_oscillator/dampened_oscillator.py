@@ -23,7 +23,7 @@ class DampenedOscillator(EquationBase, Item):
         self.add_constant('a', a)
         self.add_state('x', x0)
         self.add_state('v', 0)
-        self.add_state('v2', 0)
+        #self.add_state('v2', 0)
 
         #define namespace and add equation
         mechanics = self.create_namespace('mechanics')
@@ -31,12 +31,13 @@ class DampenedOscillator(EquationBase, Item):
 
     @Equation()
     def eval(self, scope):
-
+        scope.c = -1 + 1
+        z = 4 + 2
         #Implement equations for the dampened oscillation
         scope.v_dot = -scope.k * scope.x - scope.c * scope.v + scope.a*np.sign(scope.v)
         scope.x_dot = scope.v
-        a1 = 2 * scope.x_dot
-        scope.v2_dot = scope.x_dot
+        #a1 = 2 * scope.x_dot
+        #scope.v2_dot = scope.x_dot
 
 class Spring_Equation(EquationBase):
     def __init__(self, k=1, dx0=1):
@@ -54,9 +55,9 @@ class Spring_Equation(EquationBase):
 
     @Equation()
     def eval(self, scope):
-        scope.c = scope.k + 1
+        #scope.c = scope.k + 1
         F = (np.abs(scope.x1 - scope.x2) - scope.dx0) * scope.c
-        z = F + F * F
+        #z = F + F * F
         scope.F1 = F  # [kg/s]
 
         scope.F2 = F

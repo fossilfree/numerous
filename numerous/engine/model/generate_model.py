@@ -198,11 +198,12 @@ def generate(global_graph, vars_map, special_indcs):
     #glob_mod_body.append(func_ast)
     #print('generating code')
     #generate_code_file(glob_mod_body, 'global_generated.py')
-
+    global_graph.as_graphviz('global')
     known_graphs=set()
     print('creating ast')
     nodes = global_graph.get_nodes()
-
+    #for n in nodes:
+    #    print(n[0], ' ', n[1].scope_var.type if hasattr(n[1], 'scope_var') and n[1].scope_var else "")
     funcs_map = {}
     derivative_map = {}
 
@@ -223,7 +224,9 @@ def generate(global_graph, vars_map, special_indcs):
         else:
             return None, None
 
-    derivative_nodes = [n for n in nodes if hasattr(n[1].scope_var, 'type') and n[1].scope_var.type == VariableType.DERIVATIVE]
+    #derivative_nodes = [n for n in nodes if hasattr(n[1].scope_var, 'type') and n[1].scope_var.type == VariableType.DERIVATIVE]
+    derivative_nodes = [n for n in nodes if
+                        n[1].node_type == NodeTypes.DERIV]
     l = len(derivative_nodes)
 
 
@@ -238,7 +241,7 @@ def generate(global_graph, vars_map, special_indcs):
         #dependants_graph = ancestor_graph.get_dependants_graph(agn)
         ancestor_graph, dependants_graph, deriv_dependencies = global_graph.get_ancestor_dependents_graph(n)
         #if i>-1:
-        #dependants_graph.as_graphviz(f'dep_anc{i}')
+        dependants_graph.as_graphviz(f'dep_anc{i}')
         #ancestor_graph.as_graphviz(f'anc{i}')
 
 
@@ -273,8 +276,8 @@ def generate(global_graph, vars_map, special_indcs):
 
     #Process derivatives into program
     print('Unique functions: ', len(known_graphs))
-    constant_edges = []
-    constant_nodes = []
+    postproc_edges = []
+    postproc_nodes = []
     preprocess_edges = []
     preprocess_nodes = []
 
@@ -282,9 +285,9 @@ def generate(global_graph, vars_map, special_indcs):
 
     for e in global_graph.edges:
         if e[3] == 0:
-            constant_edges.append(e)
-            constant_nodes.append(gnodes[e[0]])
-            constant_nodes.append(gnodes[e[1]])
+            postproc_edges.append(e)
+            postproc_nodes.append(gnodes[e[0]])
+            postproc_nodes.append(gnodes[e[1]])
 
         elif e[3] == 1:
             preprocess_edges.append(e)
@@ -292,12 +295,12 @@ def generate(global_graph, vars_map, special_indcs):
             preprocess_nodes.append(gnodes[e[1]])
 
 
-    cg = Graph(constant_nodes, edges=constant_edges)
-    cg.as_graphviz('constant')
+    cg = Graph(postproc_nodes, edges=postproc_edges)
+    cg.as_graphviz('postproc')
     ppg = Graph(preprocess_nodes, edges=preprocess_edges)
     ppg.as_graphviz('preprocess')
 
-    const_switch_ix, const_hash = process_func(cg, 'constant_')
+    postproc_switch_ix, postproc_hash = process_func(cg, 'postproc_')
     preproc_switch_ix, preproc_hash = process_func(ppg, 'preprocess_')
 
 
@@ -311,7 +314,7 @@ def generate(global_graph, vars_map, special_indcs):
 
 
     nd = [d['node'] for d in derivative_map.values()]
-
+    #print('derivs: ',nd)
     derivative_graph = Graph(nodes=nd, edges=de)
 
     funcs_indcs = list(funcs_map.keys())
@@ -320,7 +323,7 @@ def generate(global_graph, vars_map, special_indcs):
     #var_out_in_indcs = []
     program = []
 
-    #constants line
+    #postprocs line
     def make_line(func_def, var_indcs):
         start_ix = len(var_indcs)
         #start_out_ix = len(var_out_indcs)
@@ -330,7 +333,7 @@ def generate(global_graph, vars_map, special_indcs):
             if not i in vars_map:
 
                 vars_map.append(i)
-        #variables_out_local_order = [nodes[i] for i in funcs_map[const_hash]['output_indcs']]
+        #variables_out_local_order = [nodes[i] for i in funcs_map[postproc_hash]['output_indcs']]
         this_var_indcs= [vars_map.index(i) for i in func_def['variables_local_order']]
         var_indcs += this_var_indcs
         #this_var_out_indcs = [vars_map.index(i) for i in variables_out_local_order]
@@ -346,20 +349,20 @@ def generate(global_graph, vars_map, special_indcs):
 
         return line
 
-    nodes = ppg.get_nodes()
-    func_def_preproc = {'variables_local_order': [nodes[i][0] for i in funcs_map[preproc_hash]['graph_indcs']],
-                        'func_hash': preproc_hash}
+    if preproc_hash:
+        nodes = ppg.get_nodes()
+        func_def_preproc = {'variables_local_order': [nodes[i][0] for i in funcs_map[preproc_hash]['graph_indcs']],
+                            'func_hash': preproc_hash}
 
-    line_preproc = make_line(func_def_preproc, var_indcs)
-
-    nodes = cg.get_nodes()
-    func_def_const = {'variables_local_order': [nodes[i][0] for i in funcs_map[const_hash]['graph_indcs']], 'func_hash': const_hash}
-    line_const = make_line(func_def_const, var_indcs)
+        line_preproc = make_line(func_def_preproc, var_indcs)
+        program.append(line_preproc)
 
 
 
-    program.append(line_preproc)
-    derivative_graph.as_graphviz('deriv_dependecies')
+
+
+
+    #derivative_graph.as_graphviz('deriv_dependecies')
     for d in derivative_graph.topological_nodes():
         #print(d[0])
         #start_ix = len(var_indcs)
@@ -386,7 +389,12 @@ def generate(global_graph, vars_map, special_indcs):
         program.append(line)
 
     #print(program)
-    program.append(line_const)
+    if postproc_hash:
+        nodes = cg.get_nodes()
+        func_def_postproc = {'variables_local_order': [nodes[i][0] for i in funcs_map[postproc_hash]['graph_indcs']],
+                          'func_hash': postproc_hash}
+        line_postproc = make_line(func_def_postproc, var_indcs)
+        program.append(line_postproc)
 
 
     mod = wrap_module(mod_body)
@@ -457,6 +465,7 @@ def generate(global_graph, vars_map, special_indcs):
     test(vars, y)
     toc = time()
     print('1 executions took: ',(toc-tic)/N,' s')
+    #sdsfdsdf0=sdfsdf
     return diff
     #for v, val in zip(vars_map, vars):
 
