@@ -258,12 +258,12 @@ class Model:
         #print('mapping: ',self.mappings)
         #Process mappings add update the global graph
         equation_graph_simplified = process_mappings(self.mappings, self.gg, self.eg, nodes_dep, self.scope_variables, scope_ids)
-        self.eg.as_graphviz('equation_graph')
+        #self.eg.as_graphviz('equation_graph')
 
         equation_graph_simplified.as_graphviz('equation_graph_simplified')
         equation_graph_simplified.topological_nodes()
 
-        self.gg.as_graphviz('global_graph')
+        #self.gg.as_graphviz('global_graph')
         nodes = self.gg.get_nodes()
         #for n in nodes:
         #    print(n[0], ' ', n[1].scope_var.type if hasattr(n[1], 'scope_var') and n[1].scope_var else "No type?!")
@@ -329,7 +329,7 @@ class Model:
     def lower_model_codegen(self):
         #if len(self.gg.nodes)<100:
         #self.gg.as_graphviz('global')
-        generate_equations(self.equations_parsed, self.eg, self.scoped_equations)
+        generate_equations(self.equations_parsed, self.eg, self.scoped_equations, self.scope_variables)
         generate_program(self.gg)
         #asdsad=asdsfsf
         self.compiled_compute = generate(self.gg, self.vars_ordered_map, self.special_indcs)

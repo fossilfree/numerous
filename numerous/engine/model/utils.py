@@ -1,5 +1,6 @@
 from enum import IntEnum, unique
 from numerous.engine.model.graph import Graph
+from numerous.engine.model.source_gen import SourceGeneratorNumerous
 
 import ast, astor
 
@@ -22,6 +23,8 @@ class NodeTypes(IntEnum):
     DERIV=3
     STATE=4
     EQUATION=5
+    SUM=6
+    TMP=7
 
 class dot_dict:
     def __init__(self, **d):
@@ -52,9 +55,8 @@ def wrap_function(name, body, args, decorators):
 def generate_code_file(mod_body, file,preamble="from numba import njit, float64\nimport numpy as np\n"):
     mod = wrap_module(mod_body)
     print('Generating Source')
-    source = preamble + astor.to_source(mod, indent_with=' ' * 4,
-                                                                                       add_line_information=False,
-                                                                                       source_generator_class=astor.SourceGenerator)
+
+    source = preamble + astor.to_source(mod, indent_with=' ' * 4, add_line_information=False, source_generator_class=SourceGeneratorNumerous)
 
     with open(file, 'w') as f:
         f.write(source)
