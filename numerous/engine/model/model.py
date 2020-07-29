@@ -30,6 +30,8 @@ from numerous.engine.model.parser_ast import process_mappings
 from numerous.engine.model.generate_model import generate
 from numerous.engine.model.generate_program import generate_program
 
+from numerous.engine.model.generate_equations import generate_equations
+
 class LowerMethod(IntEnum):
     Tensor=0
     Codegen=1
@@ -216,6 +218,7 @@ class Model:
 
         #print(self.equation_dict)
         self.gg = Graph()
+        self.eg = Graph()
 
 
 
@@ -233,6 +236,9 @@ class Model:
 
         scope_item_tag = {}
 
+        nodes_dep = {}
+        self.equations_parsed = {}
+        self.scoped_equations = {}
 
         print('parsing equations starting')
         for scope_id, eq in self.equation_dict.items():
@@ -244,18 +250,23 @@ class Model:
             #print(eq)
             if len(eq[0])>0:
 
-                parse_eq(scope_ids[scope_id], eq, self.gg, tag_vars)
+                parse_eq(scope_ids[scope_id], eq, self.gg, self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations)
         print('parsing equations completed')
         #for n in gg.nodes:
         #    print(n[0])
 
         #print('mapping: ',self.mappings)
         #Process mappings add update the global graph
-        process_mappings(self.mappings, self.gg, self.scope_variables, scope_ids)
+        equation_graph_simplified = process_mappings(self.mappings, self.gg, self.eg, nodes_dep, self.scope_variables, scope_ids)
+        self.eg.as_graphviz('equation_graph')
 
+        equation_graph_simplified.as_graphviz('equation_graph_simplified')
+        equation_graph_simplified.topological_nodes()
+
+        self.gg.as_graphviz('global_graph')
         nodes = self.gg.get_nodes()
-        for n in nodes:
-            print(n[0], ' ', n[1].scope_var.type if hasattr(n[1], 'scope_var') and n[1].scope_var else "No type?!")
+        #for n in nodes:
+        #    print(n[0], ' ', n[1].scope_var.type if hasattr(n[1], 'scope_var') and n[1].scope_var else "No type?!")
 
 
               
@@ -318,8 +329,9 @@ class Model:
     def lower_model_codegen(self):
         #if len(self.gg.nodes)<100:
         #self.gg.as_graphviz('global')
+        generate_equations(self.equations_parsed, self.eg, self.scoped_equations)
         generate_program(self.gg)
-        asdsad=asdsfsf
+        #asdsad=asdsfsf
         self.compiled_compute = generate(self.gg, self.vars_ordered_map, self.special_indcs)
 
         #self.compiled_compute = generate_code(self.gg, self.vars_ordered_map, ((0, self.states_end_ix),(self.states_end_ix, self.deriv_end_ix), (self.deriv_end_ix, self.mapping_end_ix)))

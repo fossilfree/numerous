@@ -3,7 +3,7 @@ from numba import njit
 from numba.pycc import CC
 import numpy as np
 import time
-#from examples.dampened_oscillator.global_generated import diff_global
+from randomcode import Randomcode
 import os
 from importlib import reload
 
@@ -39,9 +39,7 @@ def timeit(func):
         result = func(*args, **kw)
         end = time.time()
         dt = end-start
-
         print(f'{func.__name__}: {dt}')
-        print(dt)
         return result
 
     return timed
@@ -63,53 +61,51 @@ for lines in lines_vec:
     print(f'lines: {lines}')
 
     cc = CC('aot_fun')
+    valid = False
+    while not valid:
+        x0 = np.zeros(lines+1)
+        rc=Randomcode(max_lines=lines)
+        rc.generate()
+        import test_fun
 
-    x0 = np.ones(100000)
-    #rc=Randomcode(max_lines=lines)
-    #rc.generate()
-    import examples.dampened_oscillator.global_generated as gg
+        test_fun = reload(test_fun)
+        fun = test_fun.fun
 
-    test_fun = reload(gg)
+        @timeit
+        def funwrap(x):
+            return fun(x)
 
+        try:
+            f0=funwrap(x0)
 
-    fun = test_fun.diff_global
-
-#    @timeit
-#    def funwrap(x):
-#        return fun(x)
-
-
-    #f0=funwrap(x0)
+            valid=True
+        except Exception as e:
+            pass
 
 
+    @timeit
+    def aotwrap(x):
+        compile_aot(fun)
+        import aot_fun
+        reload(aot_fun)
+        callf = aot_fun.callf
+        return callf(x)
 
-    from diff import diff_global
 
-
-    tic = time.time()
-    l = diff_global(x0)
-    toc = time.time()
-    print('aot exe time: ', toc - tic)
-    print('sum: ',sum(l))
-    print('sum: ', sum(x0))
+    x1 = np.zeros(lines + 1)
+    f_aot=aotwrap(x1)
 
     fun_jit = jitted(fun)
-    tic = time.time()
-    l = fun_jit(x0)
-    toc = time.time()
-    print('jit complie time: ', toc - tic)
 
-    tic = time.time()
-    l = fun_jit(x0)
-    #time.sleep(1)
-    toc = time.time()
-    print('jit exe time: ', toc - tic)
-    print('sum: ', sum(l))
+    @timeit
+    def jitwrap(x):
+        return fun_jit(x)
 
 
+    x2 = np.zeros(lines + 1)
+    f_jit=jitwrap(x2)
 
-
-    #print(f'aot error/len: {np.sum(f0-f_aot)}/{len(f_aot)}, jit error/len: {np.sum(f0-f_jit)}/{len(f_jit)}')
+    print(f'aot error/len: {np.sum(f0-f_aot)}/{len(f_aot)}, jit error/len: {np.sum(f0-f_jit)}/{len(f_jit)}')
     print('\n')
 
 

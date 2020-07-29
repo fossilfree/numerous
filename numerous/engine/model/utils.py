@@ -1,5 +1,18 @@
 from enum import IntEnum, unique
+from numerous.engine.model.graph import Graph
+
 import ast, astor
+
+class Vardef:
+    def __init__(self):
+        self.vars_inds_map = []
+
+    def var_def(self, var, read=True):
+        if not var in self.vars_inds_map:
+            self.vars_inds_map.append(var)
+        ix = self.vars_inds_map.index(var)
+
+        return ast.Subscript(slice=ast.Index(value=ast.Num(n=ix)), value=ast.Name(id='l'))
 
 @unique
 class NodeTypes(IntEnum):
@@ -8,6 +21,7 @@ class NodeTypes(IntEnum):
     VAR=2
     DERIV=3
     STATE=4
+    EQUATION=5
 
 class dot_dict:
     def __init__(self, **d):
@@ -44,3 +58,6 @@ def generate_code_file(mod_body, file,preamble="from numba import njit, float64\
 
     with open(file, 'w') as f:
         f.write(source)
+
+    return source
+

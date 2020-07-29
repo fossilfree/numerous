@@ -31,8 +31,8 @@ class DampenedOscillator(EquationBase, Item):
 
     @Equation()
     def eval(self, scope):
-        scope.c = -1 + 1
-        z = 4 + 2
+        #scope.c = -1 + 1
+        #z = 4 + 2
         #Implement equations for the dampened oscillation
         scope.v_dot = -scope.k * scope.x - scope.c * scope.v + scope.a*np.sign(scope.v)
         scope.x_dot = scope.v
@@ -55,9 +55,9 @@ class Spring_Equation(EquationBase):
 
     @Equation()
     def eval(self, scope):
-        #scope.c = scope.k + 1
+        scope.c = scope.k + 1
         F = (np.abs(scope.x1 - scope.x2) - scope.dx0) * scope.c
-        #z = F + F * F
+
         scope.F1 = F  # [kg/s]
 
         scope.F2 = F

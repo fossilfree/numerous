@@ -190,7 +190,7 @@ spec = [
 class _Graph:
     def __init__(self, n_nodes: int64, edges: int64[:], node_types):
         #print('!!!!')
-        self.n_children_max = 30
+        self.n_children_max = 50
         self.n_nodes = n_nodes
         self.nodes = np.arange(self.n_nodes)
         #print('1')
@@ -519,6 +519,14 @@ class Graph:
         else:
             pass#print('node ignored')
 
+    def remove_node(self, n):
+        if n in self.nodes_map:
+            self.nodes_map.pop(n)
+
+    def remove_edge(self, edge):
+        if edge in self.edges:
+            self.edges.pop(self.edges.index(edge))
+
     def add_edge(self, e, ignore_missing_nodes=False):
         #check nodes exist
         if not ignore_missing_nodes:
@@ -678,6 +686,9 @@ class Graph:
         self.nodes = self.nodes_map.values()
         for e in other.edges:
             self.add_edge(e)
+
+    def clone(self):
+        return Graph(nodes=self.get_nodes().copy(), edges=self.edges.copy())
 
     def hash(self):
         if not self.lower_graph:
