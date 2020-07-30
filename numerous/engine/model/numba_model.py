@@ -80,14 +80,14 @@ class NumbaModel:
         for i in range(self.number_of_states):
             result.append(
                 self.scope_vars_3d[self.deriv_idxs_3d[0][i]][self.deriv_idxs_3d[1][i]][self.deriv_idxs_3d[2][i]])
-        return result
+        return np.array(result,dtype=np.float64)
 
     def get_states(self):
         result = []
         for i in range(self.number_of_states):
             result.append(
                 self.scope_vars_3d[self.state_idxs_3d[0][i]][self.state_idxs_3d[1][i]][self.state_idxs_3d[2][i]])
-        return result
+        return np.array(result,dtype=np.float64)
 
 
 
@@ -126,6 +126,27 @@ class NumbaModel:
     def get_derivatives_idx(self, idx_3d):
         return self.scope_vars_3d[idx_3d]
 
+    def vectorizedfulljacobian(self, t, y, dt):
+        h = 1e-12
+        y_perm = y + h * np.diag(np.ones(len(y)))
+
+        f = self.func(t, y)
+        f_h = np.zeros_like(y_perm)
+        for i in range(y_perm.shape[0]):
+            y_i = y_perm[i, :]
+            f_h[i, :] = self.func(t, y_i)
+
+        diff = f_h - f
+        diff /= h
+        jac = np.zeros((len(y), len(y)))
+        np.fill_diagonal(jac, 1)
+        jac += -dt * diff
+        return np.ascontiguousarray(jac)
+
+    def get_g(self, t, yold, y, dt):
+        f = self.func(t, y)
+        g = y - yold - dt * f
+        return np.ascontiguousarray(g), np.ascontiguousarray(f)
 
     def compute(self):
         if self.sum_mapping:

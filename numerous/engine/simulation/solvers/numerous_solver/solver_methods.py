@@ -1,111 +1,9 @@
 import numpy as np
+from numba import njit
 from scipy import linalg
-from numerous_solver.compile_decorators import basic_njit as njit
-from linalg.lapack.lapack_python import lapack_cholesky, lapack_solve_triangular
-# from linalg.cython.solve_qr import solve_qr_fun
-
 import logging
 
-
-class BackwardEuler():
-    def __init__(self, **options):
-
-        itermax = options.get('itermax',1000)
-        abs_tol = options.get('atol', 0.001)
-        rel_tol = options.get('rtol', 0.001)
-
-        @njit
-        def backward_euler_simple_substitution(__func, __jac, __internal_state, t, dt, y, _):
-            yold = np.copy(y)
-            i = 0
-
-            converged = True
-            while True:
-                i += 1
-                ynew = yold + dt *  __func(t, y, __internal_state)
-                # changed to solve_ivp definition
-                abs_err = np.abs(ynew - y)
-                #print('abs_err: ', abs_err)
-                #print('ynew: ', ynew)
-                y = ynew
-                #print(abs_tol)
-                #print(rel_tol)
-                #print(rel_tol*np.abs(y))
-                #print(abs_err < abs_tol + rel_tol*np.abs(y))
-                if np.all(abs_err < abs_tol + rel_tol*np.abs(y)):
-                    status = 1
-                 #   print('OK!')
-                    break
-                if i > itermax:
-                    converged = False
-                    break
-
-            #info = {'outer_stat': step_accepted, 'step_accepted': step_accepted}
-            return t+dt, y, converged, i,_#info, y, i, None
-
-        self.step_func = backward_euler_simple_substitution
-
-    def get_solver_state(self, _):
-        return ()
-
-
-
-# Work in progress!
-
-class BDF5():
-    def __init__(self, **options):
-
-        itermax = options.get('itermax',20)
-        abs_tol = options.get('atol', 0.001)
-        rel_tol = options.get('rtol', 0.001)
-
-        @njit
-        def BDF5_simple_substitution(__func, __jac, __internal_state, t, dt, y, y_hist, order):
-
-            i = 0
-            y1=np.copy(y)
-
-            while True:
-                i += 1
-                derivatives = __func(t, y1, __internal_state)
-                if order < 1:
-                    ynew = y + dt * derivatives
-                elif order < 2:
-                    ynew = 2 / 3 * dt * derivatives - 1 / 3 * y_hist[-1,:] + 4 / 3 * y
-                elif order < 3:
-                    ynew = 6 / 11 * dt * derivatives + 18 / 11 * y - 9 / 11 * y_hist[-1,:] + 2 / 11 * y_hist[-2,:]
-                elif order < 4:
-                    ynew = 12 / 25 * dt * derivatives + 48 / 25 * y - 36 / 25 * y_hist[-1,:] + 16 / 25 * y_hist[-2,:] - 3 / 25 * y_hist[-3,:]
-                elif order < 5:
-                    ynew = (60 * dt * derivatives + 300 * y - 300 * y_hist[-1,:] + 200 * y_hist[-2,:] - 75 * y_hist[-3,:] + 12 * y_hist[-4,:]) / 137
-                else:
-                    ynew = (60 * dt * derivatives + 360 * y - 450 * y_hist[-1,:] + 400 * y_hist[-2,:] - 225 * y_hist[-3,:] + 72 * y_hist[-4,:] - 10 * y_hist[-5,:]) / 147
-
-
-                abs_err = np.abs(ynew - y1)*(order>0)
-                y1[:] = ynew[:]
-
-
-                tol = (abs_tol + rel_tol * np.abs(y))*dt
-                #print('tol: ', tol)
-                if np.all(abs_err <= tol):
-                    y[:] =y1[:]
-                    status = 1
-                    break
-                if i > itermax:
-                    status = -1
-                    break
-
-            info = {'outer_stat': status, 'inner_stat': status}
-            return t + dt, y, info, i  # info, y, i, None
-
-        self.step_func = BDF5_simple_substitution
-
-    def get_solver_state(self, n):
-
-        return n
-    def get_solver_state(self,_):
-        return ()
+from simulation.solvers.numerous_solver.linalg.lapack.lapack_python import lapack_solve_triangular, lapack_cholesky
 
 
 class LevenbergMarquardt:
@@ -129,7 +27,7 @@ class LevenbergMarquardt:
         profile = options.get('profile', False)
 
         s = options.get('s', 0)
-        jacobian_stepsize = options.get('jacobian_stepsize', 1e-12)
+        jacobian_stepsize = options.get('jacobian_stepsize', )
 
         def comp(fun):
             if profile:
@@ -142,30 +40,6 @@ class LevenbergMarquardt:
             Stemp = np.sum(r**2)
             S = Stemp / len(r)
             return S
-
-        @njit
-        def get_g(get_f, __internal_state, t, yold, y, dt):
-            f = get_f(t, y, __internal_state)
-            g = y - yold - dt * f
-            return np.ascontiguousarray(g),np.ascontiguousarray(f)
-
-        @njit
-        def vectorizedfulljacobian(get_f, _1, __internal_state, t, y, _2, dt, jacobian_stepsize):
-            h = jacobian_stepsize
-            y_perm = y + h * np.diag(np.ones(len(y)))
-
-            f = get_f(t, y, __internal_state)
-            f_h = np.zeros_like(y_perm)
-            for i in range(y_perm.shape[0]):
-                y_i = y_perm[i,:]
-                f_h[i, :] = get_f(t, y_i, __internal_state)
-
-            diff = f_h - f
-            diff /= h
-            jac = np.zeros((len(y), len(y)))
-            np.fill_diagonal(jac, 1)
-            jac += -dt*diff
-            return np.ascontiguousarray(jac)
 
         @njit
         def sparsejacobian(get_f, get_f_ix, __internal_state, t, y, s, dt, jacobian_stepsize):
@@ -229,7 +103,7 @@ class LevenbergMarquardt:
 
         #@comp
         @njit
-        def levenberg_marquardt_inner(t, dt, ynew, yold, __func, __internal_state, jacT, L, l, f_init):
+        def levenberg_marquardt_inner(nm,t, dt, ynew, yold, jacT, L, l, f_init):
             #ll=l
             ll = 0
             stat = 0
@@ -272,7 +146,7 @@ class LevenbergMarquardt:
             while stat == 0:
                 _iter += 1
 
-                r, f = get_g(__func, __internal_state, t, yold, y, dt)
+                r, f = nm.get_g(t, yold, y, dt)
                 Stest = calc_residual(r)
                 b = jacT @ r
 
@@ -281,7 +155,7 @@ class LevenbergMarquardt:
                 #x = np.linalg.solve(L[1], -(L[0].T @ b)) # From QR decomposition - using numpy
                 #x = np.linalg.solve(L[0] @ L[1], -b) # Ax = b - using Numpy
                 #x = solve_qr_fun(L[0], L[1], -b) # From decomposition using own algorithms
-                x = lapack_solve_triangular(L[0], -b, len(b))
+                x = lapack_solve_triangular(L, -b, len(b))
 
                 d += x
                 y += x
@@ -308,7 +182,7 @@ class LevenbergMarquardt:
 
         #@comp
         @njit
-        def levenberg_marquardt(__func, __func_single, __internal_state, t, dt, y, _solve_state):
+        def levenberg_marquardt(nm, t, dt, y, _solve_state):
             yold = np.copy(y)
             n = len(y)
             ynew = np.zeros_like(yold)
@@ -320,7 +194,7 @@ class LevenbergMarquardt:
             l = _solve_state[1]
             converged = _solve_state[2]
             last_f = _solve_state[3]
-            L = (_solve_state[4], _solve_state[5])
+            L = _solve_state[4]
             if not converged:
                 update_jacobian = True
 
@@ -330,17 +204,16 @@ class LevenbergMarquardt:
             while not converged:
 
                 if update_jacobian:
-                    jac = vectorizedfulljacobian(__func, __func_single, __internal_state, t, y, s, dt,
-                                                 jacobian_stepsize=jacobian_stepsize)
+                    jac = nm.vectorizedfulljacobian(t, y, dt)
                     jacT = jac.T
                     jacjacT = jac.T @ jac
                     #(L) = np.linalg.cholesky(jacjacT) # Use paranthesis to make into tuple
                     #L = np.linalg.qr(jacjacT) # returns Q,R as tuple L
-                    L = (lapack_cholesky(76, n, jacjacT))
+                    L = lapack_cholesky(76, n, jacjacT)
 
 
                 converged, S, ynew, d, r, lnew, inner_stat, last_f = \
-                    levenberg_marquardt_inner(t, dt, y, yold,__func, __internal_state, jacT, L,l, last_f)
+                    levenberg_marquardt_inner(nm,t, dt, y, yold, jacT, L,l, last_f)
                 l = lnew
 
                 if not converged:
@@ -358,7 +231,7 @@ class LevenbergMarquardt:
             #        'grad_conv': grad_conv, 'outer_iter': outer_iter}
             # TODO: look at this dict giving issues
             #_solve_state = (jacT, L, l, converged, last_f)
-            _solve_state = (jacT, l, converged, last_f, L[0], L[1])
+            _solve_state = (jacT, l, converged, last_f, L)
             #_solve_state[0] = jacT
             #_solve_state[1] = L
             #_solve_state[2] = l
@@ -374,8 +247,7 @@ class LevenbergMarquardt:
         #state = (np.ascontiguousarray(np.zeros((n, n))), np.ascontiguousarray(np.zeros((n, n))),
         #         self.l_init, False, np.ascontiguousarray(np.zeros(n)))
         state = (np.ascontiguousarray(np.zeros((n,n))),
-                 self.l_init, False, np.ascontiguousarray(np.zeros(n)), np.ascontiguousarray(np.zeros((n,n))),
-                 np.ascontiguousarray(np.zeros((n, n)))
+                 self.l_init, False, np.ascontiguousarray(np.zeros(n)), np.ascontiguousarray(np.zeros((n,n)))
                  )
         return state
 

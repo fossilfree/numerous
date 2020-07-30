@@ -1,7 +1,7 @@
 import numba.extending as nbe
 import ctypes
 import numpy as np
-from numerous_solver.compile_decorators import njit_ as njit#basic_njit as njit
+from numba import njit
 
 dpotrf_addr = nbe.get_cython_function_address('scipy.linalg.cython_lapack', 'dpotrf') # cholesky decomposition
 dtrsv_addr = nbe.get_cython_function_address('scipy.linalg.cython_blas', 'dtrsv') # solve Ax=b
