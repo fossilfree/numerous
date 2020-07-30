@@ -65,11 +65,24 @@ def generate_program(graph: Graph):
     program = []
     indices = []
     for n in nodes:
+        print(n[0])
+
         node = n[1]
+        print(node.node_type)
 
         start_arg = len(indices)
 
-        if node.node_type == NodeTypes.OP or node.node_type == NodeTypes.ASSIGN:
+        if node.node_type == NodeTypes.OP or node.node_type == NodeTypes.ASSIGN or node.node_type == NodeTypes.SUM or node.node_type == NodeTypes.EQUATION:
+            #if node.node_type == NodeTypes.EQUATION:
+
+             #   this_op = this_op_type = recurse_Attribute(node.func)
+              #  print(this_op)
+               # args = [graph.nodes_map[ii[0]] for ii in graph.edges_end(n, label='arg')]
+                #print('args: ',args)
+                #lenargs = len(args)
+
+                #indices.append([0, 0, 0])
+
             if node.ast_type == ast.Call:
 
                 this_op = this_op_type = recurse_Attribute(node.func)

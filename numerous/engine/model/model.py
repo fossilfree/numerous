@@ -28,7 +28,6 @@ from numerous.engine.model.parser_ast import parse_eq
 from numerous.engine.model.graph import Graph
 from numerous.engine.model.parser_ast import process_mappings
 from numerous.engine.model.generate_model import generate
-from numerous.engine.model.generate_program import generate_program
 
 from numerous.engine.model.generate_equations import generate_equations
 
@@ -260,7 +259,7 @@ class Model:
         equation_graph_simplified = process_mappings(self.mappings, self.gg, self.eg, nodes_dep, self.scope_variables, scope_ids)
         #self.eg.as_graphviz('equation_graph')
 
-        equation_graph_simplified.as_graphviz('equation_graph_simplified')
+        #equation_graph_simplified.as_graphviz('equation_graph_simplified')
         equation_graph_simplified.topological_nodes()
 
         #self.gg.as_graphviz('global_graph')
@@ -329,10 +328,10 @@ class Model:
     def lower_model_codegen(self):
         #if len(self.gg.nodes)<100:
         #self.gg.as_graphviz('global')
-        generate_equations(self.equations_parsed, self.eg, self.scoped_equations, self.scope_variables)
-        generate_program(self.gg)
+        self.compiled_compute, self.vars_ordered_values, self.vars_ordered = generate_equations(self.equations_parsed, self.eg, self.scoped_equations, self.scope_variables)
+        #generate_program(self.gg)
         #asdsad=asdsfsf
-        self.compiled_compute = generate(self.gg, self.vars_ordered_map, self.special_indcs)
+        #self.compiled_compute = generate(self.gg, self.vars_ordered_map, self.special_indcs)
 
         #self.compiled_compute = generate_code(self.gg, self.vars_ordered_map, ((0, self.states_end_ix),(self.states_end_ix, self.deriv_end_ix), (self.deriv_end_ix, self.mapping_end_ix)))
 
@@ -765,7 +764,7 @@ class Model:
                 return compute(self.variables, y)
 
             def historian_update(self, t):
-
+                #print(self.variables[:])
                 self.historian_data[self.historian_ix][0] = t
                 self.historian_data[self.historian_ix][1:] = self.variables[:]
 
@@ -860,7 +859,9 @@ class Model:
 
             for i, var in enumerate(self.vars_ordered):
 
-                 data.update({".".join(self.variables[var.id].path.path[self.system.id]): self.numba_model.historian_data[:,i+1]})
+                 #data.update({".".join(self.variables[var.id].path.path[self.system.id]): self.numba_model.historian_data[:,i+1]})
+                 data.update({
+                     var: self.numba_model.historian_data[:, i + 1]})
 
             self.historian_df = pd.DataFrame(data)
 

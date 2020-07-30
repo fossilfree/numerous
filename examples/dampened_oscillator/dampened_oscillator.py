@@ -56,7 +56,7 @@ class Spring_Equation(EquationBase):
     @Equation()
     def eval(self, scope):
         scope.c = scope.k + 1
-        F = (np.abs(scope.x1 - scope.x2) - scope.dx0) * scope.c
+        F = 0#(np.abs(scope.x1 - scope.x2) - scope.dx0) * scope.c
 
         scope.F1 = F  # [kg/s]
 
@@ -117,7 +117,7 @@ if __name__ == "__main__":
 
     # Define simulation
     s = simulation.Simulation(
-        model.Model(OscillatorSystem('system',  c=0, a=0, n=3)),
+        model.Model(OscillatorSystem('system',  c=0, a=0, n=2)),
         t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
     )
     # Solve and plot
@@ -127,6 +127,6 @@ if __name__ == "__main__":
     print('Execution time: ', toc-tic)
     print(s.model.historian_df)
     print(len(list(s.model.historian_df)))
-    s.model.historian_df['system.oscillator0.mechanics.x'].plot()
+    s.model.historian_df['spc_mechanics_x2'].plot()
     plt.show()
     plt.interactive(False)

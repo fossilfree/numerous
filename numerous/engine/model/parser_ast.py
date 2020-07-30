@@ -234,7 +234,10 @@ def function_from_graph_generic(g: Graph, name, var_def_, decorators = [ast.Call
                     ast_assign = ast.AugAssign(target=target_ast, value=value_ast, op=ast.Add())
                 body.append(ast_assign)
 
-    return_ = ast.Return(value=ast.Tuple(elts=var_def_.get_targets()))
+    if len(var_def_.get_targets())>1:
+        return_ = ast.Return(value=ast.Tuple(elts=var_def_.get_targets()))
+    else:
+        return_ = ast.Return(value=var_def_.get_targets()[0])
     body.append(return_)
     args = dot_dict(args=var_def_.get_args(), vararg=None, defaults=[], kwarg=None)
 
@@ -500,7 +503,7 @@ def parse_eq(scope_id, item, global_graph, equation_graph, nodes_dep, tag_vars, 
 
         scoped_equations[eq_name] = eq_key
 
-        equation_graph.add_node((eq_name, EquationNode(id=eq_name, node_type=NodeTypes.EQUATION, ast='', name=eq_name, file=eq_name, ln=0, label=eq_name, ast_type=''), eq_name), ignore_exist=True)
+        equation_graph.add_node((eq_name, EquationNode(id=eq_name, node_type=NodeTypes.EQUATION, ast=None, name=eq_name, file=eq_name, ln=0, label=eq_name, ast_type=ast.Call, func=ast.Name(id=eq_name), op_type=ast.Call), eq_name), ignore_exist=True)
         #edges = []
         #eg_nodes = [eq_name]
         for n in nodes:
@@ -531,7 +534,7 @@ def parse_eq(scope_id, item, global_graph, equation_graph, nodes_dep, tag_vars, 
                         if e[0] == n[0]:
                             read=True
 
-                            equation_graph.add_edge((n[0], eq_name, EquationEdge(start=eq_name, end=n[0], label='arg'), 0), ignore_missing_nodes=False)
+                            equation_graph.add_edge((n[0], eq_name, EquationEdge(start=eq_name, end=n[0], label='args'), 0), ignore_missing_nodes=False)
                             break
 
 

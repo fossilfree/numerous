@@ -2,6 +2,7 @@ from numerous.engine.model.graph import Graph
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute, wrap_function, dot_dict, generate_code_file
 from numerous.engine.model.parser_ast import attr_ast, function_from_graph_generic, EquationNode, EquationEdge
 from numerous.engine.variables import VariableType
+from numerous.engine.model.generate_program import generate_program
 
 import ast
 from numba import njit
@@ -52,20 +53,51 @@ class SumCount:
 
 new_sum = SumCount().get_sum
 
+def visit_assign_value(target, value, nodes_map, equation_graph):
+    if value[1].node_type == NodeTypes.OP:
+        left_edge = equation_graph.edges_end(value, 'left')[0]
+        left = nodes_map[left_edge[0]]
+
+        visit_assign_value(target, left, nodes_map, equation_graph)
+
+        right_edge = equation_graph.edges_end(value, 'right')[0]
+        right = nodes_map[right_edge[0]]
+
+        visit_assign_value(target, right, nodes_map, equation_graph)
+
+        equation_graph.remove_node(value[0])
+        equation_graph.remove_edge(left_edge)
+        equation_graph.remove_edge(right_edge)
+
+    else:
+
+        target.append(value)
+
+
+
 def generate_equations(equations, equation_graph: Graph, scoped_equations, scope_variables):
     #Replace individual assignments with a sum
     vars_assignments = {}
     nodes_map = equation_graph.nodes_map
-    for e in equation_graph.edges.copy():
-        if nodes_map[e[0]][1].node_type == NodeTypes.ASSIGN:
-            if not e[1] in vars_assignments:
-                vars_assignments[e[1]] = []
-            ee = equation_graph.edges_end(nodes_map[e[0]], label='value')[0]
-            vars_assignments[e[1]].append(nodes_map[ee[0]])
+    print(equation_graph.edges)
+    for n in equation_graph.get_nodes():
+        if n[1].node_type == NodeTypes.ASSIGN:
+            #Get target
+            target_edge = equation_graph.edges_start(n, 'target')[0]
+            target = nodes_map[target_edge[1]]
 
-            equation_graph.remove_edge(e)
-            equation_graph.remove_edge(ee)
-            equation_graph.remove_node(e[0])
+            if not target[0] in vars_assignments:
+                vars_assignments[target[0]] = []
+
+            #Traverse value of assignment - might be  + + +
+            value_edge = equation_graph.edges_end(n, 'value')[0]
+            value = nodes_map[value_edge[0]]
+
+            visit_assign_value(vars_assignments[target[0]], value, nodes_map, equation_graph)
+
+            equation_graph.remove_edge(value_edge)
+            equation_graph.remove_edge(target_edge)
+            equation_graph.remove_node(n[0])
 
     for i, e in enumerate(equation_graph.edges.copy()):
         if nodes_map[e[0]][1].node_type == NodeTypes.EQUATION:
@@ -118,7 +150,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             eq = equations[eq_key]
             vardef = eq_vardefs[eq_key]
 
-            args_local = [ae[0] for ae in equation_graph.edges_end(n, 'arg') if equation_graph.nodes_map[ae[0]][1].scope_var]
+            args_local = [ae[0] for ae in equation_graph.edges_end(n, 'args') if equation_graph.nodes_map[ae[0]][1].scope_var]
             all_read += args_local
             targets_local = [te[1] for te in equation_graph.edges_start(n, 'target') if equation_graph.nodes_map[te[1]][1].scope_var]
             all_targeted += [tl for tl in targets_local if equation_graph.nodes_map[tl][1].node_type != NodeTypes.TMP]
@@ -141,7 +173,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             values = []
             for v in value_edges:
 
-                if not nodes_map[v[0]][1].node_type == NodeTypes.TMP:
+                if nodes_map[v[0]][1].node_type == NodeTypes.VAR or nodes_map[v[0]][1].node_type == NodeTypes.DERIV or nodes_map[v[0]][1].node_type == NodeTypes.STATE:
                     all_read.append(v[0])
                 values.append(ast.Name(id=v[0]))
 
@@ -162,6 +194,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
             body.append(assign)
 
+    generate_program(equation_graph)
+
     all_must_init = set(all_read).difference(all_targeted)
     print('Must init: ',all_must_init)
 
@@ -171,7 +205,9 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
 
     vars_node_id = {n[2]: n[0] for n in equation_graph.get_nodes() if n[2]}
-
+    scope_var_node = {n[0]: n[1].scope_var for n in equation_graph.get_nodes() if n[2]}
+    #print(scope_var_node)
+    #asdasd=sdfsdfsdfsdf
     states = []
     deriv = []
     mapping = []
@@ -210,8 +246,19 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     body.append(ast.Return(value=ast.Call(func=ast.Name(id='np.array'), args=[ast.List(elts=[ast.Name(id=d) for d in deriv]), ast.Name(id='np.float64')], keywords=[])))
 
-    kernel_args = dot_dict(args=[ast.Name(id='y'), ast.Name(id='variables')], vararg=None, defaults=[], kwarg=None)
+    kernel_args = dot_dict(args=[ast.Name(id='variables'), ast.Name(id='y')], vararg=None, defaults=[], kwarg=None)
 
     mod_body.append(wrap_function('kernel', body, decorators=["njit('float64[:](float64[:],float64[:])')"], args=kernel_args))
 
-    generate_code_file(mod_body, 'kernel.py')
+    source = generate_code_file(mod_body, 'kernel.py')
+    print('compiling...')
+
+    import timeit
+    print('Compile time: ', timeit.timeit(
+        lambda: exec(source, globals()), number=1))
+
+    variables_values = np.array([scope_var_node[v].value for v in variables], dtype=np.float64)
+    for k, v in zip(variables, variables_values):
+        print(k,': ',v)
+
+    return kernel, variables_values, variables
