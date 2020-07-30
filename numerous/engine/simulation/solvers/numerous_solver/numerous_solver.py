@@ -52,7 +52,7 @@ class Numerous_solver(BaseSolver):
         step_integrate_ = _method.step_func
 
 
-        @njit
+        # @njit
         def _solve(numba_model, _solve_state, t_end=1000.0, t0=0.0, t_eval=np.linspace(0.0, 1000.0, 100), tol=0.001):
             # Init t to t0
             t = t0
@@ -88,7 +88,7 @@ class Numerous_solver(BaseSolver):
             # 0 index is used to keep next time step defined by solver
             te_array[0] = t
             # 1 index is used to keep next time to eval/save the solution
-            ix_eval = 0
+            ix_eval = 1
             te_array[1] = t_eval[ix_eval] + dt if strict_eval else np.inf
             t_next_eval = t_eval[ix_eval]
 
