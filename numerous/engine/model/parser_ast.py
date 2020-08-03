@@ -638,6 +638,12 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
                     ignore_missing_nodes=False)
 
         #ast.Assign(targets=ast.Attribute(attr_ast(m[0])), value = None)
+
+    #replace all mappings
+
+    #Loop over all nodes
+    #for n in equation_graph.get_nodes()
+
     equation_graph_simplified = equation_graph.clone()
     print('nodes dep: ')
     for nd, dep in nodes_dep.items():
