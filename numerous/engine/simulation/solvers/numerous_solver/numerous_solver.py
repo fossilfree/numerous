@@ -6,7 +6,7 @@ from numba import njit
 from tqdm import tqdm
 
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
-from simulation.solvers.numerous_solver.solver_methods import LevenbergMarquardt
+from .solver_methods import LevenbergMarquardt
 
 
 class Numerous_solver(BaseSolver):

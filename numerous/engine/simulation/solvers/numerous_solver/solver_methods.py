@@ -3,7 +3,7 @@ from numba import njit
 from scipy import linalg
 import logging
 
-from simulation.solvers.numerous_solver.linalg.lapack.lapack_python import lapack_solve_triangular, lapack_cholesky
+from .linalg.lapack.lapack_python import lapack_solve_triangular, lapack_cholesky
 
 
 class LevenbergMarquardt:

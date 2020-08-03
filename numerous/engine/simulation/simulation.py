@@ -3,7 +3,7 @@ import time
 import numpy as np
 from numerous.engine.simulation.solvers.base_solver import SolverType
 from numerous.engine.simulation.solvers.ivp_solver.ivp_solver import IVP_solver
-from simulation.solvers.numerous_solver.numerous_solver import Numerous_solver
+from .solvers.numerous_solver.numerous_solver import Numerous_solver
 
 
 class Simulation:
