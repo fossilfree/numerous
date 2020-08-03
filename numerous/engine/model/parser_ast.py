@@ -526,7 +526,7 @@ def parse_eq(scope_id, item, global_graph, equation_graph, nodes_dep, tag_vars, 
                 for e in g_qualified.edges:
                     print(e)
                     if e[1] == n[0]:
-                        equation_graph.add_edge((eq_name, n[0], EquationEdge(start=eq_name, end=n[0], label='target'), 0), ignore_missing_nodes=False)
+                        equation_graph.add_edge((eq_name, n[0], EquationEdge(start=eq_name, end=n[0], label='target'+(n[1].scope_var.tag if n[1].scope_var else "")), (n[1].scope_var.tag if n[1].scope_var else "")), ignore_missing_nodes=False)
                         targeted = True
                         break
                 if not targeted and not read:
@@ -534,7 +534,7 @@ def parse_eq(scope_id, item, global_graph, equation_graph, nodes_dep, tag_vars, 
                         if e[0] == n[0]:
                             read=True
 
-                            equation_graph.add_edge((n[0], eq_name, EquationEdge(start=eq_name, end=n[0], label='args'), 0), ignore_missing_nodes=False)
+                            equation_graph.add_edge((n[0], eq_name, EquationEdge(start=eq_name, end=n[0], label='args'+(n[1].scope_var.tag if n[1].scope_var else "")), (n[1].scope_var.tag if n[1].scope_var else "")), ignore_missing_nodes=False)
                             break
 
 
@@ -640,11 +640,73 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
         #ast.Assign(targets=ast.Attribute(attr_ast(m[0])), value = None)
 
     #replace all mappings
-
+    substitutions = {}
+    substitution_graph = Graph()
     #Loop over all nodes
-    #for n in equation_graph.get_nodes()
+    for n in equation_graph.get_nodes():
+        if n[1].node_type == NodeTypes.VAR:
+            targeting_edges = equation_graph.edges_end(n, 'target')
+            print()
+            print(n[0])
+            print('targeting edges: ', [t[0] for t in targeting_edges])
+            print(len(targeting_edges))
 
+            #If only targeted once we can remap this!
+            if len(targeting_edges) == 1:
+                op = equation_graph.nodes_map[targeting_edges[0][0]]
+                if op[1].node_type == NodeTypes.ASSIGN:
+                    values = equation_graph.edges_end(op, 'value')
+                    print('vals ', values)
+                    #add a map
+                    if len(values) == 1 and not equation_graph.nodes_map[values[0][0]][1].ast_type == ast.BinOp:
+                        if not n[0] in substitutions:
+                            substitutions[n[0]] = values[0][0]
+                            substitution_graph.add_node(n, ignore_exist=True)
+                            mapped_to = equation_graph.nodes_map[values[0][0]]
+                            substitution_graph.add_node(mapped_to, ignore_exist=True)
+                            substitution_graph.add_edge((mapped_to[0], n[0], EquationEdge(start=mapped_to, end=n, label='value'), 0))
+                        else:
+                            raise ValueError(n[0]+' already substituted???')
+
+                        equation_graph.remove_node_and_edges(op[0])
+
+                    elif len(values) > 1:
+                        raise ValueError('arg')
+
+    #equation_graph.nodes_map['oscillator1_mechanics_x']
+    print('subs: ')
+    for k, v in substitutions.items():
+        print(k,': ',v)
+    #substitution_graph.as_graphviz('substitutions')
+    master_variables = [n for n, d in substitution_graph.in_degree().items() if d == 0]
+    print(master_variables)
+
+    for mv in master_variables:
+        mn = equation_graph.nodes_map[mv]
+        dep_g = substitution_graph.get_dependants_graph([mn])
+
+        for d in dep_g.get_nodes():
+
+            if d[0] in nodes_dep:
+                if not mv in nodes_dep:
+                    nodes_dep[mv] = []
+
+                nodes_dep[mv] = list(set(nodes_dep[mv] +nodes_dep[d[0]]))
+
+        equation_graph.replace_nodes(mn, dep_g.get_nodes())
+    #equation_graph.nodes_map['oscillator1_mechanics_x']
+
+    equation_graph.as_graphviz('eq_substituted')
+    #print('eq')
+    #for n in equation_graph.get_nodes():
+    #    print(n)
+
+    #print('egs')
     equation_graph_simplified = equation_graph.clone()
+    #for n in equation_graph_simplified.get_nodes():
+    #    print(n)
+
+    #sdf=sfgdfdff
     print('nodes dep: ')
     for nd, dep in nodes_dep.items():
         print(nd,': ', dep)

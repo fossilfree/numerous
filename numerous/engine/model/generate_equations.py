@@ -152,11 +152,15 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             eq = equations[eq_key]
             vardef = eq_vardefs[eq_key]
 
-            args_local = [ae[0] for ae in equation_graph.edges_end(n, 'args') if equation_graph.nodes_map[ae[0]][1].scope_var]
+            args_local = [ae[0] for ae in equation_graph.edges_end(n, 'args') if len(ae[2].label)>4]
+            args_scope_var = [ae[2].label[4:] for ae in equation_graph.edges_end(n, 'args') if len(ae[2].label)>4]
             all_read += args_local
-            targets_local = [te[1] for te in equation_graph.edges_start(n, 'target') if equation_graph.nodes_map[te[1]][1].scope_var]
+            targets_local = [te[1] for te in equation_graph.edges_start(n, 'target') if len(te[2].label)>6]
+            targets_scope_var = [te[2].label[6:] for te in equation_graph.edges_start(n, 'target') if len(te[2].label)>6]
             all_targeted += [tl for tl in targets_local]# if equation_graph.nodes_map[tl][1].node_type != NodeTypes.TMP]
-            scope_vars = {'scope.'+equation_graph.nodes_map[al][1].scope_var.tag: al for al in args_local + targets_local}
+            #scope_vars = {'scope.'+equation_graph.nodes_map[al][1].scope_var.tag: al for al in args_local + targets_local}
+
+            scope_vars = {'scope.'+k: v for k, v in zip(args_scope_var+targets_scope_var, args_local + targets_local)}
             print(scope_vars)
 
 

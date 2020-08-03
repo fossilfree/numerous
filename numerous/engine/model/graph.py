@@ -468,6 +468,9 @@ class Graph:
             self.lower_graph.topological_sort()
 
     def in_degree(self):
+        if not self.lower_graph:
+            self.make_lower_graph()
+
         nodes = self.higher_nodes(self.lower_graph.nodes)
         in_degree_map = {}
         return {n[0]: in_deg for n, in_deg in zip(nodes, self.lower_graph.in_degree())}
@@ -702,6 +705,39 @@ class Graph:
         hash_ = hash(tuple(list(self.lower_graph.nodes) + list(self.lower_graph.node_types)+e_list))
 
         return hash_
+
+    def replace_nodes(self, node, nodes_to_replace):
+        for nr in nodes_to_replace:
+            for e in self.edges:
+                ee = list(e)
+                upd =False
+                if e[0] == nr[0]:
+                    ee[0] = node[0]
+                    upd = True
+
+                if e[1] == nr[0]:
+
+                    ee[1] = node[0]
+                    upd = True
+
+
+                if upd:
+                    self.edges[self.edges.index(e)]=tuple(ee)
+            if not nr[0] == node[0]:
+                self.remove_node(nr[0])
+
+    def remove_node_and_edges(self, node):
+        poplist = []
+        for e in self.edges:
+            if e[0] == node or e[1] == node:
+                poplist.append(self.edges.index(e))
+
+        poplist.sort(reverse=True)
+
+        for p in poplist:
+            self.edges.pop(p)
+
+        self.remove_node(node)
 
 
 
