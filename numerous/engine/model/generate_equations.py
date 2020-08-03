@@ -85,6 +85,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             #Get target
             target_edge = equation_graph.edges_start(n, 'target')[0]
             target = nodes_map[target_edge[1]]
+            print('t!!!: ', target)
 
             if not target[0] in vars_assignments:
                 vars_assignments[target[0]] = []
@@ -120,6 +121,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     print(vars_assignments)
 
     for a, vals in vars_assignments.items():
+
         ns = new_sum()
         equation_graph.add_node((ns, EquationNode(id=ns, node_type=NodeTypes.SUM, name=ns, ast=None, file='sum', label=ns, ln=0, ast_type=None), ns))
         equation_graph.add_edge((ns, a, EquationEdge(label='target', start=ns, end=a)))
@@ -153,7 +155,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             args_local = [ae[0] for ae in equation_graph.edges_end(n, 'args') if equation_graph.nodes_map[ae[0]][1].scope_var]
             all_read += args_local
             targets_local = [te[1] for te in equation_graph.edges_start(n, 'target') if equation_graph.nodes_map[te[1]][1].scope_var]
-            all_targeted += [tl for tl in targets_local if equation_graph.nodes_map[tl][1].node_type != NodeTypes.TMP]
+            all_targeted += [tl for tl in targets_local]# if equation_graph.nodes_map[tl][1].node_type != NodeTypes.TMP]
             scope_vars = {'scope.'+equation_graph.nodes_map[al][1].scope_var.tag: al for al in args_local + targets_local}
             print(scope_vars)
 
@@ -164,6 +166,9 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                 targets = [ast.Tuple(elts=[ast.Name(id=scope_vars[t]) for t in vardef.targets])]
             else:
                 targets = [ast.Name(id=scope_vars[vardef.targets[0]])]
+
+            n[1].scope_var = {'args': [scope_vars[a] for a in vardef.args], 'targets': [scope_vars[a] for a in vardef.targets]}
+
             body.append(ast.Assign(targets=targets, value=ast.Call(func=ast.Name(id=scoped_equations[n[0]].replace('.','_')), args=args, keywords=[])))
 
         if n[1].node_type == NodeTypes.SUM:
@@ -194,7 +199,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
             body.append(assign)
 
-    generate_program(equation_graph)
+
 
     all_must_init = set(all_read).difference(all_targeted)
     print('Must init: ',all_must_init)
@@ -227,11 +232,13 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
 
     vars_init = states.copy()
+    lenstates=len(vars_init)
     vars_init += list(all_must_init.difference(vars_init))
-
+    leninit=  len(vars_init)
     vars_update = deriv.copy()
+    lenderiv = len(vars_update)
     vars_update += list(set(all_targeted).difference(vars_update))
-
+    indcs = (lenstates, leninit, lenderiv)
     variables = vars_init + vars_update
 
     body = [
@@ -249,6 +256,11 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     kernel_args = dot_dict(args=[ast.Name(id='variables'), ast.Name(id='y')], vararg=None, defaults=[], kwarg=None)
 
     mod_body.append(wrap_function('kernel', body, decorators=["njit('float64[:](float64[:],float64[:])')"], args=kernel_args))
+    mod_body.append(
+        wrap_function('kernel_nojit', body, decorators=[], args=kernel_args))
+
+    run_program_source, lib_body, program, indices = generate_program(equation_graph, variables, indcs)
+    mod_body+=lib_body
 
     source = generate_code_file(mod_body, 'kernel.py')
     print('compiling...')
@@ -258,7 +270,85 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         lambda: exec(source, globals()), number=1))
 
     variables_values = np.array([scope_var_node[v].value for v in variables], dtype=np.float64)
-    for k, v in zip(variables, variables_values):
-        print(k,': ',v)
+    #for k, v in zip(variables, variables_values):
+    #    print(k,': ',v)
 
-    return kernel, variables_values, variables
+    ###TESTS####
+    y = np.ones(lenstates, np.float64)
+
+
+    from numba import njit, float64, int64
+    from time import time
+    N = 10000
+
+
+    def test_kernel_nojit(variables, y):
+        for i in range(N):
+            kernel_nojit(variables, y)
+
+
+
+    tic = time()
+    test_kernel_nojit(variables_values, y)
+    toc = time()
+
+    print(f'Exe time flat no jit - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
+    print('Exe time kernel nojit timeit: ', timeit.timeit(
+        lambda: kernel_nojit(variables_values, y), number=N) / N)
+
+    @njit('void(float64[:], float64[:])')
+    def test_kernel(variables, y):
+        for i in range(N):
+            kernel(variables, y)
+
+    print('First kernel call results: ')
+    print(kernel(variables_values, y))
+
+    tic = time()
+    test_kernel(variables_values, y)
+    toc = time()
+
+    print(f'Exe time flat - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
+    print('Exe time kernel timeit: ', timeit.timeit(
+        lambda: kernel(variables_values, y), number=N) / N)
+
+    ###TEST PROGRAM
+    spec = [
+        ('program', int64[:, :]),
+        ('indices', int64[:]),
+
+
+    ]
+    from numba.experimental import jitclass
+    @jitclass(spec)
+    class DiffProgram:
+        def __init__(self, program, indices):
+            self.program = program
+            self.indices = indices
+
+        def diff(self, variables, y):
+            return diff(variables, y, self.program, self.indices)
+
+        def test(self, variables, y):
+            for i in range(N):
+                self.diff(variables, y)
+
+    dp = DiffProgram(np.array(program, np.int64), np.array(indices, np.int64))
+
+    print('First prgram call results: ')
+    print(dp.diff(variables_values, y))
+
+    tic = time()
+    dp.test(variables_values, y)
+    toc = time()
+
+
+
+    print(f'Exe time program - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
+
+    print('Exe time program timeit: ', timeit.timeit(
+        lambda: dp.diff(variables_values, y), number=N)/N)
+
+    sdfsdf= sdfsdfsdfdd
+
+    return dp.diff, variables_values, variables

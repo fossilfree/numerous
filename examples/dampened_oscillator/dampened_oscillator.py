@@ -56,7 +56,7 @@ class Spring_Equation(EquationBase):
     @Equation()
     def eval(self, scope):
         scope.c = scope.k + 1
-        F = 0#(np.abs(scope.x1 - scope.x2) - scope.dx0) * scope.c
+        F = (np.abs(scope.x1 - scope.x2) - scope.dx0) * scope.c
 
         scope.F1 = F  # [kg/s]
 

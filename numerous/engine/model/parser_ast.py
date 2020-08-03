@@ -499,11 +499,11 @@ def parse_eq(scope_id, item, global_graph, equation_graph, nodes_dep, tag_vars, 
         nodes = g_qualified.get_nodes()
 
         #make equation graph
-        eq_name = 'EQ_'+scope_id + '_' + eq_key
+        eq_name = ('EQ_'+scope_id + '_' + eq_key).replace('.','_')
 
         scoped_equations[eq_name] = eq_key
 
-        equation_graph.add_node((eq_name, EquationNode(id=eq_name, node_type=NodeTypes.EQUATION, ast=None, name=eq_name, file=eq_name, ln=0, label=eq_name, ast_type=ast.Call, func=ast.Name(id=eq_name), op_type=ast.Call), eq_name), ignore_exist=True)
+        equation_graph.add_node((eq_name, EquationNode(id=eq_name, node_type=NodeTypes.EQUATION, ast=None, name=eq_name, file=eq_name, ln=0, label=eq_name, ast_type=ast.Call, func=ast.Name(id=eq_key.replace('.','_')), op_type=ast.Call), eq_name), ignore_exist=True)
         #edges = []
         #eg_nodes = [eq_name]
         for n in nodes:
