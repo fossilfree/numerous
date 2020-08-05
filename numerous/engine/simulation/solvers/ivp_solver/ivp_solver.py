@@ -42,7 +42,9 @@ class IVP_solver(BaseSolver):
             print("Compilation time: ", compilation_finished - compilation_start)
             for t in tqdm(self.time[1:-1]):
                 if self.solver_step(t):
+                    print("done")
                     break
+
         except Exception as e:
             print(e)
             raise e
@@ -83,6 +85,7 @@ class IVP_solver(BaseSolver):
                 current_timestamp = self.sol.t_events[event_id][0]
 
                 step_not_finished = True
+
 
                 self.__end_step(self,self.sol(current_timestamp), current_timestamp, event_id=event_id)
             else:

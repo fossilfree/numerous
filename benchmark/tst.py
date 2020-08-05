@@ -4,11 +4,34 @@ import time
 
 from numerous.engine.model import  Model
 from numerous.engine.simulation import Simulation
+from numerous.engine.simulation.solvers.base_solver import SolverType
 from numerous.engine.system import Item, ConnectorTwoWay, Subsystem
 
 from numerous import EquationBase
 from numerous.multiphysics import Equation
+import os
 
+def kill_files(folder):
+    for the_file in os.listdir(folder):
+        file_path = os.path.join(folder, the_file)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+        except Exception as e:
+            print("failed on filepath: %s" % file_path)
+
+
+def kill_numba_cache():
+
+    root_folder = os.path.realpath(__file__ + "/../")
+
+    for root, dirnames, filenames in os.walk(root_folder):
+        for dirname in dirnames:
+            if dirname == "__pycache__":
+                try:
+                    kill_files(root + "/" + dirname)
+                except Exception as e:
+                    print("failed on %s", root)
 
 class Thermal_Conductance_Equation(EquationBase):
     """
@@ -78,32 +101,42 @@ class Thermal_Conductor(ConnectorTwoWay):
 
 
 class ThermalCapacitancesSeries(Subsystem):
-    def __init__(self, tag, T0):
+    def __init__(self, tag, Tinit=100, T0=25, num_nodes=10, k=1):
         super().__init__(tag)
 
         items = []
 
-        prev_node = None
+
         #Create N heat capacitances and connect them.
-        for i, T0_ in enumerate(T0):
+
+        inlet_node = Thermal_Capacitance('node0', C=100, T0=Tinit)
+        items.append(inlet_node)
+        prev_node = inlet_node
+        for i in range(1,num_nodes):
             import pickle as pickle
 
 
             #Create thermal conductor
-            node = Thermal_Capacitance('node' + str(i), C=100, T0=T0_)
-
-            if prev_node:
-                # Connect the last node to the new node with a conductor
-                thermal_conductor = Thermal_Conductor('thermal_conductor' + str(i), k=1)
-                thermal_conductor.bind(side1=prev_node, side2=node)
-                #Append the thermal conductor to the item.
-                items.append(thermal_conductor)
+            node = Thermal_Capacitance('node' + str(i), C=100, T0=T0)
+            # Connect the last node to the new node with a conductor
+            thermal_conductor = Thermal_Conductor('thermal_conductor' + str(i), k=k)
+            thermal_conductor.bind(side1=prev_node, side2=node)
+            #Append the thermal conductor to the item.
+            items.append(thermal_conductor)
             items.append(node)
             prev_node = node
 
         #Register the items to the subsystem to make it recognize them.
         self.register_items(items)
 
+def timeit(s):
+    kill_numba_cache()
+    s.solve()
+    start = time.time()
+    s.solve()
+    end = time.time()
+    dt = end - start
+    return dt
 
 if __name__ == "__main__":
     import resource
@@ -115,7 +148,7 @@ if __name__ == "__main__":
     max_rec = 0x100000
 
     # May segfault without this line. 0x100 is a guess at the size of each stack frame.
-    resource.setrlimit(resource.RLIMIT_STACK, [0x100 * max_rec, resource.RLIM_INFINITY])
+    resource.setrlimit(resource.RLIMIT_STACK, [0x1000 * max_rec, resource.RLIM_INFINITY])
     sys.setrecursionlimit(max_rec)
     # Create a model with three nodes
 
@@ -123,32 +156,40 @@ if __name__ == "__main__":
     Y = []
     Z = []
 
-    for i in range(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])):
-        T0 = [random.randrange(1, 101, 1) for _ in range(i)]
-        m = Model(ThermalCapacitancesSeries("tcs", T0))
-        start = time.time()
+    num_nodes =[2,5]
+    Tinit = 100
+    T0 = 25
+    k = 1
+
+    solver_type = SolverType.SOLVER_IVP
+    for i in num_nodes:#range(1,num_nodes+1):
+
+        m = Model(ThermalCapacitancesSeries("tcs", num_nodes=i, Tinit=Tinit, T0=T0, k=k))
+
+
         # print(m.states_as_vector)
         # Define simulation
-        s = Simulation(m, t_start=0, t_stop=100, num=int(sys.argv[4]), num_inner=100, max_step=0.1)
+        s = Simulation(m, t_start=0, t_stop=100, num=100, num_inner=1, max_step=0.1, solver_type=solver_type)
         #
         # solve simulation
-        s.solve()
-        end = time.time()
-        # print(m.states_as_vector)
-        # print some statitics and info
-        # print(m.states_as_vector)
-        print(m.info)
+        dt = timeit(s)
+
+    # print(m.states_as_vector)
+    # print some statitics and info
+    # print(m.states_as_vector)
+    #print(m.info)
+
         X.append(i)
         Z.append(m.info['Assemble time'])
-        Y.append(end-start)
+        Y.append(dt)
 
     import matplotlib.pyplot as plt
     fig = plt.figure()
     ax = plt.axes()
     ax.plot(X, Y, label='solve')
-    ax.plot(X, Z, label='assemble')
+    #ax.plot(X, Z, label='assemble')
     plt.legend(loc="upper left")
     plt.xlabel("number of objects")
     plt.ylabel("seconds")
+    plt.title(f'SolverType: {solver_type}')
     plt.show()
-
