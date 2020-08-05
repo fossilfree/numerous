@@ -34,6 +34,7 @@ class IVP_solver(BaseSolver):
         """
         self.result_status = "Success"
         self.sol = None
+        self.numba_model.historian_ix = 1
         try:
             print("Compiling Numba equations")
             compilation_start = time.time()
@@ -48,8 +49,7 @@ class IVP_solver(BaseSolver):
         except Exception as e:
             print(e)
             raise e
-        finally:
-            return  self.sol,  self.result_status
+        return self.sol,  self.result_status
 
 
     def solver_step(self,t):

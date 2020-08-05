@@ -24,7 +24,7 @@ class Simulation:
                Not unique tag that will be used in reports or printed output.
     """
 
-    def __init__(self, model, solver_type=SolverType.NUMEROUS, t_start=0, t_stop=20000, num=1000, num_inner=1,
+    def __init__(self, model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=20000, num=1000, num_inner=1,
                  max_event_steps=100,
 
                  start_datetime=datetime.now(), **kwargs):
