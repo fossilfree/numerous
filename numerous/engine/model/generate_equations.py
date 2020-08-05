@@ -1,6 +1,6 @@
 from numerous.engine.model.graph import Graph
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute, wrap_function, dot_dict, generate_code_file
-from numerous.engine.model.parser_ast import attr_ast, function_from_graph_generic, EquationNode, EquationEdge
+from numerous.engine.model.parser_ast import attr_ast, function_from_graph_generic, function_from_graph_generic_llvm, EquationNode, EquationEdge
 from numerous.engine.variables import VariableType
 from numerous.engine.model.generate_program import generate_program
 
@@ -118,7 +118,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
 
 
-    print(vars_assignments)
+    #print(vars_assignments)
 
     for a, vals in vars_assignments.items():
 
@@ -129,18 +129,21 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             equation_graph.add_edge((v[0], ns, EquationEdge(label='value', start=v[0], end=ns)))
 
     #equation_graph.as_graphviz('sum')
-
+    llvm_funcs = {}
     mod_body = []
     #Loop over equation functions and generate code
     eq_vardefs={}
     for eq_key, eq in equations.items():
         vardef = Vardef()
         func, vardef_ = function_from_graph_generic(eq[2],eq_key.replace('.','_'), var_def_=vardef, decorators = ["njit"])
+        func_llvm, vardef__, signature, fname, args = function_from_graph_generic_llvm(eq[2], eq_key.replace('.', '_'), var_def_=vardef)
+        llvm_funcs[eq_key.replace('.', '_')]={'func_ast': func_llvm, 'signature': signature, 'name': fname, 'args': args}
         print('args: ', vardef.args)
         print('targs: ', vardef.targets)
         eq_vardefs[eq_key] = vardef
 
         mod_body.append(func)
+        mod_body.append(func_llvm)
     body=[]
     #Create a kernel of assignments and calls
     #print(equation_graph.edges)
@@ -251,6 +254,16 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         #ast.Assign(targets=[ast.Name(id=d) for d in deriv], value=ast.Num(n=0))
            ] + body
 
+    llvm_sequence = [{'func': 'load', 'ix': ix, 'var': vi, 'arg': 'variables'} for vi, ix  in zip(vars_init[len(states):], range(len(states), len(vars_init)))]
+    #llvm_sequence = [{'func': 'load', 'ix': ix, 'var': vi, 'arg': 'variables'} for vi, ix in
+    #                 zip(vars_init[:], range(0, len(vars_init)))]
+
+    llvm_sequence += [{'func': 'load', 'ix': ix, 'var': s, 'arg': 'y'} for ix, s in enumerate(states)]
+
+    llvm_end_seq = [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(vars_update, range(len(vars_init), len(vars_init)+len(vars_update)))]
+
+    llvm_end_seq += [{'func': 'store', 'arg': 'deriv', 'ix': ix, 'var': d} for ix, d in enumerate(deriv)]
+
     body.append(ast.Assign(targets=[ast.Subscript(slice=ast.Slice(lower=ast.Num(n=len(vars_init)), upper=ast.Num(n=len(vars_init)+len(vars_update)), step=None),
                                                value=ast.Name(id='variables'))],
                            value=ast.Tuple(elts=[ast.Name(id=u) for u in vars_update])))
@@ -263,28 +276,82 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     mod_body.append(
         wrap_function('kernel_nojit', body, decorators=[], args=kernel_args))
 
-    run_program_source, lib_body, program, indices = generate_program(equation_graph, variables, indcs)
+    run_program_source, lib_body, program, indices, llvm_program = generate_program(equation_graph, variables, indcs)
     mod_body+=lib_body
+
+    #LLVM
+    llvm_sequence += llvm_program + llvm_end_seq
+    #print('llvm seq: ', llvm_sequence)
 
     source = generate_code_file(mod_body, 'kernel.py')
     print('compiling...')
+
+
 
     import timeit
     print('Compile time: ', timeit.timeit(
         lambda: exec(source, globals()), number=1))
 
     variables_values = np.array([scope_var_node[v].value for v in variables], dtype=np.float64)
-    #for k, v in zip(variables, variables_values):
-    #    print(k,': ',v)
+    variables_values_ = np.array([scope_var_node[v].value for v in variables], dtype=np.float32)
+    from numerous.engine.model.generate_llvm import generate as generate_llvm
+    #print(globals().keys())
+    for fn, f in llvm_funcs.items():
+        f['func'] = globals()[f['name']]
+
+    for l in llvm_sequence:
+        if 'ext_func' in l:
+            l['ext_func'] = llvm_funcs[l['ext_func']]['name']
+
+        print(l)
+
+    from numba import njit, float64, int64
+
+    diff_llvm, var_func, max_deriv = generate_llvm(llvm_sequence, llvm_funcs.values())
 
     ###TESTS####
     y = np.ones(lenstates, np.float64)
+    y_ = np.ones(lenstates, np.float32)
+    #variables_ = variables_values.astype(np.float32)#np.array([0, 1, 0, 1, 0, 1, 0, 1], np.float32)
 
-
-    from numba import njit, float64, int64
     from time import time
-    N = 10000
+    N = 1000000
 
+    #print(var_func(variables_values_, 1))
+
+    #diff_llvm(y_)
+
+    #print(var_func(variables_values_, 0))
+
+    #sfsfd = sdfsdf
+    @njit('float32[:](float32[:], int32)')
+    def diff_bench_llvm(y, N):
+
+        for i in range(N):
+            derivatives = diff_llvm(y)
+
+        return derivatives
+    #print('before')
+    #print('var vals: ', variables_values)
+    var_func(variables_values_, set_=1)
+    #var_start = var_func(variables_values_, set_=0)
+    #for n, v in zip(variables, var_start):
+    #    print(n, ': ', v)
+    #derivs = diff_bench_llvm(y_, 1)
+
+
+    #var_after =  var_func(variables_values_, set_=0)
+    #print('after')
+    #for n, v in zip(variables, var_after):
+    #    print(n, ': ', v)
+    tic = time()
+    derivs = diff_bench_llvm(y_, N)
+    toc = time()
+    print('llvm derivs: ', derivs)
+    print(f'Exe time llvm - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
+
+
+    N = 100000
 
     def test_kernel_nojit(variables, y):
         for i in range(N):
@@ -299,6 +366,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     print(f'Exe time flat no jit - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
     print('Exe time kernel nojit timeit: ', timeit.timeit(
         lambda: kernel_nojit(variables_values, y), number=N) / N)
+
+    N = 1000000
 
     @njit('void(float64[:], float64[:])')
     def test_kernel(variables, y):
@@ -323,6 +392,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
 
     ]
+    N = 100000
     from numba.experimental import jitclass
     @jitclass(spec)
     class DiffProgram:
@@ -338,6 +408,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                 self.diff(variables, y)
 
     dp = DiffProgram(np.array(program, np.int64), np.array(indices, np.int64))
+
 
     print('First prgram call results: ')
     print(dp.diff(variables_values, y))

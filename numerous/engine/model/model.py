@@ -257,9 +257,9 @@ class Model:
         #print('mapping: ',self.mappings)
         #Process mappings add update the global graph
         equation_graph_simplified = process_mappings(self.mappings, self.gg, self.eg, nodes_dep, self.scope_variables, scope_ids)
-        self.eg.as_graphviz('equation_graph')
+        #self.eg.as_graphviz('equation_graph')
 
-        equation_graph_simplified.as_graphviz('equation_graph_simplified')
+        #equation_graph_simplified.as_graphviz('equation_graph_simplified')
         #for n in equation_graph_simplified.get_nodes():
         #    print(n)
         equation_graph_simplified.topological_nodes()

@@ -98,7 +98,7 @@ def node_to_ast(n: EquationNode, g: Graph, var_def, read=True):
         elif n[1].ast_type == ast.Name:
             return var_def(n[0], read)
         elif n[1].ast_type == ast.Num:
-            return ast.Call(args=[ast.Num(value=n[1].value)], func=ast.Name(id='float64'), keywords={})
+            return ast.Call(args=[ast.Num(value=n[1].value)], func=ast.Name(id='float32'), keywords={})
         elif n[1].ast_type == ast.BinOp:
 
             left_node = g.nodes_map[g.edges_end(n, label='left')[0][0]]
@@ -211,8 +211,6 @@ def function_from_graph_generic(g: Graph, name, var_def_, decorators = [ast.Call
 
     var_def = var_def_.var_def
 
-
-
     body = []
     targets = []
     for n in top_nodes:
@@ -245,6 +243,58 @@ def function_from_graph_generic(g: Graph, name, var_def_, decorators = [ast.Call
     func = wrap_function(name, body, decorators=decorators, args=args)
 
     return func, var_def_.vars_inds_map
+
+def function_from_graph_generic_llvm(g: Graph, name, var_def_):
+    fname = name + '_llvm'
+    signature = f'void({",".join(["float32" for a in var_def_.get_args()])}, CPointer(float32))'
+    #decorators = [ast.Call(func=ast.Name(id='njit'), args=[ast.Str(s=signature)], keywords=[ast.keyword(arg="locals", value=ast.Call(args=[], ))])]
+    #decorators = [ast.Call(func=ast.Name(id='njit'), args=[ast.Str(s=signature)],
+     #                      keywords=[])]
+    decorators = []
+    lineno_count = 1
+
+    top_nodes = g.topological_nodes()
+
+    var_def = var_def_.var_def
+
+    body = []
+    targets = []
+    for n in top_nodes:
+        lineno_count += 1
+
+        if n[1].ast_type == ast.Assign or n[1].ast_type == ast.AugAssign:
+            # n[1].id = n[0]
+            value_node = g.nodes_map[g.edges_end(n, label='value')[0][0]]
+            value_ast = node_to_ast(value_node, g, var_def)
+
+            target_node = g.nodes_map[g.edges_start(n, label='target0')[0][1]]
+            target_ast = node_to_ast(target_node, g, var_def, read=False)
+
+            if value_ast and target_ast:
+                if n[1].ast_type == ast.Assign or target_node not in targets:
+                    targets.append(target_node)
+                    ast_assign = ast.Assign(targets=[target_ast], value=value_ast)
+                else:
+                    ast_assign = ast.AugAssign(target=target_ast, value=value_ast, op=ast.Add())
+                body.append(ast_assign)
+
+    len_targs = len(var_def_.get_targets())
+    if len_targs > 0:
+        return_c = ast.Assign(targets=[ast.Name(id='e')], value=ast.Call(args=[ast.Name(id='r'), ast.Tuple(elts=[ast.Num(n=len_targs)])], func=ast.Name(id='carray'), keywords=[]))
+        return_a = ast.Assign(targets=[ast.Subscript(slice=ast.Slice(upper=ast.Num(n=len_targs), lower=ast.Num(n=0),step=None), value=ast.Name(id='e'))],
+                              value=ast.Tuple(elts=[ast.Name(id=t) for t in var_def_.get_targets()]))
+
+                              #value=ast.Tuple(elts=var_def_.get_targets()))
+
+        body.append(return_c)
+
+        body.append(return_a)
+    args = dot_dict(args=var_def_.get_args() + [ast.Name(id='r')], vararg=None, defaults=[], kwarg=None)
+
+
+    func = wrap_function(fname, body, decorators=decorators, args=args)
+
+    return func, var_def_.vars_inds_map, signature, fname, var_def_.args
 
 def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='_', parent: EquationEdge=None):
     # print(ao)
@@ -696,7 +746,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
         equation_graph.replace_nodes(mn, dep_g.get_nodes())
     #equation_graph.nodes_map['oscillator1_mechanics_x']
 
-    equation_graph.as_graphviz('eq_substituted')
+    #equation_graph.as_graphviz('eq_substituted')
     #print('eq')
     #for n in equation_graph.get_nodes():
     #    print(n)

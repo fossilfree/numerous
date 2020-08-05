@@ -52,7 +52,7 @@ def wrap_function(name, body, args, decorators):
     f.args = args
     return f
 
-def generate_code_file(mod_body, file,preamble="from numba import njit, float64\nimport numpy as np\n"):
+def generate_code_file(mod_body, file,preamble="from numba import njit, carray, float64, float32\nimport numpy as np\n"):
     mod = wrap_module(mod_body)
     print('Generating Source')
 

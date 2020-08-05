@@ -11,6 +11,7 @@ def library_function(funcs_map):
     prev = None
     #funcs = list(funcs_map)
     i=0
+    out=None
     for i, f in enumerate(funcs_map.items()):
 
         if f[1]['op'] == 'summing':
@@ -49,10 +50,13 @@ def library_function(funcs_map):
             prev.orelse.append(ifexp)
 
         prev = ifexp
+    if prev:
+        prev.orelse.append(ast.Raise(type=ast.Call(args=[ast.Str(s='Index out of bounds')], func=ast.Name(id='IndexError'), keywords={}), inst=None, tback=None))
 
-    prev.orelse.append(ast.Raise(type=ast.Call(args=[ast.Str(s='Index out of bounds')], func=ast.Name(id='IndexError'), keywords={}), inst=None, tback=None))
+    body=[args]
 
-    body=[args, out]
+    if out:
+        body+=[out]
 
 
 
@@ -69,11 +73,12 @@ from numba import njit, float64
 #TODO lookup var indices!
 
 def generate_program(graph: Graph, variables, indcs):
-    print(variables)
-    #sfsdf=sdfsdfsddf
+
     nodes = graph.topological_nodes()
     ops = {}
     program = []
+    llvm_program = []
+    llvm_funcs = []
     indices = []
     for n in nodes:
         print(n[0])
@@ -84,17 +89,9 @@ def generate_program(graph: Graph, variables, indcs):
         start_arg = len(indices)
 
         if node.node_type == NodeTypes.OP or node.node_type == NodeTypes.ASSIGN or node.node_type == NodeTypes.SUM or node.node_type == NodeTypes.EQUATION:
-            #if node.node_type == NodeTypes.EQUATION:
 
-             #   this_op = this_op_type = recurse_Attribute(node.func)
-              #  print(this_op)
-               # args = [graph.nodes_map[ii[0]] for ii in graph.edges_end(n, label='arg')]
-                #print('args: ',args)
-                #lenargs = len(args)
-
-                #indices.append([0, 0, 0])
             if node.node_type == NodeTypes.SUM:
-                print('here!')
+
                 this_op = 'summing'
                 this_op_type = 'summing'
                 node.ast_type = ast.Call
@@ -106,6 +103,8 @@ def generate_program(graph: Graph, variables, indcs):
                 lenargs = len(args)
                 lentargets = len(targets)
                 indices += [variables.index(a[0]) for a in args+targets]
+
+                llvm_program.append({'func': 'sum', 'targets': [t[0]for t in targets], 'args': [a[0] for a in args]})
 
 
             elif node.ast_type == ast.Call and node.node_type == NodeTypes.EQUATION:
@@ -122,6 +121,8 @@ def generate_program(graph: Graph, variables, indcs):
                 print('targets:', targets)
                 indices+=[variables.index(a) for a in args+targets]
 
+                llvm_program.append({'func': 'call', 'ext_func': this_op_type, 'args': args, 'targets': targets})
+
             elif node.ast_type == ast.Call:
 
                 this_op = this_op_type = recurse_Attribute(node.func)
@@ -132,6 +133,7 @@ def generate_program(graph: Graph, variables, indcs):
                 lentargets = len(targets)
                 print('targets:', targets)
                 indices += [variables.index(a[0]) for a in args+targets]
+                llvm_program.append({'func': 'call', 'ext_func': this_op_type, 'args': args, 'targets': targets})
             """
             elif node.ast_type == ast.BinOp:
 
@@ -175,7 +177,7 @@ def generate_program(graph: Graph, variables, indcs):
             program.append((ix,start_arg, end_arg, end_targets))
 
 
-    print(program)
+
     body = [library_function(ops)]
 
     #source = generate_code_file(body, 'libfile.py', preamble=preamble)
@@ -230,4 +232,4 @@ def generate_program(graph: Graph, variables, indcs):
             library(p[0], variables, indices[p[1]:p[2]], indices[p[2]])
     """
 
-    return run_program_source, body, program, indices
+    return run_program_source, body, program, indices, llvm_program
