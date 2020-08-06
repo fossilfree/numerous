@@ -290,8 +290,10 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     lenderiv = len(vars_update)
     vars_update += list(set(all_targeted).difference(vars_update))
     indcs = (lenstates, leninit, lenderiv)
+    print(vars_init)
+    print(vars_update)
     variables = vars_init + vars_update
-
+    print(variables)
     body = [
         ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=i) for i in vars_init[len(states):]])], value=ast.Subscript(slice=ast.Slice(lower=ast.Num(n=len(states)), upper=ast.Num(n=len(vars_init)), step=None), value=ast.Name(id='variables'))),
         ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=s) for s in states])], value=ast.Name(id='y')),
@@ -307,6 +309,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     llvm_end_seq = [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(vars_update, range(len(vars_init), len(vars_init)+len(vars_update)))]
 
     llvm_end_seq += [{'func': 'store', 'arg': 'deriv', 'ix': ix, 'var': d} for ix, d in enumerate(deriv)]
+
+    #llvm_end_seq += [{'func': 'store', 'ix': ix, 'var': s, 'arg': 'variables'} for ix, s in enumerate(states)]
 
     body.append(ast.Assign(targets=[ast.Subscript(slice=ast.Slice(lower=ast.Num(n=len(vars_init)), upper=ast.Num(n=len(vars_init)+len(vars_update)), step=None),
                                                value=ast.Name(id='variables'))],
@@ -351,11 +355,11 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     from numba import njit, float64, int64
 
-    diff_llvm, var_func, max_deriv = generate_llvm(llvm_sequence, llvm_funcs.values(), variables, variables_values_)
+    diff_llvm, var_func, var_func_set, max_deriv = generate_llvm(llvm_sequence, llvm_funcs.values(), variables, variables_values_, leninit, lenderiv)
 
     ###TESTS####
-    y = np.ones(lenstates, np.float64)
-    y_ = np.ones(lenstates, np.float32)
+    y = variables_values[:lenderiv]
+    y_ = variables_values[:lenderiv].astype(np.float32)
     #variables_ = variables_values.astype(np.float32)#np.array([0, 1, 0, 1, 0, 1, 0, 1], np.float32)
 
     from time import time
@@ -375,26 +379,18 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             derivatives = diff_llvm(y)
 
         return derivatives
-    #print('before')
-    #print('var vals: ', variables_values)
-    var_func(variables_values_, set_=1)
-    #var_start = var_func(variables_values_, set_=0)
-    #for n, v in zip(variables, var_start):
-    #    print(n, ': ', v)
-    #derivs = diff_bench_llvm(y_, 1)
 
-
-    #var_after =  var_func(variables_values_, set_=0)
-    #print('after')
-    #for n, v in zip(variables, var_after):
-    #    print(n, ': ', v)
+    #print('variables: ', var_func(0))
+    for k, v in zip(variables, var_func(0)):
+        print(k,': ',v)
     tic = time()
     derivs = diff_bench_llvm(y_, N)
     toc = time()
     print('llvm derivs: ', derivs)
     print(f'Exe time llvm - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
-
-
+    for k, v in zip(variables, var_func(0)):
+        print(k, ': ', v)
+    #sddgf=sdsdf
     N = 100000
 
     def test_kernel_nojit(variables, y):
@@ -468,6 +464,6 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     print('Exe time program timeit: ', timeit.timeit(
         lambda: dp.diff(variables_values, y), number=N)/N)
 
-    sdfsdf= sdfsdfsdfdd
 
-    return dp.diff, variables_values, variables
+
+    return diff_llvm, var_func, variables_values, variables

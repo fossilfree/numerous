@@ -330,7 +330,7 @@ class Model:
     def lower_model_codegen(self):
         #if len(self.gg.nodes)<100:
         #self.gg.as_graphviz('global')
-        self.compiled_compute, self.vars_ordered_values, self.vars_ordered = generate_equations(self.equations_parsed, self.eg, self.scoped_equations, self.scope_variables)
+        self.compiled_compute, self.var_func, self.vars_ordered_values, self.vars_ordered = generate_equations(self.equations_parsed, self.eg, self.scoped_equations, self.scope_variables)
         #generate_program(self.gg)
         #asdsad=asdsfsf
         #self.compiled_compute = generate(self.gg, self.vars_ordered_map, self.special_indcs)
@@ -744,7 +744,7 @@ class Model:
     def generate_numba_model_code_gen(self, start_time, number_of_timesteps):
         from numba import float64, int32
         compute = self.compiled_compute
-
+        var_func = self.var_func
         spec = [
             ('variables', float64[:]),
             ('historian_data', float64[:,:]),
@@ -763,9 +763,14 @@ class Model:
 
             def func(self, _t, y):
 
-                return compute(self.variables, y)
+                d = compute(y.astype(np.float32))
+
+                return d
 
             def historian_update(self, t):
+                #print(self.variables[:])
+                #self.variables = \
+                self.variables[:] = var_func(np.float32(0))
                 #print(self.variables[:])
                 self.historian_data[self.historian_ix][0] = t
                 self.historian_data[self.historian_ix][1:] = self.variables[:]

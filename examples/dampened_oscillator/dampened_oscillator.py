@@ -33,8 +33,8 @@ class DampenedOscillator(EquationBase, Item):
     def eval(self, scope):
         #scope.c = -1 + 1
         #z = 4 + 2
-        #Implement equations for the dampened oscillation
-        scope.v_dot = -scope.k * scope.x - scope.c * scope.v + scope.a*np.sign(scope.v)
+        scope.a  =  -scope.k * scope.x - scope.c * scope.v
+        scope.v_dot = scope.a
         scope.x_dot = scope.v
         #a1 = 2 * scope.x_dot
         #scope.v2_dot = scope.x_dot
@@ -55,8 +55,8 @@ class Spring_Equation(EquationBase):
 
     @Equation()
     def eval(self, scope):
-        scope.c = scope.k + 1
-        F = (np.abs(scope.x1 - scope.x2) - scope.dx0) * scope.c
+        scope.c = scope.k
+        F = (np.abs(scope.x1 - scope.x2) - scope.dx0) * scope.c*0
 
         scope.F1 = F  # [kg/s]
 
@@ -119,7 +119,7 @@ if __name__ == "__main__":
 
     # Define simulation
     s = simulation.Simulation(
-        model.Model(OscillatorSystem('system',  c=0, a=0, n=100)),
+        model.Model(OscillatorSystem('system', k=0.1,  c=0, a=0, n=2)),
         t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
     )
     # Solve and plot
@@ -127,8 +127,18 @@ if __name__ == "__main__":
     s.solve()
     toc = time()
     print('Execution time: ', toc-tic)
-    print(s.model.historian_df)
-    print(len(list(s.model.historian_df)))
-    s.model.historian_df['spc_mechanics_x2'].plot()
+    #print(s.model.historian_df)
+    #print(len(list(s.model.historian_df)))
+    #s.model.historian_df['oscillator0_mechanics_a'].plot()
+    #for i in range(10):
+    #    for k, v in zip(list(s.model.historian_df),s.model.historian_df.loc[i,:]):
+    #        print(k,': ',v)
+
+
+    #print(s.model.historian_df.describe())
+    for c in list(s.model.historian_df):
+        if not c == 'time':
+            #print(s.model.historian_df[c].describe())
+            s.model.historian_df[c].plot()
     plt.show()
     plt.interactive(False)
