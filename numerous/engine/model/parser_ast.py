@@ -246,11 +246,11 @@ def function_from_graph_generic(g: Graph, name, var_def_, decorators = [ast.Call
 
 def function_from_graph_generic_llvm(g: Graph, name, var_def_):
     fname = name + '_llvm'
-    signature = f'void({",".join(["float32" for a in var_def_.get_args()])}, CPointer(float32))'
+
     #decorators = [ast.Call(func=ast.Name(id='njit'), args=[ast.Str(s=signature)], keywords=[ast.keyword(arg="locals", value=ast.Call(args=[], ))])]
     #decorators = [ast.Call(func=ast.Name(id='njit'), args=[ast.Str(s=signature)],
      #                      keywords=[])]
-    decorators = []
+
     lineno_count = 1
 
     top_nodes = g.topological_nodes()
@@ -279,22 +279,26 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
                 body.append(ast_assign)
 
     len_targs = len(var_def_.get_targets())
-    if len_targs > 0:
-        return_c = ast.Assign(targets=[ast.Name(id='e')], value=ast.Call(args=[ast.Name(id='r'), ast.Tuple(elts=[ast.Num(n=len_targs)])], func=ast.Name(id='carray'), keywords=[]))
-        return_a = ast.Assign(targets=[ast.Subscript(slice=ast.Slice(upper=ast.Num(n=len_targs), lower=ast.Num(n=0),step=None), value=ast.Name(id='e'))],
-                              value=ast.Tuple(elts=[ast.Name(id=t) for t in var_def_.get_targets()]))
+    #if len_targs > 0:
+        #return_c = ast.Assign(targets=[ast.Name(id='e')], value=ast.Call(args=[ast.Name(id='r'), ast.Tuple(elts=[ast.Num(n=len_targs)])], func=ast.Name(id='carray'), keywords=[]))
+        #return_a = ast.Assign(targets=[ast.Subscript(slice=ast.Slice(upper=ast.Num(n=len_targs), lower=ast.Num(n=0),step=None), value=ast.Name(id='e'))],
+                              #value=ast.Tuple(elts=[ast.Name(id=t) for t in var_def_.get_targets()]))
 
                               #value=ast.Tuple(elts=var_def_.get_targets()))
 
-        body.append(return_c)
+        #body.append(return_c)
 
-        body.append(return_a)
-    args = dot_dict(args=var_def_.get_args() + [ast.Name(id='r')], vararg=None, defaults=[], kwarg=None)
-
+        #body.append(return_a)
+    args = dot_dict(args=var_def_.get_args() + var_def_.get_targets(), vararg=None, defaults=[], kwarg=None)
+    signature = f'void({", ".join(["float32" for a in var_def_.get_args()])}, {", ".join(["CPointer(float32)" for a in var_def_.get_targets()])})'
+    print(signature)
+    decorators = []
 
     func = wrap_function(fname, body, decorators=decorators, args=args)
 
-    return func, var_def_.vars_inds_map, signature, fname, var_def_.args
+
+
+    return func, var_def_.vars_inds_map, signature, fname, var_def_.args, var_def_.targets
 
 def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='_', parent: EquationEdge=None):
     # print(ao)

@@ -32,7 +32,7 @@ print('target triple: ', target_machine.triple)
 
 ee = llvm.create_mcjit_compiler(llmod_, target_machine)
 #def generate():
-def generate(program, functions):
+def generate(program, functions, variables, variable_values):
     #@njit('void(float32, float32, CPointer(float32))')
     def exp(s_v, s_x, r):
         s_x_dot = s_v + s_x
@@ -53,7 +53,7 @@ def generate(program, functions):
     ext_funcs = {}
     #Wrap the functions and make them available in the module
     for f in functions:
-       # print('func: ', f['func'])
+        print('func: ', f['signature'])
         f_c = cfunc(sig=f['signature'])(f['func'])
 
         if not 'name' in  f:
@@ -63,7 +63,7 @@ def generate(program, functions):
 
         f_c_sym = llvm.add_symbol(name, f_c.address)
 
-        fnty_c_func = ll.FunctionType(ll.VoidType(),[ll.FloatType() for i in f['args']] + [ll.FloatType().as_pointer()])
+        fnty_c_func = ll.FunctionType(ll.VoidType(),[ll.FloatType() for i in f['args']] + [ll.FloatType().as_pointer() for i in f['targets']])
         fnty_c_func.as_pointer(f_c_sym)
         f_llvm = ll.Function(module, fnty_c_func, name=name)
 
@@ -142,6 +142,14 @@ def generate(program, functions):
     var_global = ll.GlobalVariable(module, ll.ArrayType(ll.FloatType(), max_var), 'global_var')
     var_global.initializer = ll.Constant(ll.ArrayType(ll.FloatType(), max_var), [0]*max_var)
 
+    ptr_llvm = {}
+    val_llvm = {}
+
+    for var, val in zip(variables, variable_values):
+        ptr_llvm[var] = ll.GlobalVariable(module, ll.FloatType(), var)
+        ptr_llvm[var].initializer = ll.Constant(ll.FloatType(), val)
+        val_llvm[var] = builder.load(ptr_llvm[var], var+'_val')
+
     max_ret = 1000
     var_returns = ll.GlobalVariable(module, ll.ArrayType(ll.FloatType(), max_ret), 'global_returns')
     var_returns.initializer= ll.Constant(ll.ArrayType(ll.FloatType(), max_ret), [0] * max_ret)
@@ -174,38 +182,42 @@ def generate(program, functions):
     for ix, p in enumerate(program):#+program[14:]:
 
         if p['func'] == 'load':
-            index = builder.phi(ll.IntType(32))
-            index.add_incoming(ll.Constant(index.type, p['ix']), bb_entry)
+
 
             if p['arg'] == 'variables':
+                pass
 
-                #ptr = builder.gep(func.args[0], [index])
-                ptr = builder.gep(var_global, [index0, index])
+                #ptr = builder.gep(var_global, [index0, index])
             elif p['arg'] == 'y':
-
+                index = builder.phi(ll.IntType(32))
+                index.add_incoming(ll.Constant(index.type, p['ix']), bb_entry)
 
                 ptr = builder.gep(func.args[0], [index])
+                value = builder.load(ptr, name=p['var'])
+                val_llvm[p['var']] = value
+
+
             else:
                 ValueError('Wrong arg: ', p['arg'])
 
-            value = builder.load(ptr, name=p['var'])
-            values[p['var']] = value
+
 
         elif p['func'] == 'store':
 
-            index = builder.phi(ll.IntType(32))
-            index.add_incoming(ll.Constant(index.type,  p['ix']), bb_entry)
+
 
             if p['arg'] == 'variables':
-
-                ptr = builder.gep(var_global, [index0, index])
+                pass
+                #ptr = builder.gep(var_global, [index0, index])
 
             elif p['arg'] == 'deriv':
-
+                index = builder.phi(ll.IntType(32))
+                index.add_incoming(ll.Constant(index.type, p['ix']), bb_entry)
                 ptr = builder.gep(var_deriv, [index0, index])
+                builder.store(val_llvm[p['var']], ptr)
             else:
                 ValueError('Wrong arg: ', p['arg'])
-            builder.store(values[p['var']], ptr)
+
 
 
 
@@ -216,61 +228,61 @@ def generate(program, functions):
             #arr = builder.phi(ll.ArrayType(ll.FloatType(), 1).as_pointer())
 
             #print(p['ext_func'])
-            for i, t in enumerate(p['targets']):
-                if not t in values:
+            #for i, t in enumerate(p['targets']):
+                #if not t in values:
 
-                    values[t] = builder.phi(ll.FloatType(), t)
-                    values[t].add_incoming(ll.Constant(values[t].type, 0), bb_entry)
+                #    values[t] = builder.phi(ll.FloatType(), t)
+                #    values[t].add_incoming(ll.Constant(values[t].type, 0), bb_entry)
                     #raise ValueError('AAARG')
             #if not ix in [13, 15]:
 
-            builder.call(ext_funcs[p['ext_func']],[values[a] for a in p['args']]+[builder.gep(var_returns, [index0, index0 ])])
+            builder.call(ext_funcs[p['ext_func']],[val_llvm[a] for a in p['args']] + [ptr_llvm[t] for t in p['targets']])
             #builder.call(exp, [values[a] for a in p['args']] + [builder.gep(var_returns, [index0, index0])])
 
 
-            for i, t in enumerate(p['targets']):
-                index = builder.phi(ll.IntType(32))
-                index.add_incoming(ll.Constant(index.type, i), bb_entry)
-                targ_pointer = builder.gep(var_returns, [index0, index])
-                values[t] = builder.load(targ_pointer)
+            #for i, t in enumerate(p['targets']):
+            #    index = builder.phi(ll.IntType(32))
+            #    index.add_incoming(ll.Constant(index.type, i), bb_entry)
+            #    targ_pointer = builder.gep(var_returns, [index0, index])
+            #    val_llvm[t] = builder.load(targ_pointer)
 
 
-        elif p['func'] == 'add':
 
-            values[p['var']] = builder.fadd(values[p['args'][0]],values[p['args'][1]])
+
+
 
         elif p['func'] == 'sum':
             accum = builder.phi(ll.FloatType())
             accum.add_incoming(ll.Constant(accum.type, 0), bb_entry)
+            la = len(p['args'])
+            if la == 0:
+                pass
+            elif la == 1:
+                for t in p['targets']:
+                    values[t] = val_llvm[p['args'][0]]
+                    val_llvm[t] = val_llvm[p['args'][0]]
+            elif la == 2:
+                for t in p['targets']:
+                    values[t] = builder.fadd(val_llvm[p['args'][0]], val_llvm[p['args'][1]])
+                    val_llvm[t] = values[t]
+            else:
+                accum = builder.fadd(val_llvm[p['args'][0]], val_llvm[p['args'][1]])
+                for i, a in enumerate(p['args'][2:-1]):
+                    accum = builder.fadd(accum, val_llvm[a])
 
-            for a in p['args']:
-                accum = builder.fadd(values[a], accum)
+                values[p['targets'][0]] = builder.fadd(accum, val_llvm[p['args'][-1]])
+                val_llvm[p['targets'][0]] = values[p['targets'][0]]
+
+                for t in p['targets'][1:]:
+                    values[t] = values[p['targets'][0]]
+                    val_llvm[t] = values[p['targets'][0]]
+
+
 
             #v_sum = builder.fadd(accum, zero)
 
-            for t in p['targets']:
-                values[t] = accum
 
 
-        elif p['func'] == 'sub':
-
-            values[p['var']] = builder.fsub(values[p['args'][0]],values[p['args'][1]])
-
-        elif p['func'] == 'mult':
-
-            values[p['var']] = builder.fmul(values[p['args'][0]],values[p['args'][1]])
-
-        elif p['func'] == 'div':
-
-            values[p['var']] = builder.fdiv(values[p['args'][0]],values[p['args'][1]])
-
-        elif p['func'] == 'sign':
-
-            values[p['var']] = builder.select(builder.fcmp_ordered('<',values[p['arg']], zero), m1, p1)
-
-        elif p['func'] == 'abs':
-
-            values[p['var']] = builder.select(builder.fcmp_ordered('<',values[p['arg']], zero), builder.fmul(m1, values[p['arg']]), values[p['arg']])
 
         else:
             raise EnvironmentError('Unknown function: ' + str(p['func']))

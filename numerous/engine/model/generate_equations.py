@@ -43,6 +43,49 @@ class Vardef:
             return [self.format(a) for a in self.targets]
         else:
             return self.targets
+
+class Vardef_llvm:
+    def __init__(self):
+        self.vars_inds_map = []
+        self.targets = []
+        self.args = []
+
+    def format(self, var):
+        return ast.Name(id=var.replace('scope.', 's_'))
+
+    def format_target(self, var):
+        return ast.Subscript(slice=ast.Index(value=ast.Num(n=0)), value=ast.Call(args=[ast.Name(id=var.replace('scope.', 's_')), ast.Tuple(elts=[ast.Num(n=1)])], func=ast.Name(id='carray'), keywords=[]))
+
+
+    def var_def(self, var, read=True):
+        if not var in self.vars_inds_map:
+            self.vars_inds_map.append(var)
+        if read and 'scope.' in var:
+            if var not in self.targets and var not in self.args:
+                self.args.append(var)
+        elif 'scope.' in var:
+
+            if var not in self.targets:
+                self.targets.append(var)
+
+        #ix = self.vars_inds_map.index(var)
+        if var in self.targets:
+            return self.format_target(var)
+        else:
+            return self.format(var)
+
+    def get_args(self, form=True):
+        if form:
+            return [self.format(a) for a in self.args]
+        else:
+            return self.args
+
+    def get_targets(self, form=True):
+        if form:
+            return [self.format(a) for a in self.targets]
+        else:
+            return self.targets
+
 class SumCount:
     def __init__(self):
         self.count = -1
@@ -135,11 +178,12 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     eq_vardefs={}
     for eq_key, eq in equations.items():
         vardef = Vardef()
+        vardef_llvm = Vardef_llvm()
         func, vardef_ = function_from_graph_generic(eq[2],eq_key.replace('.','_'), var_def_=vardef, decorators = ["njit"])
-        func_llvm, vardef__, signature, fname, args = function_from_graph_generic_llvm(eq[2], eq_key.replace('.', '_'), var_def_=vardef)
-        llvm_funcs[eq_key.replace('.', '_')]={'func_ast': func_llvm, 'signature': signature, 'name': fname, 'args': args}
-        print('args: ', vardef.args)
-        print('targs: ', vardef.targets)
+        func_llvm, vardef__, signature, fname, args, targets = function_from_graph_generic_llvm(eq[2], eq_key.replace('.', '_'), var_def_=vardef_llvm)
+        llvm_funcs[eq_key.replace('.', '_')]={'func_ast': func_llvm, 'signature': signature, 'name': fname, 'args': args, 'targets': targets}
+        print('args: ', vardef_llvm.args)
+        print('targs: ', vardef_llvm.targets)
         eq_vardefs[eq_key] = vardef
 
         mod_body.append(func)
@@ -307,7 +351,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     from numba import njit, float64, int64
 
-    diff_llvm, var_func, max_deriv = generate_llvm(llvm_sequence, llvm_funcs.values())
+    diff_llvm, var_func, max_deriv = generate_llvm(llvm_sequence, llvm_funcs.values(), variables, variables_values_)
 
     ###TESTS####
     y = np.ones(lenstates, np.float64)
@@ -315,7 +359,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #variables_ = variables_values.astype(np.float32)#np.array([0, 1, 0, 1, 0, 1, 0, 1], np.float32)
 
     from time import time
-    N = 1000000
+    N = 10000000
 
     #print(var_func(variables_values_, 1))
 
