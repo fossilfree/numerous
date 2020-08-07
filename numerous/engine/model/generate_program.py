@@ -23,7 +23,7 @@ def library_function(funcs_map):
 
         elif f[1]['op_type'] == ast.Call:
 
-            print(f[0])
+            #print(f[0])
             expr = ast.Assign(targets=[ast.Subscript(slice=ast.Name(id='target_indcs'), value=ast.Name(id='variables'))], value=ast.Call(args=[ast.Subscript(slice=ast.Index(value=ast.Num(n=i)), value=ast.Name(id='args')) for i in range(f[1]['lenargs'])], func=ast.Name(id=f[1]['op']), keywords={}))
 
         elif f[1]['op_type'] == ast.BinOp:
@@ -81,10 +81,10 @@ def generate_program(graph: Graph, variables, indcs):
     llvm_funcs = []
     indices = []
     for n in nodes:
-        print(n[0])
+        #print(n[0])
 
         node = n[1]
-        print(node.node_type)
+        #print(node.node_type)
 
         start_arg = len(indices)
 
@@ -95,11 +95,11 @@ def generate_program(graph: Graph, variables, indcs):
                 this_op = 'summing'
                 this_op_type = 'summing'
                 node.ast_type = ast.Call
-                print(this_op)
+                #(this_op)
                 args = [graph.nodes_map[ii[0]] for ii in graph.edges_end(n, label='value')]
-                print(args)
+                #print(args)
                 targets = [graph.nodes_map[ii[1]] for ii in graph.edges_start(n, label='target')]
-                print('targets:', targets)
+                #('targets:', targets)
                 lenargs = len(args)
                 lentargets = len(targets)
                 indices += [variables.index(a[0]) for a in args+targets]
@@ -110,15 +110,15 @@ def generate_program(graph: Graph, variables, indcs):
             elif node.ast_type == ast.Call and node.node_type == NodeTypes.EQUATION:
 
                 this_op = this_op_type = recurse_Attribute(node.func)
-                print(this_op)
+                #print(this_op)
                 # TODO this is really a hack!
                 args = node.scope_var['args']
                 targets = node.scope_var['targets']
-                print(args)
+                #print(args)
 
                 lenargs = len(args)
                 lentargets = len(targets)
-                print('targets:', targets)
+                #('targets:', targets)
                 indices+=[variables.index(a) for a in args+targets]
 
                 llvm_program.append({'func': 'call', 'ext_func': this_op_type, 'args': args, 'targets': targets})
@@ -126,12 +126,12 @@ def generate_program(graph: Graph, variables, indcs):
             elif node.ast_type == ast.Call:
 
                 this_op = this_op_type = recurse_Attribute(node.func)
-                print(this_op)
+                #print(this_op)
                 args = [graph.nodes_map[ii[0]] for ii in graph.edges_end(n, label='args')]
                 targets = [graph.nodes_map[ii[0]] for ii in graph.edges_start(n, label='target')]
                 lenargs = len(args)
                 lentargets = len(targets)
-                print('targets:', targets)
+                #('targets:', targets)
                 indices += [variables.index(a[0]) for a in args+targets]
                 llvm_program.append({'func': 'call', 'ext_func': this_op_type, 'args': args, 'targets': targets})
             """
@@ -170,7 +170,7 @@ def generate_program(graph: Graph, variables, indcs):
             else:
                 ix = len(ops.values())
                 ops[this_op_type] = dict(lenargs=lenargs, lentargets=lentargets, op_type=node.ast_type, op=this_op)
-            print(lentargets)
+            #print(lentargets)
             end_arg = start_arg + lenargs
             end_targets = end_arg + lentargets
 

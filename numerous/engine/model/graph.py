@@ -174,7 +174,7 @@ spec = [
     ('node_types', int64[:]),
     ('edges', int64[:, :]),
     ('children', int64[:, :]),
-    ('parents', int64[:, :]),
+  #  ('parents', int64[:, :]),
     ('parent_edges', int64[:, :]),
     ('children_edges', int64[:, :]),
     ('ancestors', int64[:, :]),
@@ -190,7 +190,7 @@ spec = [
 class _Graph:
     def __init__(self, n_nodes: int64, edges: int64[:], node_types):
         #print('!!!!')
-        self.n_children_max = 50
+        self.n_children_max = 100
         self.n_nodes = n_nodes
         self.nodes = np.arange(self.n_nodes)
         #print('1')
@@ -342,7 +342,7 @@ class _Graph:
 
         return nodes, edges, dep_derivatives[:deriv_dep]
 
-    def get_dependants_graph(self, nodes):
+    def get_dependants_graph(self, nodes_):
 
         edges = np.zeros_like(self.edges)
 
@@ -350,7 +350,7 @@ class _Graph:
 
         edges_visited = np.zeros(len(self.edges), dtype=int64)
         n_visited = int64(0)
-        for n in nodes:
+        for n in nodes_:
 
 
             ix, n_visited = walk_children(self.parent_edges, self.children_edges, self.edges, n, edges, ix, edges_visited, n_visited, self.node_types)
@@ -437,7 +437,9 @@ from numerous.engine.variables import VariableType
 
 class Graph:
     def __init__(self, nodes=[], edges=None):
-
+        self.marked_remove_nodes = []
+        self.marked_remove_edges = []
+        self.marked_remove_node_edges = []
         if len(nodes) >0:
             #print('ss', nodes)
             self.nodes_map = {n[0]: n for i, n in enumerate(nodes)}
@@ -452,8 +454,19 @@ class Graph:
                     ValueError('Missing stuff: ', str(e))
 
         self.edges = edges if edges else []
+        self.end_edges_map = None
+        self.start_edges_map = None
+        self.reset_internal()
+
+
+    def reset_internal(self):
+        if self.end_edges_map or self.start_edges_map:
+            print('canning maps!')
 
         self.lower_graph = None
+        self.end_edges_map = None
+        self.start_edges_map = None
+        self.nodes = None
 
     def make_lower_graph(self, top_sort=False):
         nodes = self.get_nodes()
@@ -513,24 +526,50 @@ class Graph:
         return list(self.nodes_map.values())
 
     def add_node(self, n, ignore_exist=False):
+        self.reset_internal()
         if not n[0] in self.nodes_map:
             self.nodes_map[n[0]] = n
-            self.lower_graph = None
-            self.nodes =  None
+
+
         elif not ignore_exist:
             raise ValueError('Node <',n[0],'> already in graph!!')
         else:
             pass#print('node ignored')
 
     def remove_node(self, n):
+        self.lower_graph = None
+        self.nodes = None
+        self.reset_internal()
+        #if self.end_edges_map:
+        #    self.end_edges_map.pop(n)
+        #if self.start_edges_map:
+        #    self.start_edges_map.pop(n)
         if n in self.nodes_map:
             self.nodes_map.pop(n)
 
-    def remove_edge(self, edge):
-        if edge in self.edges:
-            self.edges.pop(self.edges.index(edge))
+    def remove_node_multi(self, nodes):
+        self.lower_graph = None
+        self.nodes = None
+        self.reset_internal()
+        #if self.end_edges_map:
+        #    self.end_edges_map.pop(n)
+        #if self.start_edges_map:
+        #    self.start_edges_map.pop(n)
+        for n in nodes:
+            if n in self.nodes_map:
+                self.nodes_map.pop(n)
+
+    def remove_edge_multi(self, edges):
+        self.reset_internal()
+        poplist = []
+        for i, edge in enumerate(self.edges):
+            if edge in edges:
+                poplist.append(i)
+        for p in reversed(poplist):
+            self.edges.pop(p)
 
     def add_edge(self, e, ignore_missing_nodes=False):
+        self.reset_internal()
         #check nodes exist
         if not ignore_missing_nodes:
             if not e[0] in self.nodes_map:
@@ -542,28 +581,157 @@ class Graph:
             raise ValueError('missing something ', str(e))
 
         self.edges.append(e)
-        self.lower_graph = None
+        #self.reset_internal()
 
-    def edges_end(self, node, label=None):
+    def build_edges_maps(self):
+        self.end_edges_map = {}
+        self.start_edges_map = {}
+        for n in self.nodes_map.keys():
+            self.end_edges_map[n] = {}
+            self.start_edges_map[n] = {}
+
+        for e in self.edges:
+            if not e[0] in self.start_edges_map:
+                self.start_edges_map[e[0]] = {}
+
+            if not e[1] in self.end_edges_map:
+                self.end_edges_map[e[1]] = {}
+
+            if not e[2].label in self.start_edges_map[e[0]]:
+                self.start_edges_map[e[0]][e[2].label] = []
+
+            self.start_edges_map[e[0]][e[2].label].append(e)
+
+            if not "none" in self.start_edges_map[e[0]]:
+                self.start_edges_map[e[0]]["none"] = []
+
+            self.start_edges_map[e[0]]["none"].append(e)
+
+            if not e[2].label in self.end_edges_map[e[1]]:
+                self.end_edges_map[e[1]][e[2].label] = []
+            self.end_edges_map[e[1]][e[2].label].append(e)
+
+            if not "none" in self.end_edges_map[e[1]]:
+                self.end_edges_map[e[1]]["none"] = []
+
+            self.end_edges_map[e[1]]["none"].append(e)
+
+    def edges_end_(self, node, label=None, max=1000000):
+
+        #from time import time
+        #tic = time()
+        #for i in range(1000):
         found = []
-
         for e in self.edges:
             if e[1] == node[0]:
                 #print('edge: ',e)
                 if not label or label in e[2].label:
                     found.append(e)
+                    if len(found)>=max:
+                        break
+        #toc = time()
+
+        found_old = self.edges_end_(node, label, max)
+        #tac = time()
+
+        #print(toc-tic)
+        ##print(tac-toc)
+        print('label: ', node[0])
+        print(label)
+        if len(found) != len(found_old):
+        #print(len(found_old))
+            print(found)
+            print(found_old)
+
         return found
 
-    def edges_start(self, node, label=None):
+    def edges_end(self, node, label=None, max = 1000000):
+        #if not self.lower_graph:
+        #    self.make_lower_graph()
+
+        #ix = list(self.nodes_map.keys()).index(node[0])
+        #found = []
+        #print(ix)
+        #if not ix <0:
+        #    parents = [self.edges[e] for e in self.lower_graph.parent_edges[ix,1:self.lower_graph.parent_edges[ix,0]+1]]
+        #    found = [p for p in parents if label in p[2].label or label is None]
+
+
+        if not self.end_edges_map:
+
+            self.build_edges_maps()
+
+        if not label:
+            return self.end_edges_map[node[0]]["none"]
+
+        found = []
+        for k in self.end_edges_map[node[0]].keys():
+            if label in k:
+               found += self.end_edges_map[node[0]][k]
+        return [f for f in found if f in self.edges]
+
+    def mark_remove_edge(self, edge):
+        self.marked_remove_edges.append(edge)
+
+    def mark_remove_node(self, node):
+        self.marked_remove_nodes.append(node)
+
+    def mark_remove_node_and_edges(self, node):
+        self.marked_remove_node_edges.append(node)
+
+    def clean(self):
+
+        self.remove_edge_multi(self.marked_remove_edges)
+
+        self.remove_node_multi(self.marked_remove_nodes)
+        print('!')
+
+        self.remove_node_and_edges_multi(self.marked_remove_node_edges)
+        print('!!')
+        self.marked_remove_nodes = []
+        self.marked_remove_edges = []
+        self.marked_remove_node_edges = []
+
+    def edges_start(self, node, label=None, max = 1000000):
+        #if not self.lower_graph:
+        #    self.make_lower_graph()
+
+        #ix = list(self.nodes_map.keys()).index(node[0])
+        #found = []
+        #print(ix)
+        #if not ix <0:
+        #    parents = [self.edges[e] for e in self.lower_graph.parent_edges[ix,1:self.lower_graph.parent_edges[ix,0]+1]]
+        #    found = [p for p in parents if label in p[2].label or label is None]
+
+
+        if not self.start_edges_map:
+            if not self.end_edges_map:
+                self.build_edges_maps()
+
+        if not label:
+            return self.start_edges_map[node[0]]["none"]
+
+        found = []
+        for k in self.start_edges_map[node[0]].keys():
+            if label in k:
+               found += self.start_edges_map[node[0]][k]
+
+        return [f for f in found if f in self.edges]
+
+
+    def edges_start_(self, node, label=None, max=1000000):
         found = []
 
         for e in self.edges:
             if e[0] == node[0]:
                 if not label or label in e[2].label:
                     found.append(e)
+                    if len(found)>=max:
+                        break
         return found
 
     def graph_from_path(self, path):
+
         edges = []
 
         prev = None
@@ -627,7 +795,7 @@ class Graph:
         s_nodes = list(self.get_nodes())
 
         #'my nodes: ', s_nodes)
-        l_nodes = [s_nodes.index(node) for node in nodes]
+        l_nodes = np.array([s_nodes.index(node) for node in nodes], np.int32)
         #aprint('nod: ', nodes)
         if len(l_nodes):
             nodes, edges = self.lower_graph.get_dependants_graph(l_nodes)
@@ -680,11 +848,13 @@ class Graph:
         plt.show()
 
     def set_node_map(self, node_map):
+        self.reset_internal()
         self.nodes_map = node_map
         self.nodes = self.nodes_map.values()
 
     def update(self, other):
         #print('update!')
+        self.reset_internal()
         self.nodes_map.update(other.nodes_map)
         self.nodes = self.nodes_map.values()
         for e in other.edges:
@@ -707,24 +877,27 @@ class Graph:
         return hash_
 
     def replace_nodes(self, node, nodes_to_replace):
-        for nr in nodes_to_replace:
-            for e in self.edges:
-                ee = list(e)
-                upd =False
-                if e[0] == nr[0]:
-                    ee[0] = node[0]
-                    upd = True
+        #for nr in nodes_to_replace:
+        n0 = node[0]
+        ntr = [n[0] for n in nodes_to_replace]
+        for i, e in enumerate(self.edges):
+            ee = list(e)
+            upd =False
+            if e[0] in ntr:
+                ee[0] = n0
+                upd = True
 
-                if e[1] == nr[0]:
+            if e[1] in ntr:
 
-                    ee[1] = node[0]
-                    upd = True
+                ee[1] = n0
+                upd = True
 
 
-                if upd:
-                    self.edges[self.edges.index(e)]=tuple(ee)
-            if not nr[0] == node[0]:
-                self.remove_node(nr[0])
+            if upd:
+                self.edges[i]=tuple(ee)
+        for nr in ntr:
+            if not nr == n0:
+                self.mark_remove_node(nr)
 
     def remove_node_and_edges(self, node):
         poplist = []
@@ -739,7 +912,18 @@ class Graph:
 
         self.remove_node(node)
 
+    def remove_node_and_edges_multi(self, nodes):
+        poplist = []
+        for i, e in enumerate(self.edges):
+            if e[0] in nodes or e[1] in nodes:
+                poplist.append(i)
 
+        #poplist.sort(reverse=True)
+
+        for p in reversed(poplist):
+            self.edges.pop(p)
+
+        self.remove_node_multi(nodes)
 
 """
 @njit

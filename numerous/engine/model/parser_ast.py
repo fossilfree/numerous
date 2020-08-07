@@ -4,6 +4,7 @@ from textwrap import dedent
 from numerous.engine.model.graph import Graph
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute, Vardef, dot_dict, wrap_function, wrap_module
 from numerous.engine.variables import VariableType
+import logging
 
 op_sym_map = {ast.Add: '+', ast.Sub: '-', ast.Div: '/', ast.Mult: '*', ast.Pow: '**', ast.USub: '*-1',
               ast.Lt: '<', ast.LtE: '<=', ast.Gt: '>', ast.GtE: '>=', ast.Eq: '==', ast.NotEq: '!='}
@@ -101,17 +102,17 @@ def node_to_ast(n: EquationNode, g: Graph, var_def, read=True):
             return ast.Call(args=[ast.Num(value=n[1].value)], func=ast.Name(id='float32'), keywords={})
         elif n[1].ast_type == ast.BinOp:
 
-            left_node = g.nodes_map[g.edges_end(n, label='left')[0][0]]
+            left_node = g.nodes_map[g.edges_end(n, label='left',max=1)[0][0]]
             left_ast = node_to_ast(left_node, g, var_def)
 
-            right_node = g.nodes_map[g.edges_end(n, label='right')[0][0]]
+            right_node = g.nodes_map[g.edges_end(n, label='right',max=1)[0][0]]
             right_ast = node_to_ast(right_node, g, var_def)
 
             ast_binop = ast.BinOp(left=left_ast, right=right_ast, op=n[1].ast_op)
             return ast_binop
 
         elif n[1].ast_type == ast.UnaryOp:
-            operand = g.nodes_map[g.edges_end(n, label='operand')[0][0]]
+            operand = g.nodes_map[g.edges_end(n, label='operand',max=1)[0][0]]
             operand_ast = node_to_ast(operand, g, var_def)
 
             ast_unop = ast.UnaryOp(operand=operand_ast, op=n[1].ast_op)
@@ -130,13 +131,13 @@ def node_to_ast(n: EquationNode, g: Graph, var_def, read=True):
             return ast_Call
 
         elif n[1].ast_type == ast.IfExp:
-            body = g.nodes_map[g.edges_end(n, label='body')[0][0]]
+            body = g.nodes_map[g.edges_end(n, label='body',max=1)[0][0]]
             body_ast = node_to_ast(body, g, var_def)
 
-            orelse = g.nodes_map[g.edges_end(n, label='orelse')[0][0]]
+            orelse = g.nodes_map[g.edges_end(n, label='orelse',max=1)[0][0]]
             orelse_ast = node_to_ast(orelse, g, var_def)
 
-            test = g.nodes_map[g.edges_end(n, label='test')[0][0]]
+            test = g.nodes_map[g.edges_end(n, label='test',max=1)[0][0]]
             test_ast = node_to_ast(test, g, var_def)
 
             ast_ifexp = ast.IfExp(body=body_ast, orelse=orelse_ast, test=test_ast)
@@ -150,7 +151,7 @@ def node_to_ast(n: EquationNode, g: Graph, var_def, read=True):
                 a_ast = node_to_ast(a, g, var_def)
                 comp_ast.append(a_ast)
 
-            left = g.nodes_map[g.edges_end(n, label='left')[0][0]]
+            left = g.nodes_map[g.edges_end(n, label='left',max=1)[0][0]]
             left_ast = node_to_ast(left, g, var_def)
 
             ast_Comp = ast.Compare(left=left_ast, comparators=comp_ast, ops=n[1].ops)
@@ -183,10 +184,10 @@ def function_from_graph(g: Graph, name, decorators = [ast.Call(func=ast.Name(id=
 
         if n[1].ast_type == ast.Assign or n[1].ast_type == ast.AugAssign:
             # n[1].id = n[0]
-            value_node = g.nodes_map[g.edges_end(n, label='value')[0][0]]
+            value_node = g.nodes_map[g.edges_end(n, label='value',max=1)[0][0]]
             value_ast = node_to_ast(value_node, g, var_def)
 
-            target_node = g.nodes_map[g.edges_start(n, label='target0')[0][1]]
+            target_node = g.nodes_map[g.edges_start(n, label='target0',max=1)[0][1]]
             target_ast = node_to_ast(target_node, g, var_def)
 
             if value_ast and target_ast:
@@ -218,10 +219,10 @@ def function_from_graph_generic(g: Graph, name, var_def_, decorators = [ast.Call
 
         if n[1].ast_type == ast.Assign or n[1].ast_type == ast.AugAssign:
             # n[1].id = n[0]
-            value_node = g.nodes_map[g.edges_end(n, label='value')[0][0]]
+            value_node = g.nodes_map[g.edges_end(n, label='value',max=1)[0][0]]
             value_ast = node_to_ast(value_node, g, var_def)
 
-            target_node = g.nodes_map[g.edges_start(n, label='target0')[0][1]]
+            target_node = g.nodes_map[g.edges_start(n, label='target0',max=1)[0][1]]
             target_ast = node_to_ast(target_node, g, var_def, read=False)
 
             if value_ast and target_ast:
@@ -264,10 +265,10 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
 
         if n[1].ast_type == ast.Assign or n[1].ast_type == ast.AugAssign:
             # n[1].id = n[0]
-            value_node = g.nodes_map[g.edges_end(n, label='value')[0][0]]
+            value_node = g.nodes_map[g.edges_end(n, label='value',max=1)[0][0]]
             value_ast = node_to_ast(value_node, g, var_def)
 
-            target_node = g.nodes_map[g.edges_start(n, label='target0')[0][1]]
+            target_node = g.nodes_map[g.edges_start(n, label='target0',max=1)[0][1]]
             target_ast = node_to_ast(target_node, g, var_def, read=False)
 
             if value_ast and target_ast:
@@ -291,7 +292,7 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
         #body.append(return_a)
     args = dot_dict(args=var_def_.get_args() + var_def_.get_targets(), vararg=None, defaults=[], kwarg=None)
     signature = f'void({", ".join(["float32" for a in var_def_.get_args()])}, {", ".join(["CPointer(float32)" for a in var_def_.get_targets()])})'
-    print(signature)
+    #print(signature)
     decorators = []
 
     func = wrap_function(fname, body, decorators=decorators, args=args)
@@ -578,7 +579,7 @@ def parse_eq(scope_id, item, global_graph, equation_graph, nodes_dep, tag_vars, 
                 targeted = False
                 read = False
                 for e in g_qualified.edges:
-                    print(e)
+                    #print(e)
                     if e[1] == n[0]:
                         equation_graph.add_edge((eq_name, n[0], EquationEdge(start=eq_name, end=n[0], label='target'+(n[1].scope_var.tag if n[1].scope_var else "")), (n[1].scope_var.tag if n[1].scope_var else "")), ignore_missing_nodes=False)
                         targeted = True
@@ -606,6 +607,7 @@ def parse_eq(scope_id, item, global_graph, equation_graph, nodes_dep, tag_vars, 
 
 def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_vars, scope_map):
     mg = Graph()
+    logging.info('process mappings')
     for m in mappings:
         target_var = scope_vars[m[0]]
         #prefix = scope_map[target_var.parent_scope_id]
@@ -666,7 +668,11 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
             if '-' in ivar_id:
                 raise ValueError('argh')
 
-            ivar = EquationNode(None, file='mapping', name=m, ln=0, id=ivar_id, label=ivar_var.tag, ast_type=ast.Attribute, node_type=NodeTypes.VAR)
+
+            #print(ivar_id)
+            scope_var = scope_vars[ivar_var.id]
+
+            ivar = EquationNode(None, file='mapping', name=m, ln=0, id=ivar_id, label=ivar_var.tag, ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=scope_var)
             gg.add_node((ivar.id, ivar, ivar_var.id, ), ignore_exist=True)
             equation_graph.add_node((ivar.id, ivar, ivar_var.id,), ignore_exist=True)
             if prev:
@@ -693,86 +699,112 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
 
         #ast.Assign(targets=ast.Attribute(attr_ast(m[0])), value = None)
 
-    #replace all mappings
-    substitutions = {}
-    substitution_graph = Graph()
-    #Loop over all nodes
-    for n in equation_graph.get_nodes():
-        if n[1].node_type == NodeTypes.VAR:
-            targeting_edges = equation_graph.edges_end(n, 'target')
-            print()
-            print(n[0])
-            print('targeting edges: ', [t[0] for t in targeting_edges])
-            print(len(targeting_edges))
+    if True:
+        logging.info('making substituation graph')
+        #replace all mappings
+        substitutions = {}
 
-            #If only targeted once we can remap this!
-            if len(targeting_edges) == 1:
-                op = equation_graph.nodes_map[targeting_edges[0][0]]
-                if op[1].node_type == NodeTypes.ASSIGN:
-                    values = equation_graph.edges_end(op, 'value')
-                    print('vals ', values)
-                    #add a map
-                    if len(values) == 1 and not equation_graph.nodes_map[values[0][0]][1].ast_type == ast.BinOp:
-                        if not n[0] in substitutions:
-                            substitutions[n[0]] = values[0][0]
-                            substitution_graph.add_node(n, ignore_exist=True)
-                            mapped_to = equation_graph.nodes_map[values[0][0]]
-                            substitution_graph.add_node(mapped_to, ignore_exist=True)
-                            substitution_graph.add_edge((mapped_to[0], n[0], EquationEdge(start=mapped_to, end=n, label='value'), 0))
-                        else:
-                            raise ValueError(n[0]+' already substituted???')
+        #Loop over all nodes
+        eq_nodes = equation_graph.get_nodes()
+        print(len(eq_nodes))
+        s_nodes = []
+        s_edges = []
+        lastp = -1
+        for i, n in enumerate(eq_nodes):
+            prog = i/len(eq_nodes)*100
+            if prog > lastp +1:
+                print(prog)
+                lastp = prog
+            if n[1].node_type == NodeTypes.VAR:
+                targeting_edges = equation_graph.edges_end(n, 'target')
+                #print()
+                #print(n[0])
+                #print('targeting edges: ', [t[0] for t in targeting_edges])
+                #print(len(targeting_edges))
 
-                        equation_graph.remove_node_and_edges(op[0])
+                #If only targeted once we can remap this!
+                if len(targeting_edges) == 1:
+                    op = equation_graph.nodes_map[targeting_edges[0][0]]
+                    if op[1].node_type == NodeTypes.ASSIGN:
+                        values = equation_graph.edges_end(op, 'value')
+                        #print('vals ', values)
+                        #add a map
+                        if len(values) == 1 and not equation_graph.nodes_map[values[0][0]][1].ast_type == ast.BinOp:
+                            if not n[0] in substitutions:
+                                substitutions[n[0]] = values[0][0]
+                                #substitution_graph.add_node(n, ignore_exist=True)
+                                mapped_to = equation_graph.nodes_map[values[0][0]]
+                                #substitution_graph.add_node(mapped_to, ignore_exist=True)
+                                s_nodes += [n, mapped_to]
+                                s_edges.append((mapped_to[0], n[0], EquationEdge(start=mapped_to, end=n, label='value'), 0))
+                                #substitution_graph.add_edge(ignore_missing_nodes=True)
+                            else:
+                                raise ValueError(n[0]+' already substituted???')
 
-                    elif len(values) > 1:
-                        raise ValueError('arg')
+                            equation_graph.mark_remove_node_and_edges(op[0])
 
-    #equation_graph.nodes_map['oscillator1_mechanics_x']
-    print('subs: ')
-    for k, v in substitutions.items():
-        print(k,': ',v)
-    #substitution_graph.as_graphviz('substitutions')
-    master_variables = [n for n, d in substitution_graph.in_degree().items() if d == 0]
-    print(master_variables)
+                        elif len(values) > 1:
+                            raise ValueError('arg')
 
-    for mv in master_variables:
-        mn = equation_graph.nodes_map[mv]
-        dep_g = substitution_graph.get_dependants_graph([mn])
+        substitution_graph = Graph(nodes=s_nodes, edges=s_edges)
+        logging.info('cleaning')
+        equation_graph.clean()
+        #equation_graph.nodes_map['oscillator1_mechanics_x']
+        #print('subs: ')
+        #for k, v in substitutions.items():
+        #    print(k,': ',v)
+        #substitution_graph.as_graphviz('substitutions')
+        logging.info('define master vars')
+        master_variables = [n for n, d in substitution_graph.in_degree().items() if d == 0]
+        #print(master_variables)
+        logging.info('process master vars')
 
-        for d in dep_g.get_nodes():
+        for mv in master_variables:
+            mn = equation_graph.nodes_map[mv]
+            dep_g = substitution_graph.get_dependants_graph([mn])
 
-            if d[0] in nodes_dep:
-                if not mv in nodes_dep:
-                    nodes_dep[mv] = []
+            for d in dep_g.get_nodes():
 
-                nodes_dep[mv] = list(set(nodes_dep[mv] +nodes_dep[d[0]]))
+                if d[0] in nodes_dep:
+                    if not mv in nodes_dep:
+                        nodes_dep[mv] = []
 
-        equation_graph.replace_nodes(mn, dep_g.get_nodes())
-    #equation_graph.nodes_map['oscillator1_mechanics_x']
+                    nodes_dep[mv] = list(set(nodes_dep[mv] +nodes_dep[d[0]]))
 
-    #equation_graph.as_graphviz('eq_substituted')
-    #print('eq')
-    #for n in equation_graph.get_nodes():
-    #    print(n)
+            equation_graph.replace_nodes(mn, dep_g.get_nodes())
+        equation_graph.clean()
+        #equation_graph.nodes_map['oscillator1_mechanics_x']
 
-    #print('egs')
+        #equation_graph.as_graphviz('eq_substituted')
+        #print('eq')
+        #for n in equation_graph.get_nodes():
+        #    print(n)
+
+        #print('egs')
+    logging.info('clone eq graph')
     equation_graph_simplified = equation_graph.clone()
     #for n in equation_graph_simplified.get_nodes():
     #    print(n)
 
     #sdf=sfgdfdff
-    print('nodes dep: ')
-    for nd, dep in nodes_dep.items():
-        print(nd,': ', dep)
+    #print('nodes dep: ')
+    #for nd, dep in nodes_dep.items():
+    #    print(nd,': ', dep)
+    logging.info('remove dependencies')
     for n, dep in nodes_dep.items():
         if len(dep) <= 1:
             # remove node and its edges
-            print('remove: ', n)
-            equation_graph_simplified.remove_node(n)
-            edges = equation_graph_simplified.edges.copy()
-            for e in edges:
-                if e[0] == n or e[1] == n:
-                    equation_graph_simplified.remove_edge(e)
+     #       print('remove: ', n)
+            equation_graph_simplified.mark_remove_node_and_edges(n)
+            #edges = equation_graph_simplified.edges.copy()
+            #for e in edges:
+            #    if e[0] == n or e[1] == n:
+            #        equation_graph_simplified.mark_remove_edge(e)
+
+    logging.info('cleaning')
+    equation_graph_simplified.clean()
+    logging.info('done cleaning')
+
     return equation_graph_simplified
     #mg.as_graphviz('mappings')
 

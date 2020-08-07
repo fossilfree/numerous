@@ -48,7 +48,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
     ext_funcs = {}
     #Wrap the functions and make them available in the module
     for f in functions:
-        print('func: ', f['signature'])
+        #print('func: ', f['signature'])
         f_c = cfunc(sig=f['signature'])(f['func'])
 
         if not 'name' in  f:
@@ -147,7 +147,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
                 values[t] = eptr
 
         if 'args' in p:
-            print(p['args'])
+            #print(p['args'])
             args = [builder.load(values[a], 'arg_' + a) for a in p['args']]
 
 
@@ -305,7 +305,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
     print("-- generate IR:", t2-t1)
 
     t3 = time()
-    print(strmod)
+    #print(strmod)
     llmod = llvm.parse_assembly(strmod)
 
     t4 = time()
@@ -315,7 +315,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
     #print(llmod)
 
     pmb = llvm.create_pass_manager_builder()
-    pmb.opt_level = 1
+    pmb.opt_level = 1000
     pm = llvm.create_module_pass_manager()
     pmb.populate(pm)
 

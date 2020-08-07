@@ -85,6 +85,15 @@ class ModelAssembler:
         return variables, scope_select, equation_dict, name_spaces_dict
 
 
+import logging
+logging.basicConfig(
+        format='%(asctime)s %(levelname)-8s %(message)s',
+        level=logging.INFO,
+        datefmt='%Y-%m-%d %H:%M:%S')
+
+
+
+
 class Model:
     """
      The model object traverses the system to collect all information needed to pass to the solver
@@ -182,7 +191,7 @@ class Model:
 
 
 
-        print("Assembling numerous Model")
+        logging.info("Assembling numerous Model")
         assemble_start = time.time()
 
         # 1. Create list of model namespaces
@@ -239,7 +248,7 @@ class Model:
         self.equations_parsed = {}
         self.scoped_equations = {}
 
-        print('parsing equations starting')
+        logging.info('parsing equations starting')
         for scope_id, eq in self.equation_dict.items():
             tag_vars = {v.tag: v for v in self.scope_variables.values() if v.parent_scope_id==scope_id}
 
@@ -250,7 +259,7 @@ class Model:
             if len(eq[0])>0:
 
                 parse_eq(scope_ids[scope_id], eq, self.gg, self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations)
-        print('parsing equations completed')
+        logging.info('parsing equations completed')
         #for n in gg.nodes:
         #    print(n[0])
 
@@ -258,12 +267,12 @@ class Model:
         #Process mappings add update the global graph
         equation_graph_simplified = process_mappings(self.mappings, self.gg, self.eg, nodes_dep, self.scope_variables, scope_ids)
         #self.eg.as_graphviz('equation_graph')
-
+        logging.info('Mappings processed')
         #equation_graph_simplified.as_graphviz('equation_graph_simplified')
         #for n in equation_graph_simplified.get_nodes():
         #    print(n)
         equation_graph_simplified.topological_nodes()
-
+        logging.info('Checked topo sort of simple graph')
         #self.gg.as_graphviz('global_graph')
         nodes = self.gg.get_nodes()
         #for n in nodes:
@@ -307,7 +316,7 @@ class Model:
                 self.vars_ordered_map.append(v.id.replace('-','_').replace('.','_'))
                 count+=1
 
-
+        logging.info('variables sorted')
         # #dsdfsdfsd = sdfsdf
         if lower_method == LowerMethod.Codegen:
             self.lower_model_codegen()
@@ -330,6 +339,7 @@ class Model:
     def lower_model_codegen(self):
         #if len(self.gg.nodes)<100:
         #self.gg.as_graphviz('global')
+        logging.info('lowering model')
         self.compiled_compute, self.var_func, self.vars_ordered_values, self.vars_ordered = generate_equations(self.equations_parsed, self.eg, self.scoped_equations, self.scope_variables)
         #generate_program(self.gg)
         #asdsad=asdsfsf
@@ -338,8 +348,6 @@ class Model:
         #self.compiled_compute = generate_code(self.gg, self.vars_ordered_map, ((0, self.states_end_ix),(self.states_end_ix, self.deriv_end_ix), (self.deriv_end_ix, self.mapping_end_ix)))
 
 
-
-        print('n nodes: ', len(self.gg.get_nodes()))
         self.info.update({"Solver": {}})
 
     def lower_model_tensor(self):
@@ -781,7 +789,7 @@ class Model:
 
         self.numba_model.func(0, self.vars_ordered_values[0:self.states_end_ix])
 
-        print('completed numba model')
+        logging.info('completed numba model')
 
         return self.numba_model
 

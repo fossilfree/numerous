@@ -3,7 +3,7 @@ from numerous.engine.model.utils import NodeTypes, recurse_Attribute, wrap_funct
 from numerous.engine.model.parser_ast import attr_ast, function_from_graph_generic, function_from_graph_generic_llvm, EquationNode, EquationEdge
 from numerous.engine.variables import VariableType
 from numerous.engine.model.generate_program import generate_program
-
+import logging
 import ast
 from numba import njit
 import numpy as np
@@ -98,19 +98,25 @@ new_sum = SumCount().get_sum
 
 def visit_assign_value(target, value, nodes_map, equation_graph):
     if value[1].node_type == NodeTypes.OP:
-        left_edge = equation_graph.edges_end(value, 'left')[0]
+        left_edges = equation_graph.edges_end(value, 'left',1)
+
+        left_edge = left_edges[0]
         left = nodes_map[left_edge[0]]
 
         visit_assign_value(target, left, nodes_map, equation_graph)
+        equation_graph.mark_remove_edge(left_edge)
 
-        right_edge = equation_graph.edges_end(value, 'right')[0]
+        right_edges = equation_graph.edges_end(value, 'right', 1)
+        right_edge = right_edges[0]
+
         right = nodes_map[right_edge[0]]
 
         visit_assign_value(target, right, nodes_map, equation_graph)
+        equation_graph.mark_remove_edge(right_edge)
 
-        equation_graph.remove_node(value[0])
-        equation_graph.remove_edge(left_edge)
-        equation_graph.remove_edge(right_edge)
+        equation_graph.mark_remove_node(value[0])
+
+
 
     else:
 
@@ -122,27 +128,34 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #Replace individual assignments with a sum
     vars_assignments = {}
     nodes_map = equation_graph.nodes_map
-    print(equation_graph.edges)
+   # print(equation_graph.edges)
+    logging.info('Remove simple assign chains')
+
     for n in equation_graph.get_nodes():
         if n[1].node_type == NodeTypes.ASSIGN:
             #Get target
             target_edge = equation_graph.edges_start(n, 'target')[0]
             target = nodes_map[target_edge[1]]
-            print('t!!!: ', target)
+           # print('t!!!: ', target)
 
             if not target[0] in vars_assignments:
                 vars_assignments[target[0]] = []
 
             #Traverse value of assignment - might be  + + +
-            value_edge = equation_graph.edges_end(n, 'value')[0]
+            value_edge = equation_graph.edges_end(n, 'value',1)[0]
             value = nodes_map[value_edge[0]]
+
+
 
             visit_assign_value(vars_assignments[target[0]], value, nodes_map, equation_graph)
 
-            equation_graph.remove_edge(value_edge)
-            equation_graph.remove_edge(target_edge)
-            equation_graph.remove_node(n[0])
+            equation_graph.mark_remove_edge(value_edge)
+            equation_graph.mark_remove_edge(target_edge)
+            equation_graph.mark_remove_node(n[0])
 
+
+    equation_graph.clean()
+    logging.info('create assignments')
     for i, e in enumerate(equation_graph.edges.copy()):
         if nodes_map[e[0]][1].node_type == NodeTypes.EQUATION:
             if e[1] in vars_assignments:
@@ -176,14 +189,15 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     mod_body = []
     #Loop over equation functions and generate code
     eq_vardefs={}
+    logging.info('make equations for compilation')
     for eq_key, eq in equations.items():
         vardef = Vardef()
         vardef_llvm = Vardef_llvm()
         func, vardef_ = function_from_graph_generic(eq[2],eq_key.replace('.','_'), var_def_=vardef, decorators = ["njit"])
         func_llvm, vardef__, signature, fname, args, targets = function_from_graph_generic_llvm(eq[2], eq_key.replace('.', '_'), var_def_=vardef_llvm)
         llvm_funcs[eq_key.replace('.', '_')]={'func_ast': func_llvm, 'signature': signature, 'name': fname, 'args': args, 'targets': targets}
-        print('args: ', vardef_llvm.args)
-        print('targs: ', vardef_llvm.targets)
+        #print('args: ', vardef_llvm.args)
+        #print('targs: ', vardef_llvm.targets)
         eq_vardefs[eq_key] = vardef
 
         mod_body.append(func)
@@ -193,6 +207,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #print(equation_graph.edges)
     all_targeted = []
     all_read = []
+    logging.info('Generate kernel')
     for n in equation_graph.topological_nodes():
         if n[1].node_type == NodeTypes.EQUATION:
             eq_key = scoped_equations[n[0]]
@@ -208,7 +223,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             #scope_vars = {'scope.'+equation_graph.nodes_map[al][1].scope_var.tag: al for al in args_local + targets_local}
 
             scope_vars = {'scope.'+k: v for k, v in zip(args_scope_var+targets_scope_var, args_local + targets_local)}
-            print(scope_vars)
+            #print(scope_vars)
 
 
             args = [ast.Name(id=scope_vars[a]) for a in vardef.args]
@@ -223,7 +238,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             body.append(ast.Assign(targets=targets, value=ast.Call(func=ast.Name(id=scoped_equations[n[0]].replace('.','_')), args=args, keywords=[])))
 
         if n[1].node_type == NodeTypes.SUM:
-            target_edges = equation_graph.edges_start(n, 'target')
+            target_edges = equation_graph.edges_start(n, 'target',1)
             value_edges = equation_graph.edges_end(n, 'value')
             all_targeted.append(target_edges[0][1])
             values = []
@@ -253,15 +268,21 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
 
     all_must_init = set(all_read).difference(all_targeted)
-    print('Must init: ',all_must_init)
+    #print('Must init: ',all_must_init)
 
 
 
 
 
 
-    vars_node_id = {n[2]: n[0] for n in equation_graph.get_nodes() if n[2]}
-    scope_var_node = {n[0]: n[1].scope_var for n in equation_graph.get_nodes() if n[2]}
+    vars_node_id = {n[2]: n[0] for n in equation_graph.get_nodes() if n[2] and not n[1].node_type == NodeTypes.SUM}
+    scope_var_node = {n[0]: n[1].scope_var for n in equation_graph.get_nodes() if n[2] and not n[1].node_type == NodeTypes.SUM}
+
+    #for svn, v in scope_var_node.items():
+    #    if v is None:
+    #        print(svn)
+
+#    asdasd=dfsdf
     #print(scope_var_node)
     #asdasd=sdfsdfsdfsdf
     states = []
@@ -290,10 +311,10 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     lenderiv = len(vars_update)
     vars_update += list(set(all_targeted).difference(vars_update))
     indcs = (lenstates, leninit, lenderiv)
-    print(vars_init)
-    print(vars_update)
+    #print(vars_init)
+    #print(vars_update)
     variables = vars_init + vars_update
-    print(variables)
+    #print(variables)
     body = [
         ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=i) for i in vars_init[len(states):]])], value=ast.Subscript(slice=ast.Slice(lower=ast.Num(n=len(states)), upper=ast.Num(n=len(vars_init)), step=None), value=ast.Name(id='variables'))),
         ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=s) for s in states])], value=ast.Name(id='y')),
@@ -320,10 +341,13 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     kernel_args = dot_dict(args=[ast.Name(id='variables'), ast.Name(id='y')], vararg=None, defaults=[], kwarg=None)
 
-    mod_body.append(wrap_function('kernel', body, decorators=["njit('float64[:](float64[:],float64[:])')"], args=kernel_args))
-    mod_body.append(
-        wrap_function('kernel_nojit', body, decorators=[], args=kernel_args))
 
+    skip_kernel = True
+    if not skip_kernel:
+        mod_body.append(wrap_function('kernel', body, decorators=["njit('float64[:](float64[:],float64[:])')"], args=kernel_args))
+        mod_body.append(
+        wrap_function('kernel_nojit', body, decorators=[], args=kernel_args))
+    logging.info('generate program')
     run_program_source, lib_body, program, indices, llvm_program = generate_program(equation_graph, variables, indcs)
     mod_body+=lib_body
 
@@ -332,7 +356,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #print('llvm seq: ', llvm_sequence)
 
     source = generate_code_file(mod_body, 'kernel.py')
-    print('compiling...')
+    logging.info('compiling...')
 
 
 
@@ -351,7 +375,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         if 'ext_func' in l:
             l['ext_func'] = llvm_funcs[l['ext_func']]['name']
 
-        print(l)
+        #print(l)
 
     from numba import njit, float64, int64
 
@@ -363,7 +387,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #variables_ = variables_values.astype(np.float32)#np.array([0, 1, 0, 1, 0, 1, 0, 1], np.float32)
 
     from time import time
-    N = 10000000
+    N = 10000
 
     #print(var_func(variables_values_, 1))
 
@@ -379,51 +403,51 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             derivatives = diff_llvm(y)
 
         return derivatives
-
+#    sdfsdf=sdf
     #print('variables: ', var_func(0))
-    for k, v in zip(variables, var_func(0)):
-        print(k,': ',v)
+    #for k, v in zip(variables, var_func(0)):
+    #    print(k,': ',v)
     tic = time()
     derivs = diff_bench_llvm(y_, N)
     toc = time()
-    print('llvm derivs: ', derivs)
+    #print('llvm derivs: ', derivs)
     print(f'Exe time llvm - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
-    for k, v in zip(variables, var_func(0)):
-        print(k, ': ', v)
+    #for k, v in zip(variables, var_func(0)):
+    #    print(k, ': ', v)
     #sddgf=sdsdf
-    N = 100000
+    N = 1000
+    if not skip_kernel:
+        def test_kernel_nojit(variables, y):
+            for i in range(N):
+                kernel_nojit(variables, y)
 
-    def test_kernel_nojit(variables, y):
-        for i in range(N):
-            kernel_nojit(variables, y)
 
 
+        tic = time()
+        test_kernel_nojit(variables_values, y)
+        toc = time()
 
-    tic = time()
-    test_kernel_nojit(variables_values, y)
-    toc = time()
+        print(f'Exe time flat no jit - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
+        print('Exe time kernel nojit timeit: ', timeit.timeit(
+            lambda: kernel_nojit(variables_values, y), number=N) / N)
 
-    print(f'Exe time flat no jit - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
-    print('Exe time kernel nojit timeit: ', timeit.timeit(
-        lambda: kernel_nojit(variables_values, y), number=N) / N)
+        N = 10000
 
-    N = 1000000
+        @njit('void(float64[:], float64[:])')
+        def test_kernel(variables, y):
+            for i in range(N):
+                kernel(variables, y)
 
-    @njit('void(float64[:], float64[:])')
-    def test_kernel(variables, y):
-        for i in range(N):
-            kernel(variables, y)
+        print('First kernel call results: ')
+        #print(kernel(variables_values, y))
 
-    print('First kernel call results: ')
-    print(kernel(variables_values, y))
+        tic = time()
+        test_kernel(variables_values, y)
+        toc = time()
 
-    tic = time()
-    test_kernel(variables_values, y)
-    toc = time()
-
-    print(f'Exe time flat - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
-    print('Exe time kernel timeit: ', timeit.timeit(
-        lambda: kernel(variables_values, y), number=N) / N)
+        print(f'Exe time flat - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
+        print('Exe time kernel timeit: ', timeit.timeit(
+            lambda: kernel(variables_values, y), number=N) / N)
 
     ###TEST PROGRAM
     spec = [
@@ -432,7 +456,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
 
     ]
-    N = 100000
+    N = 10000
     from numba.experimental import jitclass
     @jitclass(spec)
     class DiffProgram:
@@ -451,7 +475,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
 
     print('First prgram call results: ')
-    print(dp.diff(variables_values, y))
+    #print(dp.diff(variables_values, y))
 
     tic = time()
     dp.test(variables_values, y)
