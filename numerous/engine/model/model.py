@@ -25,6 +25,7 @@ import operator
 
 from enum import IntEnum, unique
 from numerous.engine.model.parser_ast import parse_eq
+#from numerous_graph.graph import Graph
 from numerous.engine.model.graph import Graph
 from numerous.engine.model.parser_ast import process_mappings
 from numerous.engine.model.generate_model import generate
@@ -274,7 +275,7 @@ class Model:
         equation_graph_simplified.topological_nodes()
         logging.info('Checked topo sort of simple graph')
         #self.gg.as_graphviz('global_graph')
-        nodes = self.gg.get_nodes()
+        #nodes = self.gg.get_nodes()
         #for n in nodes:
         #    print(n[0], ' ', n[1].scope_var.type if hasattr(n[1], 'scope_var') and n[1].scope_var else "No type?!")
 
@@ -304,8 +305,11 @@ class Model:
         self.special_indcs = [self.states_end_ix, self.deriv_end_ix, self.mapping_end_ix]
         #print('gg nodes: ', gg.nodes)
         self.vars_ordered_values = np.array([v.value for v in self.vars_ordered], dtype=np.float64)
-        vars_node_id = {n[2]: n[0] for n in self.gg.get_nodes() if n[2]}
-        #print('var nod id: ', vars_node_id)
+
+        #vars_node_id = {n[2]: n[0] for n in self.gg.get_nodes() if n[2]}
+        vars_node_id = {self.gg.get(v, 'scope_var').id: k for k, v in self.gg.node_map.items() if self.gg.get(v, 'scope_var')}
+
+        print('var nod id: ', vars_node_id)
         count = 0
         self.vars_ordered_map = []
         for v in self.vars_ordered:

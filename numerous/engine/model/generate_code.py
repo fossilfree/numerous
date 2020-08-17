@@ -1,13 +1,13 @@
 import ast, astor
 from numerous.engine.model.graph import Graph
-from numerous.engine.model.parser_ast import NodeTypes, EquationNode, EquationEdge, attr_ast
+from numerous.engine.model.parser_ast import NodeTypes, attr_ast
 class dot_dict:
     def __init__(self,**d):
 
         for k, v in d.items():
             setattr(self, k, v)
 
-def node_to_ast(n: EquationNode, g: Graph):
+def node_to_ast(n: int, g: Graph):
 
     if n[1].ast_type == ast.Attribute:
         return attr_ast(n[0])

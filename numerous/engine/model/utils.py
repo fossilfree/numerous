@@ -20,11 +20,18 @@ class NodeTypes(IntEnum):
     OP=0
     ASSIGN = 1
     VAR=2
-    DERIV=3
-    STATE=4
-    EQUATION=5
-    SUM=6
-    TMP=7
+    EQUATION=3
+    SUM=4
+    TMP=5
+
+@unique
+class VarTypes(IntEnum):
+    CONSTANT=0
+    PARAMETER=1
+    DERIV=2
+    STATE=3
+    LOCAL=4
+    TMP=5
 
 class dot_dict:
     def __init__(self, **d):

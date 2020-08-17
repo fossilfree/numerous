@@ -1,8 +1,8 @@
 from numerous.multiphysics.equation_decorators import Equation
-
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
 from numerous.engine.system import Subsystem, ConnectorTwoWay
+
 import numpy as np
 
 if __name__ == "__main__":
@@ -119,7 +119,7 @@ if __name__ == "__main__":
 
     # Define simulation
     s = simulation.Simulation(
-        model.Model(OscillatorSystem('system', k=0.1,  c=0, a=0, n=2)),
+        model.Model(OscillatorSystem('system', k=0.01,  c=0.001, a=0, n=4)),
         t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
     )
     # Solve and plot
