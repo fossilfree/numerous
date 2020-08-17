@@ -1,15 +1,13 @@
 from numerous.engine.model.graph import Graph
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute, wrap_function, dot_dict, generate_code_file
 import ast
-from numba import njit
-import numpy as np
 
 def library_function(funcs_map):
     args=ast.Assign(targets=[ast.Name(id='args')], value=ast.Subscript(slice=ast.Index(value=ast.Name(id='arg_indcs')), value=ast.Name(id='variables')))
 
 
     prev = None
-    #funcs = list(funcs_map)
+
     i=0
     out=None
     for i, f in enumerate(funcs_map.items()):
@@ -23,7 +21,6 @@ def library_function(funcs_map):
 
         elif f[1]['op_type'] == ast.Call:
 
-            #print(f[0])
             expr = ast.Assign(targets=[ast.Subscript(slice=ast.Name(id='target_indcs'), value=ast.Name(id='variables'))], value=ast.Call(args=[ast.Subscript(slice=ast.Index(value=ast.Num(n=i)), value=ast.Name(id='args')) for i in range(f[1]['lenargs'])], func=ast.Name(id=f[1]['op']), keywords={}))
 
         elif f[1]['op_type'] == ast.BinOp:
@@ -70,10 +67,7 @@ import numpy as np
 from numba import njit, float64
 """
 
-#TODO lookup var indices!
-
 def generate_program(graph: Graph, variables, indcs):
-    print('variables: ', variables)
     nodes = graph.topological_nodes()
     ops = {}
     program = []
@@ -81,11 +75,7 @@ def generate_program(graph: Graph, variables, indcs):
     llvm_funcs = []
     indices = []
     for n in nodes:
-        #print(n[0])
-
         node = n
-        #print(node.node_type)
-        print('n: ',n)
         start_arg = len(indices)
         nt = graph.get(n, 'node_type')
         ast_type = graph.get(n, 'ast_type')
@@ -96,12 +86,11 @@ def generate_program(graph: Graph, variables, indcs):
                 this_op = 'summing'
                 this_op_type = 'summing'
                 graph.nodes_attr['ast_type'][node] = ast.Call
-                #(this_op)
                 args = [graph.key_map[ii[0]] for ii in graph.get_edges_for_node_filter(end_node=n, attr='e_type', val='value')[1]]
 
                 targets = [graph.key_map[ii[1]] for ii in
                         graph.get_edges_for_node_filter(start_node=n, attr='e_type', val='target')[1]]
-                #('targets:', targets)
+
                 lenargs = len(args)
                 lentargets = len(targets)
                 indices += [variables.index(a) for a in args+targets]
@@ -110,23 +99,15 @@ def generate_program(graph: Graph, variables, indcs):
 
 
             elif ast_type == ast.Call and nt == NodeTypes.EQUATION:
-                print(n)
-                print(graph.key_map[n])
-
-
 
                 this_op = this_op_type = recurse_Attribute(graph.get(n,'func'))
-                #print(this_op)
-                # TODO this is really a hack!
-                #args = node.scope_var['args']
+
                 args = graph.get(n, 'scope_var')['args']
                 targets = graph.get(n, 'scope_var')['targets']
-                #targets = node.scope_var['targets']
-                #print(args)
 
                 lenargs = len(args)
                 lentargets = len(targets)
-                #('targets:', targets)
+
                 indices+=[variables.index(a) for a in args+targets]
 
                 llvm_program.append({'func': 'call', 'ext_func': this_op_type, 'args': args, 'targets': targets})
@@ -134,7 +115,7 @@ def generate_program(graph: Graph, variables, indcs):
             elif ast_type == ast.Call:
 
                 this_op = this_op_type = recurse_Attribute(node.func)
-                #print(this_op)
+
                 args = [graph.key_map[ii] for ii in
                         graph.get_edges_for_node_filter(end_node=n, attr='e_type', val='value')[1]]
 
@@ -142,56 +123,22 @@ def generate_program(graph: Graph, variables, indcs):
                            graph.get_edges_for_node_filter(start_node=n, attr='e_type', val='target')[1]]
                 lenargs = len(args)
                 lentargets = len(targets)
-                #('targets:', targets)
+
                 indices += [variables.index(a[0]) for a in args+targets]
                 llvm_program.append({'func': 'call', 'ext_func': this_op_type, 'args': args, 'targets': targets})
-            """
-            elif node.ast_type == ast.BinOp:
 
-                this_op = node.ast_op
-                this_op_type = type(this_op)
-                lenargs = 2
-                lentargets = 1
-                indices.append([variables.index(a[0]) for a in args])
-
-            elif node.ast_type == ast.UnaryOp:
-
-                this_op = node.ast_op
-                this_op_type = type(this_op)
-                lenargs = 1
-                
-                indices.append([variables.index(a[0]) for a in args])
-
-            elif node.ast_type == ast.Assign:
-
-                this_op = ast.Assign
-                this_op_type = type(this_op)
-                lenargs = 1
-                indices.append([variables.index(a[0]) for a in args])
-
-            elif node.ast_type == ast.AugAssign:
-                print(n)
-                this_op = node.ast_op
-                this_op_type = type(this_op)
-                lenargs = 1
-                indices.append([variables.index(a[0]) for a in args])
-            """
             if this_op_type in ops:
                 ix = list(ops.keys()).index(this_op_type)
             else:
                 ix = len(ops.values())
                 ops[this_op_type] = dict(lenargs=lenargs, lentargets=lentargets, op_type=graph.get(node, 'ast_type'), op=this_op)
-            #print(lentargets)
+
             end_arg = start_arg + lenargs
             end_targets = end_arg + lentargets
 
             program.append((ix,start_arg, end_arg, end_targets))
 
-
-
     body = [library_function(ops)]
-
-    #source = generate_code_file(body, 'libfile.py', preamble=preamble)
 
     args = dot_dict(args=[ast.Name(id='program'), ast.Name(id='variables'), ast.Name(id='indices')], vararg=None, defaults=[], kwarg=None)
     program_body = [

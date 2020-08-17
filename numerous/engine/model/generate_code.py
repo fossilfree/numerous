@@ -174,19 +174,3 @@ def generate_code(g: Graph, var_map, indcs, func_name='kernel'):
             lambda: exec(source, globals()),  number=1))
 
     return kernel
-    #from numba.pycc import CC
-
-    #cc = CC('my_module')
-
-    #cc.export('multf', 'f8[:](f8[:], i4[:])')(kernel)
-
-    #print('cc')
-    #print('Compile time: ', timeit.timeit(
-    #    lambda: cc.compile(), number=1))
-
-    #print('cc done')
-    #Dry run
-    #print('Dry run')
-    #variables = np.zeros()
-    #print('Dry run time: ', timeit.timeit(
-    #    lambda: kernel(variables, y), number=1))

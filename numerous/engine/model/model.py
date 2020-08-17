@@ -272,7 +272,7 @@ class Model:
         #equation_graph_simplified.as_graphviz('equation_graph_simplified')
         #for n in equation_graph_simplified.get_nodes():
         #    print(n)
-        equation_graph_simplified.topological_nodes()
+        #equation_graph_simplified.topological_nodes()
         logging.info('Checked topo sort of simple graph')
         #self.gg.as_graphviz('global_graph')
         #nodes = self.gg.get_nodes()
@@ -309,7 +309,7 @@ class Model:
         #vars_node_id = {n[2]: n[0] for n in self.gg.get_nodes() if n[2]}
         vars_node_id = {self.gg.get(v, 'scope_var').id: k for k, v in self.gg.node_map.items() if self.gg.get(v, 'scope_var')}
 
-        print('var nod id: ', vars_node_id)
+
         count = 0
         self.vars_ordered_map = []
         for v in self.vars_ordered:

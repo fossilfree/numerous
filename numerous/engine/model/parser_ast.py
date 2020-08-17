@@ -14,12 +14,8 @@ op_sym_map = {ast.Add: '+', ast.Sub: '-', ast.Div: '/', ast.Mult: '*', ast.Pow: 
 def get_op_sym(op):
     return op_sym_map[type(op)]
 
-
-
-
 def attr_ast(attr):
     attr_ = attr.split('.')
-    # print(attr_)
     if len(attr_) >1:
         prev = None
         attr_str = attr_[-1]
@@ -32,8 +28,6 @@ def attr_ast(attr):
 
         attr_ast = ast.Attribute(attr=attr_str, value=prev)
     else:
-        # print('attr_[0]')
-        # print(attr_[0])
         attr_ast = ast.Name(id=attr_[0])
     return attr_ast
 
@@ -49,49 +43,7 @@ def ass(a):
     a+='_'+str(ass_count[0])
     ass_count[0]+=1
     return a
-"""
-class EquationNode:
-    def __init__(self, ast, name, file, ln, label, ast_type, id=None, node_type:NodeTypes=NodeTypes.VAR, scope_var=None,**attrs):
-        if not id:
-            id = tmp(label)
-        self.id = id
-        self.label = label
-        self.ast_type = ast_type
-        self.scope_var=scope_var
-        self.file = file
-        self.func_name = name
-        self.node_type=node_type
 
-
-        if ast:
-            self.lineno = ast.lineno + ln - 1
-            self.col_offset= ast.col_offset
-        else:
-            self.lineno = None
-            self.col_offset = None
-
-
-        for k, v in attrs.items():
-            setattr(self, k, v)
-
-    def __str__(self):
-        return self.id
-
-    def __eq__(self, other):
-        return self.id == other.id
-
-class EquationEdge:
-    def __init__(self, label, start: str = None, end: str = None):
-        self.label = label
-        self.start = start
-        self.end = end
-
-    def set_start(self, node_id: str):
-        self.start = node_id
-
-    def set_end(self, node_id: str):
-        self.end = node_id
-"""
 # Parse a function
 
 def node_to_ast(n: int, g: Graph, var_def, read=True):
@@ -267,10 +219,6 @@ def function_from_graph_generic(g: Graph, name, var_def_, decorators = [ast.Call
 def function_from_graph_generic_llvm(g: Graph, name, var_def_):
     fname = name + '_llvm'
 
-    #decorators = [ast.Call(func=ast.Name(id='njit'), args=[ast.Str(s=signature)], keywords=[ast.keyword(arg="locals", value=ast.Call(args=[], ))])]
-    #decorators = [ast.Call(func=ast.Name(id='njit'), args=[ast.Str(s=signature)],
-     #                      keywords=[])]
-
     lineno_count = 1
 
     top_nodes = g.topological_nodes()
@@ -299,19 +247,9 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
                 body.append(ast_assign)
 
     len_targs = len(var_def_.get_targets())
-    #if len_targs > 0:
-        #return_c = ast.Assign(targets=[ast.Name(id='e')], value=ast.Call(args=[ast.Name(id='r'), ast.Tuple(elts=[ast.Num(n=len_targs)])], func=ast.Name(id='carray'), keywords=[]))
-        #return_a = ast.Assign(targets=[ast.Subscript(slice=ast.Slice(upper=ast.Num(n=len_targs), lower=ast.Num(n=0),step=None), value=ast.Name(id='e'))],
-                              #value=ast.Tuple(elts=[ast.Name(id=t) for t in var_def_.get_targets()]))
 
-                              #value=ast.Tuple(elts=var_def_.get_targets()))
-
-        #body.append(return_c)
-
-        #body.append(return_a)
     args = dot_dict(args=var_def_.get_args() + var_def_.get_targets(), vararg=None, defaults=[], kwarg=None)
     signature = f'void({", ".join(["float32" for a in var_def_.get_args()])}, {", ".join(["CPointer(float32)" for a in var_def_.get_targets()])})'
-    #print(signature)
     decorators = []
 
     func = wrap_function(fname, body, decorators=decorators, args=args)
@@ -321,7 +259,6 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
     return func, var_def_.vars_inds_map, signature, fname, var_def_.args, var_def_.targets
 
 def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='_'):
-    # print(ao)
     en=None
     is_mapped = None
 
@@ -348,7 +285,6 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='_'):
         if isinstance(ao.targets[0], ast.Attribute) or isinstance(ao.targets[0], ast.Name):
 
             att = recurse_Attribute(ao.targets[0])
-            # print(att)
             target_id = att
 
         else:
@@ -386,8 +322,6 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='_'):
         if source_id[:6]=='scope.':
             scope_var = tag_vars[source_id[6:]]
 
-
-            #print('scope var: ',scope_var.id)
         else:
             scope_var=None
 
@@ -406,43 +340,27 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='_'):
         else:
             var_type = VariableType.PARAMETER
 
-        #en = EquationNode(ao, file, name, ln, id=source_id, local_id=local_id, ast_type=type(ao), label=source_id, node_type=node_type, scope_var=scope_var)
-        #g.add_node(en.id, equation_node=en, ignore_existing=True)
-        print(source_id)
+
         en = g.add_node(key=source_id, ao=ao, file=file, name=name, ln=ln, id=source_id, local_id=local_id, ast_type=type(ao), node_type=node_type, scope_var=scope_var, ignore_existing=True)
 
 
     elif isinstance(ao, ast.UnaryOp):
         # Unary op
         op_sym = get_op_sym(ao.op)
-        #operand_edge = EquationEdge(label='operand')
 
         en = g.add_node(label=op_sym, ast_type=ast.UnaryOp, node_type=NodeTypes.OP, ast_op=ao.op, ignore_existing=True)
 
-
-        #operand_edge.end = en.id
-
-
-
         m, start = parse_(ao.operand, name, file, ln, g, tag_vars, prefix)
         operand_edge = g.add_edge(start=start, e_type='operand', end=en)
-        #g.add_edge((operand_edge.start, operand_edge.end, operand_edge, 0), ignore_missing_nodes=False)
-        #g.add_edge()
 
     elif isinstance(ao, ast.Call):
 
-
         op_name = recurse_Attribute(ao.func, sep='.')
-
-        #en = EquationNode(ao, file, name, ln, label=op_name, func=ao.func, ast_type=ast.Call, node_type=NodeTypes.OP)
-
-        #g.add_node(en.id, equation_node=en, ignore_existing=True)
 
         en = g.add_node(ao=ao, file=file, name=name, ln=ln, label=op_name, func=ao.func, ast_type=ast.Call, node_type=NodeTypes.OP)
 
 
         for i, sa in enumerate(ao.args):
-            #edge_i = EquationEdge(end=en.id, label=f'args{i}')
 
             m, start = parse_(ao.args[i], name, file, ln, g, tag_vars, prefix=prefix)
             g.add_edge(start=start, end=en, e_type='args')
@@ -451,70 +369,39 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='_'):
     elif isinstance(ao, ast.BinOp):
 
         op_sym = get_op_sym(ao.op) # astor.get_op_symbol(ao.op)
-        #en = EquationNode(ao, file, name, ln, label=op_sym, left=None, right=None, ast_type=ast.BinOp, node_type=NodeTypes.OP, ast_op=ao.op)
         en = g.add_node(ao=ao, file=file, name=name, ln=ln, label=op_sym, left=None, right=None, ast_type=ast.BinOp, node_type=NodeTypes.OP, ast_op=ao.op)
-        #g.add_node(en.id, equation_node=en, ignore_existing=True)
-        #g.add_node(en.id, equation_node=en, ignore_exist=True)
 
         for a in ['left', 'right']:
-
-            #operand_edge = EquationEdge(end=en.id, label=a)
-
 
             m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix)
             operand_edge = g.add_edge(start=start, end=en, e_type=a)
 
-            #setattr(en, a, operand_edge)
-
     elif isinstance(ao, ast.Compare):
         ops_sym = [get_op_sym(o) for o in ao.ops]
-        #en = EquationNode(ao, file, name, ln, label=''.join(ops_sym), ast_type=ast.Compare, node_type=NodeTypes.OP, ops=ao.ops)
 
         en = g.add_node(ao=ao, file=file, name=name, ln=ln, label=''.join(ops_sym), ast_type=ast.Compare, node_type=NodeTypes.OP, ops=ao.ops)
 
-        #g.add_node(en.id, equation_node=en, ignore_existing=True)
-
-        #edge_l = EquationEdge(end=en, label=f'left', e_type='left')
 
         m, start = parse_(ao.left, name, file, ln, g, tag_vars, prefix=prefix)
 
         edge_l = g.add_edge(start=start, end=en, label=f'left', e_type='left')
-        #g.add_edge((edge_l.start, edge_l.end, edge_l, 0), ignore_missing_nodes=False)
 
         for i, sa in enumerate(ao.comparators):
-            #edge_i = EquationEdge(end=en.id, label=f'comp{i}')
-
 
             m, start = parse_(sa, name, file, ln, g, tag_vars, prefix=prefix)
             edge_i = g.add_edge(start=start, end=en, label=f'comp{i}', e_type='comp')
-            #g.add_edge((edge_i.start, edge_i.end, edge_i, 0), ignore_missing_nodes=False)
 
     elif isinstance(ao, ast.IfExp):
 
-       # astor.get_op_symbol(ao.op)
-        #en = EquationNode(ao, file, name, ln, label='if_exp', ast_type=ast.IfExp, node_type=NodeTypes.OP)
-        #g.add_node(en.id, equation_node=en, ignore_existing=True)
         en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='if_exp', ast_type=ast.IfExp, node_type=NodeTypes.OP)
         for a in ['body', 'orelse', 'test']:
-            #EquationEdge(end=en.id, label=a)
-
 
             m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix)
 
-            operand_edge = g.add_edge(start=start, end=en, label=a)
-
-            #setattr(en, a, operand_edge)
-            #g.add_edge((operand_edge.start, operand_edge.end, operand_edge, 0), ignore_missing_nodes=False)
+            operand_edge = g.add_edge(start=start, end=en, e_type=a)
 
     else:
         raise TypeError('Cannot parse <' + str(type(ao)) + '>')
-
-
-
-
-    #if parent:
-
-    #    g.set_edge(parent, start=en)
 
     return is_mapped, en
 
@@ -522,18 +409,10 @@ def qualify(s, prefix):
     return prefix + '_' + s.replace('scope.', '')
 
 def qualify_equation(prefix, g, tag_vars):
-    #for k, v in tag_vars.items():
-    #    if '-' in v.id:
-     #       print(v.id)
-     #       raise ValueError('arg!')
 
     def q(s):
         return qualify(s, prefix)
 
-    #g_qual = Graph()
-    #g_qual.set_node_map({q(n[0]): (q(n[0]), n[1], (tag_vars[n[1].scope_var.tag].id if n[1].scope_var else None)) for nid, n in g.nodes_map.items()})
-    #g.as_graphviz('noqual'+prefix)
-    #print(g.node_map.keys())
     g_qual = g.clone()
 
     #update keys
@@ -545,18 +424,13 @@ def qualify_equation(prefix, g, tag_vars):
 
 
 def parse_eq(scope_id, item, global_graph, equation_graph: Graph, nodes_dep, tag_vars, parsed_eq, scoped_equations):
-    #print(item)
 
     for eq in item[0]:
 
         #dont now how Kosher this is: https://stackoverflow.com/questions/20059011/check-if-two-python-functions-are-equal
         eq_key = eq.__qualname__
-        #print(eq_key)
-
-
 
         if not eq_key in parsed_eq:
-            #print('parsing')
             dsource = inspect.getsource(eq)
 
             tries=0
@@ -570,9 +444,6 @@ def parse_eq(scope_id, item, global_graph, equation_graph: Graph, nodes_dep, tag
                     if tries > 5-1:
                         raise
 
-
-
-
             g = Graph()
 
             parse_(ast_tree, eq.__qualname__, eq.file, eq.lineno, g, tag_vars)
@@ -581,131 +452,73 @@ def parse_eq(scope_id, item, global_graph, equation_graph: Graph, nodes_dep, tag
 
             g.as_graphviz(eq_key)
 
-
-        else:
-            pass
-            #print('skip parsing')
-
         g = parsed_eq[eq_key][2]
-        #print('qualify with ',scope_id)
         g_qualified = qualify_equation(scope_id, g, tag_vars)
-        #g_qualified.make_lower_graph(top_sort=False)
-
-
-
-        #nodes = g_qualified.get_nodes()
 
         #make equation graph
         eq_name = ('EQ_'+scope_id + '_' + eq_key).replace('.','_')
 
         scoped_equations[eq_name] = eq_key
 
-        #equation_graph.add_node((eq_name, EquationNode(id=eq_name, node_type=NodeTypes.EQUATION, ast=None, name=eq_name, file=eq_name, ln=0, label=eq_name, ast_type=ast.Call, func=ast.Name(id=eq_key.replace('.','_')), op_type=ast.Call), eq_name), ignore_exist=True)
         eq_n = equation_graph.add_node(key=eq_name, node_type=NodeTypes.EQUATION, ast=None, name=eq_name, file=eq_name, ln=0, label=eq_name, ast_type=ast.Call, func=ast.Name(id=eq_key.replace('.','_')))
-       #edges = []
-        #eg_nodes = [eq_name]
-        for n in range(g_qualified.node_counter):
-            #print('n__: ', g_qualified.key_map[n])
 
-            #if g_qualified.key_map[n] == 'spc_mechanics_tmp14':
-            #    asdasd=asfsdf
-            #if n[1].node_type == NodeTypes.VAR or n[1].node_type == NodeTypes.DERIV or n[1].node_type == NodeTypes.STATE:
+        for n in range(g_qualified.node_counter):
+
             if g_qualified.get(n, attr='node_type')==NodeTypes.VAR and g_qualified.get(n, attr='scope_var'):
 
                 n_key = g_qualified.key_map[n]
-                if n_key == 'spc_mechanics_tmp14':
-                    pass
-                #print(n_key)
-                #print(n_key)
+
                 if not n_key in nodes_dep:
                     nodes_dep[n_key] = []
                 if not eq_name in nodes_dep[n_key]:
                     nodes_dep[n_key].append(eq_name)
 
-                #in_deg = in_degree[n[0]]
-                #eg_nodes.append(n[0])
                 sv = g_qualified.get(n, 'scope_var')
 
-                neq = equation_graph.add_node(key=n_key, node_type=NodeTypes.VAR, scope_var=sv, ignore_existing=False)
+                neq = equation_graph.add_node(key=n_key, node_type=NodeTypes.VAR, scope_var=sv, ignore_existing=True)
 
-
-                #if in_deg > 0:
-                #    equation_graph.add_edge((eq_name, n[0], 'a', 0), ignore_missing_nodes=False)
-                #else:
-                #    equation_graph.add_edge((n[0], eq_name, 'a', 0), ignore_missing_nodes=False)
                 targeted = False
                 read = False
 
                 end_edges = g_qualified.get_edges_for_node(end_node=n)
 
-                #if len(end_edges)>0:
                 try:
                     next(end_edges)
-                        #equation_graph.add_edge((eq_name, n[0], EquationEdge(start=eq_name, end=n[0], label='target'+(n[1].scope_var.tag if n[1].scope_var else "")), (n[1].scope_var.tag if n[1].scope_var else "")), ignore_missing_nodes=False)
                     equation_graph.add_edge(eq_n, neq, e_type='target', arg_local= sv.tag if sv else 'local')
                     targeted = True
                 except StopIteration:
                     pass
 
-
                 if not targeted and not read:
                     start_edges = g_qualified.get_edges_for_node(start_node=n)
                     try:
-                    #if len(start_edges) > 0:
                         next(start_edges)
                         read=True
-                        #print('neq: ',g_qualified.key_map[n])
-                        #print('sv: ',g_qualified.get(n, 'scope_var'))
-                        #print(g_qualified.get(n, 'scope_var'))
                         equation_graph.add_edge(neq, eq_n, e_type='arg', arg_local= sv.tag if (sv:= g_qualified.get(n, 'scope_var')) else 'local')
-                            #equation_graph.add_edge((n[0], eq_name, EquationEdge(start=eq_name, end=n[0], label='args'+(n[1].scope_var.tag if n[1].scope_var else "")), (n[1].scope_var.tag if n[1].scope_var else "")), ignore_missing_nodes=False)
                     except StopIteration:
                         pass
 
-
-
-        #eg = Graph(nodes=eg_nodes, edges=edges)
-        #equation_graph.update(eg)
-
-        #equation_graph.as_graphviz('eq_1'+eq_key)
-
-
         global_graph.update(g_qualified)
         a = 1
-
-
 
 def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_vars, scope_map):
     mg = Graph()
     logging.info('process mappings')
     for m in mappings:
         target_var = scope_vars[m[0]]
-        #prefix = scope_map[target_var.parent_scope_id]
         prefix = scope_map[target_var.parent_scope_id]
-
-        #print(prefix)
-#        asdasd=sdfsdfsdf
         target_var_id = qualify(target_var.tag, prefix)
 
         if '-' in target_var_id:
             raise ValueError('argh')
 
-        var_type= target_var.type
-
         node_type = NodeTypes.VAR
 
-        #assign = EquationNode(None, file='mapping', name=m, ln=0, label='=', ast_type=ast.AugAssign, node_type=NodeTypes.ASSIGN, targets=[], value=None, ast_op=ast.Add())
-        #gg.add_node((assign.id, assign, None))
-        #.add_node((assign.id, assign, None))
         atmp=tmp('=')
         ag = gg.add_node(key=atmp, file='mapping', name=m, ln=0, label='=', ast_type=ast.AugAssign, node_type=NodeTypes.ASSIGN, targets=[], value=None, ast_op=ast.Add())
         ae = equation_graph.add_node(key=atmp,file='mapping', name=m, ln=0, label='=', ast_type=ast.AugAssign, node_type=NodeTypes.ASSIGN,
                     targets=[], value=None, ast_op=ast.Add())
 
-        #target_node = EquationNode(None, file='mapping', name=m, ln=0, id=target_var_id, label=target_var.tag, ast_type=ast.Attribute, node_type=node_type, scope_var=target_var)
-        #gg.add_node((target_node.id, target_node, target_var.id), ignore_exist=True)
-        #equation_graph.add_node((target_node.id, target_node, target_var.id), ignore_exist=True)
-        #print(target_var.tag)
         tg = gg.add_node(key=target_var_id , file='mapping', name=m, ln=0, id=target_var_id, label=target_var.tag, ast_type=ast.Attribute, node_type=node_type, scope_var=target_var, ignore_existing=True)
         t = equation_graph.add_node(key=target_var_id, file='mapping', name=m, ln=0, id=target_var_id, label=target_var.tag, ast_type=ast.Attribute, node_type=node_type, scope_var=target_var, ignore_existing=True)
 
@@ -714,11 +527,6 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
             nodes_dep[target_var_id] = []
         if not ak in nodes_dep[target_var_id]:
             nodes_dep[target_var_id].append(ak)
-
-
-        #gg.add_edge((assign.id, target_node.id, EquationEdge(start=assign.id, end=target_node.id, label='target0'), 0), ignore_missing_nodes=False)
-        #equation_graph.add_edge((assign.id, target_node.id, EquationEdge(start=assign.id, end=target_node.id, label='target0'), 0),
-        #            ignore_missing_nodes=False)
 
         gg.add_edge(start=ag, end=tg, e_type='target')
         equation_graph.add_edge(start=ae, end=t, e_type='target')
@@ -730,7 +538,6 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
 
         for i in m[1]:
             ivar_var = scope_vars[i]
-            #prefix = f's{scope_map.index(ivar_var.parent_scope_id)}'
             prefix = scope_map[ivar_var.parent_scope_id]
             ivarn = mg.add_node(key=ivar_var.parent_scope_id, ignore_existing=True, label=ivar_var.parent_scope_id)
             mg.add_edge(start=ivarn, end=tn, e_type='mapping')
@@ -747,18 +554,11 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
 
             scope_var = scope_vars[ivar_var.id]
 
-            #ivar = EquationNode(None, file='mapping', name=m, ln=0, id=ivar_id, label=ivar_var.tag, ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=scope_var)
-            #gg.add_node((ivar.id, ivar, ivar_var.id, ), ignore_exist=True)
-            #equation_graph.add_node((ivar.id, ivar, ivar_var.id,), ignore_exist=True)
             ivar_node_g = gg.add_node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id, label=ivar_var.tag, ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=scope_var, ignore_existing=True)
             ivar_node_e = equation_graph.add_node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id, label=ivar_var.tag,
                                       ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=scope_var, ignore_existing=True)
 
             if prev:
-                #binop = EquationNode(None, file='mapping', name=m, ln=0, label=get_op_sym(add), ast_type=ast.BinOp, node_type=NodeTypes.OP, ast_op=add)
-                #gg.add_node((binop.id, binop, None,))
-                #gg.add_edge((prev.id, binop.id, EquationEdge(start=prev.id, end=binop.id,label='left'), 0), ignore_missing_nodes=False)
-                #gg.add_edge((ivar.id, binop.id, EquationEdge(start=ivar.id, end=binop.id,label='right'), 0), ignore_missing_nodes=False)
 
                 binop_g = gg.add_node(file='mapping', name=m, ln=0, label=get_op_sym(add), ast_type=ast.BinOp,
                                      node_type=NodeTypes.OP, ast_op=add)
@@ -769,12 +569,6 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
                 binop_e = gg.add_node(file='mapping', name=m, ln=0, label=get_op_sym(add), ast_type=ast.BinOp,
                                       node_type=NodeTypes.OP, ast_op=add)
 
-                #equation_graph.add_node((binop.id, binop, None,))
-                #equation_graph.add_edge((prev.id, binop.id, EquationEdge(start=prev.id, end=binop.id, label='left'), 0),
-                #            ignore_missing_nodes=False)
-                #equation_graph.add_edge((ivar.id, binop.id, EquationEdge(start=ivar.id, end=binop.id, label='right'), 0),
-                #            ignore_missing_nodes=False)
-
                 equation_graph.add_edge(prev_e, binop_e, e_type='left')
                 equation_graph.add_edge(ivar_node_e, binop_e, e_type='right')
 
@@ -784,55 +578,32 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
                 prev_g = ivar_node_g
                 prev_e = ivar_node_e
 
-            #equation_graph.add_edge((ivar.id, target_node.id, 'mapping', 0), ignore_missing_nodes=False)
-
-        #gg.add_edge((prev.id, assign.id, EquationEdge(start=prev.id, end=assign.id, label='value'), 0), ignore_missing_nodes=False)
-        #equation_graph.add_edge((prev.id, assign.id, EquationEdge(start=prev.id, end=assign.id, label='value'), 0),
-         #           ignore_missing_nodes=False)
-
         gg.add_edge(prev_g, ag,e_type='value')
         equation_graph.add_edge(prev_e, ae, e_type='value')
-        #ast.Assign(targets=ast.Attribute(attr_ast(m[0])), value = None)
+
     gg.as_graphviz('global')
-    equation_graph.as_graphviz('eq')
+    equation_graph.as_graphviz('eq', force=True)
     if True:
         logging.info('making substituation graph')
+
         #replace all mappings
         substitutions = {}
 
         #Loop over all nodes
-        #eq_nodes = equation_graph.get_nodes()
         eq_val_nodes = equation_graph.get_where_attr('node_type', NodeTypes.VAR)
-        #print([equation_graph.key_map[i] for i in eq_val_nodes])
-        #print(eq_val_nodes)
-        #print(len(eq_nodes))
         s_nodes = []
         s_edges = []
-        #lastp = -1
-        #for i, n in enumerate(eq_nodes):
-        #    prog = i/len(eq_nodes)*100
-        #    if prog > lastp +1:
-        #        print(prog)
-        #        lastp = prog
-         #   if n[1].node_type == NodeTypes.VAR:
-        #print(equation_graph.edges_attr['e_type'][:equation_graph.edge_counter])
-        #print(equation_graph.edges[:equation_graph.edge_counter])
+
         substitution_graph = Graph()
         for n in eq_val_nodes:
                 #targeting_edges = equation_graph.edges_end(n, 'target')
                 ix, targeting_edges = equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val='target')
-                #print('te: ',targeting_edges)
-                #print()
-                #print(n[0])
-                #print('targeting edges: ', [t[0] for t in targeting_edges])
-                #print(len(targeting_edges))
 
                 #If only targeted once we can remap this!
                 if len(targeting_edges) == 1:
                     op= targeting_edges[0][0]
                     if equation_graph.get(targeting_edges[0][0], 'node_type') == NodeTypes.ASSIGN:
                         ix, values = equation_graph.get_edges_for_node_filter(end_node=op, attr='e_type', val='value')#edges_end(op, 'value')
-                        #print('vals ', values)
                         #add a map
                         if len(values) == 1:
                             val=values[0][0]
@@ -844,88 +615,45 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
                                     nm = substitution_graph.add_node(key=equation_graph.key_map[n], label=equation_graph.get(n, 'label'), node_type=0, ignore_existing=True)
                                     #mapped_to = equation_graph.nodes_map[values[0][0]]
                                     nv = substitution_graph.add_node(key=val_k, label=val_k, node_type=0, ignore_existing=True)
-                                    #s_nodes += [n, val]
-                                    #s_edges.append((mapped_to[0], n[0], EquationEdge(start=mapped_to, end=n, label='value'), 0))
 
                                     substitution_graph.add_edge(nv, nm, e_type='value')
                                 else:
                                     raise ValueError(equation_graph.key_map[n]+' already substituted???')
 
                                 equation_graph.remove_node(op)
+                                equation_graph.remove_node(n)
 
                         elif len(values) > 1:
                             raise ValueError('arg')
 
-        #substitution_graph = Graph(nodes=s_nodes, edges=s_edges)
-        substitution_graph.as_graphviz('subgraph')
+        substitution_graph.as_graphviz('subgraph', force=True)
         logging.info('cleaning')
-        #equation_graph.clean()
-        #equation_graph.nodes_map['oscillator1_mechanics_x']
-        #print('subs: ')
-        #for k, v in substitutions.items():
-        #    print(k,': ',v)
-        #substitution_graph.as_graphviz('substitutions')
+
         logging.info('define master vars')
         master_variables = substitution_graph.zero_in_degree()
-        #print(master_variables)
+
         logging.info('process master vars')
 
         for mv in master_variables:
-            #print(mv)
-            #mn = equation_graph.nodes_map[mv]
-            #from time import time
-            #tic=time()
             dep_g = substitution_graph.get_dependants_graph(mv)
-            #toc=time()
-            #print('sg: ',toc-tic)
-            #print(nodes_dep)
-            #for d in dep_g.node_map.values():
 
-            #    if d in nodes_dep:
-            #        if not mv in nodes_dep:
-            #            nodes_dep[mv] = []
-
-            #        nodes_dep[mv] = list(set(nodes_dep[mv] +nodes_dep[d]))
             mk = substitution_graph.key_map[mv]
             dep_g.node_map.pop(mk)
 
             equation_graph.replace_nodes_by_key(mk, dep_g.node_map.keys())
-        #equation_graph.clean()
-        #equation_graph.nodes_map['oscillator1_mechanics_x']
 
-        #equation_graph.as_graphviz('eq_substituted')
-        #print('eq')
-        #for n in equation_graph.get_nodes():
-        #    print(n)
-
-        #print('egs')
     logging.info('clone eq graph')
     equation_graph_simplified = equation_graph.clone()
-    equation_graph_simplified.as_graphviz('eqs')
-    #for n in equation_graph_simplified.get_nodes():
-    #    print(n)
+    equation_graph_simplified.clean()
+    equation_graph_simplified.as_graphviz('eqs', force=True)
 
-    #sdf=sfgdfdff
-    #print('nodes dep: ')
-    #for nd, dep in nodes_dep.items():
-    #    print(nd,': ', dep)
     logging.info('remove dependencies')
-    #for n, dep in nodes_dep.items():
-    #    if len(dep) <= 1:
-            # remove node and its edges
-     #       print('remove: ', n)
-    #        equation_graph_simplified.mark_remove_node_and_edges(n)
-            #edges = equation_graph_simplified.edges.copy()
-            #for e in edges:
-            #    if e[0] == n or e[1] == n:
-            #        equation_graph_simplified.mark_remove_edge(e)
 
     logging.info('cleaning')
-    #equation_graph_simplified.clean()
+
     logging.info('done cleaning')
 
     return equation_graph_simplified
-    #mg.as_graphviz('mappings')
 
 
 

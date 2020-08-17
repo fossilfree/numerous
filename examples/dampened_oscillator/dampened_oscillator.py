@@ -119,7 +119,7 @@ if __name__ == "__main__":
 
     # Define simulation
     s = simulation.Simulation(
-        model.Model(OscillatorSystem('system', k=0.01,  c=0.001, a=0, n=4)),
+        model.Model(OscillatorSystem('system', k=0.01,  c=0.001, a=0, n=2)),
         t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
     )
     # Solve and plot
@@ -136,9 +136,10 @@ if __name__ == "__main__":
 
 
     #print(s.model.historian_df.describe())
-    for c in list(s.model.historian_df):
-        if not c == 'time':
+    print(list(s.model.historian_df))
+    #for c in list(s.model.historian_df):
+    #    if not c == 'time':
             #print(s.model.historian_df[c].describe())
-            s.model.historian_df[c].plot()
+    s.model.historian_df['oscillator0_mechanics_x'].plot()
     plt.show()
     plt.interactive(False)

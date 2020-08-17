@@ -461,6 +461,7 @@ class Graph():
     def __init__(self, preallocate_items=100000):
 
         self.preallocate_items = preallocate_items
+        self.allocated = self.preallocate_items
         self.edge_counter = 0
         self.node_counter = 0
         #Maps a key to an integer which is the internal node_id
@@ -488,6 +489,9 @@ class Graph():
                 self.key_map[node] = key
                 self.node_counter += 1
 
+                if self.node_counter > self.allocated:
+                    raise ValueError('Exceeding allocation')
+
             else:
                 node = self.node_map[key]
 
@@ -513,6 +517,9 @@ class Graph():
 
         self.edge_counter += 1
 
+        if self.edge_counter > self.allocated:
+            raise ValueError('Exceeding allocation')
+
         for ak, a in attrs.items():
             if not ak in self.edges_attr:
                 self.edges_attr[ak] = [None] * self.preallocate_items
@@ -535,9 +542,6 @@ class Graph():
     def clean(self):
         attr_keys = list(self.nodes_attr.keys())
         cleaned_graph = Graph()
-
-        for k, n in self.node_map.items():
-            print(k, ': ', self.get(n, 'deleted'))
 
         old_new = {n: cleaned_graph.add_node(key=k, **{a: self.nodes_attr[a][n] for a in attr_keys}) for k, n in self.node_map.items() if self.get(n, 'deleted') <=0}
 
@@ -599,7 +603,7 @@ class Graph():
             raise ValueError('Need at least one node!')
 
         ix = [i[0] for i in ix if self.edges_attr[attr][i[0]] == val]
-        #print(ix)
+
         return ix, [self.edges[i,:] for i in ix]
 
 
@@ -656,12 +660,9 @@ class Graph():
             subgraph.add_edge(sg_map[e[0]], sg_map[e[1]])
         return subgraph
 
-    def as_graphviz(self, file):
+    def as_graphviz(self, file, force=False):
         #if True:
-        if False:
-            print('Graph viz')
-            #rint(self.edges)
-            #print(self.node_map)
+        if False or force:
             #print(self.key_map)
             #print(self.edges_attr.keys())
             dot = Digraph()
@@ -707,6 +708,18 @@ class Graph():
             #print('sorting topo')
             self.lower_graph.topological_sort()
 
+    def graph_from_path(self, path):
+        cg = Graph()
+        prev=None
+        for p in path:
+            this_ = cg.add_node(key=self.key_map[p], label=self.key_map[p], ignore_existing=True)
+            if prev:
+                cg.add_edge(prev, this_, e_type='dep')
+            prev=this_
+
+
+        return cg
+
     def topological_nodes(self):
         if not self.lower_graph:
             self.make_lower_graph()
@@ -719,12 +732,12 @@ class Graph():
 
             self.cyclic_path = self.lower_graph.cyclic_path
             #print(self.lower_graph.cyclic_path)
-            #cg = self.graph_from_path(self.cyclic_path)
-            #cg.as_graphviz('cyclic')
+            cg = self.graph_from_path(self.cyclic_path)
+            cg.as_graphviz('cyclic', force=True)
             for n in self.cyclic_path:
                 print(" ".join([str(self.key_map[n]), '          '+str(self.get(n, 'file'))]))#, 'line: '+ str(n[1].lineno), 'col: '+str(n[1].col_offset)]))
 
-            self.cyclic_dependency = self.higher_nodes([self.lower_graph.cyclic_dependency])[0]
+            self.cyclic_dependency = self.lower_graph.cyclic_dependency
             raise ValueError('Cyclic path detected: ', self.cyclic_path)
 
         return self.lower_graph.topological_sorted_nodes
