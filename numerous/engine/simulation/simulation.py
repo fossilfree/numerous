@@ -80,7 +80,7 @@ class Simulation:
         finally:
             print('completed solve')
             self.info.update({"Solving status": result_status})
-        #    list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,self.model.path_variables), self.model.callbacks))
+            list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,self.model.path_variables), self.model.callbacks))
             self.model.create_historian_df()
         return sol
 

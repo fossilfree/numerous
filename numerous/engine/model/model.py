@@ -8,10 +8,11 @@ import uuid
 
 from numba.experimental import jitclass
 import pandas as pd
+
 from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
-#from examples.historyDataFrameCallbackExample import HistoryDataFrameCallback
+from examples.historyDataFrameCallbackExample import HistoryDataFrameCallback
 from numerous.engine.scope import Scope, ScopeVariable
 
 # from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
@@ -284,7 +285,7 @@ class Model:
         #    print(n[0], ' ', n[1].scope_var.type if hasattr(n[1], 'scope_var') and n[1].scope_var else "No type?!")
 
 
-              
+
     #Process variables
         states = []
         deriv = []
@@ -434,7 +435,9 @@ class Model:
                     sum_mapped_idx_len.append(end_idx - start_idx)
                     self.sum_mapping = True
 
-######################################### TODO @Artem: document these
+
+
+        # TODO @Artem: document these
         # non_flat_scope_idx is #scopes x  number_of variables indexing?
         # flat_scope_idx_from - rename to flat_var?
         self.non_flat_scope_idx_from = np.array(non_flat_scope_idx_from)
@@ -442,7 +445,7 @@ class Model:
 
         self.flat_scope_idx_from = np.array([x for xs in self.non_flat_scope_idx_from for x in xs])
         self.flat_scope_idx = np.array([x for xs in self.non_flat_scope_idx for x in xs])
-        
+
         self.sum_idx = np.array(sum_idx)
         self.sum_mapped = np.array(sum_mapped)
         self.sum_mapped_idxs_len = np.array(sum_mapped_idx_len, dtype=np.int64)
@@ -513,7 +516,14 @@ class Model:
         self.flat_scope_idx_slices_end = np.cumsum(_flat_scope_idx_slices_lengths)
         self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
 
-
+        assemble_finish = time.time()
+        print("Assemble time: ",assemble_finish - assemble_start)
+        self.info.update({"Assemble time": assemble_finish - assemble_start})
+        self.info.update({"Number of items": len(self.model_items)})
+        self.info.update({"Number of variables": len(self.scope_variables)})
+        self.info.update({"Number of equation scopes": len(self.equation_dict)})
+        self.info.update({"Number of equations": len(self.compiled_eq)})
+        self.info.update({"Solver": {}})
 
     def _var_idxs_to_3d_idxs(self, var_idxs, _from):
         if var_idxs.size == 0:
@@ -818,8 +828,8 @@ class Model:
         for spec_dict in self.numba_callbacks_variables:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
-        
-        
+
+
         def create_eq_call(eq_method_name: str, i: int):
             return "      self." \
                    "" + eq_method_name + "(array_3d[" + str(i) + \
@@ -827,8 +837,8 @@ class Model:
 
         Equation_Parser.create_numba_iterations(NumbaModel, self.compiled_eq, "compute_eq", "func"
                                                 , create_eq_call, "array_3d", map_sorting=self.eq_outgoing_mappings)
-        
-        
+
+
         ##Adding callbacks_varaibles to numba specs
         def create_cbi_call(_method_name: str, i: int):
             return "      self." \
@@ -850,7 +860,7 @@ class Model:
 
         Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init_run, "run_init_callbacks",
                                                 "callback_func_init_pre_update", create_cbiu_call, "time")
-        
+
         @jitclass(numba_model_spec)
         class NumbaModel_instance(NumbaModel):
             pass
@@ -871,7 +881,7 @@ class Model:
 
         NM_instance.historian_update(start_time)
         self.numba_model = NM_instance
-        
+
 
 
         return self.numba_model
