@@ -49,7 +49,8 @@ class ModelNamespace:
         self.equation_dict = {}
         self.eq_variables_ids = []
         self.variables = {}
-        self.full_tag = item_tag + '_' + tag
+        #self.full_tag = item_tag + '_' + tag
+        self.full_tag = item_tag + '.' + tag
 
 
 class ModelAssembler:
@@ -226,23 +227,25 @@ class Model:
 
 
         #print(self.equation_dict)
-        self.gg = Graph()
-        self.eg = Graph()
+        self.gg = Graph(preallocate_items=1000000)
+        self.eg = Graph(preallocate_items=1000000)
 
 
 
-        scope_ids = {}
+        self.scope_ids = {}
         for s in self.synchronized_scope.keys():
+            #print(type(self.name_spaces[s][1][0]))
             s_id = f'{self.name_spaces[s][1][0].full_tag}'
+            #print('k: ', s_id)
             s_id_ = s_id
             count = 1
-            while s_id_ in list(scope_ids.values()):
+            while s_id_ in list(self.scope_ids.values()):
                 s_id_ = s_id + '_' + str(count)
                 count += 1
 
-            scope_ids[s] = s_id_
+            self.scope_ids[s] = s_id_
             #print(s_id_)
-
+        #sdfsd=sdfsdf
         scope_item_tag = {}
 
         nodes_dep = {}
@@ -255,18 +258,18 @@ class Model:
 
 
             #print('scope_id: ', scope_id)
-            #s_id = f's{scope_ids.index(scope_id)}'
+            #s_id = f's{self.scope_ids.index(scope_id)}'
             #print(eq)
             if len(eq[0])>0:
 
-                parse_eq(scope_ids[scope_id], eq, self.gg, self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations)
+                parse_eq(self.scope_ids[scope_id], eq, self.gg, self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations)
         logging.info('parsing equations completed')
         #for n in gg.nodes:
         #    print(n[0])
 
         #print('mapping: ',self.mappings)
         #Process mappings add update the global graph
-        equation_graph_simplified = process_mappings(self.mappings, self.gg, self.eg, nodes_dep, self.scope_variables, scope_ids)
+        self.aliases, self.eg = process_mappings(self.mappings, self.gg, self.eg, nodes_dep, self.scope_variables, self.scope_ids)
         #self.eg.as_graphviz('equation_graph')
         logging.info('Mappings processed')
         #equation_graph_simplified.as_graphviz('equation_graph_simplified')
@@ -274,7 +277,8 @@ class Model:
         #    print(n)
         #equation_graph_simplified.topological_nodes()
         logging.info('Checked topo sort of simple graph')
-        #self.gg.as_graphviz('global_graph')
+        #self.gg.as_graphviz('global_graph', force=True)
+        #self.eg.as_graphviz('eq', force=True)
         #nodes = self.gg.get_nodes()
         #for n in nodes:
         #    print(n[0], ' ', n[1].scope_var.type if hasattr(n[1], 'scope_var') and n[1].scope_var else "No type?!")
@@ -317,7 +321,7 @@ class Model:
                 self.vars_ordered_map.append(vars_node_id[v.id])
             else:
                 #vars_ordered_map.append(f'dummy__{count}')
-                self.vars_ordered_map.append(v.id.replace('-','_').replace('.','_'))
+                self.vars_ordered_map.append(v.id.replace('-','_'))#.replace('.','_'))
                 count+=1
 
         logging.info('variables sorted')
@@ -344,7 +348,18 @@ class Model:
         #if len(self.gg.nodes)<100:
         #self.gg.as_graphviz('global')
         logging.info('lowering model')
-        self.compiled_compute, self.var_func, self.vars_ordered_values, self.vars_ordered = generate_equations(self.equations_parsed, self.eg, self.scoped_equations, self.scope_variables)
+        self.compiled_compute, self.var_func, self.vars_ordered_values, self.vars_ordered, self.scope_vars_vars = generate_equations(self.equations_parsed, self.eg, self.scoped_equations, self.scope_variables, self.scope_ids, self.aliases)
+
+        self.scope_vars_ordered = [self.scope_vars_vars[v] for v in self.vars_ordered],
+        self.pathed_variables = [self.variables[self.scope_vars_vars[v].id].path.path[self.system.id] for v in self.vars_ordered]
+
+        self.aliases = {self.variables[self.scope_vars_vars[a].id].path.path[self.system.id][0]: self.variables[self.scope_vars_vars[v].id].path.path[self.system.id][0] for a, v in self.aliases.items()}
+
+
+        for pv in self.pathed_variables:
+            for i in pv[1:]:
+                self.aliases[i]=pv[0]
+        self.pathed_variables = [pv[0] for pv in self.pathed_variables]
         #generate_program(self.gg)
         #asdsad=asdsfsf
         #self.compiled_compute = generate(self.gg, self.vars_ordered_map, self.special_indcs)
@@ -731,6 +746,7 @@ class Model:
     def create_model_namespaces(self, item):
         namespaces_list = []
         for namespace in item.registered_namespaces.values():
+
             model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag)
             equation_dict = {}
             eq_variables_ids = []
@@ -876,13 +892,13 @@ class Model:
             time = self.numba_model.historian_data[:,0]
             data = {'time': time}
 
-            for i, var in enumerate(self.vars_ordered):
-
+            for i, var in enumerate(self.pathed_variables):
                  #data.update({".".join(self.variables[var.id].path.path[self.system.id]): self.numba_model.historian_data[:,i+1]})
                  data.update({
                      var: self.numba_model.historian_data[:, i + 1]})
 
-            self.historian_df = pd.DataFrame(data)
+
+            self.historian_df = AliasedDataFrame(data, aliases=self.aliases)
 
         if lower_method == LowerMethod.Tensor:
             time = self.numba_model.historian_data[0]
@@ -893,3 +909,33 @@ class Model:
 
             self.historian_df = pd.DataFrame(data)
         # self.df.set_index('time')
+
+class AliasedDataFrame(pd.DataFrame):
+    _metadata = ['aliases']
+
+    def __init__(self, data, aliases={}):
+
+        self.aliases = aliases
+        #print('vars')
+        #for k in self.aliases.keys():
+        #    print(k)
+        super().__init__(data)
+        #for l in list(self):
+        #    print(l)
+        #intersect = set(list(self)).intersection(set(self.aliases))
+        #print('intersect!!: ',intersect)
+        #print(len(intersect))
+        #print(self.aliases.keys())
+
+
+
+    def __getitem__(self, item):
+        if item in self.aliases:
+            col = self.aliases[item]
+
+        else:
+            col = item
+
+        return super().__getitem__(col)
+
+

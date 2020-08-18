@@ -67,7 +67,7 @@ import numpy as np
 from numba import njit, float64
 """
 
-def generate_program(graph: Graph, variables, indcs):
+def generate_program(graph: Graph, variables, indcs, deriv_aliased):
     nodes = graph.topological_nodes()
     ops = {}
     program = []
@@ -81,7 +81,7 @@ def generate_program(graph: Graph, variables, indcs):
         ast_type = graph.get(n, 'ast_type')
         if nt == NodeTypes.OP or nt == NodeTypes.ASSIGN or nt == NodeTypes.SUM or nt == NodeTypes.EQUATION:
 
-            if nt == NodeTypes.SUM:
+            if nt == NodeTypes.SUM or nt == NodeTypes.ASSIGN:
 
                 this_op = 'summing'
                 this_op_type = 'summing'
@@ -93,7 +93,8 @@ def generate_program(graph: Graph, variables, indcs):
 
                 lenargs = len(args)
                 lentargets = len(targets)
-                indices += [variables.index(a) for a in args+targets]
+                indices += [variables.index(a) for a in args]
+                indices += [variables.index(a) for a in targets]
 
                 llvm_program.append({'func': 'sum', 'targets': [t for t in targets], 'args': [a for a in args]})
 
@@ -137,6 +138,27 @@ def generate_program(graph: Graph, variables, indcs):
             end_targets = end_arg + lentargets
 
             program.append((ix,start_arg, end_arg, end_targets))
+
+    for d, a in deriv_aliased.items():
+        start_arg = len(indices)
+        this_op_type = 'summing'
+        if this_op_type in ops:
+            ix = list(ops.keys()).index(this_op_type)
+        else:
+            ix = len(ops.values())
+            ops[this_op_type] = dict(lenargs=lenargs, lentargets=lentargets, op_type=ast.Assign,
+                                     op=this_op)
+
+        lenargs = len(args)
+        lentargets = len(targets)
+        indices += [variables.index(a_) for a_ in [d, a]]
+
+        llvm_program.append({'func': 'sum', 'targets': [d], 'args': [a]})
+
+        end_arg = start_arg + lenargs
+        end_targets = end_arg + lentargets
+
+        program.append((ix, start_arg, end_arg, end_targets))
 
     body = [library_function(ops)]
 

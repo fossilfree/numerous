@@ -258,7 +258,7 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
 
     return func, var_def_.vars_inds_map, signature, fname, var_def_.args, var_def_.targets
 
-def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='_'):
+def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.'):
     en=None
     is_mapped = None
 
@@ -406,7 +406,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='_'):
     return is_mapped, en
 
 def qualify(s, prefix):
-    return prefix + '_' + s.replace('scope.', '')
+    return prefix + '.' + s.replace('scope.', '')
 
 def qualify_equation(prefix, g, tag_vars):
 
@@ -446,13 +446,15 @@ def parse_eq(scope_id, item, global_graph, equation_graph: Graph, nodes_dep, tag
 
             g = Graph()
 
-            parse_(ast_tree, eq.__qualname__, eq.file, eq.lineno, g, tag_vars)
+            parse_(ast_tree, eq_key, eq.file, eq.lineno, g, tag_vars)
 
             parsed_eq[eq_key] = (eq, dsource, g)
 
-            g.as_graphviz(eq_key)
+            #g.as_graphviz(eq_key)
 
         g = parsed_eq[eq_key][2]
+        #print('sid: ', scope_id)
+        #sdsdf=xdvxfgdfgdfg
         g_qualified = qualify_equation(scope_id, g, tag_vars)
 
         #make equation graph
@@ -502,7 +504,7 @@ def parse_eq(scope_id, item, global_graph, equation_graph: Graph, nodes_dep, tag
         a = 1
 
 def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_vars, scope_map):
-    mg = Graph()
+    mg = Graph(preallocate_items=100000)
     logging.info('process mappings')
     for m in mappings:
         target_var = scope_vars[m[0]]
@@ -581,8 +583,10 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
         gg.add_edge(prev_g, ag,e_type='value')
         equation_graph.add_edge(prev_e, ae, e_type='value')
 
-    gg.as_graphviz('global')
-    equation_graph.as_graphviz('eq', force=True)
+    #gg.as_graphviz('global')
+    #equation_graph.as_graphviz('eq_bf_sub', force=True)
+    aliases = {}
+
     if True:
         logging.info('making substituation graph')
 
@@ -594,18 +598,21 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
         s_nodes = []
         s_edges = []
 
-        substitution_graph = Graph()
+        substitution_graph = Graph(preallocate_items=100000)
         for n in eq_val_nodes:
                 #targeting_edges = equation_graph.edges_end(n, 'target')
                 ix, targeting_edges = equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val='target')
 
                 #If only targeted once we can remap this!
-                if len(targeting_edges) == 1:
+                if len(targeting_edges) == 1:#  and (sv:= equation_graph.get(node=n, attr='scope_var')) and not sv.type == VariableType.DERIVATIVE:
+                    #print(sv.id)
+                    #print(sv.type)
                     op= targeting_edges[0][0]
                     if equation_graph.get(targeting_edges[0][0], 'node_type') == NodeTypes.ASSIGN:
                         ix, values = equation_graph.get_edges_for_node_filter(end_node=op, attr='e_type', val='value')#edges_end(op, 'value')
                         #add a map
                         if len(values) == 1:
+                            #print(sv.id)
                             val=values[0][0]
 
                             if not equation_graph.get(val,'ast_type') == ast.BinOp:
@@ -621,12 +628,14 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
                                     raise ValueError(equation_graph.key_map[n]+' already substituted???')
 
                                 equation_graph.remove_node(op)
-                                equation_graph.remove_node(n)
+
 
                         elif len(values) > 1:
                             raise ValueError('arg')
 
-        substitution_graph.as_graphviz('subgraph', force=True)
+        equation_graph = equation_graph.clean()
+        #equation_graph.as_graphviz('subclean', force=False)
+        #substitution_graph.as_graphviz('subgraph', force=False)
         logging.info('cleaning')
 
         logging.info('define master vars')
@@ -634,18 +643,25 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
 
         logging.info('process master vars')
 
+
+
         for mv in master_variables:
             dep_g = substitution_graph.get_dependants_graph(mv)
 
             mk = substitution_graph.key_map[mv]
             dep_g.node_map.pop(mk)
+            keys=dep_g.node_map.keys()
 
-            equation_graph.replace_nodes_by_key(mk, dep_g.node_map.keys())
+            aliases.update({k: mk for k in keys})
+
+            equation_graph.replace_nodes_by_key(mk, keys)
 
     logging.info('clone eq graph')
-    equation_graph_simplified = equation_graph.clone()
-    equation_graph_simplified.clean()
-    equation_graph_simplified.as_graphviz('eqs', force=True)
+    equation_graph = equation_graph.clean()
+    #equation_graph.as_graphviz('tt', force=True)
+    #equation_graph_simplified = equation_graph.clone()
+    #equation_graph_simplified = equation_graph_simplified.clean()
+    #equation_graph_simplified.as_graphviz('eqs', force=True)
 
     logging.info('remove dependencies')
 
@@ -653,7 +669,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
 
     logging.info('done cleaning')
 
-    return equation_graph_simplified
+    return aliases, equation_graph
 
 
 

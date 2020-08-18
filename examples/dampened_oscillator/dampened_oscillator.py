@@ -104,7 +104,7 @@ class OscillatorSystem(Subsystem):
         self.register_items(oscillators)
         # 3. Valve_1 is one instance of valve class
 
-        if len(oscillators)>1:
+        if True:#len(oscillators)>1:
             spc = SpringCoupling('spc', k=1)
             spc.bind(side1=oscillators[0], side2=oscillators[1])
             spc.side1.mechanics.v_dot += spc.mechanics.F1
@@ -140,6 +140,7 @@ if __name__ == "__main__":
     #for c in list(s.model.historian_df):
     #    if not c == 'time':
             #print(s.model.historian_df[c].describe())
-    s.model.historian_df['oscillator0_mechanics_x'].plot()
+    s.model.historian_df['oscillator0.mechanics.x'].plot()
+    #print()
     plt.show()
     plt.interactive(False)

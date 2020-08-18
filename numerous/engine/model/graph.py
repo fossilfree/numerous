@@ -458,7 +458,7 @@ tmp = TMP().tmp
 
 class Graph():
 
-    def __init__(self, preallocate_items=100000):
+    def __init__(self, preallocate_items=1000):
 
         self.preallocate_items = preallocate_items
         self.allocated = self.preallocate_items
@@ -541,7 +541,7 @@ class Graph():
 
     def clean(self):
         attr_keys = list(self.nodes_attr.keys())
-        cleaned_graph = Graph()
+        cleaned_graph = Graph(preallocate_items=self.preallocate_items)
 
         old_new = {n: cleaned_graph.add_node(key=k, **{a: self.nodes_attr[a][n] for a in attr_keys}) for k, n in self.node_map.items() if self.get(n, 'deleted') <=0}
 
@@ -622,7 +622,7 @@ class Graph():
 
 
     def clone(self):
-        clone_ = Graph()
+        clone_ = Graph(preallocate_items=self.preallocate_items)
 
         clone_.preallocate_items =  self.preallocate_items
         clone_.edge_counter = self.edge_counter
@@ -763,3 +763,4 @@ class Graph():
         edges = self.edges[:self.edge_counter]
 
         multi_replace(edges, to_be_replaced_v, n)
+        [self.remove_node(t) for t in to_be_replaced_v]
