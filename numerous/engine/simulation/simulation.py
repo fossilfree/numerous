@@ -1,9 +1,10 @@
-import time
 from datetime import datetime
 import time
 import numpy as np
 from numerous.engine.simulation.solvers.base_solver import SolverType
-from numerous.engine.simulation.solvers.ivp_solver import IVP_solver
+from numerous.engine.simulation.solvers.ivp_solver.ivp_solver import IVP_solver
+from .solvers.numerous_solver.numerous_solver import Numerous_solver
+
 
 class Simulation:
     """
@@ -46,9 +47,14 @@ class Simulation:
         self.time = time_
         self.async_callback = []
 
+        def __end_step(solver, y, t):
+            solver.y0 = y
+            solver.numba_model.historian_update(t)
+            # solver.numba_model.run_callbacks_with_updates(t)
 
         print("Generating Numba Model")
         generation_start = time.time()
+        self.model = model
         numba_model = model.generate_numba_model(t_start, len(self.time))
         generation_finish = time.time()
         print("Generation time: ", generation_finish - generation_start)
@@ -56,17 +62,22 @@ class Simulation:
         if solver_type == SolverType.SOLVER_IVP:
             self.solver = IVP_solver(time_, delta_t, numba_model,
                                      num_inner, max_event_steps, **kwargs)
-        self.model = model
+
+        if solver_type == SolverType.NUMEROUS:
+            self.solver = Numerous_solver(time_, delta_t, numba_model,
+                                          num_inner, max_event_steps, **kwargs)
+
+        self.solver.register_endstep(__end_step)
+        self.solver.set_state_vector(self.model.states_as_vector)
+
         self.start_datetime = start_datetime
         self.info = model.info["Solver"]
         self.info["Number of Equation Calls"] = 0
-        self.solver.set_state_vector(self.model.states_as_vector)
+
         # self.solver.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
         # self.callbacks = [x.callbacks for x in sorted(model.callbacks,
         #                                               key=lambda callback: callback.priority,
         #                                               reverse=True)]
-
-        self.solver.register_endstep(self.__end_step)
 
     def solve(self):
         self.__init_step()
@@ -80,7 +91,8 @@ class Simulation:
         finally:
             print('completed solve')
             self.info.update({"Solving status": result_status})
-            list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,self.model.path_variables), self.model.callbacks))
+            list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,
+                                                              self.model.path_variables), self.model.callbacks))
             self.model.create_historian_df()
         return sol
 
@@ -93,3 +105,5 @@ class Simulation:
         solver.y0 = y
         solver.numba_model.historian_update(t)
         # solver.numba_model.run_callbacks_with_updates(t)
+
+

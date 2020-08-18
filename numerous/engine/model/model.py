@@ -41,6 +41,7 @@ class LowerMethod(IntEnum):
 lower_method = LowerMethod.Codegen
 
 
+
 class ModelNamespace:
 
     def __init__(self, tag, outgoing_mappings, item_tag):
@@ -104,14 +105,14 @@ class Model:
      so they can be accessed as variable values there.
     """
 
-    def __init__(self, system=None, historian=None, assemble=True, validate=False):
+    def __init__(self, system=None, historian_filter=None, assemble=True, validate=False):
 
         self.numba_callbacks_init = []
         self.numba_callbacks_variables = []
         self.numba_callbacks = []
         self.numba_callbacks_init_run = []
         self.callbacks = []
-
+        self.historian_filter = historian_filter
         self.system = system
         self.events = {}
         self.derivatives = {}
@@ -151,7 +152,6 @@ class Model:
 
         if validate:
             self.validate()
-
 
     def __add_item(self, item):
         model_namespaces = []
@@ -374,8 +374,7 @@ class Model:
         # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping
         # self.synchronized_scope to compiled_eq (by index)
         equation_parser = Equation_Parser()
-        self.compiled_eq, self.compiled_eq_idxs,self.eq_outgoing_mappings = equation_parser.parse(self)
-
+        self.compiled_eq, self.compiled_eq_idxs, self.eq_outgoing_mappings = equation_parser.parse(self)
 
         # 4. Create self.states_idx and self.derivatives_idx
         # Fixes each variable's var_idx (position), updates variables[].idx_in_scope
@@ -434,8 +433,6 @@ class Model:
                     sum_mapped_idx = sum_mapped_idx + list(range(start_idx, end_idx))
                     sum_mapped_idx_len.append(end_idx - start_idx)
                     self.sum_mapping = True
-
-
 
         # TODO @Artem: document these
         # non_flat_scope_idx is #scopes x  number_of variables indexing?
@@ -517,13 +514,27 @@ class Model:
         self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
 
         assemble_finish = time.time()
-        print("Assemble time: ",assemble_finish - assemble_start)
+        print("Assemble time: ", assemble_finish - assemble_start)
         self.info.update({"Assemble time": assemble_finish - assemble_start})
         self.info.update({"Number of items": len(self.model_items)})
         self.info.update({"Number of variables": len(self.scope_variables)})
         self.info.update({"Number of equation scopes": len(self.equation_dict)})
         self.info.update({"Number of equations": len(self.compiled_eq)})
         self.info.update({"Solver": {}})
+
+        # def _get_var_name_from_flat_id(flat_id):
+        #     return list(self.path_variables.keys())[
+        #         np.unique(self.var_idxs_pos_3d_helper, return_index=True)[1][flat_id]]
+        #
+        # idx_sum = 0
+        # for i,len_ in enumerate(self.sum_mapped_idxs_len):
+        #     print("Variable {0} is a sum of:".format(_get_var_name_from_flat_id(self.sum_idx[i])))
+        #     for j in  self.sum_slice_idxs[idx_sum:idx_sum + len_]:
+        #         print(_get_var_name_from_flat_id(self.sum_mapped[j]))
+        #     idx_sum += len_
+
+
+
 
     def _var_idxs_to_3d_idxs(self, var_idxs, _from):
         if var_idxs.size == 0:
@@ -539,6 +550,7 @@ class Model:
                                           zip(map(list, _non_flat_scope_idx[_scope_idxs]),
                                               var_idxs)),
                         int))
+
 
     def get_states(self):
         """
@@ -562,7 +574,6 @@ class Model:
     def update_states(self, y):
         self.scope_variables[self.states_idx] = y
 
-
     def history_as_dataframe(self):
         time = self.data[0]
         data = {'time': time}
@@ -574,7 +585,6 @@ class Model:
         self.df = self.df.dropna(subset=['time'])
         self.df = self.df.set_index('time')
         self.df.index = pd.to_timedelta(self.df.index, unit='s')
-
 
     def validate(self):
         """
