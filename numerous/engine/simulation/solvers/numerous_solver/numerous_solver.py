@@ -174,9 +174,16 @@ class Numerous_solver(BaseSolver):
             return info
 
         self._method = _method
-
+        argtypes = []
+        args = (self.numba_model,
+                self._method.get_solver_state(len(self.y0)),
+                self.time[0],
+                self.time[-1],
+                self.time)
+        for a in args:
+                argtypes.append(_solve.typeof_pyval(a))
         # Return the solver function
-        return _solve
+        self._solve = _solve.compile(tuple(argtypes))
 
     def set_state_vector(self, states_as_vector):
         self.y0 = states_as_vector
