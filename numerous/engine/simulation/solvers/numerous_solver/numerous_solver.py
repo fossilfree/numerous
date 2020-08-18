@@ -2,7 +2,10 @@ import sys
 import time
 from copy import deepcopy
 import numpy as np
+import numba as nb
 from numba import njit
+from numba.core.dispatcher import OmittedArg
+from numba.experimental import jitclass
 from tqdm import tqdm
 
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
@@ -11,7 +14,7 @@ from .solver_methods import LevenbergMarquardt
 
 class Numerous_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, numba_model, num_inner, max_event_steps, **kwargs):
+    def __init__(self, time, delta_t, numba_model, num_inner, max_event_steps,y0, **kwargs):
         super().__init__()
         self.time = time
         self.num_inner = num_inner
@@ -27,6 +30,9 @@ class Numerous_solver(BaseSolver):
         odesolver_options_bde['order'] = 5
         self.method_options = odesolver_options_bde
         self.method = LevenbergMarquardt
+        self.y0 = y0
+        # Generate the solver
+        self.generate_solver()
 
 
     def generate_solver(self):
@@ -50,10 +56,10 @@ class Numerous_solver(BaseSolver):
 
         _method = self.method(**self.method_options)
         step_integrate_ = _method.step_func
+        from numba import int32, float64, boolean, int64, njit, types, typed
 
-
-        # @njit
-        def _solve(numba_model, _solve_state, t_end=1000.0, t0=0.0, t_eval=np.linspace(0.0, 1000.0, 100), tol=0.001):
+        @njit()
+        def _solve(numba_model, _solve_state, t_end=1000.0, t0=0.0, t_eval=np.linspace(0.0, 1000.0, 100)):
             # Init t to t0
             t = t0
             dt = initial_step / longer
@@ -189,11 +195,8 @@ class Numerous_solver(BaseSolver):
         self.sol = None
 
         try:
-
             t_start = self.time[0]
             t_end = self.time[-1]
-            # Generate the solver - if it already is generated its just returned.
-            _solve = self.generate_solver()
 
             # Call the solver
             from copy import deepcopy
@@ -202,10 +205,9 @@ class Numerous_solver(BaseSolver):
 
             # figure out solve_state init
             solve_state = self._method.get_solver_state(len(y0))
-            info = _solve(self.numba_model,
-                          solve_state, t0=t_start, t_end=t_end, t_eval=self.time)
+            info = self._solve(self.numba_model,
+                          solve_state,t_start, t_end, self.time)
             print("finished")
-
         except Exception as e:
             print(e)
             raise e

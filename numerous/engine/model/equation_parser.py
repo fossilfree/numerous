@@ -76,7 +76,7 @@ class Equation_Parser():
 
                     eq_text = eq_text_2 + "\n   return eval"
                     # eq_text = "def test():\n   from numba import guvectorize\n   import numpy as np\n"+eq_text
-                    eq_text = "def eq_body():\n   from numerous.engine.model.simple_vectorizer import simple_vectorize\n   import numpy as np\n" + eq_text
+                    eq_text = "def eq_body():\n   from numerous.utils.simple_vectorizer import simple_vectorize\n   import numpy as np\n" + eq_text
             else:
                 eq_id = "empty_equation"
                 eq_out_m = 0

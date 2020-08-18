@@ -161,7 +161,7 @@ if __name__ == "__main__":
     T0 = 25
     k = 1
 
-    solver_type = SolverType.SOLVER_IVP
+    solver_type = SolverType.NUMEROUS
     for i in num_nodes:#range(1,num_nodes+1):
 
         m = Model(ThermalCapacitancesSeries("tcs", num_nodes=i, Tinit=Tinit, T0=T0, k=k))

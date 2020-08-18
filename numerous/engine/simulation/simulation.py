@@ -61,14 +61,14 @@ class Simulation:
 
         if solver_type == SolverType.SOLVER_IVP:
             self.solver = IVP_solver(time_, delta_t, numba_model,
-                                     num_inner, max_event_steps, **kwargs)
+                                     num_inner, max_event_steps,self.model.states_as_vector, **kwargs)
 
         if solver_type == SolverType.NUMEROUS:
             self.solver = Numerous_solver(time_, delta_t, numba_model,
-                                          num_inner, max_event_steps, **kwargs)
+                                          num_inner, max_event_steps,self.model.states_as_vector, **kwargs)
 
         self.solver.register_endstep(__end_step)
-        self.solver.set_state_vector(self.model.states_as_vector)
+
 
         self.start_datetime = start_datetime
         self.info = model.info["Solver"]
