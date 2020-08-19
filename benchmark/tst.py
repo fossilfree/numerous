@@ -130,8 +130,7 @@ class ThermalCapacitancesSeries(Subsystem):
         self.register_items(items)
 
 def timeit(s):
-    kill_numba_cache()
-    s.solve()
+    # kill_numba_cache()
     start = time.time()
     s.solve()
     end = time.time()

@@ -32,8 +32,8 @@ class Numerous_solver(BaseSolver):
         self.method = LevenbergMarquardt
         self.y0 = y0
         # Generate the solver
-        self.generate_solver()
-
+        self._non_compiled_solve = self.generate_solver()
+        self._solve = self.compile_solver()
 
     def generate_solver(self):
         eps = np.finfo(1.0).eps
@@ -58,7 +58,7 @@ class Numerous_solver(BaseSolver):
         step_integrate_ = _method.step_func
         from numba import int32, float64, boolean, int64, njit, types, typed
 
-        @njit()
+        @njit(cache=True)
         def _solve(numba_model, _solve_state, t_end=1000.0, t0=0.0, t_eval=np.linspace(0.0, 1000.0, 100)):
             # Init t to t0
             t = t0
@@ -173,7 +173,10 @@ class Numerous_solver(BaseSolver):
             # print(history[1:,0])
             return info
 
-        self._method = _method
+        return _solve
+
+    def compile_solver(self):
+        self._method = self.method(**self.method_options)
         argtypes = []
         args = (self.numba_model,
                 self._method.get_solver_state(len(self.y0)),
@@ -181,9 +184,9 @@ class Numerous_solver(BaseSolver):
                 self.time[-1],
                 self.time)
         for a in args:
-                argtypes.append(_solve.typeof_pyval(a))
+            argtypes.append(self._non_compiled_solve.typeof_pyval(a))
         # Return the solver function
-        self._solve = _solve.compile(tuple(argtypes))
+        return self._non_compiled_solve.compile(tuple(argtypes))
 
     def set_state_vector(self, states_as_vector):
         self.y0 = states_as_vector
