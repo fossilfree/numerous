@@ -33,8 +33,9 @@ class DampenedOscillator(EquationBase, Item):
     def eval(self, scope):
         #scope.c = -1 + 1
         #z = 4 + 2
-        scope.a  =  -scope.k * scope.x - scope.c * scope.v
-        scope.v_dot = scope.a
+        #scope.a  =  -scope.k * scope.x - scope.c * scope.v
+        #scope.a = scope.c * scope.v
+        #scope.v_dot = scope.a
         scope.x_dot = scope.v
         #a1 = 2 * scope.x_dot
         #scope.v2_dot = scope.x_dot
@@ -56,23 +57,24 @@ class Spring_Equation(EquationBase):
     @Equation()
     def eval(self, scope):
         scope.c = scope.k
-        F = (np.abs(scope.x1 - scope.x2) - scope.dx0) * scope.c*0
+        dx = scope.x1 - scope.x2
+        F = np.abs(dx)*scope.c
 
-        scope.F1 = F  # [kg/s]
+        scope.F1 = -F if scope.x1 > scope.x2 else F # [kg/s]
 
-        scope.F2 = F
+        scope.F2 = -scope.F1
 
 
 
 
     # Define the valve as a connector item - connecting two tanks
 class SpringCoupling(ConnectorTwoWay):
-    def __init__(self, tag="springcoup", k=1):
+    def __init__(self, tag="springcoup", k=1, dx0=0):
         super().__init__(tag, side1_name='side1', side2_name='side2')
 
         # 1 Create a namespace for mass flow rate equation and add the valve equation
         mechanics = self.create_namespace('mechanics')
-        mechanics.add_equations([Spring_Equation(k=k)])
+        mechanics.add_equations([Spring_Equation(k=k, dx0=dx0)])
 
         # 2 Create variables H and mdot in side 1 adn 2
         # (side 1 represents a connection with one tank, with related liquid height H_1)
@@ -93,24 +95,26 @@ class SpringCoupling(ConnectorTwoWay):
         #self.side2.mechanics.v_dot += mechanics.F2
 
 class OscillatorSystem(Subsystem):
-    def __init__(self, tag, c=1, k=1, x0=10, a=1, n=1):
+    def __init__(self, tag, c=1, k=1, x0=[10, 8], a=1, n=1):
         super().__init__(tag)
         oscillators = []
         for i in range(n):
             #Create oscillator
-            oscillator = DampenedOscillator('oscillator'+str(i), k=k, c=c, x0=x0, a=a)
+            oscillator = DampenedOscillator('oscillator'+str(i), k=k, c=c, x0=x0[i], a=a)
             oscillators.append(oscillator)
 
         self.register_items(oscillators)
         # 3. Valve_1 is one instance of valve class
 
         if True:#len(oscillators)>1:
-            spc = SpringCoupling('spc', k=1)
+            spc = SpringCoupling('spc', k=.0001, dx0=4)
             spc.bind(side1=oscillators[0], side2=oscillators[1])
             spc.side1.mechanics.v_dot += spc.mechanics.F1
             spc.side2.mechanics.v_dot += spc.mechanics.F2
             #Register the items to the subsystem to make it recognize them.
             self.register_items([spc])
+
+
 
 if __name__ == "__main__":
     from numerous.engine import model, simulation
@@ -140,7 +144,7 @@ if __name__ == "__main__":
     #for c in list(s.model.historian_df):
     #    if not c == 'time':
             #print(s.model.historian_df[c].describe())
-    s.model.historian_df['oscillator0.mechanics.x'].plot()
+    s.model.historian_df[['system.oscillator0.mechanics.x', 'system.oscillator1.mechanics.x']].plot()
     #print()
     plt.show()
     plt.interactive(False)

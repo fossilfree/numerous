@@ -337,7 +337,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #self.variables[var.id].path.path[self.system.id]
 
 
-    skip_kernel = True
+    skip_kernel = False
     if not skip_kernel:
         mod_body.append(wrap_function('kernel', body, decorators=["njit('float64[:](float64[:],float64[:])')"], args=kernel_args))
         mod_body.append(
@@ -444,6 +444,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     ]
     N = 10000
+    """
     from numba.experimental import jitclass
     @jitclass(spec)
     class DiffProgram:
@@ -458,8 +459,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             for i in range(N):
                 self.diff(variables, y)
 
-    dp = DiffProgram(np.array(program, np.int64), np.array(indices, np.int64))
-
+    #dp = DiffProgram(np.array(program, np.int64), np.array(indices, np.int64))
+    """
 
     print('First prgram call results: ')
     #print(dp.diff(variables_values, y))
