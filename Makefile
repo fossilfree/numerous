@@ -1,5 +1,5 @@
-imageVersion=1.0.0
-imageName= mariuscristian/numerous-requirements:${imageVersion}
+imageVersion=1.0.1
+libraryImageName= mariuscristian/numerous-requirements:${imageVersion}
 
 
 install:
@@ -14,10 +14,17 @@ run-benchmark:
 benchmark:
 	@echo python3 ./benchmark/tst.py $(filter-out $@,$(MAKECMDGOALS))
 
-image:
-	docker image build -t ${imageName} .
-	docker push imageName
+library-image:
+	docker image build -t ${libraryImageName} .
+	docker push ${libraryImageName}
+
+
+# Pushing an image to gcr instead of dockerhub:
+# add tag to docker image
+#docker tag <user-name>/<sample-image-name> gcr.io/<project-id>/<sample-image-name>:<tag>
+# push image to gcloud container registry
+#gcloud docker — push gcr.io/your-project-id/<project-id>/<sample-image-name>:<tag>
+
 
 %:
 	@:
-

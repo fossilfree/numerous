@@ -1,4 +1,5 @@
 from numba import int32, float64, boolean, int64, njit, types, typed, typeof
+
 import numpy as np
 
 # key and value types
@@ -39,6 +40,7 @@ class NumbaModel:
                  differing_idxs_pos_3d, differing_idxs_from_3d, num_uses_per_eq,
                  sum_idxs_pos_3d, sum_idxs_sum_3d, sum_slice_idxs, sum_slice_idxs_len, sum_mapping,
                  global_vars, number_of_timesteps, number_of_variables, start_time, mapped_variables_array):
+
         self.var_idxs_pos_3d = var_idxs_pos_3d
         self.var_idxs_pos_3d_helper = var_idxs_pos_3d_helper
         self.eq_count = eq_count
@@ -155,16 +157,8 @@ class NumbaModel:
                 sum_mappings(self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
                              self.sum_slice_idxs, self.scope_vars_3d, self.sum_slice_idxs_len)
 
-            mapping_ = False
-            for idx in self.mapped_variables_array:
-                error = np.abs(self.scope_vars_3d[idx[0]][idx[1]][idx[2]] -prev_scope_vars_3d[idx[0]][idx[1]][idx[2]])
-
-                if error > 1e-6:
-                    mapping_ = True
-                    break
-
-            #mapping_ = not np.all(np.abs(self.get_mapped_variables(prev_scope_vars_3d)
-            #                             - self.get_mapped_variables(self.scope_vars_3d)) < 1e-6)
+            mapping_ = not np.all(np.abs(self.get_mapped_variables(prev_scope_vars_3d)
+                                         - self.get_mapped_variables(self.scope_vars_3d)) < 1e-6)
             prev_scope_vars_3d = np.copy(self.scope_vars_3d)
 
         #print(iter)

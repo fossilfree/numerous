@@ -156,7 +156,6 @@ class Equation_Parser():
         else:
             code_as_string = "def eval():\n   def " + callable_method_name \
                              + "(self," + callable_parameters + "):\n      pass\n   return " + callable_method_name
-
         tree = ast.parse(code_as_string, mode='exec')
         code = compile(tree, filename='test', mode='exec')
         namespace = {}
