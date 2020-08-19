@@ -37,10 +37,11 @@ class IVP_solver(BaseSolver):
         try:
             print("Compiling Numba equations")
             compilation_start = time.time()
-            self.solver_step(self.time[0])
+            self.diff_function(0, self.y0)
+
             compilation_finished = time.time()
             print("Compilation time: ", compilation_finished - compilation_start)
-            for t in tqdm(self.time[1:-1]):
+            for t in tqdm(self.time[0:-1]):
                 if self.solver_step(t):
                     break
         except Exception as e:

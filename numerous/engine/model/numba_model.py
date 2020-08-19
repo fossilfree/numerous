@@ -1,4 +1,4 @@
-from numba import int32, float64, boolean, int64, njit, types, typed
+from numba import int32, float64, boolean, int64, njit, types, typed, typeof
 import numpy as np
 
 # key and value types
@@ -29,6 +29,7 @@ numba_model_spec = [
     ('historian_data', float64[:, :]),
     ('path_variables', types.DictType(*kv_ty)),
     ('path_keys', types.ListType(types.unicode_type)),
+    ('mapped_variables_array', int64[:,:])
 ]
 
 
@@ -37,7 +38,7 @@ class NumbaModel:
                  scope_vars_3d, state_idxs_3d, deriv_idxs_3d,
                  differing_idxs_pos_3d, differing_idxs_from_3d, num_uses_per_eq,
                  sum_idxs_pos_3d, sum_idxs_sum_3d, sum_slice_idxs, sum_slice_idxs_len, sum_mapping,
-                 global_vars, number_of_timesteps, number_of_variables, start_time):
+                 global_vars, number_of_timesteps, number_of_variables, start_time, mapped_variables_array):
         self.var_idxs_pos_3d = var_idxs_pos_3d
         self.var_idxs_pos_3d_helper = var_idxs_pos_3d_helper
         self.eq_count = eq_count
@@ -64,6 +65,7 @@ class NumbaModel:
         ##* simulation.num_inner
         self.historian_data = np.empty((self.number_of_variables + 1, number_of_timesteps), dtype=np.float64)
         self.historian_data.fill(np.nan)
+        self.mapped_variables_array = mapped_variables_array
         ##Function is genrated in model.py contains creation and initialization of all callback related variables
 
     def update_states(self, state_values):
@@ -135,21 +137,37 @@ class NumbaModel:
 
         mapping_ = True
         prev_scope_vars_3d = self.scope_vars_3d.copy()
+        iter=0
         while mapping_:
+            iter+=1
+
+
+
             for i in range(self.number_of_mappings):
                 self.scope_vars_3d[self.differing_idxs_pos_3d[0][i]][self.differing_idxs_pos_3d[1][i]][
                     self.differing_idxs_pos_3d[2][i]] = self.scope_vars_3d[
                     self.differing_idxs_from_3d[0][i]][self.differing_idxs_from_3d[1][i]][
                     self.differing_idxs_from_3d[2][i]]
+
             self.compute_eq(self.scope_vars_3d)
 
             if self.sum_mapping:
                 sum_mappings(self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
                              self.sum_slice_idxs, self.scope_vars_3d, self.sum_slice_idxs_len)
 
-            mapping_ = not np.all(np.abs(self.get_mapped_variables(prev_scope_vars_3d)
-                                         - self.get_mapped_variables(self.scope_vars_3d)) < 1e-6)
+            mapping_ = False
+            for idx in self.mapped_variables_array:
+                error = np.abs(self.scope_vars_3d[idx[0]][idx[1]][idx[2]] -prev_scope_vars_3d[idx[0]][idx[1]][idx[2]])
+
+                if error > 1e-6:
+                    mapping_ = True
+                    break
+
+            #mapping_ = not np.all(np.abs(self.get_mapped_variables(prev_scope_vars_3d)
+            #                             - self.get_mapped_variables(self.scope_vars_3d)) < 1e-6)
             prev_scope_vars_3d = np.copy(self.scope_vars_3d)
+
+        #print(iter)
 
     def func(self, _t, y):
         # self.info["Number of Equation Calls"] += 1
