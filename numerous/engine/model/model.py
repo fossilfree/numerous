@@ -215,8 +215,8 @@ class Model:
 
 
         # maps flat var_idx to scope_idx
-        self.var_idx_to_scope_idx = np.full_like(scope_variables_flat, -1, int)
-        self.var_idx_to_scope_idx_from = np.full_like(scope_variables_flat, -1, int)
+        self.var_idx_to_scope_idx = np.full_like(scope_variables_flat, -1, np.int64)
+        self.var_idx_to_scope_idx_from = np.full_like(scope_variables_flat, -1, np.int64)
 
         non_flat_scope_idx_from = [[] for _ in range(len(self.synchronized_scope))]
         non_flat_scope_idx = [[] for _ in range(len(self.synchronized_scope))]
@@ -245,8 +245,6 @@ class Model:
                     sum_mapped_idx = sum_mapped_idx + list(range(start_idx, end_idx))
                     sum_mapped_idx_len.append(end_idx - start_idx)
                     self.sum_mapping = True
-
-######################################### TODO @Artem: document these
         # non_flat_scope_idx is #scopes x  number_of variables indexing?
         # flat_scope_idx_from - rename to flat_var?
         self.non_flat_scope_idx_from = np.array(non_flat_scope_idx_from)
@@ -280,7 +278,7 @@ class Model:
         # max_scope_len: maximum number of variables one item can have
         # not correcly sized, as np.object
         # (eq_idx, ind_of_eq_access, var_index_in_scope) -> scope_variable.value
-        self.index_helper = np.empty(len(self.synchronized_scope), int)
+        self.index_helper = np.empty(len(self.synchronized_scope), np.int64)
         max_scope_len = max(map(len, self.non_flat_scope_idx_from))
         self.scope_vars_3d = np.zeros([len(self.compiled_eq), np.max(self.num_uses_per_eq), max_scope_len])
 
@@ -308,6 +306,12 @@ class Model:
         self.differing_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_pos_flat, False)
         self.sum_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.sum_idx, False)
         self.sum_idxs_sum_3d = self._var_idxs_to_3d_idxs(self.sum_mapped, False)
+
+        self.mapped_variables_array = np.zeros([self.differing_idxs_from_3d[0].shape[0], 3], dtype=np.int64)
+
+        for i in range(self.differing_idxs_from_3d[0].shape[0]):
+            self.mapped_variables_array[i] = [self.differing_idxs_from_3d[0][i], self.differing_idxs_from_3d[1][i],
+                                              self.differing_idxs_from_3d[2][i]]
 
         # 6. Compute self.path_variables and updating var_idxs_pos_3d
         # var_idxs_pos_3d_helper shows position for var_idxs_pos_3d for variables that have
@@ -347,7 +351,7 @@ class Model:
             np.fromiter(itertools.starmap(list.index,
                                           zip(map(list, _non_flat_scope_idx[_scope_idxs]),
                                               var_idxs)),
-                        int))
+                        np.int64))
 
     def get_states(self):
         """
@@ -591,7 +595,7 @@ class Model:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
 
-        def create_eq_call(eq_method_name: str, i: int):
+        def create_eq_call(eq_method_name: str, i: np.int):
             return "      self." \
                    "" + eq_method_name + "(array_3d[" + str(i) + \
                    ", :self.num_uses_per_eq[" + str(i) + "]])\n"
@@ -632,7 +636,8 @@ class Model:
                                           self.deriv_idxs_3d, self.differing_idxs_pos_3d, self.differing_idxs_from_3d,
                                           self.num_uses_per_eq, self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
                                           self.sum_slice_idxs, self.sum_mapped_idxs_len, self.sum_mapping,
-                                          self.global_vars, number_of_timesteps, len(self.path_variables), start_time)
+                                          self.global_vars, number_of_timesteps, len(self.path_variables), start_time,
+                                          self.mapped_variables_array)
 
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value
