@@ -5,7 +5,7 @@ from numerous.engine.variables import VariableType
 from numerous.engine.model.generate_program import generate_program
 import logging
 import ast
-from numba import njit
+from numba import njit, objmode
 import numpy as np
 
 def d_u(str_):
@@ -99,23 +99,23 @@ new_sum = SumCount().get_sum
 def visit_assign_value(target, value, nodes_map, equation_graph):
     if equation_graph.get(value, 'node_type') == NodeTypes.OP:
 
-        ix, left_edges = equation_graph.get_edges_for_node_filter(end_node=value, attr='e_type', val='left')
+        ix_left, left_edges = equation_graph.get_edges_for_node_filter(end_node=value, attr='e_type', val='left')
 
         left_edge = left_edges[0]
         left = left_edge[0]
 
         visit_assign_value(target, left, nodes_map, equation_graph)
-        equation_graph.mark_remove_edge(left_edge)
+        equation_graph.remove_edge(ix_left[0])
 
-        ix, right_edges = equation_graph.get_edges_for_node_filter(end_node=value, attr='e_type', val='right')
+        ix_right, right_edges = equation_graph.get_edges_for_node_filter(end_node=value, attr='e_type', val='right')
         right_edge = right_edges[0]
 
         right = right_edge[0]
 
         visit_assign_value(target, right, nodes_map, equation_graph)
-        equation_graph.mark_remove_edge(right_edge)
+        equation_graph.remove_edge(ix_right[0])
 
-        equation_graph.mark_remove_node(value[0])
+        equation_graph.remove_node(value)
 
     else:
 
@@ -297,6 +297,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
             states.append(vars_node_id[sv_id])
         elif sv.type == VariableType.DERIVATIVE:
+
             deriv.append(vars_node_id[sv_id])
 
     vars_init = states.copy()
@@ -306,6 +307,12 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     vars_update = deriv.copy()
     lenderiv = len(vars_update)
     vars_update += list(set(all_targeted).difference(vars_update))
+
+    for s, d in zip(states, deriv):
+        if not d[:-4] == s:
+            print(d, ' ', s)
+            raise IndexError('unsorted derivs')
+
 
     indcs = (lenstates, leninit, lenderiv)
     variables = vars_init + vars_update
@@ -320,7 +327,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     llvm_sequence += [{'func': 'load', 'ix': ix, 'var': s, 'arg': 'y'} for ix, s in enumerate(states)]
 
     llvm_end_seq = [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(vars_update, range(len(vars_init), len(vars_init)+len(vars_update)))]
-
+    llvm_end_seq += [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(states, range(0, lenstates))]
     llvm_end_seq += [{'func': 'store', 'arg': 'deriv', 'ix': ix, 'var': d} for ix, d in enumerate(deriv)]
 
 
@@ -329,6 +336,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     body.append(ast.Assign(targets=[ast.Subscript(slice=ast.Slice(lower=ast.Num(n=len(vars_init)), upper=ast.Num(n=len(vars_init)+len(vars_update)), step=None),
                                            value=ast.Name(id='variables'))],
                            value=ast.Tuple(elts=[ast.Name(id=d_u(u)) for u in vars_update])))
+
+    body.append(ast.Assign(value=ast.Tuple(elts=[ast.Name(id=d_u(s)) for s in states]), targets=[ast.Subscript(slice=ast.Slice(lower=ast.Num(n=0), upper=ast.Num(n=len(states)), step=None), value=ast.Name(id='variables'))]))
 
     #body.append(ast.Return(value=ast.Call(func=ast.Name(id='np.array'), args=[ast.List(elts=[ast.Name(id=d) for d in deriv]), ast.Name(id='np.float64')], keywords=[])))
     body.append(ast.Return(value=ast.Subscript(slice=ast.Slice(lower=ast.Num(n=leninit), upper=ast.Num(n=leninit+lenderiv), step=None), value=ast.Name(id='variables'))))
@@ -339,7 +348,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     skip_kernel = False
     if not skip_kernel:
-        mod_body.append(wrap_function('kernel', body, decorators=["njit('float64[:](float64[:],float64[:])')"], args=kernel_args))
+        #mod_body.append(wrap_function('kernel', body, decorators=["njit('float64[:](float64[:],float64[:])')"], args=kernel_args))
         mod_body.append(
         wrap_function('kernel_nojit', body, decorators=[], args=kernel_args))
     logging.info('generate program')
@@ -398,6 +407,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     tic = time()
     derivs = diff_bench_llvm(y_, N)
     toc = time()
+    llvm_vars = var_func(0)
     print('llvm derivs: ', list(zip(deriv, derivs)))
     print(f'Exe time llvm - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
 
@@ -409,33 +419,76 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                 kernel_nojit(variables, y)
 
 
+        class AssemlbedModel():
+            def __init__(self, vars, vals):
+                self.variables = vars
+                self.init_vals = vals
+
+                @njit
+                def diff(y):
+                    with objmode(derivs='f8[:]'):  # annotate return type
+                        # this region is executed by object-mode.'
+                        #print(y)
+                        derivs = self.diff__(np.array(y, np.float64))
+                        #print(derivs)
+                    return derivs
+
+                self.diff = diff
+
+                @njit
+                def var_func(i):
+                    with objmode(vrs='f8[:]'):  # annotate return type
+                        # this region is executed by object-mode.
+                        vrs = self.vars__()
+                        #print(vrs)
+                    return vrs
+
+                self.var_func = var_func
+
+            def diff__(self, y):
+                return kernel_nojit(self.init_vals, y)
+
+            def vars__(self):
+                return self.init_vals
+
+        am = AssemlbedModel(variables, variables_values)
+        diff_ = am.diff
+        var_func_ = am.var_func
 
         tic = time()
         test_kernel_nojit(variables_values, y)
         toc = time()
 
         print(f'Exe time flat no jit - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
-        print('Exe time kernel nojit timeit: ', timeit.timeit(
-            lambda: kernel_nojit(variables_values, y), number=N) / N)
+        #print('Exe time kernel nojit timeit: ', timeit.timeit(
+        #    lambda: kernel_nojit(variables_values, y), number=N) / N)
 
         N = 10000
 
-        @njit('void(float64[:], float64[:])')
-        def test_kernel(variables, y):
-            for i in range(N):
-                kernel(variables, y)
+        #@njit('void(float64[:], float64[:])')
+        #def test_kernel(variables, y):
+        #    for i in range(N):
+        #        kernel(variables, y)
 
         print('First kernel call results: ')
         #print(kernel(variables_values, y))
 
         tic = time()
-        test_kernel(variables_values, y)
+        #test_kernel(variables_values, y)
         toc = time()
 
         print(f'Exe time flat - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
-        print('Exe time kernel timeit: ', timeit.timeit(
-            lambda: kernel(variables_values, y), number=N) / N)
+        #print('Exe time kernel timeit: ', timeit.timeit(
+        #    lambda: kernel(variables_values, y), number=N) / N)
+    count = 0
+    for v, v_llvm, v_kernel in zip(variables, llvm_vars, variables_values):
+        err = abs(v_llvm - v_kernel)/abs(v_llvm + v_kernel)*2
+        if err>1e-3:
+            print(v,': ',v_llvm,' ',v_kernel, ' ', err)
+        #count+=1
+        #print(count)
 
+    #sdfsdf=sdfsdf
     ###TEST PROGRAM
     spec = [
         ('program', int64[:, :]),
@@ -475,7 +528,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     #print('Exe time program timeit: ', timeit.timeit(
 #        lambda: dp.diff(variables_values, y), number=N)/N)
-
-
-
-    return diff_llvm, var_func, variables_values, variables, scope_var_node
+    llvm_ = True
+    if llvm_:
+        return diff_llvm, var_func, variables_values, variables, scope_var_node
+    else:
+        return diff_, var_func_, variables_values, variables, scope_var_node

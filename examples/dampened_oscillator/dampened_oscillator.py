@@ -33,9 +33,9 @@ class DampenedOscillator(EquationBase, Item):
     def eval(self, scope):
         #scope.c = -1 + 1
         #z = 4 + 2
-        #scope.a  =  -scope.k * scope.x - scope.c * scope.v
+        scope.a  =  -scope.k * scope.x - scope.c * scope.v
         #scope.a = scope.c * scope.v
-        #scope.v_dot = scope.a
+        scope.v_dot = scope.a
         scope.x_dot = scope.v
         #a1 = 2 * scope.x_dot
         #scope.v2_dot = scope.x_dot
@@ -76,6 +76,7 @@ class SpringCoupling(ConnectorTwoWay):
         mechanics = self.create_namespace('mechanics')
         mechanics.add_equations([Spring_Equation(k=k, dx0=dx0)])
 
+
         # 2 Create variables H and mdot in side 1 adn 2
         # (side 1 represents a connection with one tank, with related liquid height H_1)
         # (side 1 represents a connection with the second tank, with related liquid height H_2)
@@ -111,8 +112,13 @@ class OscillatorSystem(Subsystem):
             spc.bind(side1=oscillators[0], side2=oscillators[1])
             spc.side1.mechanics.v_dot += spc.mechanics.F1
             spc.side2.mechanics.v_dot += spc.mechanics.F2
+
+            spc2 = SpringCoupling('spc2', k=.001, dx0=4)
+            spc2.bind(side1=oscillators[0], side2=oscillators[1])
+            spc2.side1.mechanics.v_dot += spc2.mechanics.F1
+            spc2.side2.mechanics.v_dot += spc2.mechanics.F2
             #Register the items to the subsystem to make it recognize them.
-            self.register_items([spc])
+            self.register_items([spc, spc2])
 
 
 

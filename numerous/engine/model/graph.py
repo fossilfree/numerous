@@ -548,14 +548,14 @@ class Graph():
 
         edge_keys = self.edges_attr.keys()
         for i, e in enumerate(self.edges[:self.edge_counter]):
-            if e[0] in old_new and e[1] in old_new:
+            if e[0] in old_new and e[1] in old_new and self.edges_attr['deleted'][i]<=0:
                 cleaned_graph.add_edge(old_new[e[0]], old_new[e[1]],
                           **{k: self.edges_attr[k][i] for k in edge_keys})
 
         return cleaned_graph
 
     def remove_edge(self, edge):
-        self.nodes_attr['deleted'][edge] = 1
+        self.edges_attr['deleted'][edge] = 1
 
     def get(self, node, attr):
         return self.nodes_attr[attr][node]

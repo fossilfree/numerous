@@ -534,7 +534,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
         equation_graph.add_edge(start=ae, end=t, e_type='target')
 
         add = ast.Add()
-        prev = None
+        prev_g = None
 
         tn = mg.add_node(key=target_var.parent_scope_id, ignore_existing=True, label='f(x)')
 
@@ -560,7 +560,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
             ivar_node_e = equation_graph.add_node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id, label=ivar_var.tag,
                                       ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=scope_var, ignore_existing=True)
 
-            if prev:
+            if prev_g:
 
                 binop_g = gg.add_node(file='mapping', name=m, ln=0, label=get_op_sym(add), ast_type=ast.BinOp,
                                      node_type=NodeTypes.OP, ast_op=add)
@@ -568,7 +568,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
                 gg.add_edge(prev_g, binop_g, e_type='left')
                 gg.add_edge(ivar_node_g, binop_g, e_type='right')
 
-                binop_e = gg.add_node(file='mapping', name=m, ln=0, label=get_op_sym(add), ast_type=ast.BinOp,
+                binop_e = equation_graph.add_node(file='mapping', name=m, ln=0, label=get_op_sym(add), ast_type=ast.BinOp,
                                       node_type=NodeTypes.OP, ast_op=add)
 
                 equation_graph.add_edge(prev_e, binop_e, e_type='left')
@@ -583,7 +583,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
         gg.add_edge(prev_g, ag,e_type='value')
         equation_graph.add_edge(prev_e, ae, e_type='value')
 
-    #gg.as_graphviz('global')
+    #gg.as_graphviz('global', force=True)
     #equation_graph.as_graphviz('eq_bf_sub', force=True)
     aliases = {}
 
