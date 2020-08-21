@@ -164,11 +164,14 @@ class NumbaModel:
         #print(iter)
 
     def func(self, _t, y):
+        print('y: ', y)
         # self.info["Number of Equation Calls"] += 1
         self.update_states(y)
         self.global_vars[0] = _t
         self.compute()
-        return self.get_derivatives()
+        y_dot = self.get_derivatives()
+        print('y_dot: ',y_dot)
+        return y_dot
 
 
 @njit
