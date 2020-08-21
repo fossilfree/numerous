@@ -839,9 +839,14 @@ class Model:
                 self.historian_ix = 0
 
             def func(self, _t, y):
+                print('y: ')
+                for yi in y:
+                    print(yi)
 
                 d = compute(y.astype(np.float32))
-
+                print('y_dot: ')
+                for di in d:
+                    print(di)
                 return d
 
             def historian_update(self, t):
