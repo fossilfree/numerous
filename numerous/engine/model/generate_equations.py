@@ -201,8 +201,19 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     #equation_graph.as_graphviz('after')
     equation_graph = equation_graph.clean()
+    equation_graph_clone = equation_graph.clone()
 
-    #equation_graph.as_graphviz('clean after', force=True)
+    for n in equation_graph_clone.node_map.values():
+        s = equation_graph_clone.get_edges_for_node(start_node=n)
+        e = equation_graph_clone.get_edges_for_node(end_node=n)
+        if len(list(s))+len(list(e))<=1:
+            equation_graph_clone.remove_node(n)
+            #for i in set(ix_s +ix_e):
+            #    equation_graph_clone.remove_edge(i)
+
+    equation_graph_clone= equation_graph_clone.clean()
+
+    equation_graph_clone.as_graphviz('clean after', force=True)
     topo_sorted_nodes = equation_graph.topological_nodes()
 
     #sdfsdf=sdfsdffdf
@@ -303,6 +314,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     vars_init = states.copy()
     lenstates=len(vars_init)
     vars_init += list(all_must_init.difference(vars_init))
+    #vars_init = list(set(vars_init))
     leninit=  len(vars_init)
     vars_update = deriv.copy()
     lenderiv = len(vars_update)
@@ -316,6 +328,14 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     indcs = (lenstates, leninit, lenderiv)
     variables = vars_init + vars_update
+    if len(vars_init) > len(set(vars_init)):
+        raise ValueError('Non unique init vars')
+
+    if len(vars_update) > len(set(vars_update)):
+        raise ValueError('Non unique update vars')
+
+    if len(variables) > len(set(variables)):
+        raise ValueError('Non unique variables')
 
     body = [
         ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=d_u(i)) for i in vars_init[len(states):]])], value=ast.Subscript(slice=ast.Slice(lower=ast.Num(n=len(states)), upper=ast.Num(n=len(vars_init)), step=None), value=ast.Name(id='variables'))),
@@ -449,6 +469,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                 return kernel_nojit(self.init_vals, y)
 
             def vars__(self):
+                for v, vv in zip(self.variables, self.init_vals):
+                    print(v,': ',vv)
                 return self.init_vals
 
         am = AssemlbedModel(variables, variables_values)

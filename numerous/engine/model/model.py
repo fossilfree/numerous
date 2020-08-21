@@ -351,16 +351,43 @@ class Model:
         logging.info('lowering model')
         self.compiled_compute, self.var_func, self.vars_ordered_values, self.vars_ordered, self.scope_vars_vars = generate_equations(self.equations_parsed, self.eg, self.scoped_equations, self.scope_variables, self.scope_ids, self.aliases)
 
-        self.scope_vars_ordered = [self.scope_vars_vars[v] for v in self.vars_ordered],
-        self.pathed_variables = [self.variables[self.scope_vars_vars[v].id].path.path[self.system.id] for v in self.vars_ordered]
+        if len(self.vars_ordered) > len(set(self.vars_ordered)):
+            raise ValueError('non unique variables')
 
-        self.aliases = {self.variables[self.scope_vars_vars[a].id].path.path[self.system.id][0]: self.variables[self.scope_vars_vars[v].id].path.path[self.system.id][0] for a, v in self.aliases.items()}
+        self.scope_vars_ordered = [self.scope_vars_vars[v] for v in self.vars_ordered]
 
 
-        for pv in self.pathed_variables:
-            for i in pv[1:]:
-                self.aliases[i]=pv[0]
-        self.pathed_variables = [pv[0] for pv in self.pathed_variables]
+
+        self.pathed_variables_list = [self.variables[self.scope_vars_vars[v].id].path.path[self.system.id] for v in self.vars_ordered]
+
+        self.pathed_variables = []
+        aliases_ = {}
+
+        for l in self.pathed_variables_list:
+            self.pathed_variables.append(l[0])
+            for a in l[1:]:
+                aliases_[a] = l[0]
+
+        for a, r in self.aliases.items():
+            r_ = self.pathed_variables[self.vars_ordered.index(r)]
+            a_ = self.variables[self.scope_vars_vars[a].id].path.path[self.system.id]
+            for aa in a_:
+                #print(aa)
+                aliases_[aa]=r_
+
+        #self.aliases = {self.variables[self.scope_vars_vars[a].id].path.path[self.system.id][0]:
+        #                    self.pathed_variables[self.vars_ordered.index(v)]
+                            #self.variables[self.scope_vars_vars[v].id].path.path[self.system.id][0]
+        #                 for a, v in self.aliases.items()}
+        self.aliases = aliases_
+        print('aliases')
+        print(self.aliases)
+        #for pv in self.pathed_variables:
+        #    for i in pv[1:]:
+        #        self.aliases[i]=pv[0]
+        #self.pathed_variables = [pv[0] for pv in self.pathed_variables]
+        print('pathed')
+        print(self.pathed_variables)
         #generate_program(self.gg)
         #asdsad=asdsfsf
         #self.compiled_compute = generate(self.gg, self.vars_ordered_map, self.special_indcs)
@@ -560,6 +587,7 @@ class Model:
         states : list of states
             list of all states.
         """
+        print('here!?')
         return self.scope_variables[self.states_idx]
 
     def synchornize_variables(self):
@@ -573,6 +601,7 @@ class Model:
 
     def update_states(self, y):
         self.scope_variables[self.states_idx] = y
+        print('here!?')
 
     def history_as_dataframe(self):
         time = self.data[0]
@@ -819,6 +848,7 @@ class Model:
                 #print(self.variables[:])
                 #self.variables = \
                 self.variables[:] = var_func(np.float32(0))
+
                 #print(self.variables[:])
                 self.historian_data[self.historian_ix][0] = t
                 self.historian_data[self.historian_ix][1:] = self.variables[:]

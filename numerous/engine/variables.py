@@ -111,7 +111,8 @@ class VariablePath:
     def __iter__(self):
         return iter(self.path.values())
 
-    def extend_path(self, current_id, new_id, new_tag):
+    def extend_path(self, current_id, new_id, new_tag, registering=True):
+        #pass
         if not (current_id + new_id in self.used_id_pairs):
             if new_id in self.path:
                 self.path[new_id].extend([new_tag + '.' + x for x in self.path[current_id]])

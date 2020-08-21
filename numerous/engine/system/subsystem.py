@@ -93,7 +93,7 @@ class Subsystem(ConnectorItem):
     def update_variables_path(self, item, c_item):
         for ns in item.registered_namespaces.values():
             for var in ns.variables.values():
-                var.path.extend_path(c_item.id, self.id, self.tag)
+                var.path.extend_path(c_item.id, self.id, self.tag, registering=True)
         if isinstance(item, Subsystem):
             for item in item.registered_items.values():
                 self.update_variables_path(item, c_item)
