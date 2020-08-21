@@ -284,7 +284,7 @@ class Model:
 
         self.length = np.array(list(map(len, self.non_flat_scope_idx)))
 
-        _index_helper_counter = np.zeros(len(self.compiled_eq), int)
+        _index_helper_counter = np.zeros(len(self.compiled_eq), np.int64)
         # self.scope_vars_3d = list(map(np.empty, zip(self.num_uses_per_eq, self.num_vars_per_eq)))
         for scope_idx, (_flat_scope_idx_from, eq_idx) in enumerate(
                 zip(self.non_flat_scope_idx_from, self.compiled_eq_idxs)):
@@ -595,7 +595,7 @@ class Model:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
 
-        def create_eq_call(eq_method_name: str, i: np.int):
+        def create_eq_call(eq_method_name: str, i: np.int64):
             return "      self." \
                    "" + eq_method_name + "(array_3d[" + str(i) + \
                    ", :self.num_uses_per_eq[" + str(i) + "]])\n"
@@ -604,21 +604,21 @@ class Model:
                                                 , create_eq_call, "array_3d", map_sorting=self.eq_outgoing_mappings)
 
         ##Adding callbacks_varaibles to numba specs
-        def create_cbi_call(_method_name: str, i: int):
+        def create_cbi_call(_method_name: str, i: np.int64):
             return "      self." \
                    "" + _method_name + "(time, self.path_variables)\n"
 
         Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks, "run_callbacks", "callback_func"
                                                 , create_cbi_call, "time")
 
-        def create_cbi2_call(_method_name: str, i: int):
+        def create_cbi2_call(_method_name: str, i: np.int64):
             return "      self." \
                    "" + _method_name + "(self.number_of_variables,self.number_of_timesteps)\n"
 
         Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init, "init_callbacks",
                                                 "callback_func_init_", create_cbi2_call, "")
 
-        def create_cbiu_call(_method_name: str, i: int):
+        def create_cbiu_call(_method_name: str, i: np.int64):
             return "      self." \
                    "" + _method_name + "(time, self.path_variables)\n"
 
@@ -630,11 +630,11 @@ class Model:
             pass
 
         NM_instance = NumbaModel_instance(self.var_idxs_pos_3d, self.var_idxs_pos_3d_helper,
-                                          len(self.compiled_eq), self.state_idxs_3d[0].shape[0],
+                                          np.int64(len(self.compiled_eq)), self.state_idxs_3d[0].shape[0],
                                           self.differing_idxs_pos_3d[0].shape[0], self.scope_vars_3d,
                                           self.state_idxs_3d,
                                           self.deriv_idxs_3d, self.differing_idxs_pos_3d, self.differing_idxs_from_3d,
-                                          self.num_uses_per_eq, self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
+                                          np.int64(self.num_uses_per_eq), self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
                                           self.sum_slice_idxs, self.sum_mapped_idxs_len, self.sum_mapping,
                                           self.global_vars, number_of_timesteps, len(self.path_variables), start_time,
                                           self.mapped_variables_array)
