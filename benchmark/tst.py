@@ -135,6 +135,7 @@ def timeit(s):
     s.solve()
     end = time.time()
     dt = end - start
+    print(dt)
     return dt
 
 if __name__ == "__main__":
@@ -155,7 +156,7 @@ if __name__ == "__main__":
     Y = []
     Z = []
 
-    num_nodes =[2,5]
+    num_nodes =[100,1000,10000]
     Tinit = 100
     T0 = 25
     k = 1

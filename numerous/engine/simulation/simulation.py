@@ -69,7 +69,7 @@ class Simulation:
             self.solver = Numerous_solver(time_, delta_t, numba_model,
                                           num_inner, max_event_steps,self.model.states_as_vector, **kwargs)
             generation_finish = time.time()
-            print("Generation time: ", generation_finish - generation_start)
+            print("Compiling time: ", generation_finish - generation_start)
 
         self.solver.register_endstep(__end_step)
 
