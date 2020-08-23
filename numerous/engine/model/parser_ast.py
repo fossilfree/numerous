@@ -5,7 +5,7 @@ from numerous.engine.model.graph import Graph
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute, Vardef, dot_dict, wrap_function, wrap_module, VarTypes
 from numerous.engine.variables import VariableType
 from numerous.engine.scope import ScopeVariable
-
+from copy import deepcopy
 import logging
 
 op_sym_map = {ast.Add: '+', ast.Sub: '-', ast.Div: '/', ast.Mult: '*', ast.Pow: '**', ast.USub: '*-1',
@@ -56,7 +56,7 @@ def node_to_ast(n: int, g: Graph, var_def, read=True):
             return var_def(nk, read)
 
         elif na == ast.Num:
-            return ast.Call(args=[ast.Num(value=g.get(n, 'value'))], func=ast.Name(id='float32'), keywords={})
+            return ast.Call(args=[ast.Num(value=g.get(n, 'value'))], func=ast.Name(id='float64'), keywords={})
 
         elif na == ast.BinOp:
 
@@ -261,7 +261,14 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
 
     return func, var_def_.vars_inds_map, signature, fname, var_def_.args, var_def_.targets
 
-def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.'):
+def postfix_from_branches(branches:dict):
+    postfix = []
+    for b, bv in branches.items():
+        postfix += [b, str(bv)]
+    return "_".join(postfix)
+
+
+def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
     en=None
     is_mapped = None
 
@@ -276,7 +283,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.'):
                 # Parse function
                 for b_ in b.body:
 
-                    parse_(b_, name, file, ln, g, tag_vars, prefix)
+                    parse_(b_, name, file, ln, g, tag_vars, prefix, branches)
 
     elif isinstance(ao, ast.Assign):
 
@@ -297,13 +304,17 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.'):
 
 
 
-        m, start = parse_(ao.value, name, file, ln, g, tag_vars,prefix)
-        mapped, end = parse_(ao.targets[0], name, file, ln, g, tag_vars, prefix)
+        m, start = parse_(ao.value, name, file, ln, g, tag_vars,prefix, branches=branches)
+        mapped, end = parse_(ao.targets[0], name, file, ln, g, tag_vars, prefix, branches=branches)
 
         #en = EquationNode(ao, file, name, ln, label='+=' if mapped else '=', ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN, ast_op=ast.Add() if mapped else None)
         en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=', ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN, ast_op=ast.Add() if mapped else None)
-        target_edge = g.add_edge(start=en, end=end, e_type='target')
-        value_edge = g.add_edge(start=start, end=en, e_type='value')
+        target_edge = g.add_edge(start=en, end=end, e_type='target', branches=branches.copy())
+        if isinstance(start, list):
+            for s in start:
+                value_edge = g.add_edge(start=s[0], end=en, e_type='value', branches=s[1])
+        else:
+            value_edge = g.add_edge(start=start, end=en, e_type='value', branches=branches.copy())
         #g.set_edge(target_edge, start=en)
         #g.set_edge(value_edge, end=en)
 
@@ -353,8 +364,8 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.'):
 
         en = g.add_node(label=op_sym, ast_type=ast.UnaryOp, node_type=NodeTypes.OP, ast_op=ao.op, ignore_existing=True)
 
-        m, start = parse_(ao.operand, name, file, ln, g, tag_vars, prefix)
-        operand_edge = g.add_edge(start=start, e_type='operand', end=en)
+        m, start = parse_(ao.operand, name, file, ln, g, tag_vars, prefix, branches=branches)
+        operand_edge = g.add_edge(start=start, e_type='operand', end=en, branches=branches.copy())
 
     elif isinstance(ao, ast.Call):
 
@@ -365,8 +376,8 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.'):
 
         for i, sa in enumerate(ao.args):
 
-            m, start = parse_(ao.args[i], name, file, ln, g, tag_vars, prefix=prefix)
-            g.add_edge(start=start, end=en, e_type='args')
+            m, start = parse_(ao.args[i], name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
+            g.add_edge(start=start, end=en, e_type='args', branches=branches.copy())
 
 
     elif isinstance(ao, ast.BinOp):
@@ -376,8 +387,8 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.'):
 
         for a in ['left', 'right']:
 
-            m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix)
-            operand_edge = g.add_edge(start=start, end=en, e_type=a)
+            m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix, branches=branches)
+            operand_edge = g.add_edge(start=start, end=en, e_type=a, branches=branches.copy())
 
     elif isinstance(ao, ast.Compare):
         ops_sym = [get_op_sym(o) for o in ao.ops]
@@ -385,23 +396,45 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.'):
         en = g.add_node(ao=ao, file=file, name=name, ln=ln, label=''.join(ops_sym), ast_type=ast.Compare, node_type=NodeTypes.OP, ops=ao.ops)
 
 
-        m, start = parse_(ao.left, name, file, ln, g, tag_vars, prefix=prefix)
+        m, start = parse_(ao.left, name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
 
-        edge_l = g.add_edge(start=start, end=en, label=f'left', e_type='left')
+        edge_l = g.add_edge(start=start, end=en, label=f'left', e_type='left', branches=branches)
 
         for i, sa in enumerate(ao.comparators):
 
-            m, start = parse_(sa, name, file, ln, g, tag_vars, prefix=prefix)
-            edge_i = g.add_edge(start=start, end=en, label=f'comp{i}', e_type='comp')
+            m, start = parse_(sa, name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
+            edge_i = g.add_edge(start=start, end=en, label=f'comp{i}', e_type='comp', branches=branches)
 
     elif isinstance(ao, ast.IfExp):
+        new_branch = None
+        if isinstance(ao.test, ast.Attribute):
+            source_id = recurse_Attribute(ao.test)
+
+            if source_id[:6] == 'scope.':
+                scope_var = tag_vars[source_id[6:]]
+
+                if scope_var.type == VariableType.CONSTANT:
+                    #print(scope_var.tag,': ',scope_var.value)
+
+                    new_branch = scope_var.tag
+                    branches_t = deepcopy(branches)
+                    branches_t[new_branch] = True
+                    m_t, start_t = parse_(getattr(ao, 'body'), name, file, ln, g, tag_vars, prefix, branches=branches_t)
+
+                    branches_f = deepcopy(branches)
+                    branches_f[new_branch] = False
+
+                    m_f, start_f = parse_(getattr(ao, 'orelse'), name, file, ln, g, tag_vars, prefix, branches=branches_f)
+
+                    return [m_t, m_f], [(start_t, branches_t), (start_f, branches_f)]
 
         en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='if_exp', ast_type=ast.IfExp, node_type=NodeTypes.OP)
         for a in ['body', 'orelse', 'test']:
+            #if new_branch:
+            #    branches[new_branch] = True if a=='body' else False
+            m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix, branches=branches)
 
-            m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix)
-
-            operand_edge = g.add_edge(start=start, end=en, e_type=a)
+            operand_edge = g.add_edge(start=start, end=en, e_type=a, branches=branches)
 
     else:
         raise TypeError('Cannot parse <' + str(type(ao)) + '>')
@@ -426,10 +459,10 @@ def qualify_equation(prefix, g, tag_vars):
     return g_qual
 
 
-def parse_eq(scope_id, item, global_graph, equation_graph: Graph, nodes_dep, tag_vars, parsed_eq, scoped_equations):
+def parse_eq(scope_id, item, global_graph, equation_graph: Graph, nodes_dep, tag_vars, parsed_eq_branches, scoped_equations, parsed_eq):
 
         for eq in item[0]:
-            try:
+            #try:
                 #dont now how Kosher this is: https://stackoverflow.com/questions/20059011/check-if-two-python-functions-are-equal
                 eq_key = eq.__qualname__
 
@@ -450,14 +483,96 @@ def parse_eq(scope_id, item, global_graph, equation_graph: Graph, nodes_dep, tag
                                 raise
 
                     g = Graph()
+                    branches = {}
+                    parse_(ast_tree, eq_key, eq.file, eq.lineno, g, tag_vars, branches=branches)
 
-                    parse_(ast_tree, eq_key, eq.file, eq.lineno, g, tag_vars)
 
-                    parsed_eq[eq_key] = (eq, dsource, g)
+
+                    #Create branched versions of graph
+
+                    branches_ = set()
+                    #print(g.edges_attr['branches'][:g.edge_counter])
+                    [branches_.update(b.keys()) for b in g.edges_attr['branches'][:g.edge_counter] if b]
+                    #print(branches_)
+                    all_branches = [{}]
+                    from copy import deepcopy
+                    for b in branches_:
+
+                        for a in all_branches:
+                            a.update({b: True})
+
+                        all_branches += deepcopy(all_branches)
+                        #print(len(all_branches))
+                        for a in all_branches[int(len(all_branches)/2):]:
+                            a[b]=False
+
+                    if len(all_branches)>1:
+                        #g.as_graphviz(eq_key, force=True)
+                        branch_graphs = []
+                        for a in all_branches:
+
+                            gb = g.clone()
+
+                            for i, b in enumerate(gb.edges_attr['branches'][:g.edge_counter]):
+
+                                for ak in a.keys():
+                                    if ak in b and b[ak] != a[ak]:
+
+                                        gb.remove_edge(i)
+
+                            gb = gb.clean()
+                            #gb.as_graphviz(eq_key+'_'.join([a_k + '_' +str(v) for a_k, v in a.items()]), force=True)
+                            branch_graphs.append((a, gb, eq_key+'_'+postfix_from_branches(a)))
+
+                        for branch in branch_graphs:
+                            parsed_eq_branches[branch[2]] = (eq, dsource, branch[1], branch[0])
+
+                    else:
+                        parsed_eq_branches[eq_key] = (eq, dsource, g, {})
+
+                    parsed_eq[eq_key] = list(branches_)
+
+                if len(parsed_eq[eq_key])>0:
+                    branches_values = {}
+                    for b in parsed_eq[eq_key]:
+                        branches_values[b] = tag_vars[b].value
+
+
+                    eq_key = eq_key+'_'+postfix_from_branches(branches_values)
+
+                g = parsed_eq_branches[eq_key][2]
 
                     #g.as_graphviz(eq_key)
 
-                g = parsed_eq[eq_key][2]
+
+                #eq_p = parsed_eq[eq_key]
+
+                #Find correct branch graph
+                #if len(eq_p[2])>1:
+
+                """
+                g = None
+                for b in eq_p[2]:
+                    #print(b)
+                    #test if its the matching branc
+                    dif = False
+                    for a, av in b[0].items():
+
+                        if not tag_vars[a].value == av:
+                            dif = True
+                            break
+                    if not dif:
+                        #print(b[1])
+                        print('found it !')
+                        g = b[1]
+                        break
+                if not g:
+                    raise ValueError('No matching branching graphs!')
+                """
+                #else:
+                #    g = eq_p[2][0]
+
+                #print(g)
                 #print('sid: ', scope_id)
                 #sdsdf=xdvxfgdfgdfg
                 g_qualified = qualify_equation(scope_id, g, tag_vars)
@@ -506,12 +621,12 @@ def parse_eq(scope_id, item, global_graph, equation_graph: Graph, nodes_dep, tag
                                 pass
 
 
-                #global_graph.update(g_qualified)
+                global_graph.update(g_qualified)
                 a = 1
-            except:
-                #g_qualified.as_graphviz('gq_' + eq_key, force=True)
-                print(eq_key)
-                raise
+            #except:
+            #    g_qualified.as_graphviz('gq_' + eq_key, force=True)
+            #    print(eq_key)
+            #    raise
 
 def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_vars, scope_map):
     mg = Graph(preallocate_items=100000)
@@ -527,11 +642,11 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
         node_type = NodeTypes.VAR
 
         atmp=tmp('=')
-        #ag = gg.add_node(key=atmp, file='mapping', name=m, ln=0, label='=', ast_type=ast.AugAssign, node_type=NodeTypes.ASSIGN, targets=[], value=None, ast_op=ast.Add())
+        ag = gg.add_node(key=atmp, file='mapping', name=m, ln=0, label='=', ast_type=ast.AugAssign, node_type=NodeTypes.ASSIGN, targets=[], value=None, ast_op=ast.Add())
         ae = equation_graph.add_node(key=atmp,file='mapping', name=m, ln=0, label='=', ast_type=ast.AugAssign, node_type=NodeTypes.ASSIGN,
                     targets=[], value=None, ast_op=ast.Add())
 
-        #tg = gg.add_node(key=target_var_id , file='mapping', name=m, ln=0, id=target_var_id, label=target_var.tag, ast_type=ast.Attribute, node_type=node_type, scope_var=target_var, ignore_existing=True)
+        tg = gg.add_node(key=target_var_id , file='mapping', name=m, ln=0, id=target_var_id, label=target_var.tag, ast_type=ast.Attribute, node_type=node_type, scope_var=target_var, ignore_existing=True)
         t = equation_graph.add_node(key=target_var_id, file='mapping', name=m, ln=0, id=target_var_id, label=target_var.tag, ast_type=ast.Attribute, node_type=node_type, scope_var=target_var, ignore_existing=True)
 
         ak = equation_graph.key_map[ae]
@@ -540,7 +655,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
         if not ak in nodes_dep[target_var_id]:
             nodes_dep[target_var_id].append(ak)
 
-        #gg.add_edge(start=ag, end=tg, e_type='target')
+        gg.add_edge(start=ag, end=tg, e_type='target')
         equation_graph.add_edge(start=ae, end=t, e_type='target')
 
         add = ast.Add()
@@ -566,17 +681,17 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
 
             scope_var = scope_vars[ivar_var.id]
 
-            #ivar_node_g = gg.add_node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id, label=ivar_var.tag, ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=scope_var, ignore_existing=True)
+            ivar_node_g = gg.add_node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id, label=ivar_var.tag, ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=scope_var, ignore_existing=True)
             ivar_node_e = equation_graph.add_node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id, label=ivar_var.tag,
                                       ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=scope_var, ignore_existing=True)
 
             if prev_e:
 
-                #binop_g = gg.add_node(file='mapping', name=m, ln=0, label=get_op_sym(add), ast_type=ast.BinOp,
-                              #       node_type=NodeTypes.OP, ast_op=add)
+                binop_g = gg.add_node(file='mapping', name=m, ln=0, label=get_op_sym(add), ast_type=ast.BinOp,
+                                     node_type=NodeTypes.OP, ast_op=add)
 
-                #gg.add_edge(prev_g, binop_g, e_type='left')
-                #gg.add_edge(ivar_node_g, binop_g, e_type='right')
+                gg.add_edge(prev_g, binop_g, e_type='left')
+                gg.add_edge(ivar_node_g, binop_g, e_type='right')
 
                 binop_e = equation_graph.add_node(file='mapping', name=m, ln=0, label=get_op_sym(add), ast_type=ast.BinOp,
                                       node_type=NodeTypes.OP, ast_op=add)
@@ -584,20 +699,20 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
                 equation_graph.add_edge(prev_e, binop_e, e_type='left')
                 equation_graph.add_edge(ivar_node_e, binop_e, e_type='right')
 
-                #prev_g = binop_g
+                prev_g = binop_g
                 prev_e = binop_e
             else:
-                #prev_g = ivar_node_g
+                prev_g = ivar_node_g
                 prev_e = ivar_node_e
 
-        #gg.add_edge(prev_g, ag,e_type='value')
+        gg.add_edge(prev_g, ag,e_type='value')
         equation_graph.add_edge(prev_e, ae, e_type='value')
 
     #gg.as_graphviz('global', force=True)
     #equation_graph.as_graphviz('eq_bf_sub', force=True)
     aliases = {}
 
-    if True:
+    if False:
         logging.info('making substituation graph')
 
         #replace all mappings

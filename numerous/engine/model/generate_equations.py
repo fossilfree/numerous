@@ -169,7 +169,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                     vars_assignments[va].append(tmp)
 
     for a, vals in vars_assignments.items():
-        if len(vals)>1:
+        if len(vals)>0:
             ns = new_sum()
             nsn = equation_graph.add_node(key=ns, node_type=NodeTypes.SUM, name=ns, ast=None, file='sum', label=ns, ln=0, ast_type=None)
             equation_graph.add_edge(nsn,a, e_type='target')
@@ -183,15 +183,21 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     eq_vardefs={}
     logging.info('make equations for compilation')
     for eq_key, eq in equations.items():
+        print(eq)
         vardef = Vardef()
+        #vardef__ = Vardef()
         vardef_llvm = Vardef_llvm()
         func, vardef_ = function_from_graph_generic(eq[2],eq_key.replace('.','_'), var_def_=vardef, decorators = ["njit(fastmath=True)"])
+        #func__, vardef___ = function_from_graph_generic(eq[2], eq_key.replace('.', '_')+'_nojit', var_def_=vardef__,
+         #                                           decorators=[])
         eq[2].lower_graph = None
         func_llvm, vardef__, signature, fname, args, targets = function_from_graph_generic_llvm(eq[2], eq_key.replace('.', '_'), var_def_=vardef_llvm)
         llvm_funcs[eq_key.replace('.', '_')]={'func_ast': func_llvm, 'signature': signature, 'name': fname, 'args': args, 'targets': targets}
         eq_vardefs[eq_key] = vardef
 
         mod_body.append(func)
+        #mod_body.append(func__)
+
         mod_body.append(func_llvm)
     body=[]
     #Create a kernel of assignments and calls
@@ -201,6 +207,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     #equation_graph.as_graphviz('after')
     equation_graph = equation_graph.clean()
+    """
     equation_graph_clone = equation_graph.clone()
 
     for n in equation_graph_clone.node_map.values():
@@ -212,8 +219,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             #    equation_graph_clone.remove_edge(i)
 
     equation_graph_clone= equation_graph_clone.clean()
-
-    equation_graph_clone.as_graphviz('clean after', force=True)
+    """
+    #equation_graph.as_graphviz('clean after', force=True)
     topo_sorted_nodes = equation_graph.topological_nodes()
 
     #sdfsdf=sdfsdffdf
@@ -249,7 +256,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
             body.append(ast.Assign(targets=targets, value=ast.Call(func=ast.Name(id=scoped_equations[equation_graph.key_map[n]].replace('.','_')), args=args, keywords=[])))
 
-        if nt == NodeTypes.SUM:
+        elif nt == NodeTypes.SUM:
             t_indcs, target_edges = list(equation_graph.get_edges_for_node_filter(start_node=n, attr='e_type', val='target'))
             v_indcs, value_edges = list(equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val='value'))
 
@@ -274,6 +281,11 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
             body.append(assign)
 
+        elif nt == NodeTypes.VAR or nt == NodeTypes.TMP:
+            pass
+
+        else:
+            raise ValueError('Unused node: ', equation_graph.key_map[n])
     for a in aliases.values():
         if not a in all_targeted:
             all_read.append(a)
@@ -425,10 +437,10 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         return derivatives
 
     tic = time()
-    derivs = diff_bench_llvm(y_, N)
+    #derivs = diff_bench_llvm(y_, N)
     toc = time()
     llvm_vars = var_func(0)
-    print('llvm derivs: ', list(zip(deriv, derivs)))
+#    print('llvm derivs: ', list(zip(deriv, derivs)))
     print(f'Exe time llvm - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
 
 
@@ -550,7 +562,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     #print('Exe time program timeit: ', timeit.timeit(
 #        lambda: dp.diff(variables_values, y), number=N)/N)
-    llvm_ = True
+    llvm_ = False
     if llvm_:
         return diff_llvm, var_func, variables_values, variables, scope_var_node
     else:

@@ -252,7 +252,7 @@ class Model:
         nodes_dep = {}
         self.equations_parsed = {}
         self.scoped_equations = {}
-
+        self.equations_top = {}
         logging.info('parsing equations starting')
         for scope_id, eq in self.equation_dict.items():
             tag_vars = {v.tag: v for v in self.scope_variables.values() if v.parent_scope_id==scope_id}
@@ -263,7 +263,7 @@ class Model:
             #print(eq)
             if len(eq[0])>0:
 
-                parse_eq(self.scope_ids[scope_id], eq, self.gg, self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations)
+                parse_eq(self.scope_ids[scope_id], eq, self.gg, self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations, self.equations_top)
         logging.info('parsing equations completed')
         #for n in gg.nodes:
         #    print(n[0])
@@ -923,6 +923,8 @@ class Model:
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value
             NM_instance.path_keys.append(key)
+        for k, v in self.path_variables.items():
+            print(k, ': ', v)
         NM_instance.run_init_callbacks(start_time)
 
         NM_instance.historian_update(start_time)

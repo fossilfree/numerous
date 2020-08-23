@@ -622,6 +622,7 @@ class Graph():
 
 
     def clone(self):
+        from copy import deepcopy
         clone_ = Graph(preallocate_items=self.preallocate_items)
 
         clone_.preallocate_items =  self.preallocate_items
@@ -631,7 +632,7 @@ class Graph():
         clone_.node_map = self.node_map.copy()
         clone_.key_map = self.key_map.copy()
         clone_.nodes_attr = self.nodes_attr.copy()
-        clone_.edges_attr = self.edges_attr.copy()
+        clone_.edges_attr = deepcopy(self.edges_attr)
         clone_.edges = self.edges.copy()
 
         return clone_
