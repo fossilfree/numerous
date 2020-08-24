@@ -358,7 +358,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #llvm_sequence = [{'func': 'load', 'ix': ix, 'var': vi, 'arg': 'variables'} for vi, ix  in zip(vars_init[len(states):], range(len(states), len(vars_init)))]
 
     llvm_sequence += [{'func': 'load', 'ix': ix, 'var': s, 'arg': 'y'} for ix, s in enumerate(states)]
-    #llvm_end_seq = []
+    llvm_end_seq = []
     llvm_end_seq = [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(vars_update, range(len(vars_init), len(vars_init)+len(vars_update)))]
     llvm_end_seq += [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(states, range(0, lenstates))]
     llvm_end_seq += [{'func': 'store', 'arg': 'deriv', 'ix': ix, 'var': d} for ix, d in enumerate(deriv)]
@@ -446,14 +446,19 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     print(f'Exe time llvm - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
 
 
-    N = 1000
+    N = 5
     if not skip_kernel:
         def test_kernel_nojit(variables, y):
             for i in range(N):
                 deriv = kernel_nojit(variables, y)
+                print(deriv)
             return deriv
 
+        tic = time()
+        deriv_no_jot = test_kernel_nojit(variables_values, y)
+        toc = time()
 
+        #sdfsdf=sdfsdfsdf
         class AssemlbedModel():
             def __init__(self, vars, vals):
                 self.variables = vars
@@ -466,7 +471,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                         #print(y)
                         derivs = self.diff__(y)
                         #print(derivs)
-                    return derivs
+                    return derivs.copy()
 
                 self.diff = diff
 
@@ -476,7 +481,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                         # this region is executed by object-mode.
                         vrs = self.vars__()
                         #print(vrs)
-                    return vrs
+                    return vrs.copy()
 
                 self.var_func = var_func
 
@@ -492,9 +497,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         diff_ = am.diff
         var_func_ = am.var_func
 
-        tic = time()
-        deriv_no_jot = test_kernel_nojit(variables_values, y)
-        toc = time()
+
         print(deriv_no_jot)
         print(f'Exe time flat no jit - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
 

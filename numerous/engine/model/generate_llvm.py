@@ -336,9 +336,13 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
     def diff(y):
 
         deriv_pointer = diff_(y.ctypes)
+        deriv_pointer = diff_(y.ctypes)
+        deriv_pointer = diff_(y.ctypes)
+
+
         #deriv_pointer = diff_(np.ones(1000000, np.float64).ctypes)
 
-        return carray(deriv_pointer, (n_deriv,))
+        return carray(deriv_pointer, (n_deriv,)).copy()
         #return np.zeros(n_deriv, np.float64)
 
 
@@ -364,7 +368,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
         variables_pointer = vars_(0)
         variables_array = carray(variables_pointer, (max_var,))
 
-        return variables_array
+        return variables_array.copy()
         #return np.zeros(max_var, np.float64)
 
 

@@ -286,8 +286,15 @@ class Model:
         #    print(n)
         #equation_graph_simplified.topological_nodes()
         logging.info('Checked topo sort of simple graph')
-        #self.gg.as_graphviz('global_graph', force=True)
+        self.gg.topological_nodes()
+        logging.info('Sorted gloabbal topo')
         #self.eg.as_graphviz('eq', force=True)
+        #logging.info('rendered equation graph')
+
+        #self.gg.as_graphviz('global_graph', force=True)
+        #logging.info('rendered global graph')
+
+
         #nodes = self.gg.get_nodes()
         #for n in nodes:
         #    print(n[0], ' ', n[1].scope_var.type if hasattr(n[1], 'scope_var') and n[1].scope_var else "No type?!")
@@ -335,6 +342,8 @@ class Model:
 
         logging.info('variables sorted')
         # #dsdfsdfsd = sdfsdf
+
+
         if lower_method == LowerMethod.Codegen:
             self.lower_model_codegen()
             self.generate_numba_model = self.generate_numba_model_code_gen

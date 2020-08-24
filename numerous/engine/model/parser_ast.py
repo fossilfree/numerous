@@ -622,6 +622,7 @@ def parse_eq(scope_id, item, global_graph, equation_graph: Graph, nodes_dep, tag
 
 
                 global_graph.update(g_qualified)
+                g_qualified.topological_nodes()
                 a = 1
             #except:
             #    g_qualified.as_graphviz('gq_' + eq_key, force=True)
