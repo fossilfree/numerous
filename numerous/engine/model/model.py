@@ -587,7 +587,6 @@ class Model:
         states : list of states
             list of all states.
         """
-        print('here!?')
         return self.scope_variables[self.states_idx]
 
     def synchornize_variables(self):
@@ -601,7 +600,6 @@ class Model:
 
     def update_states(self, y):
         self.scope_variables[self.states_idx] = y
-        print('here!?')
 
     def history_as_dataframe(self):
         time = self.data[0]
@@ -839,22 +837,16 @@ class Model:
                 self.historian_ix = 0
 
             def func(self, _t, y):
-                print('y: ')
-                for yi in y:
-                    print(yi)
-
-                d = compute(y.astype(np.float32))
-                print('y_dot: ')
-                for di in d:
-                    print(di)
+                #print('diff: ', _t)
+                d = compute(y.astype(np.float32)).astype(np.float64)
                 return d
 
             def historian_update(self, t):
-                #print(self.variables[:])
-                #self.variables = \
-                self.variables[:] = var_func(np.float32(0))
+                #print('hist update')
 
-                #print(self.variables[:])
+                self.variables[:] = var_func(np.float32(0)).astype(np.float64)
+
+
                 self.historian_data[self.historian_ix][0] = t
                 self.historian_data[self.historian_ix][1:] = self.variables[:]
 
@@ -989,7 +981,8 @@ class AliasedDataFrame(pd.DataFrame):
 
     def __getitem__(self, item):
         if not isinstance(item, list):
-            item = [item]
+            col = self.aliases[item] if item in self.aliases else item
+            return super().__getitem__(col)
 
         cols = [self.aliases[i] if i in self.aliases else i for i in item]
 

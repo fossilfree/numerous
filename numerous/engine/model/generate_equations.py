@@ -437,10 +437,11 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         return derivatives
 
     tic = time()
-    #derivs = diff_bench_llvm(y_, N)
+    derivs_llvm = diff_bench_llvm(y_, N)
     toc = time()
     llvm_vars = var_func(0)
-#    print('llvm derivs: ', list(zip(deriv, derivs)))
+    print('llvm derivs: ', list(zip(deriv, derivs_llvm)))
+    print('llvm vars: ', list(zip(variables, var_func(0))))
     print(f'Exe time llvm - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
 
 
@@ -448,7 +449,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     if not skip_kernel:
         def test_kernel_nojit(variables, y):
             for i in range(N):
-                kernel_nojit(variables, y)
+                deriv = kernel_nojit(variables, y)
+            return deriv
 
 
         class AssemlbedModel():
@@ -481,8 +483,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                 return kernel_nojit(self.init_vals, y)
 
             def vars__(self):
-                for v, vv in zip(self.variables, self.init_vals):
-                    print(v,': ',vv)
+                #for v, vv in zip(self.variables, self.init_vals):
+                #    print(v,': ',vv)
                 return self.init_vals
 
         am = AssemlbedModel(variables, variables_values)
@@ -490,10 +492,29 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         var_func_ = am.var_func
 
         tic = time()
-        test_kernel_nojit(variables_values, y)
+        deriv_no_jot = test_kernel_nojit(variables_values, y)
         toc = time()
-
+        print(deriv_no_jot)
         print(f'Exe time flat no jit - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
+
+        print('no jit derivs: ', list(zip(deriv, deriv_no_jot)))
+        print('no jit vars: ', list(zip(variables, am.var_func(0))))
+
+        print('var diff')
+        for k, v_n, v_llvm in zip(variables, am.var_func(0), var_func(0)):
+            print(k,': ',v_n,' ',v_llvm,' diff: ', v_n-v_llvm)
+
+        print('deriv diff')
+        for k, v_n, v_llvm in zip(deriv, deriv_no_jot, derivs_llvm):
+            if abs(v_n) >1e-20:
+                rel_diff = (v_n - v_llvm) / v_n
+            else:
+                rel_diff = 0
+
+            print(k,': ',v_n,' ',v_llvm,' rel diff: ', rel_diff)
+            if rel_diff>0.001:
+                raise ValueError(f'Arg {k}, {v_n}, {v_llvm}, {rel_diff}')
+
         #print('Exe time kernel nojit timeit: ', timeit.timeit(
         #    lambda: kernel_nojit(variables_values, y), number=N) / N)
 
@@ -562,7 +583,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     #print('Exe time program timeit: ', timeit.timeit(
 #        lambda: dp.diff(variables_values, y), number=N)/N)
-    llvm_ = False
+    llvm_ = True
     if llvm_:
         return diff_llvm, var_func, variables_values, variables, scope_var_node
     else:
