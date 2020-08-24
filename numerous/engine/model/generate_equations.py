@@ -401,7 +401,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     variables_values = np.array([scope_var_node[v].value for v in variables], dtype=np.float64)
 
-    variables_values_ = np.array([scope_var_node[v].value for v in variables], dtype=np.float32)
+    variables_values_ = np.array([scope_var_node[v].value for v in variables], dtype=np.float64)
 
     for v, vv in zip(variables, variables_values_):
         print(v,': ',vv)
@@ -418,17 +418,17 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     from numba import njit, float64, int64
 
-    diff_llvm, var_func, var_func_set, max_deriv = generate_llvm(llvm_sequence, llvm_funcs.values(), variables, variables_values_, leninit, lenderiv)
+    diff_llvm, var_func, var_func_set, max_deriv = generate_llvm(llvm_sequence, llvm_funcs.values(), variables, variables_values, leninit, lenderiv)
 
     ###TESTS####
     y = variables_values[:lenderiv]
-    y_ = variables_values[:lenderiv].astype(np.float32)
+    y_ = variables_values[:lenderiv].astype(np.float64)
     #variables_ = variables_values.astype(np.float32)#np.array([0, 1, 0, 1, 0, 1, 0, 1], np.float32)
 
     from time import time
     N = 10000
 
-    @njit('float32[:](float32[:], int32)')
+    @njit('float64[:](float64[:], int64)')
     def diff_bench_llvm(y, N):
 
         for i in range(N):
@@ -437,7 +437,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         return derivatives
 
     tic = time()
-    derivs_llvm = diff_bench_llvm(y_, N)
+    derivs_llvm = diff_bench_llvm(y, N)
     toc = time()
     llvm_vars = var_func(0)
     print('llvm derivs: ', list(zip(deriv, derivs_llvm)))
@@ -460,10 +460,10 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
                 @njit
                 def diff(y):
-                    with objmode(derivs='f8[:]'):  # annotate return type
+                    with objmode(derivs='float64[:]'):  # annotate return type
                         # this region is executed by object-mode.'
                         #print(y)
-                        derivs = self.diff__(np.array(y, np.float64))
+                        derivs = self.diff__(y)
                         #print(derivs)
                     return derivs
 
@@ -471,7 +471,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
                 @njit
                 def var_func(i):
-                    with objmode(vrs='f8[:]'):  # annotate return type
+                    with objmode(vrs='float64[:]'):  # annotate return type
                         # this region is executed by object-mode.
                         vrs = self.vars__()
                         #print(vrs)
@@ -573,13 +573,13 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     print('First prgram call results: ')
     #print(dp.diff(variables_values, y))
 
-    tic = time()
+    #tic = time()
     #dp.test(variables_values, y)
-    toc = time()
+    #toc = time()
 
 
 
-    print(f'Exe time program - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
+    #print(f'Exe time program - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
 
     #print('Exe time program timeit: ', timeit.timeit(
 #        lambda: dp.diff(variables_values, y), number=N)/N)

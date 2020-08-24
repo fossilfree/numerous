@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-from ctypes import CFUNCTYPE, POINTER, c_double, c_float, c_void_p, c_int32
+from ctypes import CFUNCTYPE, POINTER, c_double, c_float, c_void_p, c_int64
 from numba import carray, cfunc, njit
 
 try:
@@ -38,9 +38,9 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
     t1 = time()
 
     #Define the overall function
-    fnty = ll.FunctionType(ll.FloatType().as_pointer(), [
-        #ll.ArrayType(ll.FloatType(),10),
-                                            ll.FloatType().as_pointer()
+    fnty = ll.FunctionType(ll.DoubleType().as_pointer(), [
+        #ll.ArrayType(ll.DoubleType(),10),
+                                            ll.DoubleType().as_pointer()
                                            ])
 
 
@@ -58,7 +58,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
 
         f_c_sym = llvm.add_symbol(name, f_c.address)
 
-        fnty_c_func = ll.FunctionType(ll.VoidType(),[ll.FloatType() for i in f['args']] + [ll.FloatType().as_pointer() for i in f['targets']])
+        fnty_c_func = ll.FunctionType(ll.VoidType(),[ll.DoubleType() for i in f['args']] + [ll.DoubleType().as_pointer() for i in f['targets']])
         fnty_c_func.as_pointer(f_c_sym)
         f_llvm = ll.Function(module, fnty_c_func, name=name)
 
@@ -69,14 +69,14 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
     #Define global variable array
 
 
-    max_deriv = np.int32(n_deriv)
-    max_state = np.int32(n_deriv)
-    max_var = np.int32(len(variables))
+    max_deriv = np.int64(n_deriv)
+    max_state = np.int64(n_deriv)
+    max_var = np.int64(len(variables))
 
 
 
-    var_global = ll.GlobalVariable(module, ll.ArrayType(ll.FloatType(), max_var), 'global_var')
-    var_global.initializer = ll.Constant(ll.ArrayType(ll.FloatType(), max_var), [float(v) for v in variable_values])
+    var_global = ll.GlobalVariable(module, ll.ArrayType(ll.DoubleType(), max_var), 'global_var')
+    var_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), max_var), [float(v) for v in variable_values])
 
 
 
@@ -92,35 +92,35 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
 
     builder.branch(bb_loop)
     builder.position_at_end(bb_loop)
-    #izero = builder.phi(ll.IntType(32))
+    #izero = builder.phi(ll.IntType(64))
     #izero.add_incoming(ll.Constant(izero.type, 0), bb_entry)
 
-    #var_global = ll.GlobalVariable(module, ll.ArrayType(ll.FloatType(), max_deriv), 'var_global')
-    #var_global.initializer = ll.Constant(ll.ArrayType(ll.FloatType(), max_deriv), [0] * max_deriv)
-    #var_deriv = ll.GlobalVariable(module, ll.ArrayType(ll.FloatType(), max_deriv), 'var_deriv')
-    #var_deriv.initializer = ll.Constant(ll.ArrayType(ll.FloatType(), max_deriv), [0] * max_deriv)
+    #var_global = ll.GlobalVariable(module, ll.ArrayType(ll.DoubleType(), max_deriv), 'var_global')
+    #var_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), max_deriv), [0] * max_deriv)
+    #var_deriv = ll.GlobalVariable(module, ll.ArrayType(ll.DoubleType(), max_deriv), 'var_deriv')
+    #var_deriv.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), max_deriv), [0] * max_deriv)
     #max_ret = 1000
-    #var_returns = ll.GlobalVariable(module, ll.ArrayType(ll.FloatType(), max_ret), 'global_returns')
-    #var_returns.initializer= ll.Constant(ll.ArrayType(ll.FloatType(), max_ret), [0] * max_ret)
+    #var_returns = ll.GlobalVariable(module, ll.ArrayType(ll.DoubleType(), max_ret), 'global_returns')
+    #var_returns.initializer= ll.Constant(ll.ArrayType(ll.DoubleType(), max_ret), [0] * max_ret)
 
-    #var_deriv = ll.GlobalVariable(module, ll.ArrayType(ll.FloatType(), max_deriv), 'var_deriv')
-    #var_deriv.initializer = ll.Constant(ll.ArrayType(ll.FloatType(), max_deriv), [0] * max_deriv)
+    #var_deriv = ll.GlobalVariable(module, ll.ArrayType(ll.DoubleType(), max_deriv), 'var_deriv')
+    #var_deriv.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), max_deriv), [0] * max_deriv)
 
 
 
-    #index0 = builder.phi(ll.IntType(32))
+    #index0 = builder.phi(ll.IntType(64))
     #index0.add_incoming(ll.Constant(index0.type, 0), bb_entry)
 
-    #zero = builder.phi(ll.FloatType())
+    #zero = builder.phi(ll.DoubleType())
     #zero.add_incoming(ll.Constant(zero.type, 0), bb_entry)
 
-    #m1 = builder.phi(ll.FloatType())
+    #m1 = builder.phi(ll.DoubleType())
     #m1.add_incoming(ll.Constant(m1.type, -1), bb_entry)
 
-    #p1 = builder.phi(ll.FloatType())
+    #p1 = builder.phi(ll.DoubleType())
     #p1.add_incoming(ll.Constant(p1.type, 1), bb_entry)
 
-    index0 = builder.phi(ll.IntType(32))
+    index0 = builder.phi(ll.IntType(64))
     index0.add_incoming(ll.Constant(index0.type, 0), bb_entry)
     #variables_pointer = builder.gep(variables, [index0])
 
@@ -128,6 +128,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
     #for i, p in enumerate(program):
     #    print(i, ': ', p)
     values = {}
+
     for ix, p in enumerate(program):#+program[14:]:
         checks = []
         if 'args' in p:
@@ -138,7 +139,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
         for i, t in enumerate(checks):
             if not t in values:
                 ix = variables.index(t)
-                index = builder.phi(ll.IntType(32), name=t + f"_ix_{ix =}")
+                index = builder.phi(ll.IntType(64), name=t + f"_ix_{ix =}")
                 index.add_incoming(ll.Constant(index.type, ix), bb_entry)
 
                 ptr = var_global
@@ -152,7 +153,9 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
 
 
         if p['func'] == 'load' or p['func'] == 'store':
-            index = builder.phi(ll.IntType(32), name=p['arg'] + f"_ix_{p['ix']}")
+
+
+            index = builder.phi(ll.IntType(64), name=p['arg'] + f"_ix_{p['ix']}")
             index.add_incoming(ll.Constant(index.type, p['ix']), bb_entry)
 
             if p['arg'] == 'variables':
@@ -170,7 +173,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
 
                 if p['arg'] == 'y':
                     ptrg = var_global
-                    index = builder.phi(ll.IntType(32))
+                    index = builder.phi(ll.IntType(64))
                     index.add_incoming(ll.Constant(index.type, variables.index(p['var'])), bb_entry)
                     ix = [index0, index]
                     geptr = builder.gep(ptrg, ix)
@@ -186,33 +189,15 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
 
 
         elif p['func'] == 'call':
-            #arr = builder.phi(ll.ArrayType(ll.FloatType(), 1).as_pointer())
-
-            #print(p['ext_func'])
-
-
-                    #raise ValueError('AAARG')
-            #if not ix in [13, 15]:
-
-
+            #pass
 
             builder.call(ext_funcs[p['ext_func']], args + [values[t] for t in p['targets']])
-            #builder.call(exp, [values[a] for a in p['args']] + [builder.gep(var_returns, [index0, index0])])
-
-
-            #for i, t in enumerate(p['targets']):
-            #    index = builder.phi(ll.IntType(32))
-            #    index.add_incoming(ll.Constant(index.type, i), bb_entry)
-            #    targ_pointer = builder.gep(var_returns, [index0, index])
-            #    val_llvm[t] = builder.load(targ_pointer)
-
-
-
 
 
 
         elif p['func'] == 'sum':
-            accum = builder.phi(ll.FloatType())
+
+            accum = builder.phi(ll.DoubleType())
             accum.add_incoming(ll.Constant(accum.type, 0), bb_entry)
             la = len(p['args'])
             if la == 0:
@@ -241,13 +226,6 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
 
                     builder.store(accum, values[t])
 
-            #sdfsdf=sdfsdf
-
-            #v_sum = builder.fadd(accum, zero)
-
-
-
-
         else:
             raise EnvironmentError('Unknown function: ' + str(p['func']))
 
@@ -267,7 +245,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
     #builder.ret_void()
     #builder.ret(builder.gep(var_deriv, [index0, index0]))
 
-    indexd = builder.phi(ll.IntType(32))
+    indexd = builder.phi(ll.IntType(64))
     #print(variables)
     #print('len vars: ', max_var)
     #print('derivative ix: ', ix_d)
@@ -277,7 +255,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
 
     builder.ret(dg_ptr)
     # Vars function
-    fnty_vars = ll.FunctionType(ll.FloatType().as_pointer(), [ll.IntType(32)
+    fnty_vars = ll.FunctionType(ll.DoubleType().as_pointer(), [ll.IntType(64)
                                                          ])
 
     vars_func = ll.Function(module, fnty_vars, name="vars")
@@ -292,7 +270,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
 
     builder_var.position_at_end(bb_exit_var)
     # builder.ret_void()
-    index0_var = builder_var.phi(ll.IntType(32))
+    index0_var = builder_var.phi(ll.IntType(64))
     index0_var.add_incoming(ll.Constant(index0_var.type, 0), bb_entry_var)
     vg_ptr = builder_var.gep(var_global, [index0_var, index0_var])
     builder_var.ret(vg_ptr)
@@ -345,31 +323,35 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
     print("-- JIT compile:", t8 - t7)
 
     #print(target_machine.emit_assembly(llmod))
-    from numba import float32
-    c_float_type =  c_float
-
+    from numba import float64
+    c_float_type =  type(np.ctypeslib.as_ctypes(np.float64()))
+    print(c_float_type)
     #diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type))(cfptr)
     diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type))(cfptr)
 
-    vars_ = CFUNCTYPE(POINTER(c_float_type), c_int32)(cfptr_var)
+    vars_ = CFUNCTYPE(POINTER(c_float_type), c_int64)(cfptr_var)
 
 
-    @njit('float32[:](float32[:])')
+    @njit('float64[:](float64[:])')
     def diff(y):
 
         deriv_pointer = diff_(y.ctypes)
+        #deriv_pointer = diff_(np.ones(1000000, np.float64).ctypes)
 
         return carray(deriv_pointer, (n_deriv,))
+        #return np.zeros(n_deriv, np.float64)
 
 
 
-    @njit('float32[:](float32[:],int32)')
+    @njit('float64[:](float64[:],int64)')
     def variables_(var, set_):
         variables_pointer = vars_(0)
         variables_array = carray(variables_pointer, (max_var,))
 
         if set_>0:
             if len(var) == max_var:
+                #pass
+                #print('setting')
                # print('setting vars: ', var[:])
                 variables_array[:] = var[:]
             else:
@@ -377,12 +359,13 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
 
         return variables_array
 
-    @njit('float32[:](float32)')
+    @njit('float64[:](float64)')
     def variables__(f):
         variables_pointer = vars_(0)
         variables_array = carray(variables_pointer, (max_var,))
 
         return variables_array
+        #return np.zeros(max_var, np.float64)
 
 
 

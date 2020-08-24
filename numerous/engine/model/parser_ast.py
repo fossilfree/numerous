@@ -252,7 +252,7 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
     len_targs = len(var_def_.get_targets())
 
     args = dot_dict(args=var_def_.get_args() + var_def_.get_targets(), vararg=None, defaults=[], kwarg=None)
-    signature = f'void({", ".join(["float32" for a in var_def_.get_args()])}, {", ".join(["CPointer(float32)" for a in var_def_.get_targets()])})'
+    signature = f'void({", ".join(["float64" for a in var_def_.get_args()])}, {", ".join(["CPointer(float64)" for a in var_def_.get_targets()])})'
     decorators = []
 
     func = wrap_function(fname, body, decorators=decorators, args=args)

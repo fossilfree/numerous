@@ -817,13 +817,13 @@ class Model:
     # Method that generates numba_model
 
     def generate_numba_model_code_gen(self, start_time, number_of_timesteps):
-        from numba import float64, int32
+        from numba import float64, int64
         compute = self.compiled_compute
         var_func = self.var_func
         spec = [
             ('variables', float64[:]),
             ('historian_data', float64[:,:]),
-            ('historian_ix', int32),
+            ('historian_ix', int64),
 
         ]
 
@@ -838,13 +838,13 @@ class Model:
 
             def func(self, _t, y):
                 #print('diff: ', _t)
-                d = compute(y.astype(np.float32)).astype(np.float64)
+                d = compute(y)
                 return d
 
             def historian_update(self, t):
                 #print('hist update')
 
-                self.variables[:] = var_func(np.float32(0)).astype(np.float64)
+                self.variables[:] = var_func(np.int64(0))
 
 
                 self.historian_data[self.historian_ix][0] = t
