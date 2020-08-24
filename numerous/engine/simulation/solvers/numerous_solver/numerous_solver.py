@@ -52,7 +52,7 @@ class Numerous_solver(BaseSolver):
             t_previous = 0
             y_previous = np.copy(y)
 
-            order_ = 0
+            order_ =order
             len_y = numba_model.get_states().shape[0]
             n = order + 2
             rb0 = np.zeros((n, len(y)))
@@ -129,29 +129,29 @@ class Numerous_solver(BaseSolver):
                     t_start = t_previous
                     y = y_previous
 
-                    if t_new_test < t_start:
+                if t_new_test < t_start:
                             # t_new_test = t_rollback
                             # TODO: make more specific error raising here!
                             raise ValueError('Cannot go back longer than rollback point!')
-                    else:
-                        # Since we didnt roll back we can update t_start and rollback
-                        # Check if we should update history at t eval
-                        if t_next_eval <= t:
-                            j_i += 1
-                            p_size = 100
-                            x = int(p_size * j_i / progress_c)
-                            numba_model.historian_update(t)
-                            if strict_eval:
-                                te_array[1] = t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
-                            else:
-                                t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
-                            ix_eval += 1
+                else:
+                    # Since we didnt roll back we can update t_start and rollback
+                    # Check if we should update history at t eval
+                    if t_next_eval <= t:
+                        j_i += 1
+                        p_size = 100
+                        x = int(p_size * j_i / progress_c)
+                        numba_model.historian_update(t)
+                        if strict_eval:
+                            te_array[1] = t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
+                        else:
+                            t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
+                        ix_eval += 1
 
-                    order_ = add_ring_buffer(t, y, roller, order_)
-                    t_start = t
-                    t_new_test = np.min(te_array)
-                    if t >= t_end:
-                        break
+                order_ = add_ring_buffer(t, y, roller, order_)
+                t_start = t
+                t_new_test = np.min(te_array)
+                if t >= t_end:
+                    break
                     # t_rollback = t
                     # y_rollback = y_previous
                 dt_ = t_new_test - t_start
@@ -161,6 +161,7 @@ class Numerous_solver(BaseSolver):
                                                                                 dt_, y,
                                                                                 get_order_y(roller, order_), order_,
                                                                                 _solve_state)
+
 
             info = {'step_info': step_info}
             # Return the part of the history actually filled in
@@ -237,7 +238,7 @@ class Numerous_solver(BaseSolver):
 
             initial_step = max_step  # np.min([100000000*min_step, max_step])
 
-            order = self.method_options.get('order', 0)
+            order = self.method_options.get('order', 3)
 
             strict_eval = self.method_options.get('strict_eval', True)
             outer_itermax = self.method_options.get('outer_itermax', 20)

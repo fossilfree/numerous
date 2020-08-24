@@ -137,10 +137,9 @@ class NumbaModel:
 
     def get_g(self, t, yold, y, dt, order, a, af):
         f = self.func(t, y)
-        _sum = 0.0
+        _sum = np.zeros_like(y)
         for i in range(order):
-            print("---")
-            _sum += a[order - 1][i] * yold[i, :]
+            _sum = _sum + a[order - 1][i] * yold[i, :]
         g = y + _sum - af[order - 1] * dt * f
         return np.ascontiguousarray(g), np.ascontiguousarray(f)
 

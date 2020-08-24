@@ -47,9 +47,9 @@ class LevenbergMarquardt:
             S = Stemp / len(r)
             return S
 
-        # @njit(cache=True)
+        @njit(cache=True)
         def guess_init(yold, order, last_f, dt):
-            _sum = 0
+            _sum = np.zeros_like(yold[0, :])
             for i in range(order):
                 _sum += a[order - 1][i] * yold[i, :]
             return -_sum + af[order - 1] * last_f * dt
@@ -115,7 +115,7 @@ class LevenbergMarquardt:
             return jac
 
         # @comp
-        # @njit(cache=True)
+        @njit(cache=True)
         def levenberg_marquardt_inner(nm, t, dt, yinit, yold, jacT, L, order):
             # ll=l
             ll = 0
@@ -165,7 +165,7 @@ class LevenbergMarquardt:
 
             return converged, rate, y, d, rtest, ll, stat, f
 
-        # @njit(cache=True)
+        @njit(cache=True)
         def levenberg_marquardt(nm, t, dt, y, yold, order, _solve_state):
             n = len(y)
             ynew = np.zeros_like(y)
