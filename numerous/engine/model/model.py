@@ -6,21 +6,18 @@ import re
 import time
 import uuid
 
-from numba.experimental import jitclass
+from numba import jitclass
 import pandas as pd
-
 from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
 from examples.historyDataFrameCallbackExample import HistoryDataFrameCallback
 from numerous.engine.scope import Scope, ScopeVariable
-
 # from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 
 from numerous.engine.system.subsystem import Subsystem
 from numerous.engine.variables import VariableType
 from numerous.utils.numba_callback import NumbaCallbackBase
-from numerous.engine.model.generate_code import generate_code
 
 import operator
 
@@ -153,6 +150,7 @@ class Model:
         if validate:
             self.validate()
 
+
     def __add_item(self, item):
         model_namespaces = []
         if item.id in self.model_items:
@@ -190,6 +188,11 @@ class Model:
         -  _3d 
 
         """
+        def __get_mapping__idx(variable):
+            if variable.mapping:
+                return __get_mapping__idx(variable.mapping)
+            else:
+                return variable.idx_in_scope[0]
 
 
 
@@ -213,6 +216,11 @@ class Model:
             self.name_spaces.update(name_space)
 
         self.mappings = []
+        def __get_mapping__variable(variable):
+            if variable.mapping:
+                return __get_mapping__variable(variable.mapping)
+            else:
+                return variable
 
         for scope_var_idx, var in enumerate(self.scope_variables.values()):
             if var.mapping_id:
@@ -546,22 +554,14 @@ class Model:
         self.flat_scope_idx_slices_end = np.cumsum(_flat_scope_idx_slices_lengths)
         self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
 
-
-
-
-        # def _get_var_name_from_flat_id(flat_id):
-        #     return list(self.path_variables.keys())[
-        #         np.unique(self.var_idxs_pos_3d_helper, return_index=True)[1][flat_id]]
-        #
-        # idx_sum = 0
-        # for i,len_ in enumerate(self.sum_mapped_idxs_len):
-        #     print("Variable {0} is a sum of:".format(_get_var_name_from_flat_id(self.sum_idx[i])))
-        #     for j in  self.sum_slice_idxs[idx_sum:idx_sum + len_]:
-        #         print(_get_var_name_from_flat_id(self.sum_mapped[j]))
-        #     idx_sum += len_
-
-
-
+        assemble_finish = time.time()
+        print("Assemble time: ",assemble_finish - assemble_start)
+        self.info.update({"Assemble time": assemble_finish - assemble_start})
+        self.info.update({"Number of items": len(self.model_items)})
+        self.info.update({"Number of variables": len(self.scope_variables)})
+        self.info.update({"Number of equation scopes": len(self.equation_dict)})
+        self.info.update({"Number of equations": len(self.compiled_eq)})
+        self.info.update({"Solver": {}})
 
     def _var_idxs_to_3d_idxs(self, var_idxs, _from):
         if var_idxs.size == 0:
@@ -867,7 +867,7 @@ class Model:
                 numba_model_spec.append(item)
 
 
-        def create_eq_call(eq_method_name: str, i: np.int):
+        def create_eq_call(eq_method_name: str, i: np.int64):
             return "      self." \
                    "" + eq_method_name + "(array_3d[" + str(i) + \
                    ", :self.num_uses_per_eq[" + str(i) + "]])\n"
@@ -877,21 +877,21 @@ class Model:
 
 
         ##Adding callbacks_varaibles to numba specs
-        def create_cbi_call(_method_name: str, i: int):
+        def create_cbi_call(_method_name: str, i: np.int64):
             return "      self." \
                    "" + _method_name + "(time, self.path_variables)\n"
 
         Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks, "run_callbacks", "callback_func"
                                                 , create_cbi_call, "time")
 
-        def create_cbi2_call(_method_name: str, i: int):
+        def create_cbi2_call(_method_name: str, i: np.int64):
             return "      self." \
                    "" + _method_name + "(self.number_of_variables,self.number_of_timesteps)\n"
 
         Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init, "init_callbacks",
                                                 "callback_func_init_", create_cbi2_call, "")
 
-        def create_cbiu_call(_method_name: str, i: int):
+        def create_cbiu_call(_method_name: str, i: np.int64):
             return "      self." \
                    "" + _method_name + "(time, self.path_variables)\n"
 
@@ -903,11 +903,11 @@ class Model:
             pass
 
         NM_instance = NumbaModel_instance(self.var_idxs_pos_3d, self.var_idxs_pos_3d_helper,
-                                          len(self.compiled_eq), self.state_idxs_3d[0].shape[0],
+                                          np.int64(len(self.compiled_eq)), self.state_idxs_3d[0].shape[0],
                                           self.differing_idxs_pos_3d[0].shape[0], self.scope_vars_3d,
                                           self.state_idxs_3d,
                                           self.deriv_idxs_3d, self.differing_idxs_pos_3d, self.differing_idxs_from_3d,
-                                          self.num_uses_per_eq, self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
+                                          np.int64(self.num_uses_per_eq), self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
                                           self.sum_slice_idxs, self.sum_mapped_idxs_len, self.sum_mapping,
                                           self.global_vars, number_of_timesteps, len(self.path_variables), start_time,
                                           self.mapped_variables_array)
@@ -915,8 +915,6 @@ class Model:
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value
             NM_instance.path_keys.append(key)
-        for k, v in self.path_variables.items():
-            print(k, ': ', v)
         NM_instance.run_init_callbacks(start_time)
 
         NM_instance.historian_update(start_time)

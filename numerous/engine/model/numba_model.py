@@ -8,12 +8,12 @@ kv_ty = (types.unicode_type, float64)
 numba_model_spec = [
     ('var_idxs_pos_3d', types.Tuple((int64[:], int64[:], int64[:]))),
     ('var_idxs_pos_3d_helper', int64[:]),
-    ('start_time', int32),
-    ('eq_count', int32),
-    ('number_of_timesteps', int32),
-    ('number_of_variables', int32),
-    ('number_of_states', int32),
-    ('number_of_mappings', int32),
+    ('start_time', int64),
+    ('eq_count', int64),
+    ('number_of_timesteps', int64),
+    ('number_of_variables', int64),
+    ('number_of_states', int64),
+    ('number_of_mappings', int64),
     ('scope_vars_3d', float64[:, :, :]),
     ('state_idxs_3d', types.Tuple((int64[:], int64[:], int64[:]))),
     ('deriv_idxs_3d', types.Tuple((int64[:], int64[:], int64[:]))),
@@ -100,7 +100,7 @@ class NumbaModel:
                 self.scope_vars_3d[self.state_idxs_3d[0][i]][self.state_idxs_3d[1][i]][self.state_idxs_3d[2][i]])
         return result
 
-    def historian_update(self, time: int) -> None:
+    def historian_update(self, time: np.int64) -> None:
         ix = self.historian_ix
         varix = 1
         self.historian_data[0][ix] = time
@@ -110,7 +110,7 @@ class NumbaModel:
             varix += 1
         self.historian_ix += 1
 
-    def run_callbacks_with_updates(self, time: int) -> None:
+    def run_callbacks_with_updates(self, time: np.int64) -> None:
         '''
         Updates all the values of all Variable instances stored in
         `self.variables` with the values stored in `self.scope_vars_3d`.
@@ -164,11 +164,14 @@ class NumbaModel:
         #print(iter)
 
     def func(self, _t, y):
+
         # self.info["Number of Equation Calls"] += 1
         self.update_states(y)
         self.global_vars[0] = _t
         self.compute()
-        return self.get_derivatives()
+        y_dot = self.get_derivatives()
+
+        return y_dot
 
 
 @njit
