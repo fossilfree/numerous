@@ -187,7 +187,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         vardef = Vardef()
         #vardef__ = Vardef()
         vardef_llvm = Vardef_llvm()
-        func, vardef_ = function_from_graph_generic(eq[2],eq_key.replace('.','_'), var_def_=vardef, decorators = ["njit(fastmath=True)"])
+        func, vardef_ = function_from_graph_generic(eq[2],eq_key.replace('.','_'), var_def_=vardef, decorators = ["njit"])
         #func__, vardef___ = function_from_graph_generic(eq[2], eq_key.replace('.', '_')+'_nojit', var_def_=vardef__,
          #                                           decorators=[])
         eq[2].lower_graph = None
@@ -354,10 +354,11 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=d_u(s)) for s in states])], value=ast.Name(id='y')),
            ] + body
 
-    llvm_sequence = [{'func': 'load', 'ix': ix, 'var': vi, 'arg': 'variables'} for vi, ix  in zip(vars_init[len(states):], range(len(states), len(vars_init)))]
+    llvm_sequence = []
+    #llvm_sequence = [{'func': 'load', 'ix': ix, 'var': vi, 'arg': 'variables'} for vi, ix  in zip(vars_init[len(states):], range(len(states), len(vars_init)))]
 
     llvm_sequence += [{'func': 'load', 'ix': ix, 'var': s, 'arg': 'y'} for ix, s in enumerate(states)]
-
+    #llvm_end_seq = []
     llvm_end_seq = [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(vars_update, range(len(vars_init), len(vars_init)+len(vars_update)))]
     llvm_end_seq += [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(states, range(0, lenstates))]
     llvm_end_seq += [{'func': 'store', 'arg': 'deriv', 'ix': ix, 'var': d} for ix, d in enumerate(deriv)]
