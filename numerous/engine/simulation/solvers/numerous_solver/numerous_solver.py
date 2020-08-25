@@ -150,11 +150,11 @@ class Numerous_solver(BaseSolver):
                             t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                         ix_eval += 1
 
-                order_ = add_ring_buffer(t, y, roller, order_)
-                t_start = t
-                t_new_test = np.min(te_array)
-                if t >= t_end:
-                    break
+                    order_ = add_ring_buffer(t, y, roller, order_)
+                    t_start = t
+                    t_new_test = np.min(te_array)
+                    if t >= t_end:
+                        break
                     # t_rollback = t
                     # y_rollback = y_previous
                 dt_ = t_new_test - t_start
@@ -164,6 +164,7 @@ class Numerous_solver(BaseSolver):
                                                                                 dt_, y,
                                                                                 get_order_y(roller, order_), order_,
                                                                                 _solve_state)
+                print(t)
 
 
             info = {'step_info': step_info}
