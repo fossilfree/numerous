@@ -33,8 +33,7 @@ print('target triple: ', target_machine.triple)
 ee = llvm.create_mcjit_compiler(llmod_, target_machine)
 #def generate():
 def generate(program, functions, variables, variable_values, ix_d, n_deriv):
-
-
+    print('program lines: ', len(program))
     t1 = time()
 
     #Define the overall function
@@ -138,6 +137,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
 
     poplist = []
     #print('hree')
+    single_arg_sum_counter = 0
     for ix, p in enumerate(program):#+program[14:]
 
         #print(p)
@@ -184,6 +184,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
             if la == 0:
                 pass
             elif la == 1:
+                single_arg_sum_counter +=1
                 for t in p['targets']:
 
                     builder.store(args[0], values[t])
@@ -211,6 +212,7 @@ def generate(program, functions, variables, variable_values, ix_d, n_deriv):
 
     [program.pop(i) for i in reversed(poplist)]
 
+    print('single assignments: ', single_arg_sum_counter)
         #else:
         #    raise EnvironmentError('Unknown function: ' + str(p['func']))
 

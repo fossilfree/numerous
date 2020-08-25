@@ -387,6 +387,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         wrap_function('kernel_nojit', body, decorators=[], args=kernel_args))
     logging.info('generate program')
     run_program_source, lib_body, program, indices, llvm_program = generate_program(equation_graph, variables, indcs, deriv_aliased)
+    logging.info('done program')
     mod_body+=lib_body
 
     #LLVM
@@ -421,7 +422,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
 
     from numba import njit, float64, int64
-
+    logging.info('generate llvm')
     diff_llvm, var_func, var_func_set, max_deriv = generate_llvm(llvm_sequence, llvm_funcs.values(), variables, variables_values, leninit, lenderiv)
 
     ###TESTS####

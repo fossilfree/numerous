@@ -472,6 +472,15 @@ class Graph():
         self.edges = np.ones((self.preallocate_items, 2), dtype=np.int32)*-1
         self.lower_graph = None
 
+        self.node_edges = None
+
+    def build_node_edges(self):
+        self.node_edges = [([],[]) for n in range(self.node_counter)]
+        for i, e in enumerate(self.edges[:self.edge_counter]):
+            self.node_edges[e[0]][0].append(i)
+            self.node_edges[e[1]][1].append(i)
+
+
     def lock(self):
         pass
 
@@ -540,6 +549,9 @@ class Graph():
         self.nodes_attr['deleted'][node] = 1
 
     def clean(self):
+        self.lower_graph = None
+        self.node_edges = None
+
         attr_keys = list(self.nodes_attr.keys())
         cleaned_graph = Graph(preallocate_items=self.preallocate_items)
 
@@ -585,27 +597,53 @@ class Graph():
             end_ = start_
 
         return zip(np.argwhere(end_ix), end_)
+    """
+        def get_edges_for_node_filter(self, attr, start_node=None, end_node=None, val=None):
+            if start_node and end_node:
+                raise ValueError('arg cant have both start and end!')
+            
+            if not start_node is None:
+                ix = np.argwhere(self.edges[:,0] == start_node)
+    
+    
+            if not end_node is None:
+                ix = np.argwhere(self.edges[:, 1] == end_node)
+    
+            if start_node is None and end_node is None:
+                print(end_node)
+                print(start_node)
+                raise ValueError('Need at least one node!')
+    
+            ix = [i[0] for i in ix if self.edges_attr[attr][i[0]] == val]
+    
+            return ix, [self.edges[i,:] for i in ix]
+    """
+
 
     def get_edges_for_node_filter(self, attr, start_node=None, end_node=None, val=None):
         if start_node and end_node:
             raise ValueError('arg cant have both start and end!')
 
-        if not start_node is None:
-            ix = np.argwhere(self.edges[:,0] == start_node)
+        if not self.node_edges:
+            self.build_node_edges()
 
+
+        if not start_node is None:
+            #ix = np.argwhere(self.edges[:, 0] == start_node)
+            ix = self.node_edges[start_node][0]
 
         if not end_node is None:
-            ix = np.argwhere(self.edges[:, 1] == end_node)
+            #ix = np.argwhere(self.edges[:, 1] == end_node)
+            ix = self.node_edges[end_node][1]
 
         if start_node is None and end_node is None:
             print(end_node)
             print(start_node)
             raise ValueError('Need at least one node!')
 
-        ix = [i[0] for i in ix if self.edges_attr[attr][i[0]] == val]
+        ix = [i for i in ix if self.edges_attr[attr][i] == val]
 
-        return ix, [self.edges[i,:] for i in ix]
-
+        return ix, [self.edges[i, :] for i in ix]
 
     def has_edge_for_nodes(self, start_node=None, end_node=None):
 

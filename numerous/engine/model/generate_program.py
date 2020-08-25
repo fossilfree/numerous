@@ -69,12 +69,15 @@ from numba import njit, float64
 
 def generate_program(graph: Graph, variables, indcs, deriv_aliased):
     graph.lower_graph = None
+
+    print('sorting nodes')
     nodes = graph.topological_nodes()
     ops = {}
     program = []
     llvm_program = []
     llvm_funcs = []
     indices = []
+    print('processing nodes')
     for n in nodes:
         node = n
         start_arg = len(indices)
@@ -140,7 +143,7 @@ def generate_program(graph: Graph, variables, indcs, deriv_aliased):
 
             program.append((ix,start_arg, end_arg, end_targets))
 
-
+    print('processed program nodes')
     for d, a in deriv_aliased.items():
         start_arg = len(indices)
         this_op_type = 'summing'

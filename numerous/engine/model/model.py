@@ -279,6 +279,8 @@ class Model:
         #print('mapping: ',self.mappings)
         #Process mappings add update the global graph
         self.aliases, self.eg = process_mappings(self.mappings, self.gg, self.eg, nodes_dep, self.scope_variables, self.scope_ids)
+
+        self.eg.build_node_edges()
         #self.eg.as_graphviz('equation_graph')
         logging.info('Mappings processed')
         #equation_graph_simplified.as_graphviz('equation_graph_simplified')
@@ -399,14 +401,7 @@ class Model:
                             #self.variables[self.scope_vars_vars[v].id].path.path[self.system.id][0]
         #                 for a, v in self.aliases.items()}
         self.aliases = aliases_
-        print('aliases')
-        print(self.aliases)
-        #for pv in self.pathed_variables:
-        #    for i in pv[1:]:
-        #        self.aliases[i]=pv[0]
-        #self.pathed_variables = [pv[0] for pv in self.pathed_variables]
-        print('pathed')
-        print(self.pathed_variables)
+
         #generate_program(self.gg)
         #asdsad=asdsfsf
         #self.compiled_compute = generate(self.gg, self.vars_ordered_map, self.special_indcs)
