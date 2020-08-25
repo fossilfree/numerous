@@ -8,6 +8,9 @@ from numba import njit
 from numba.core.dispatcher import OmittedArg
 from numba.experimental import jitclass
 from tqdm import tqdm
+from line_profiler import LineProfiler
+
+
 
 
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
@@ -34,13 +37,13 @@ class Numerous_solver(BaseSolver):
         self.method = LevenbergMarquardt
         self.y0 = y0
         # Generate the solver
-        # self._non_compiled_solve = self.generate_solver()
-        # self._solve = self.compile_solver()
-        self._solve = self.generate_solver()
+        self._non_compiled_solve = self.generate_solver()
+        self._solve = self.compile_solver()
+        # self._solve = self.generate_solver()
 
     def generate_solver(self):
         from numba import int32, float64, boolean, int64, njit, types, typed
-        # @njit(cache=True)
+        @njit(cache=True)
         def _solve(numba_model, _solve_state, initial_step, longer, order, strict_eval, shorter, outer_itermax,
                    min_step, max_step, step_integrate_,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):

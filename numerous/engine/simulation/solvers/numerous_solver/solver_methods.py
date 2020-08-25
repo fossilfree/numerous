@@ -22,7 +22,10 @@ class LevenbergMarquardt:
         update_jacobian_ = options.get('update_jacobian', True)
         abs_tol = options.get('atol', 0.001)
         rel_tol = options.get('rtol', 0.001)
-        profile = options.get('profile', False)
+        lp = options.get('lp', None)
+        profile = False
+        if lp is not None:
+            profile = True
 
         eps = np.finfo(1.0).eps
         newton_tol = max(10 * eps / rel_tol, min(0.03, rel_tol ** 0.5))
@@ -35,26 +38,28 @@ class LevenbergMarquardt:
                       [3 / 25, -16 / 25, 36 / 25, -48 / 25, 0],
                       [-12 / 137, 75 / 137, -200 / 137, 300 / 137, -300 / 137]], dtype=np.float)
 
-        def comp(fun):
-            if profile:
-                return options['lp'](fun)
-            else:
-                return fun
 
-        @njit(cache=True)
+        def comp(fun):
+            if not profile:
+                return njit(fun)
+            else:
+                return options['lp'](fun)
+
+
+        @comp
         def calc_residual(r):
             Stemp = np.sum(r ** 2)
             S = Stemp / len(r)
             return S
 
-        @njit(cache=True)
+        @comp
         def guess_init(yold, order, last_f, dt):
             _sum = np.zeros_like(yold[0, :])
             for i in range(order):
                 _sum += a[order - 1][i] * yold[i, :]
             return -_sum + af[order - 1] * last_f * dt
 
-        @njit(cache=True)
+        @comp
         def sparsejacobian(get_f, get_f_ix, __internal_state, t, y, s, dt, jacobian_stepsize):
             # Limits the number of equation calls by assuming a sparse jacobian matrix, for example in finite element
             num_eq_vars = len(y)
@@ -79,13 +84,13 @@ class LevenbergMarquardt:
 
             return jac
 
-        @njit(cache=True)
+        @comp
         def nonesensejac(get_f, get_f_ix, __internal_state, t, y, _, dt, jacobian_stepsize):
             jac = np.zeros((len(y), len(y)))
             np.fill_diagonal(jac, 1)
             return jac
 
-        @njit(cache=True)
+        @comp
         def fulljacobian(get_f, get_f_ix, __internal_state, t, y, _, dt, jacobian_stepsize):
             num_eq_vars = len(y)
             jac = np.zeros((num_eq_vars, num_eq_vars))
@@ -115,7 +120,7 @@ class LevenbergMarquardt:
             return jac
 
         # @comp
-        @njit(cache=True)
+        @comp
         def levenberg_marquardt_inner(nm, t, dt, yinit, yold, jacT, L, order):
             # ll=l
             ll = 0
@@ -165,7 +170,7 @@ class LevenbergMarquardt:
 
             return converged, rate, y, d, rtest, ll, stat, f
 
-        @njit(cache=True)
+        @comp
         def levenberg_marquardt(nm, t, dt, y, yold, order, _solve_state):
             n = len(y)
             ynew = np.zeros_like(y)
