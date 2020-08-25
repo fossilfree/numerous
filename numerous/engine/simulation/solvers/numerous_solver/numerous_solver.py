@@ -75,14 +75,6 @@ class Numerous_solver(BaseSolver):
 
                 return o
 
-            def rollback(rb, ix):
-                return ix, rb[1][ix], rb[2][ix, :]
-
-            def t_rollback(rb, ix):
-                if ix < 0:
-                    ix = rb[0] - 1 + ix
-                return rb[1][ix]
-
             def get_order_y(rb, order):
                 y = rb[2][0:order, :]
                 return y
