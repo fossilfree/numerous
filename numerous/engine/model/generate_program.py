@@ -68,6 +68,7 @@ from numba import njit, float64
 """
 
 def generate_program(graph: Graph, variables, indcs, deriv_aliased):
+    graph.lower_graph = None
     nodes = graph.topological_nodes()
     ops = {}
     program = []
@@ -138,6 +139,7 @@ def generate_program(graph: Graph, variables, indcs, deriv_aliased):
             end_targets = end_arg + lentargets
 
             program.append((ix,start_arg, end_arg, end_targets))
+
 
     for d, a in deriv_aliased.items():
         start_arg = len(indices)

@@ -236,7 +236,7 @@ class Model:
 
 
         #print(self.equation_dict)
-        self.gg = Graph(preallocate_items=1000000)
+        self.gg = None#Graph(preallocate_items=1000000)
         self.eg = Graph(preallocate_items=1000000)
 
 
@@ -286,7 +286,7 @@ class Model:
         #    print(n)
         #equation_graph_simplified.topological_nodes()
         logging.info('Checked topo sort of simple graph')
-        self.gg.topological_nodes()
+        #self.gg.topological_nodes()
         logging.info('Sorted gloabbal topo')
         #self.eg.as_graphviz('eq', force=True)
         #logging.info('rendered equation graph')
@@ -327,18 +327,20 @@ class Model:
         self.vars_ordered_values = np.array([v.value for v in self.vars_ordered], dtype=np.float64)
 
         #vars_node_id = {n[2]: n[0] for n in self.gg.get_nodes() if n[2]}
-        vars_node_id = {self.gg.get(v, 'scope_var').id: k for k, v in self.gg.node_map.items() if self.gg.get(v, 'scope_var')}
+        if self.gg:
+            vars_node_id = {self.gg.get(v, 'scope_var').id: k for k, v in self.gg.node_map.items() if self.gg.get(v, 'scope_var')}
 
 
-        count = 0
-        self.vars_ordered_map = []
-        for v in self.vars_ordered:
-            if v.id in vars_node_id:
-                self.vars_ordered_map.append(vars_node_id[v.id])
-            else:
-                #vars_ordered_map.append(f'dummy__{count}')
-                self.vars_ordered_map.append(v.id.replace('-','_'))#.replace('.','_'))
-                count+=1
+            count = 0
+
+            self.vars_ordered_map = []
+            for v in self.vars_ordered:
+                if v.id in vars_node_id:
+                    self.vars_ordered_map.append(vars_node_id[v.id])
+                else:
+                    #vars_ordered_map.append(f'dummy__{count}')
+                    self.vars_ordered_map.append(v.id.replace('-','_'))#.replace('.','_'))
+                    count+=1
 
         logging.info('variables sorted')
         # #dsdfsdfsd = sdfsdf

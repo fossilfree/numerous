@@ -183,7 +183,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     eq_vardefs={}
     logging.info('make equations for compilation')
     for eq_key, eq in equations.items():
-        print(eq)
+        #print(eq)
         vardef = Vardef()
         #vardef__ = Vardef()
         vardef_llvm = Vardef_llvm()
@@ -221,8 +221,9 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     equation_graph_clone= equation_graph_clone.clean()
     """
     #equation_graph.as_graphviz('clean after', force=True)
+    #print(equation_graph.node_map.values())
     topo_sorted_nodes = equation_graph.topological_nodes()
-
+    #print([equation_graph.key_map[t] for t in topo_sorted_nodes])
     #sdfsdf=sdfsdffdf
     for n in topo_sorted_nodes:
         if (nt:= equation_graph.get(n, 'node_type')) == NodeTypes.EQUATION:
@@ -356,12 +357,12 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     llvm_sequence = []
     #llvm_sequence = [{'func': 'load', 'ix': ix, 'var': vi, 'arg': 'variables'} for vi, ix  in zip(vars_init[len(states):], range(len(states), len(vars_init)))]
-
+    llvm_sequence += [{'func': 'load', 'ix': ix+lenstates, 'var': v, 'arg': 'variables'} for ix, v in enumerate(vars_init[lenstates:])]
     llvm_sequence += [{'func': 'load', 'ix': ix, 'var': s, 'arg': 'y'} for ix, s in enumerate(states)]
     llvm_end_seq = []
-    llvm_end_seq = [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(vars_update, range(len(vars_init), len(vars_init)+len(vars_update)))]
+    #llvm_end_seq = [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(vars_update, range(len(vars_init), len(vars_init)+len(vars_update)))]
     llvm_end_seq += [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(states, range(0, lenstates))]
-    llvm_end_seq += [{'func': 'store', 'arg': 'deriv', 'ix': ix, 'var': d} for ix, d in enumerate(deriv)]
+    #llvm_end_seq += [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': d} for ix, d in enumerate(deriv)]
 
 
     [body.append(ast.Assign(targets=[ast.Name(id=d_u(d))], value = ast.Name(id=d_u(a)))) for d, a in deriv_aliased.items()]
@@ -379,7 +380,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #self.variables[var.id].path.path[self.system.id]
 
 
-    skip_kernel = False
+    skip_kernel = True
     if not skip_kernel:
         #mod_body.append(wrap_function('kernel', body, decorators=["njit('float64[:](float64[:],float64[:])')"], args=kernel_args))
         mod_body.append(
@@ -390,6 +391,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     #LLVM
     llvm_sequence += llvm_program + llvm_end_seq
+    #llvm_sequence += llvm_end_seq
+
 
     source = generate_code_file(mod_body, 'kernel.py')
     logging.info('compiling...')
@@ -404,8 +407,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     variables_values_ = np.array([scope_var_node[v].value for v in variables], dtype=np.float64)
 
-    for v, vv in zip(variables, variables_values_):
-        print(v,': ',vv)
+    #for v, vv in zip(variables, variables_values_):
+    #    print(v,': ',vv)
 #    asfsdf=sdfsdf
     from numerous.engine.model.generate_llvm import generate as generate_llvm
 
@@ -451,7 +454,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         def test_kernel_nojit(variables, y):
             for i in range(N):
                 deriv = kernel_nojit(variables, y)
-                print(deriv)
+                #print(deriv)
             return deriv
 
         tic = time()
@@ -498,7 +501,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         var_func_ = am.var_func
 
 
-        print(deriv_no_jot)
+        #print(deriv_no_jot)
         print(f'Exe time flat no jit - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
 
         print('no jit derivs: ', list(zip(deriv, deriv_no_jot)))

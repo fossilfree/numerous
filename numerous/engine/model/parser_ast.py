@@ -620,9 +620,9 @@ def parse_eq(scope_id, item, global_graph, equation_graph: Graph, nodes_dep, tag
                             except StopIteration:
                                 pass
 
-
-                global_graph.update(g_qualified)
-                g_qualified.topological_nodes()
+                if global_graph:
+                    global_graph.update(g_qualified)
+                #g_qualified.topological_nodes()
                 a = 1
             #except:
             #    g_qualified.as_graphviz('gq_' + eq_key, force=True)
@@ -643,11 +643,12 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
         node_type = NodeTypes.VAR
 
         atmp=tmp('=')
-        ag = gg.add_node(key=atmp, file='mapping', name=m, ln=0, label='=', ast_type=ast.AugAssign, node_type=NodeTypes.ASSIGN, targets=[], value=None, ast_op=ast.Add())
+        if gg:
+            ag = gg.add_node(key=atmp, file='mapping', name=m, ln=0, label='=', ast_type=ast.AugAssign, node_type=NodeTypes.ASSIGN, targets=[], value=None, ast_op=ast.Add())
         ae = equation_graph.add_node(key=atmp,file='mapping', name=m, ln=0, label='=', ast_type=ast.AugAssign, node_type=NodeTypes.ASSIGN,
                     targets=[], value=None, ast_op=ast.Add())
-
-        tg = gg.add_node(key=target_var_id , file='mapping', name=m, ln=0, id=target_var_id, label=target_var.tag, ast_type=ast.Attribute, node_type=node_type, scope_var=target_var, ignore_existing=True)
+        if gg:
+            tg = gg.add_node(key=target_var_id , file='mapping', name=m, ln=0, id=target_var_id, label=target_var.tag, ast_type=ast.Attribute, node_type=node_type, scope_var=target_var, ignore_existing=True)
         t = equation_graph.add_node(key=target_var_id, file='mapping', name=m, ln=0, id=target_var_id, label=target_var.tag, ast_type=ast.Attribute, node_type=node_type, scope_var=target_var, ignore_existing=True)
 
         ak = equation_graph.key_map[ae]
@@ -655,8 +656,8 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
             nodes_dep[target_var_id] = []
         if not ak in nodes_dep[target_var_id]:
             nodes_dep[target_var_id].append(ak)
-
-        gg.add_edge(start=ag, end=tg, e_type='target')
+        if gg:
+            gg.add_edge(start=ag, end=tg, e_type='target')
         equation_graph.add_edge(start=ae, end=t, e_type='target')
 
         add = ast.Add()
@@ -681,32 +682,33 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
                 raise ValueError('argh')
 
             scope_var = scope_vars[ivar_var.id]
-
-            ivar_node_g = gg.add_node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id, label=ivar_var.tag, ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=scope_var, ignore_existing=True)
+            if gg:
+                ivar_node_g = gg.add_node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id, label=ivar_var.tag, ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=scope_var, ignore_existing=True)
             ivar_node_e = equation_graph.add_node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id, label=ivar_var.tag,
                                       ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=scope_var, ignore_existing=True)
 
             if prev_e:
+                if gg:
+                    binop_g = gg.add_node(file='mapping', name=m, ln=0, label=get_op_sym(add), ast_type=ast.BinOp,
+                                         node_type=NodeTypes.OP, ast_op=add)
 
-                binop_g = gg.add_node(file='mapping', name=m, ln=0, label=get_op_sym(add), ast_type=ast.BinOp,
-                                     node_type=NodeTypes.OP, ast_op=add)
-
-                gg.add_edge(prev_g, binop_g, e_type='left')
-                gg.add_edge(ivar_node_g, binop_g, e_type='right')
+                    gg.add_edge(prev_g, binop_g, e_type='left')
+                    gg.add_edge(ivar_node_g, binop_g, e_type='right')
 
                 binop_e = equation_graph.add_node(file='mapping', name=m, ln=0, label=get_op_sym(add), ast_type=ast.BinOp,
                                       node_type=NodeTypes.OP, ast_op=add)
 
                 equation_graph.add_edge(prev_e, binop_e, e_type='left')
                 equation_graph.add_edge(ivar_node_e, binop_e, e_type='right')
-
-                prev_g = binop_g
+                if gg:
+                    prev_g = binop_g
                 prev_e = binop_e
             else:
-                prev_g = ivar_node_g
+                if gg:
+                    prev_g = ivar_node_g
                 prev_e = ivar_node_e
-
-        gg.add_edge(prev_g, ag,e_type='value')
+        if gg:
+            gg.add_edge(prev_g, ag,e_type='value')
         equation_graph.add_edge(prev_e, ae, e_type='value')
 
     #gg.as_graphviz('global', force=True)
