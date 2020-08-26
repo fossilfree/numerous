@@ -29,11 +29,9 @@ class Numerous_solver(BaseSolver):
         self.max_event_steps = max_event_steps
         self.options = kwargs
         dt = 0.1
-        odesolver_options = {'dt': dt, 'longer': 1, 'shorter': 1, 'min_dt': dt, 'strict_eval': False, 'max_step': dt,
-                             'first_step': dt, 'atol': 1e-6, 'rtol': 1e-3, 'order': 0, 'outer_itermax': 20}
-        odesolver_options_bde = deepcopy(odesolver_options)
-        odesolver_options_bde['order'] = 5
-        self.method_options = odesolver_options_bde
+        odesolver_options = {'dt': dt, 'longer': 1.2, 'shorter': 0.8, 'min_dt': dt, 'strict_eval': False, 'max_step': dt,
+                             'first_step': dt, 'atol': 1e-6, 'rtol': 1e-3, 'order': 2, 'outer_itermax': 20}
+        self.method_options = odesolver_options
         self.method = LevenbergMarquardt
         self.y0 = y0
         # Generate the solver
@@ -42,8 +40,7 @@ class Numerous_solver(BaseSolver):
         # self._solve = self.generate_solver()
 
     def generate_solver(self):
-        from numba import int32, float64, boolean, int64, njit, types, typed
-        @njit(cache=True)
+        @njit
         def _solve(numba_model, _solve_state, initial_step, longer, order, strict_eval, shorter, outer_itermax,
                    min_step, max_step, step_integrate_,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
@@ -55,7 +52,7 @@ class Numerous_solver(BaseSolver):
             t_previous = 0
             y_previous = np.copy(y)
 
-            order_ =order
+            order_ = 0
             len_y = numba_model.get_states().shape[0]
             n = order + 2
             rb0 = np.zeros((n, len(y)))
@@ -142,22 +139,27 @@ class Numerous_solver(BaseSolver):
                             t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                         ix_eval += 1
 
-                    order_ = add_ring_buffer(t, y, roller, order_)
+
                     t_start = t
                     t_new_test = np.min(te_array)
                     if t >= t_end:
                         break
-                    # t_rollback = t
-                    # y_rollback = y_previous
+
+                    order_ = add_ring_buffer(t, y, roller, order_)
+
+
                 dt_ = t_new_test - t_start
+
                     # solve from start to new test by calling the step function
                 t, y, step_converged, step_info, _solve_state = step_integrate_(numba_model,
                                                                                 t_start,
                                                                                 dt_, y,
                                                                                 get_order_y(roller, order_), order_,
                                                                                 _solve_state)
-                print(t)
 
+                if step_converged:
+                    y_previous = y
+                    t_previous = t
 
             info = {'step_info': step_info}
             # Return the part of the history actually filled in
@@ -214,46 +216,46 @@ class Numerous_solver(BaseSolver):
         self.result_status = "Success"
         self.sol = None
 
-        try:
-            t_start = self.time[0]
-            t_end = self.time[-1]
+        # try:
+        t_start = self.time[0]
+        t_end = self.time[-1]
 
-            # Call the solver
-            from copy import deepcopy
-            y0 = deepcopy(self.y0)
-            state = deepcopy(self.y0)
+        # Call the solver
+        from copy import deepcopy
+        y0 = deepcopy(self.y0)
+        state = deepcopy(self.y0)
 
-            eps = np.finfo(1.0).eps
+        eps = np.finfo(1.0).eps
 
-            # Set options
-            longer = self.method_options.get('longer', 1.2)
-            shorter = self.method_options.get('shorter', 0.8)
+        # Set options
+        longer = self.method_options.get('longer', 1.2)
+        shorter = self.method_options.get('shorter', 0.8)
 
-            max_step = self.method_options.get('max_step', 3)
-            min_step = self.method_options.get('min_step', 10 * eps)
+        max_step = self.method_options.get('max_step', 3)
+        min_step = self.method_options.get('min_step', 10 * eps)
 
-            initial_step = max_step  # np.min([100000000*min_step, max_step])
+        initial_step = max_step  # np.min([100000000*min_step, max_step])
 
-            order = self.method_options.get('order', 3)
+        order = self.method_options.get('order', 0)
 
-            strict_eval = self.method_options.get('strict_eval', True)
-            outer_itermax = self.method_options.get('outer_itermax', 20)
+        strict_eval = self.method_options.get('strict_eval', True)
+        outer_itermax = self.method_options.get('outer_itermax', 20)
 
-            self._method = self.method(**self.method_options)
-            step_integrate_ = self._method.step_func
+        self._method = self.method(**self.method_options)
+        step_integrate_ = self._method.step_func
 
-            # figure out solve_state init
-            solve_state = self._method.get_solver_state(len(y0))
-            info = self._solve(self.numba_model,
-                               solve_state, initial_step, longer, order, strict_eval, shorter, outer_itermax, min_step,
-                               max_step, step_integrate_,
-                               t_start, t_end, self.time)
-            print("finished")
-        except Exception as e:
-            print(e)
-            raise e
-        finally:
-            return self.sol, self.result_status
+        # figure out solve_state init
+        solve_state = self._method.get_solver_state(len(y0))
+        info = self._solve(self.numba_model,
+                           solve_state, initial_step, longer, order, strict_eval, shorter, outer_itermax, min_step,
+                           max_step, step_integrate_,
+                           t_start, t_end, self.time)
+        print("finished")
+        # except Exception as e:
+        #     print(e)
+        #     raise e
+        # finally:
+        return self.sol, self.result_status
 
     def register_endstep(self, __end_step):
         self.__end_step = __end_step

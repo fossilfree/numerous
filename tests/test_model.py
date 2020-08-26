@@ -2,7 +2,7 @@ import pytest
 from pytest import approx
 
 from numerous.engine.model import Model
-from numerous.engine.simulation import Simulation
+from numerous.engine.simulation import Simulation, SolverType
 
 from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
 from numerous import EquationBase, OutputFilter, Equation
@@ -181,7 +181,7 @@ def ms3():
 
 def test_model_var_referencing(ms1):
     m1 = Model(ms1)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10,solver_type=SolverType.NUMEROUS)
     s1.solve()
     assert approx(list(m1.states_as_vector[::-1]), rel=0.01) == [2010, 1010, 510, 210]
 
