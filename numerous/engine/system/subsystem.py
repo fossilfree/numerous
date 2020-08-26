@@ -1,7 +1,15 @@
+from enum import Enum
+
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.system.item import Item
 import networkx as nx
 from numerous.engine.system.connector_item import ConnectorItem
+
+
+
+class ItemsStructure(Enum):
+    LIST = 0
+    GRID = 1
 
 
 class Subsystem(ConnectorItem):
@@ -62,7 +70,7 @@ class Subsystem(ConnectorItem):
         else:
             return None
 
-    def register_items(self, items):
+    def register_items(self, items,tag ="grid",sructure = ItemsStructure.LIST):
         """
 
         Parameters
@@ -70,7 +78,12 @@ class Subsystem(ConnectorItem):
         items : list of :class:`numerous.engine.system.Item`
             List of items to register in the subsystem.
         """
-        any(self.register_item(item) for item in items)
+        if sructure == ItemsStructure.LIST:
+            any(self.register_item(item) for item in items)
+        if sructure == ItemsStructure.GRID:
+            self.register_item(Grid(items,tag))
+
+
 
     def increase_level(self):
         super().increase_level()
@@ -112,3 +125,13 @@ class Subsystem(ConnectorItem):
         self.update_variables_path(item, item)
 
         self.registered_items.update({item.id: item})
+
+
+class Grid(Subsystem):
+
+    def __init__(self, gris_structure, tag):
+        super().__init__(tag)
+        gris_structure_flat = gris_structure.flatten()
+
+        for item in gris_structure_flat:
+            self.register_item(item)
