@@ -612,7 +612,7 @@ class Model:
         Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init_run, "run_init_callbacks",
                                                 "callback_func_init_pre_update", create_cbiu_call, "time")
 
-        # @jitclass(numba_model_spec)
+        @jitclass(numba_model_spec)
         class NumbaModel_instance(NumbaModel):
             pass
 

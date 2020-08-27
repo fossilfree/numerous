@@ -41,7 +41,7 @@ class LevenbergMarquardt:
 
         def comp(fun):
             if not profile:
-                return fun
+                return njit(fun)
             else:
                 return options['lp'](fun)
 

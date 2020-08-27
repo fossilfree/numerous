@@ -40,7 +40,7 @@ class Numerous_solver(BaseSolver):
         self._solve = self.generate_solver()
 
     def generate_solver(self):
-        # @njit
+        @njit
         def _solve(numba_model, _solve_state, initial_step, longer, order, strict_eval, shorter, outer_itermax,
                    min_step, max_step, step_integrate_,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
