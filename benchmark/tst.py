@@ -156,12 +156,12 @@ if __name__ == "__main__":
     Y = []
     Z = []
 
-    num_nodes =[2,1000,10000]
+    num_nodes =[10,1000,10000]
     Tinit = 100
     T0 = 25
     k = 1
 
-    solver_type = SolverType.NUMEROUS
+    solver_type = SolverType.SOLVER_IVP
     for i in num_nodes:#range(1,num_nodes+1):
 
         m = Model(ThermalCapacitancesSeries("tcs", num_nodes=i, Tinit=Tinit, T0=T0, k=k))

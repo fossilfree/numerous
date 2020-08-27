@@ -1,5 +1,5 @@
 from pytest import approx
-
+import pytest
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 from numerous.engine.system import Subsystem, Item
@@ -8,6 +8,8 @@ import pandas as pd
 import numpy as np
 
 from matplotlib import pyplot as plt
+
+from simulation.solvers.base_solver import solver_types
 
 
 
@@ -76,9 +78,8 @@ def analytical(tvec, o, a, dt):
     return s, s_delayed
 
 
-
-
-def test_race_condition_1():
+@pytest.mark.parametrize("solver", solver_types)
+def test_race_condition_1(solver):
     omega0 = 0.01
     dt = 10
     s1 = System(item=Link(item1=Item1(omega=omega0)))
@@ -87,8 +88,8 @@ def test_race_condition_1():
     m1 = Model(s1)
     m2 = Model(s2)
 
-    sim1 = Simulation(m1, max_step=dt,num=500)
-    sim2 = Simulation(m2, max_step=dt, num=500)
+    sim1 = Simulation(m1, max_step=dt, num=500, solver_type=solver)
+    sim2 = Simulation(m2, max_step=dt, num=500, solver_type=solver)
 
     sim1.solve()
 
@@ -99,4 +100,5 @@ def test_race_condition_1():
 
     f = [df1, df2]
     df = pd.concat(f, axis=1, sort=False)
-    assert np.all(np.isclose(np.array(df['system.link.t1.S']), np.array(df['system.item2.t1.S']),rtol=1e-02, atol=1e-04))
+    assert np.all(
+        np.isclose(np.array(df['system.link.t1.S']), np.array(df['system.item2.t1.S']), rtol=1e-02, atol=1e-04))

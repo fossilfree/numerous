@@ -6,6 +6,8 @@ import numpy as np
 import pytest
 from pytest import approx
 
+from simulation.solvers.base_solver import solver_types
+
 
 class Item1(Item, EquationBase):
     def __init__(self, tag='item1'):
@@ -97,16 +99,18 @@ def system2():
 def expected_sol(t):
     return -1*(t*np.exp(t) -1)*np.exp(-t)
 
-def test_overloadaction_sum(system1):
+@pytest.mark.parametrize("solver", solver_types)
+def test_overloadaction_sum(system1, solver):
     model = Model(system1)
-    sim = Simulation(model, t_start=0, t_stop=10, num=100)
+    sim = Simulation(model, t_start=0, t_stop=10, num=100, solver_type = solver)
     sim.solve()
     df = sim.model.historian_df
     assert approx(np.array(df['system1.subsystem1.item1.t1.x'])) == expected_sol(np.linspace(0, 10, 101))
 
-def test_overloadaction_sum_multiple(system2):
+@pytest.mark.parametrize("solver", solver_types)
+def test_overloadaction_sum_multiple(system2, solver):
     model = Model(system2)
-    sim = Simulation(model, t_start=0, t_stop=10, num=100)
+    sim = Simulation(model, t_start=0, t_stop=10, num=100, solver_type = solver)
     sim.solve()
     df = sim.model.historian_df
     assert approx(np.array(df['system1.subsystem1.item1.t1.x'])) == expected_sol(np.linspace(0, 10, 101))

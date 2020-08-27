@@ -41,7 +41,7 @@ class LevenbergMarquardt:
 
         def comp(fun):
             if not profile:
-                return njit(fun)
+                return fun
             else:
                 return options['lp'](fun)
 
@@ -145,7 +145,7 @@ class LevenbergMarquardt:
             while True:
                 _iter += 1
 
-                r, f = nm.get_g(t + dt, yold, y, dt, order - 1, a, af)
+                r, f = nm.get_g(t + dt, yold, y, dt, order , a, af)
                 b = jacT @ r
 
                 # x = solve_triangular(L[0] + ll * DD, -b) # deprecated

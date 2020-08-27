@@ -28,19 +28,19 @@ class Numerous_solver(BaseSolver):
         self.diff_function = numba_model.func
         self.max_event_steps = max_event_steps
         self.options = kwargs
-        dt = 0.1
+        dt = 1
         odesolver_options = {'dt': dt, 'longer': 1.2, 'shorter': 0.8, 'min_dt': dt, 'strict_eval': False, 'max_step': dt,
-                             'first_step': dt, 'atol': 1e-6, 'rtol': 1e-3, 'order': 2, 'outer_itermax': 20}
+                             'first_step': dt, 'atol': 1e-6, 'rtol': 1e-3, 'order': 5, 'outer_itermax': 20}
         self.method_options = odesolver_options
         self.method = LevenbergMarquardt
         self.y0 = y0
         # Generate the solver
-        self._non_compiled_solve = self.generate_solver()
-        self._solve = self.compile_solver()
-        # self._solve = self.generate_solver()
+        # self._non_compiled_solve = self.generate_solver()
+        # self._solve = self.compile_solver()
+        self._solve = self.generate_solver()
 
     def generate_solver(self):
-        @njit
+        # @njit
         def _solve(numba_model, _solve_state, initial_step, longer, order, strict_eval, shorter, outer_itermax,
                    min_step, max_step, step_integrate_,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
@@ -128,7 +128,7 @@ class Numerous_solver(BaseSolver):
                 else:
                     # Since we didnt roll back we can update t_start and rollback
                     # Check if we should update history at t eval
-                    if t_next_eval <= t:
+                    if t_next_eval <= (t + 10*np.finfo(1.0).eps) :
                         j_i += 1
                         p_size = 100
                         x = int(p_size * j_i / progress_c)

@@ -59,11 +59,11 @@ class Simulation:
         generation_finish = time.time()
         print("Generation time: ", generation_finish - generation_start)
 
-        if solver_type == SolverType.SOLVER_IVP:
+        if solver_type.value == SolverType.SOLVER_IVP.value:
             self.solver = IVP_solver(time_, delta_t, numba_model,
                                      num_inner, max_event_steps,self.model.states_as_vector, **kwargs)
 
-        if solver_type == SolverType.NUMEROUS:
+        if solver_type.value == SolverType.NUMEROUS.value:
             print("Compiling Numerous Solver")
             generation_start = time.time()
             self.solver = Numerous_solver(time_, delta_t, numba_model,
