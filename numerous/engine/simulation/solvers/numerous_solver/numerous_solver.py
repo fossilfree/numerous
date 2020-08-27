@@ -35,9 +35,9 @@ class Numerous_solver(BaseSolver):
         self.method = LevenbergMarquardt
         self.y0 = y0
         # Generate the solver
-        # self._non_compiled_solve = self.generate_solver()
-        # self._solve = self.compile_solver()
-        self._solve = self.generate_solver()
+        self._non_compiled_solve = self.generate_solver()
+        self._solve = self.compile_solver()
+        # self._solve = self.generate_solver()
 
     def generate_solver(self):
         @njit
