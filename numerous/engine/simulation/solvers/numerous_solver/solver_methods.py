@@ -225,16 +225,16 @@ class LevenbergMarquardt:
                 # TODO: look at this dict giving issues
                 # _solve_state = (jacT, L, l, converged, last_f)
 
-                _solve_state = (J, jacT, update_jacobian, last_f, L, updated, update_L, jac_updates)
-                t += dt
-                # print(t)
-                return t, ynew, converged, update_jacobian, _solve_state
+            _solve_state = (J, jacT, update_jacobian, last_f, L, updated, update_L, jac_updates)
+            t += dt
+            # print(t)
+            return t, ynew, converged, update_jacobian, _solve_state
 
-            if profile:
-                self.lp = options.get('lp')
-                self.lp.add_function(levenberg_marquardt)
-                self.lp.add_function(levenberg_marquardt_inner)
-                # self.lp.add_function(nm.vectorizedfulljacobian)
+        if profile:
+            self.lp = options.get('lp')
+            self.lp.add_function(levenberg_marquardt)
+            self.lp.add_function(levenberg_marquardt_inner)
+            # self.lp.add_function(nm.vectorizedfulljacobian)
 
         self.step_func = levenberg_marquardt
 

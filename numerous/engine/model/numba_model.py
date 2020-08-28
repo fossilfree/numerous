@@ -121,7 +121,7 @@ class NumbaModel:
         return self.scope_vars_3d[idx_3d]
 
     def vectorizedfulljacobian(self, t, y, dt):
-        h = 1e-12
+        h = 1e-8
         y_perm = y + h * np.diag(np.ones(len(y)))
 
         f = self.func(t, y)

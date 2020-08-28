@@ -121,17 +121,18 @@ class Numerous_solver(BaseSolver):
                     t_start = t_previous
                     y = y_previous
 
-                if t_new_test < t_start:
-                            # t_new_test = t_rollback
-                            # TODO: make more specific error raising here!
-                            raise ValueError('Cannot go back longer than rollback point!')
+                    if t_new_test < t_start:
+                                # t_new_test = t_rollback
+                                # TODO: make more specific error raising here!
+                                raise ValueError('Cannot go back longer than rollback point!')
                 else:
                     # Since we didnt roll back we can update t_start and rollback
                     # Check if we should update history at t eval
-                    if t_next_eval <= (t + 10*np.finfo(1.0).eps) :
+                    if t_next_eval <= (t + 10*np.finfo(1.0).eps):
                         j_i += 1
                         p_size = 100
                         x = int(p_size * j_i / progress_c)
+                        print(x)
                         numba_model.historian_update(t)
                         if strict_eval:
                             te_array[1] = t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
