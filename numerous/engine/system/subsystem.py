@@ -10,6 +10,7 @@ from numerous.engine.system.connector_item import ConnectorItem
 class ItemsStructure(Enum):
     LIST = 0
     GRID = 1
+    SET = 2
 
 
 class Subsystem(ConnectorItem):
@@ -70,7 +71,7 @@ class Subsystem(ConnectorItem):
         else:
             return None
 
-    def register_items(self, items,tag ="grid",sructure = ItemsStructure.LIST):
+    def register_items(self, items,tag ="set",sructure = ItemsStructure.LIST):
         """
 
         Parameters
@@ -80,8 +81,8 @@ class Subsystem(ConnectorItem):
         """
         if sructure == ItemsStructure.LIST:
             any(self.register_item(item) for item in items)
-        if sructure == ItemsStructure.GRID:
-            self.register_item(Grid(items,tag))
+        if sructure == ItemsStructure.SET:
+            self.register_item(ItemSet(items, tag))
 
 
 
@@ -127,7 +128,7 @@ class Subsystem(ConnectorItem):
         self.registered_items.update({item.id: item})
 
 
-class Grid(Subsystem):
+class ItemSet(Subsystem):
 
     def __init__(self, gris_structure, tag):
         super().__init__(tag)
