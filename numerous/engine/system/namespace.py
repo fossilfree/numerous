@@ -27,9 +27,9 @@ class VariableNamespaceBase:
         if isinstance(value, Variable):
 
             self.outgoing_mappings += 1
-            #curframe = inspect.currentframe()
-            #calframe = inspect.getouterframes(curframe, 2)
-            #print(name,' mapped to: ', value, ' by ',calframe[1][3])
+            # curframe = inspect.currentframe()
+            # calframe = inspect.getouterframes(curframe, 2)
+            # print(name,' mapped to: ', value, ' by ',calframe[1][3])
             self[name].add_mapping(value)
         else:
             object.__setattr__(self, name, value)
@@ -131,6 +131,30 @@ class VariableNamespaceBase:
 
 class VariableNamespace(VariableNamespaceBase):
     pass
+
+
+class SetNamespace(VariableNamespace):
+    def __init__(self, item, tag):
+        super().__init__(item, tag)
+        self.variable_scope = []
+        ## -1 outgoing
+        ## 0 no mapping
+        ##
+        self.mappings = []
+
+    def add_item_to_set_namespace(self, item):
+        mapping = []
+        variables = []
+        for variable in item.variables:
+            self.register_variable(variable)
+            if variable.mapping:
+                mapping.append(-1)
+            else:
+                mapping.append(0)
+            variables.append(variable)
+        self.variable_scope.append(variables)
+        self.mappings.append(mapping)
+
 
 
 class _BindingVariable(Variable):

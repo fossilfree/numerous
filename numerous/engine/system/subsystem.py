@@ -1,10 +1,12 @@
+import copy
 from enum import Enum
 
+from numerous import EquationBase
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.system.item import Item
 import networkx as nx
 from numerous.engine.system.connector_item import ConnectorItem
-
+from numerous.engine.system.namespace import SetNamespace
 
 
 class ItemsStructure(Enum):
@@ -71,7 +73,7 @@ class Subsystem(ConnectorItem):
         else:
             return None
 
-    def register_items(self, items,tag ="set",sructure = ItemsStructure.LIST):
+    def register_items(self, items, tag="set", sructure=ItemsStructure.LIST):
         """
 
         Parameters
@@ -83,8 +85,6 @@ class Subsystem(ConnectorItem):
             any(self.register_item(item) for item in items)
         if sructure == ItemsStructure.SET:
             self.register_item(ItemSet(items, tag))
-
-
 
     def increase_level(self):
         super().increase_level()
@@ -128,11 +128,20 @@ class Subsystem(ConnectorItem):
         self.registered_items.update({item.id: item})
 
 
-class ItemSet(Subsystem):
+class ItemSet(Item, EquationBase):
 
-    def __init__(self, gris_structure, tag):
+    def __init__(self, set_structure, tag):
         super().__init__(tag)
-        gris_structure_flat = gris_structure.flatten()
+        set_structure_flat = set_structure.flatten()
 
-        for item in gris_structure_flat:
-            self.register_item(item)
+        ##TODO Check that all items are of the same type
+        for item in set_structure_flat:
+            for ns in item.registered_namespaces:
+                if not (ns.tag in self.registered_namespaces.keys()):
+                    sns = SetNamespace(self, ns.tag)
+                    self.register_namespace(sns)
+                self.registered_namespaces[ns.tag].add_item_to_set_namespace(ns)
+        self.add_equations(set_structure_flat[0].equations)
+
+    def add_equations(self, equations):
+        self.equations = copy.deepcopy(equations)
