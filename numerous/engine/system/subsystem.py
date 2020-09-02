@@ -73,7 +73,7 @@ class Subsystem(ConnectorItem):
         else:
             return None
 
-    def register_items(self, items, tag="set", sructure=ItemsStructure.LIST):
+    def register_items(self, items, tag="set", structure=ItemsStructure.LIST):
         """
 
         Parameters
@@ -81,9 +81,9 @@ class Subsystem(ConnectorItem):
         items : list of :class:`numerous.engine.system.Item`
             List of items to register in the subsystem.
         """
-        if sructure == ItemsStructure.LIST:
+        if structure == ItemsStructure.LIST:
             any(self.register_item(item) for item in items)
-        if sructure == ItemsStructure.SET:
+        if structure == ItemsStructure.SET:
             self.register_item(ItemSet(items, tag))
 
     def increase_level(self):
