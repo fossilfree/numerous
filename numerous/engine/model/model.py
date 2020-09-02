@@ -48,6 +48,8 @@ class ModelNamespace:
         self.equation_dict = {}
         self.eq_variables_ids = []
         self.variables = {}
+        self.set_variables = None
+        self.mappings = []
         #self.full_tag = item_tag + '_' + tag
         self.full_tag = item_tag + '.' + tag
 
@@ -799,8 +801,9 @@ class Model:
     def create_model_namespaces(self, item):
         namespaces_list = []
         for namespace in item.registered_namespaces.values():
-
             model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag)
+            model_namespace.mappings = namespace.mappings
+            model_namespace.variable_scope = namespace.variable_scope
             equation_dict = {}
             eq_variables_ids = []
             for eq in namespace.associated_equations.values():
