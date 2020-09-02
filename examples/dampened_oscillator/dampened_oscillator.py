@@ -1,7 +1,7 @@
 from numerous.multiphysics.equation_decorators import Equation
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
-from numerous.engine.system import Subsystem, ConnectorTwoWay
+from numerous.engine.system import Subsystem, ConnectorTwoWay, ItemsStructure
 
 import numpy as np
 
@@ -104,7 +104,7 @@ class OscillatorSystem(Subsystem):
             oscillator = DampenedOscillator('oscillator'+str(i), k=k, c=c, x0=x0[i], a=a)
             oscillators.append(oscillator)
 
-        self.register_items(oscillators)
+        self.register_items(oscillators, tag="oscillators", structure=ItemsStructure.SET)
         # 3. Valve_1 is one instance of valve class
 
         if True:#len(oscillators)>1:
@@ -118,7 +118,7 @@ class OscillatorSystem(Subsystem):
             spc2.side1.mechanics.v_dot += spc2.mechanics.F1
             spc2.side2.mechanics.v_dot += spc2.mechanics.F2
             #Register the items to the subsystem to make it recognize them.
-            self.register_items([spc, spc2])
+            self.register_items([spc, spc2], tag="couplings", structure=ItemsStructure.SET)
 
 
 
