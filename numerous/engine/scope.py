@@ -51,11 +51,12 @@ class Scope:
 
     """
 
-    def __init__(self, scopeid):
+    def __init__(self, scopeid, item_indcs):
         self.variables = {}
         self.variables_id = []
         self.id = scopeid
         self.globals = GlobalVariables(0)
+        self.item_indcs = item_indcs
 
     def set_time(self, time):
         self.globals.time = time

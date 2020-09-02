@@ -141,9 +141,10 @@ class VariableNamespace(VariableNamespaceBase):
 class SetNamespace(VariableNamespace):
     def __init__(self, item, tag):
         super().__init__(item, tag)
+        self.items = []
 
 
-    def add_item_to_set_namespace(self, item,tag_count):
+    def add_item_to_set_namespace(self, item, tag_count):
         mapping = []
         variables = []
         for variable in item.variables:
@@ -155,6 +156,7 @@ class SetNamespace(VariableNamespace):
             variables.append(variable)
         self.variable_scope.append(variables)
         self.mappings.append(mapping)
+        #self.items.append(item)
 
 
 

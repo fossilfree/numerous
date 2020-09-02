@@ -41,7 +41,7 @@ lower_method = LowerMethod.Codegen
 
 class ModelNamespace:
 
-    def __init__(self, tag, outgoing_mappings, item_tag):
+    def __init__(self, tag, outgoing_mappings, item_tag, item_indcs):
         self.tag = tag
         self.item_tag = item_tag
         self.outgoing_mappings = outgoing_mappings
@@ -52,6 +52,7 @@ class ModelNamespace:
         self.mappings = []
         #self.full_tag = item_tag + '_' + tag
         self.full_tag = item_tag + '.' + tag
+        self.item_indcs = item_indcs
 
 
 class ModelAssembler:
@@ -59,14 +60,16 @@ class ModelAssembler:
     @staticmethod
     def __create_scope(eq_tag, eq_methods, eq_variables, namespace, tag, variables):
         scope_id = "{0}_{1}_{2}".format(eq_tag, namespace.tag, tag, str(uuid.uuid4()))
-        scope = Scope(scope_id)
+        scope = Scope(scope_id, namespace.item_indcs)
         for variable in eq_variables:
             scope.add_variable(variable)
             variable.bound_equation_methods = eq_methods
+            if variable.mapping:
+                pass
             variable.parent_scope_id = scope_id
             # Needed for updating states after solve run
-            if variable.type.value == VariableType.STATE.value:
-                variable.associated_state_scope.append(scope_id)
+            #if variable.type.value == VariableType.STATE.value:
+            #    variable.associated_state_scope.append(scope_id)
             variables.update({variable.id: variable})
         return scope
 
@@ -77,15 +80,18 @@ class ModelAssembler:
         equation_dict = {}
         name_spaces_dict = {}
         tag, namespaces = input_namespace
+        variables_ = {}
         for namespace in namespaces:
             for i, (eq_tag, eq_methods) in enumerate(namespace.equation_dict.items()):
                 scope = ModelAssembler.__create_scope(eq_tag, eq_methods,
-                                                      map(namespace.variables.get, namespace.eq_variables_ids[i]),
+                                                       [v for i_ in namespace.variable_scope for v in i_],
                                                       namespace, tag, variables)
                 scope_select.update({scope.id: scope})
                 equation_dict.update({scope.id: (eq_methods, namespace.outgoing_mappings)})
                 name_spaces_dict.update({scope.id: input_namespace})
-        return variables, scope_select, equation_dict, name_spaces_dict
+            variables_.update({v.id: v for vs in namespace.variable_scope for v in vs})
+
+        return variables_, scope_select, equation_dict, name_spaces_dict
 
 
 import logging
@@ -171,8 +177,8 @@ class Model:
                 model_namespaces.extend(self.__add_item(registered_item))
         return model_namespaces
 
-    def __get_mapping__variable(self, var, variable):
-        if var.mapping:
+    def __get_mapping__variable(self, variable):
+        if variable.mapping:
             return self.__get_mapping__variable(variable.mapping)
         else:
             return variable
@@ -225,13 +231,14 @@ class Model:
                 return variable
 
         for scope_var_idx, var in enumerate(self.scope_variables.values()):
-            if var.mapping_id:
-                _from = self.__get_mapping__variable(var, self.variables[var.mapping_id])
+            if var.mapping:
+                _from = self.__get_mapping__variable(self.variables[var.mapping.id])
                 self.mappings.append((var.id, [_from.id]))
-            if not var.mapping_id and var.sum_mapping_ids:
+            if not var.mapping and var.sum_mapping:
                 sum_mapping = []
-                for mapping_id in var.sum_mapping_ids:
-                    _from = self.__get_mapping__variable(var, self.variables[mapping_id])
+                for mapping_id in var.sum_mapping:
+
+                    _from = self.__get_mapping__variable(self.variables[mapping_id.id])
                     sum_mapping.append(_from.id)
                 self.mappings.append((var.id, sum_mapping))
 
@@ -273,15 +280,17 @@ class Model:
             #print(eq)
             if len(eq[0])>0:
 
-                parse_eq(self.scope_ids[scope_id], eq, self.gg, self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations, self.equations_top)
+                parse_eq(self.scope_ids[scope_id], self.synchronized_scope[scope_id], eq, self.gg, self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations, self.equations_top)
+
         logging.info('parsing equations completed')
         #for n in gg.nodes:
         #    print(n[0])
 
         #print('mapping: ',self.mappings)
+        self.eg.as_graphviz('eg', force=True)
         #Process mappings add update the global graph
         self.aliases, self.eg = process_mappings(self.mappings, self.gg, self.eg, nodes_dep, self.scope_variables, self.scope_ids)
-
+        self.eg.as_graphviz('eg_m', force=True)
         self.eg.build_node_edges()
         #self.eg.as_graphviz('equation_graph')
         logging.info('Mappings processed')
@@ -315,7 +324,7 @@ class Model:
                 states.append(sv)
             elif sv.type == VariableType.DERIVATIVE:
                 deriv.append(sv)
-            elif sv.sum_mapping_ids or sv.mapping_id:
+            elif sv.sum_mapping or sv.mapping:
                 mapping.append(sv)
             else:
                 other.append(sv)
@@ -801,7 +810,7 @@ class Model:
     def create_model_namespaces(self, item):
         namespaces_list = []
         for namespace in item.registered_namespaces.values():
-            model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag)
+            model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag, namespace.items)
             model_namespace.mappings = namespace.mappings
             model_namespace.variable_scope = namespace.variable_scope
             equation_dict = {}
@@ -813,13 +822,16 @@ class Model:
                     equations.append(equation)
                 for vardesc in eq.variables_descriptions:
                     variable = namespace.get_variable(vardesc.tag)
-                    self.variables.update({variable.id: variable})
+                    #self.variables.update({variable.id: variable})
                     ids.append(variable.id)
                 equation_dict.update({eq.tag: equations})
                 eq_variables_ids.append(ids)
             model_namespace.equation_dict = equation_dict
-            model_namespace.eq_variables_ids = eq_variables_ids
-            model_namespace.variables = {v.id: ScopeVariable(v) for v in namespace.variables.shadow_dict.values()}
+            #model_namespace.eq_variables_ids = [[ScopeVariable(v) for v in vs] for vs in namespace.variable_scope]
+            #model_namespace.variables = {v.id: ScopeVariable(v) for v in namespace.variables.shadow_dict.values()}
+            model_namespace.variables = {v.id: ScopeVariable(v) for vs in namespace.variable_scope for v in vs}
+            self.variables.update(model_namespace.variables)
+            #model_namespace.variables = {v.id: sv for vs, evi in zip(namespace.variable_scope, model_namespace.eq_variables_ids) for v, sv in zip(evi, vs)}
             namespaces_list.append(model_namespace)
         return namespaces_list
 

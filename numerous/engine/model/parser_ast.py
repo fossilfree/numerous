@@ -349,7 +349,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
 
 
             var_type = VariableType.DERIVATIVE
-            is_mapped = scope_var.sum_mapping_ids or scope_var.mapping_id
+            is_mapped = scope_var.sum_mapping or scope_var.mapping
 
         else:
             var_type = VariableType.PARAMETER
@@ -459,7 +459,7 @@ def qualify_equation(prefix, g, tag_vars):
     return g_qual
 
 
-def parse_eq(scope_id, item, global_graph, equation_graph: Graph, nodes_dep, tag_vars, parsed_eq_branches, scoped_equations, parsed_eq):
+def parse_eq(scope_id, scope, item, global_graph, equation_graph: Graph, nodes_dep, tag_vars, parsed_eq_branches, scoped_equations, parsed_eq):
 
         for eq in item[0]:
             #try:
@@ -666,6 +666,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
         tn = mg.add_node(key=target_var.parent_scope_id, ignore_existing=True, label='f(x)')
 
         for i in m[1]:
+            print(scope_vars)
             ivar_var = scope_vars[i]
             prefix = scope_map[ivar_var.parent_scope_id]
             ivarn = mg.add_node(key=ivar_var.parent_scope_id, ignore_existing=True, label=ivar_var.parent_scope_id)

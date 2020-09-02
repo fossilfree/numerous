@@ -132,7 +132,13 @@ class ItemSet(Item, EquationBase):
 
     def __init__(self, set_structure, tag):
         super().__init__(tag)
+
         set_structure_flat = set_structure#.flatten()
+
+        self.item_ids = []
+        for item in set_structure_flat:
+            self.item_ids.append(item.id)
+
         tag_count = 0
         ##TODO Check that all items are of the same type
         for item in set_structure_flat:
@@ -143,3 +149,6 @@ class ItemSet(Item, EquationBase):
                     self.register_namespace(sns)
                 self.registered_namespaces[ns.tag].add_item_to_set_namespace(ns, tag_count)
                 tag_count += 1
+
+        for ns in self.registered_namespaces.values():
+            ns.items = self.item_ids
