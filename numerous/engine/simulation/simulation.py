@@ -100,5 +100,10 @@ class Simulation:
         pass
         # [x.initialize(simulation=self) for x in self.model.callbacks]
 
+    def prepare_solver(self):
+        try:
+            self.solver.prepare_solver()
+        except Exception as e:
+            raise e
 
 

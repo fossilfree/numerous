@@ -12,7 +12,7 @@ Wraper for scipy ivp solver.
 """
 class IVP_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, numba_model, num_inner, max_event_steps,y0, **kwargs):
+    def __init__(self, time, delta_t, numba_model, num_inner, max_event_steps, **kwargs):
         super().__init__()
         self.time = time
         self.num_inner = num_inner
@@ -21,39 +21,34 @@ class IVP_solver(BaseSolver):
         self.diff_function = numba_model.func
         self.max_event_steps = max_event_steps
         self.options = kwargs
-        self.y0 = y0
 
     def solve(self):
         """
         solve the model.
-
         Returns
         -------
         Solution : 'OdeSoulution'
                 returns the most recent OdeSolution from scipy
-
         """
         self.result_status = "Success"
         self.sol = None
-        self.numba_model.historian_ix = 1
         try:
-            print("Compiling Numba equations")
-            compilation_start = time.time()
-            self.diff_function(0, self.y0)
-
-            compilation_finished = time.time()
-            print("Compilation time: ", compilation_finished - compilation_start)
             for t in tqdm(self.time[0:-1]):
                 if self.solver_step(t):
-                    print("done")
                     break
-
         except Exception as e:
             print(e)
             raise e
-        return self.sol,  self.result_status
+        finally:
+            return  self.sol,  self.result_status
 
+    def prepare_solver(self):
+        print("Compiling Numba equations")
+        compilation_start = time.time()
+        self.diff_function(0, self.y0)
 
+        compilation_finished = time.time()
+        print("Compilation time: ", compilation_finished - compilation_start)
     def solver_step(self,t):
         step_not_finished = True
         current_timestamp = t
@@ -88,8 +83,7 @@ class IVP_solver(BaseSolver):
 
                 step_not_finished = True
 
-
-                self.__end_step(self,self.sol(current_timestamp), current_timestamp, event_id=event_id)
+                self.__end_step(self, sol.self.sol(current_timestamp), current_timestamp, event_id=event_id)
             else:
                 if self.sol.success:
                     self.__end_step(self, self.sol.y[:, -1], current_timestamp)
@@ -108,5 +102,3 @@ class IVP_solver(BaseSolver):
 
     def register_endstep(self, __end_step):
         self.__end_step =__end_step
-
-
