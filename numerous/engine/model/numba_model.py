@@ -1,4 +1,4 @@
-from numba import int32, float64, boolean, int64, njit, types, typed
+from numba import int32, float64, boolean, int64, prange, njit, types, typed
 import numpy as np
 
 # key and value types
@@ -29,6 +29,7 @@ numba_model_spec = [
     ('historian_data', float64[:, :]),
     ('path_variables', types.DictType(*kv_ty)),
     ('path_keys', types.ListType(types.unicode_type)),
+    ('mapped_variables_array', int64[:,:])
 ]
 
 
@@ -37,7 +38,8 @@ class NumbaModel:
                  scope_vars_3d, state_idxs_3d, deriv_idxs_3d,
                  differing_idxs_pos_3d, differing_idxs_from_3d, num_uses_per_eq,
                  sum_idxs_pos_3d, sum_idxs_sum_3d, sum_slice_idxs, sum_slice_idxs_len, sum_mapping,
-                 global_vars, number_of_timesteps, number_of_variables, start_time):
+                 global_vars, number_of_timesteps, number_of_variables, start_time, mapped_variables_array):
+
         self.var_idxs_pos_3d = var_idxs_pos_3d
         self.var_idxs_pos_3d_helper = var_idxs_pos_3d_helper
         self.eq_count = eq_count
@@ -64,6 +66,7 @@ class NumbaModel:
         ##* simulation.num_inner
         self.historian_data = np.empty((self.number_of_variables + 1, number_of_timesteps), dtype=np.float64)
         self.historian_data.fill(np.nan)
+        self.mapped_variables_array = mapped_variables_array
         ##Function is genrated in model.py contains creation and initialization of all callback related variables
 
     def update_states(self, state_values):
@@ -81,11 +84,20 @@ class NumbaModel:
                 self.scope_vars_3d[self.deriv_idxs_3d[0][i]][self.deriv_idxs_3d[1][i]][self.deriv_idxs_3d[2][i]])
         return np.array(result, dtype=np.float64)
 
+    def get_mapped_variables(self, scope_3d):
+        result = []
+        for i in range(self.number_of_mappings):
+            result.append(
+                scope_3d[self.differing_idxs_from_3d[0][i]][self.differing_idxs_from_3d[1][i]]
+                [self.differing_idxs_from_3d[2][i]])
+        return np.array(result, dtype=np.float64)
+
     def get_states(self):
         result = []
         for i in range(self.number_of_states):
             result.append(
                 self.scope_vars_3d[self.state_idxs_3d[0][i]][self.state_idxs_3d[1][i]][self.state_idxs_3d[2][i]])
+
         return np.array(result, dtype=np.float64)
 
     def historian_update(self, time: int) -> None:
@@ -106,6 +118,7 @@ class NumbaModel:
 
         for key, j in zip(self.path_keys,
                           self.var_idxs_pos_3d_helper):
+
             self.path_variables[key] \
                 = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
                 self.var_idxs_pos_3d[2][j]]
