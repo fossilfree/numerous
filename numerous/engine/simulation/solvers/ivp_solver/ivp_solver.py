@@ -12,7 +12,7 @@ Wraper for scipy ivp solver.
 """
 class IVP_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, numba_model, num_inner, max_event_steps, **kwargs):
+    def __init__(self, time, delta_t, numba_model, num_inner, max_event_steps,y0, **kwargs):
         super().__init__()
         self.time = time
         self.num_inner = num_inner
@@ -21,6 +21,7 @@ class IVP_solver(BaseSolver):
         self.diff_function = numba_model.func
         self.max_event_steps = max_event_steps
         self.options = kwargs
+        self.y0 = y0
 
     def solve(self):
         """
@@ -34,6 +35,7 @@ class IVP_solver(BaseSolver):
         """
         self.result_status = "Success"
         self.sol = None
+        self.numba_model.historian_ix = 1
         try:
             print("Compiling Numba equations")
             compilation_start = time.time()
@@ -43,12 +45,13 @@ class IVP_solver(BaseSolver):
             print("Compilation time: ", compilation_finished - compilation_start)
             for t in tqdm(self.time[0:-1]):
                 if self.solver_step(t):
+                    print("done")
                     break
+
         except Exception as e:
             print(e)
             raise e
-        finally:
-            return  self.sol,  self.result_status
+        return self.sol,  self.result_status
 
 
     def solver_step(self,t):
@@ -85,7 +88,8 @@ class IVP_solver(BaseSolver):
 
                 step_not_finished = True
 
-                self.__end_step(self, sol.self.sol(current_timestamp), current_timestamp, event_id=event_id)
+
+                self.__end_step(self,self.sol(current_timestamp), current_timestamp, event_id=event_id)
             else:
                 if self.sol.success:
                     self.__end_step(self, self.sol.y[:, -1], current_timestamp)

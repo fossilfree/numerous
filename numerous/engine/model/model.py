@@ -1,17 +1,16 @@
-import ast
+import copy
 import itertools
-import numpy as np
-import operator
-import re
+
 import time
 import uuid
-
+import numpy as np
 from numba import jitclass
-import pandas as pd
+
+
 from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
-from examples.historyDataFrameCallbackExample import HistoryDataFrameCallback
+
 from numerous.engine.scope import Scope, ScopeVariable
 # from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 
@@ -252,7 +251,7 @@ class Model:
 
         self.flat_scope_idx_from = np.array([x for xs in self.non_flat_scope_idx_from for x in xs])
         self.flat_scope_idx = np.array([x for xs in self.non_flat_scope_idx for x in xs])
-        
+
         self.sum_idx = np.array(sum_idx)
         self.sum_mapped = np.array(sum_mapped)
         self.sum_mapped_idxs_len = np.array(sum_mapped_idx_len, dtype=np.int64)

@@ -6,6 +6,7 @@ from numerous.engine.simulation import Simulation
 
 from numerous.engine.system import Subsystem, Item
 from numerous import EquationBase, Equation
+from simulation.solvers.base_solver import solver_types
 
 
 class Base_eq(Item, EquationBase):
@@ -63,15 +64,18 @@ def ms3():
             self.register_items([Child_eq("test1"), Child_eq("test2"), Child_eq("test3")])
     return S2('S3')
 
-def test_equation_inheritence_1(ms1):
+
+@pytest.mark.parametrize("solver", solver_types)
+def test_equation_inheritence_1(ms1, solver):
     m1 = Model(ms1)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     s1.solve()
     assert m1.historian_df["S1.test1.t1.P"][100] == 5
 
-def test_equation_inheritence_2(ms2):
+@pytest.mark.parametrize("solver", solver_types)
+def test_equation_inheritence_2(ms2, solver):
     m1 = Model(ms2)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     s1.solve()
     assert m1.historian_df["S2.test1.t1.P"][100] == 5
     assert m1.historian_df["S2.test1.t1.L"][100] == 7

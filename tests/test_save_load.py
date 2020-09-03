@@ -6,6 +6,7 @@ import pytest
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 from numerous.engine.system import ConnectorItem, ConnectorTwoWay, Item, Subsystem
+from simulation.solvers.base_solver import solver_types
 from .test_equations import TestEq_input, Test_Eq, TestEq_ground
 
 
@@ -77,8 +78,8 @@ def filename():
     os.remove(filename)
 
 
-
-def test_start_stop_model(filename):
+@pytest.mark.parametrize("solver", solver_types)
+def test_start_stop_model(filename, solver):
     def stop_callback(t, _):
         if t > 1:
             raise ValueError("Overflow of state2")
@@ -91,7 +92,7 @@ def test_start_stop_model(filename):
     m1.callbacks.append(c1)
     m1.save_variables_schedule(0.1, filename)
 
-    s1 = Simulation(m1, t_start=0, t_stop=2, num=100)
+    s1 = Simulation(m1, t_start=0, t_stop=2, num=100,solver_type=solver)
     with pytest.raises(ValueError, match=r".*Overflow of state2.*"):
         s1.solve()
     hdf2 = HistoryDataFrame.load(filename)
@@ -100,11 +101,11 @@ def test_start_stop_model(filename):
 
     assert approx(m2.states_as_vector, rel=0.1) == [89.8, 3.9, 0.7, 3.3]
 
-    s2 = Simulation(m2, t_start=0, t_stop=1, num=50)
+    s2 = Simulation(m2, t_start=0, t_stop=1, num=50, solver_type=solver)
     s2.solve()
     m3 = Model(S3('S3'), historian=hdf)
 
-    s3 = Simulation(m3, t_start=0, t_stop=2, num=100)
+    s3 = Simulation(m3, t_start=0, t_stop=2, num=100, solver_type=solver)
     s3.solve()
     print(m3.info)
     assert approx(m3.states_as_vector, rel=0.1) == m2.states_as_vector

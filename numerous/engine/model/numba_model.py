@@ -1,5 +1,4 @@
-from numba import int32, float64, boolean, int64, njit, types, typed, typeof
-
+from numba import int32, float64, boolean, int64, prange, njit, types, typed
 import numpy as np
 
 # key and value types
@@ -83,7 +82,7 @@ class NumbaModel:
         for i in range(self.number_of_states):
             result.append(
                 self.scope_vars_3d[self.deriv_idxs_3d[0][i]][self.deriv_idxs_3d[1][i]][self.deriv_idxs_3d[2][i]])
-        return result
+        return np.array(result, dtype=np.float64)
 
     def get_mapped_variables(self, scope_3d):
         result = []
@@ -98,7 +97,8 @@ class NumbaModel:
         for i in range(self.number_of_states):
             result.append(
                 self.scope_vars_3d[self.state_idxs_3d[0][i]][self.state_idxs_3d[1][i]][self.state_idxs_3d[2][i]])
-        return result
+
+        return np.array(result, dtype=np.float64)
 
     def historian_update(self, time: int) -> None:
         ix = self.historian_ix
@@ -118,6 +118,7 @@ class NumbaModel:
 
         for key, j in zip(self.path_keys,
                           self.var_idxs_pos_3d_helper):
+
             self.path_variables[key] \
                 = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
                 self.var_idxs_pos_3d[2][j]]
@@ -132,6 +133,29 @@ class NumbaModel:
     def get_derivatives_idx(self, idx_3d):
         return self.scope_vars_3d[idx_3d]
 
+    def vectorizedfulljacobian(self, t, y, dt):
+        h = 1e-8
+        y_perm = y + h * np.diag(np.ones(len(y)))
+
+        f = self.func(t, y)
+        f_h = np.zeros_like(y_perm)
+        for i in range(y_perm.shape[0]):
+            y_i = y_perm[i, :]
+            f_h[i, :] = self.func(t, y_i)
+
+        diff = f_h - f
+        diff /= h
+        jac = diff.T
+        return np.ascontiguousarray(jac)
+
+    def get_g(self, t, yold, y, dt, order, a, af):
+        f = self.func(t, y)
+        _sum = np.zeros_like(y)
+        for i in range(order):
+            _sum = _sum + a[order - 1][i] * yold[i, :]
+        g = y + _sum - af[order - 1] * dt * f
+        return np.ascontiguousarray(g), np.ascontiguousarray(f)
+
     def compute(self):
         if self.sum_mapping:
             sum_mappings(self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
@@ -139,29 +163,20 @@ class NumbaModel:
 
         mapping_ = True
         prev_scope_vars_3d = self.scope_vars_3d.copy()
-        iter=0
         while mapping_:
-            iter+=1
-
-
-
             for i in range(self.number_of_mappings):
                 self.scope_vars_3d[self.differing_idxs_pos_3d[0][i]][self.differing_idxs_pos_3d[1][i]][
                     self.differing_idxs_pos_3d[2][i]] = self.scope_vars_3d[
                     self.differing_idxs_from_3d[0][i]][self.differing_idxs_from_3d[1][i]][
                     self.differing_idxs_from_3d[2][i]]
-
             self.compute_eq(self.scope_vars_3d)
 
             if self.sum_mapping:
                 sum_mappings(self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
                              self.sum_slice_idxs, self.scope_vars_3d, self.sum_slice_idxs_len)
 
-            mapping_ = not np.all(np.abs(self.get_mapped_variables(prev_scope_vars_3d)
-                                         - self.get_mapped_variables(self.scope_vars_3d)) < 1e-6)
+            mapping_ = not np.all(np.abs(prev_scope_vars_3d - self.scope_vars_3d) < 1e-6)
             prev_scope_vars_3d = np.copy(self.scope_vars_3d)
-
-        #print(iter)
 
     def func(self, _t, y):
         # self.info["Number of Equation Calls"] += 1

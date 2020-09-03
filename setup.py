@@ -24,7 +24,7 @@ setuptools.setup(
           'networkx>=2.4',
           'pandas>=0.25',
           'tqdm>=4.40.2',
-        'numba>=0.48.0',
+          'numba>=0.48.0',
     ],
     python_requires='>=3.7',
 )

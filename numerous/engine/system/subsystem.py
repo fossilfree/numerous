@@ -80,14 +80,14 @@ class Subsystem(ConnectorItem):
     def get_graph_visualisation(self, DG=None, parent=None):
         if DG is None:
             DG = nx.DiGraph()
-        DG.add_node(self.id)
+        DG.add_node(self.tag)
         if parent:
-            DG.add_edge(parent, self.id)
+            DG.add_edge(parent, self.tag)
         for item in self.registered_items.values():
             if isinstance(item, Subsystem):
-                item.get_graph_visualisation(DG, self.id)
+                item.get_graph_visualisation(DG, self.tag)
             else:
-                DG.add_edge(self.id, item.id)
+                DG.add_edge(self.tag, item.tag)
         return DG
 
     def update_variables_path(self, item, c_item):
