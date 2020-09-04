@@ -24,6 +24,7 @@ class Numerous_solver(BaseSolver):
         self.method_options = odesolver_options
         try:
             self.method = eval(kwargs.get('method', 'RK45'))
+            self._method = self.method(**self.method_options)
             assert issubclass(self.method, BaseMethod), f"{self.method} is not a BaseMethod"
         except Exception as e:
             raise e
@@ -43,6 +44,11 @@ class Numerous_solver(BaseSolver):
             t = t0
             dt = initial_step
             y = numba_model.get_states()
+            if y.shape[0] == 0:
+                for t in t_eval[1:]:
+                    numba_model.func(t, y)
+                    numba_model.historian_update(t)
+                return  {'step_info': 1}
             t_start = t
             t_previous = 0
             y_previous = np.copy(y)
@@ -180,7 +186,7 @@ class Numerous_solver(BaseSolver):
         strict_eval = self.method_options.get('strict_eval', True)
         outer_itermax = self.method_options.get('outer_itermax', 20)
 
-        self._method = self.method(**self.method_options)
+
 
         order = self._method.order
         initial_step = min_step
