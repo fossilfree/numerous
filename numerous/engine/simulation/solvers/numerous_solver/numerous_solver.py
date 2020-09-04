@@ -1,20 +1,5 @@
-import sys
-import time
-from copy import deepcopy
-import copy
-import numpy as np
-import numba as nb
-from numba import njit
-from numba.core.dispatcher import OmittedArg
-from numba.experimental import jitclass
-from tqdm import tqdm
-from line_profiler import LineProfiler
-
-
-
-
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
-from .solver_methods import LevenbergMarquardt
+from .solver_methods import *
 
 
 class Numerous_solver(BaseSolver):
@@ -28,11 +13,21 @@ class Numerous_solver(BaseSolver):
         self.diff_function = numba_model.func
         self.max_event_steps = max_event_steps
         self.options = kwargs
-        dt = 1
-        odesolver_options = {'dt': dt, 'longer': 1.2, 'shorter': 0.8, 'min_dt': dt, 'strict_eval': False, 'max_step': dt,
-                             'first_step': dt, 'atol': 1e-6, 'rtol': 1e-3, 'order': 5, 'outer_itermax': 20}
+
+        eps = np.finfo(1.0).eps
+        odesolver_options = {'longer': kwargs.get('longer', 1.2), 'shorter': kwargs.get('shorter', 0.8),
+                             'min_step': kwargs.get('min_step', 10*eps), 'strict_eval': True,
+                             'max_step': kwargs.get('max_step', np.inf), 'first_step': kwargs.get('first_step', None),
+                             'atol': kwargs.get('atol', 1e-6), 'rtol': kwargs.get('rtol', 1e-3),
+                             'outer_itermax': kwargs.get('outer_itermax', 20),
+                             }
         self.method_options = odesolver_options
-        self.method = LevenbergMarquardt
+        try:
+            self.method = eval(kwargs.get('method', 'RK45'))
+            assert issubclass(self.method, BaseMethod), f"{self.method} is not a BaseMethod"
+        except Exception as e:
+            raise e
+
         self.y0 = y0
         # Generate the solver
         self._non_compiled_solve = self.generate_solver()
@@ -41,12 +36,12 @@ class Numerous_solver(BaseSolver):
 
     def generate_solver(self):
         @njit
-        def _solve(numba_model, _solve_state, initial_step, longer, order, strict_eval, shorter, outer_itermax,
+        def _solve(numba_model, _solve_state, initial_step, order, strict_eval, outer_itermax,
                    min_step, max_step, step_integrate_,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
             # Init t to t0
             t = t0
-            dt = initial_step / longer
+            dt = initial_step
             y = numba_model.get_states()
             t_start = t
             t_previous = 0
@@ -99,13 +94,13 @@ class Numerous_solver(BaseSolver):
                 # updated events time estimates
                 # # time acceleration
                 if not step_converged:
-                    dt *= shorter
+
                     if min_step > dt:
                         raise ValueError('dt shortened below min_dt')
                     decrease = True
                     te_array[0] = t_previous+dt
                 else:
-                    dt = min(max_step, dt * longer)
+                    dt = min(max_step, dt)
                     decrease = False
 
                     te_array[0] = t + dt
@@ -132,7 +127,7 @@ class Numerous_solver(BaseSolver):
                         j_i += 1
                         p_size = 100
                         x = int(p_size * j_i / progress_c)
-                        print(t)
+                        #print(t)
                         numba_model.historian_update(t)
                         if strict_eval:
                             te_array[1] = t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
@@ -148,19 +143,23 @@ class Numerous_solver(BaseSolver):
 
                     order_ = add_ring_buffer(t, y, roller, order_)
 
-
-                dt_ = t_new_test - t_start
+                dt_ = min([t_next_eval-t_start, t_new_test-t_start])
+                #dt_ = t_next_eval - t_start
 
                     # solve from start to new test by calling the step function
-                t, y, step_converged, step_info, _solve_state = step_integrate_(numba_model,
+                t, y, step_converged, step_info, _solve_state, factor = step_integrate_(numba_model,
                                                                                 t_start,
                                                                                 dt_, y,
                                                                                 get_order_y(roller, order_), order_,
                                                                                 _solve_state)
 
+                dt *= factor
+
                 if step_converged:
                     y_previous = y
                     t_previous = t
+                    #print(t)
+
 
             info = {'step_info': step_info}
             # Return the part of the history actually filled in
@@ -170,28 +169,27 @@ class Numerous_solver(BaseSolver):
         return _solve
 
     def compile_solver(self):
-        self._method = self.method(**self.method_options)
+
         argtypes = []
-        eps = np.finfo(1.0).eps
-        longer = self.method_options.get('longer', 1.2)
-        shorter = self.method_options.get('shorter', 0.8)
 
-        max_step = self.method_options.get('max_step', 3)
-        min_step = self.method_options.get('min_step', 10 * eps)
+        max_step = self.method_options.get('max_step')
+        min_step = self.method_options.get('min_step')
 
-        initial_step = max_step  # np.min([100000000*min_step, max_step])
 
-        order = self.method_options.get('order', 0)
 
         strict_eval = self.method_options.get('strict_eval', True)
         outer_itermax = self.method_options.get('outer_itermax', 20)
 
         self._method = self.method(**self.method_options)
+
+        order = self._method.order
+        initial_step = min_step
+
         step_integrate_ = self._method.step_func
 
         args = (self.numba_model,
                 self._method.get_solver_state(len(self.y0)),initial_step,
-                longer, order, strict_eval, shorter, outer_itermax, min_step,
+                order, strict_eval, outer_itermax, min_step,
                 max_step, step_integrate_,
                 self.time[0],
                 self.time[-1],
@@ -203,6 +201,65 @@ class Numerous_solver(BaseSolver):
 
     def set_state_vector(self, states_as_vector):
         self.y0 = states_as_vector
+
+    def select_initial_step(self, nm, t0, y0, direction, order, rtol, atol):
+        """Taken from scipy select initial step part of the ode solver package. Slightly modified
+
+
+        Empirically select a good initial step.
+
+        The algorithm is described in [1]_.
+
+        Parameters
+        ----------
+        nm : Numbamodel - contains the function handles to call the RHS
+
+        t0 : float
+            Initial value of the independent variable.
+        y0 : ndarray, shape (n,)
+            Initial value of the dependent variable.
+        direction : float
+            Integration direction.
+        order : float
+            Error estimator order. It means that the error controlled by the
+            algorithm is proportional to ``step_size ** (order + 1)`.
+        rtol : float
+            Desired relative tolerance.
+        atol : float
+            Desired absolute tolerance.
+
+        Returns
+        -------
+        h_abs : float
+            Absolute value of the suggested initial step.
+
+        References
+        ----------
+        .. [1] E. Hairer, S. P. Norsett G. Wanner, "Solving Ordinary Differential
+               Equations I: Nonstiff Problems", Sec. II.4.
+        """
+        if y0.size == 0:
+            return np.inf
+        f0 = nm.func(t0, y0)
+
+        scale = atol + np.abs(y0) * rtol
+        d0 = np.linalg.norm(y0 / scale)
+        d1 = np.linalg.norm(f0 / scale)
+        if d0 < 1e-5 or d1 < 1e-5:
+            h0 = 1e-6
+        else:
+            h0 = 0.01 * d0 / d1
+
+        y1 = y0 + h0 * direction * f0
+        f1 = nm.func(t0 + h0 * direction, y1)
+        d2 = np.linalg.norm((f1 - f0) / scale) / h0
+
+        if d1 <= 1e-15 and d2 <= 1e-15:
+            h1 = max(1e-6, h0 * 1e-3)
+        else:
+            h1 = (0.01 / max(d1, d2)) ** (1 / (order + 1))
+
+        return min(100 * h0, h1)
 
     def solve(self):
         """
@@ -226,29 +283,29 @@ class Numerous_solver(BaseSolver):
         y0 = deepcopy(self.y0)
         state = deepcopy(self.y0)
 
-        eps = np.finfo(1.0).eps
+
 
         # Set options
-        longer = self.method_options.get('longer', 1.2)
-        shorter = self.method_options.get('shorter', 0.8)
 
-        max_step = self.method_options.get('max_step', 3)
-        min_step = self.method_options.get('min_step', 10 * eps)
+        max_step = self.method_options.get('max_step')
+        min_step = self.method_options.get('min_step')
+        rtol = self.method_options.get('rtol')
+        atol = self.method_options.get('atol')
 
-        initial_step = max_step  # np.min([100000000*min_step, max_step])
+        order = self._method.order
 
-        order = self.method_options.get('order', 0)
+        initial_step = self.select_initial_step(self.numba_model, t_start, y0, 1, order, rtol, atol )  # np.min([100000000*min_step, max_step])
 
-        strict_eval = self.method_options.get('strict_eval', True)
-        outer_itermax = self.method_options.get('outer_itermax', 20)
+        strict_eval = self.method_options.get('strict_eval')
+        outer_itermax = self.method_options.get('outer_itermax')
 
-        self._method = self.method(**self.method_options)
+
         step_integrate_ = self._method.step_func
 
         # figure out solve_state init
         solve_state = self._method.get_solver_state(len(y0))
         info = self._solve(self.numba_model,
-                           solve_state, initial_step, longer, order, strict_eval, shorter, outer_itermax, min_step,
+                           solve_state, initial_step, order, strict_eval, outer_itermax, min_step,
                            max_step, step_integrate_,
                            t_start, t_end, self.time)
         print("finished")

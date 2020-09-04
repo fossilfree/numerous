@@ -85,6 +85,7 @@ class Simulation:
 
     def solve(self):
         self.__init_step()
+        result_status = "not finished"
         try:
             sol, result_status = self.solver.solve()
         except Exception as e:
