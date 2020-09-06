@@ -143,11 +143,12 @@ class ItemSet(Item, EquationBase):
         ##TODO Check that all items are of the same type
         for item in set_structure_flat:
             for ns in item.registered_namespaces:
-                if not (ns.tag in self.registered_namespaces.keys()):
-                    sns = SetNamespace(self, ns.tag)
+                tag_ = tag+'.'+ns.tag
+                if not (tag_ in self.registered_namespaces.keys()):
+                    sns = SetNamespace(self, tag_, self.item_ids)
                     sns.add_equations(list(ns.associated_equations.values()), False)
                     self.register_namespace(sns)
-                self.registered_namespaces[ns.tag].add_item_to_set_namespace(ns, tag_count)
+                self.registered_namespaces[tag_].add_item_to_set_namespace(ns, tag_count)
                 tag_count += 1
 
         for ns in self.registered_namespaces.values():

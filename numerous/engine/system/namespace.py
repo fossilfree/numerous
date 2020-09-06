@@ -139,21 +139,32 @@ class VariableNamespace(VariableNamespaceBase):
 
 
 class SetNamespace(VariableNamespace):
-    def __init__(self, item, tag):
+    def __init__(self, item, tag, item_indcs):
         super().__init__(item, tag)
-        self.items = []
+        self.tag = tag
+        print(tag)
+        self.items = item_indcs
+        self.set_variables = []
 
 
-    def add_item_to_set_namespace(self, item, tag_count):
+
+    def add_item_to_set_namespace(self, ns, tag_count):
         mapping = []
         variables = []
-        for variable in item.variables:
+        item_ix = self.items.index(ns.item.id)
+        for variable in ns.variables:
             self.register_variable(variable,str(tag_count))
             if variable.mapping:
                 mapping.append(-1)
             else:
                 mapping.append(0)
             variables.append(variable)
+            set_var = f"{self.tag}.{variable.tag}"
+            if set_var not in self.set_variables:
+                self.set_variables.append(set_var)
+            variable.set_var = set_var
+            variable.set_var_ix = item_ix
+
         self.variable_scope.append(variables)
         self.mappings.append(mapping)
         #self.items.append(item)

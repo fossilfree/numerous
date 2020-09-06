@@ -132,6 +132,9 @@ class Model:
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
 
+        #LNT: need to map each var id to set variable
+        self.variables_set_var = {}
+
         self.equation_dict = {}
         self.scope_variables = {}
         self.name_spaces = {}
@@ -271,16 +274,16 @@ class Model:
         self.scoped_equations = {}
         self.equations_top = {}
         logging.info('parsing equations starting')
-        for scope_id, eq in self.equation_dict.items():
-            tag_vars = {v.tag: v for v in self.scope_variables.values() if v.parent_scope_id==scope_id}
+        for ns in self.name_spaces.values():
+            tag_vars = {v.tag: v for v in self.scope_variables.values() if v.set_var in ns[1][0].set_variables}
 
 
             #print('scope_id: ', scope_id)
             #s_id = f's{self.scope_ids.index(scope_id)}'
             #print(eq)
-            if len(eq[0])>0:
+            #if len(eq[0])>0:
 
-                parse_eq(self.scope_ids[scope_id], self.synchronized_scope[scope_id], eq, self.gg, self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations, self.equations_top)
+            parse_eq(ns[1][0], self.gg, self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations, self.equations_top)
 
         logging.info('parsing equations completed')
         #for n in gg.nodes:
@@ -813,6 +816,7 @@ class Model:
             model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag, namespace.items)
             model_namespace.mappings = namespace.mappings
             model_namespace.variable_scope = namespace.variable_scope
+            model_namespace.set_variables = namespace.set_variables
             equation_dict = {}
             eq_variables_ids = []
             for eq in namespace.associated_equations.values():
@@ -831,6 +835,7 @@ class Model:
             #model_namespace.variables = {v.id: ScopeVariable(v) for v in namespace.variables.shadow_dict.values()}
             model_namespace.variables = {v.id: ScopeVariable(v) for vs in namespace.variable_scope for v in vs}
             self.variables.update(model_namespace.variables)
+            self.variables_set_var.update({v.id: v.set_var for vs in namespace.variable_scope for v in vs})
             #model_namespace.variables = {v.id: sv for vs, evi in zip(namespace.variable_scope, model_namespace.eq_variables_ids) for v, sv in zip(evi, vs)}
             namespaces_list.append(model_namespace)
         return namespaces_list

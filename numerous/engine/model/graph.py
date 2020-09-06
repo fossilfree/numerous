@@ -487,7 +487,7 @@ class Graph():
     def unlock(self):
         pass
 
-    def add_node(self, key=None, ignore_existing=False, **attrs):
+    def add_node(self, key=None, ignore_existing=False, skip_existing=True, **attrs):
         if not key:
             key = tmp()
         if key not in self.node_map or ignore_existing:
@@ -514,8 +514,10 @@ class Graph():
 
 
         else:
-            raise ValueError(f'Node with key already in graph <{key}>')
-
+            if not skip_existing:
+                raise ValueError(f'Node with key already in graph <{key}>')
+            else:
+                return self.node_map[key]
         return node
 
 
@@ -648,7 +650,9 @@ class Graph():
     def has_edge_for_nodes(self, start_node=None, end_node=None):
 
         if start_node and end_node:
-            return start_node in self.edges[:, 0] and end_node in self.edges[:, 1]
+            #return [start_node, end_node] in self.edges[:]
+            #return np.where((self.edges[:self.edge_counter] == (start_node, end_node)).all(axis=1))
+            return np.where((self.edges[:self.edge_counter,0]== start_node) & (self.edges[:self.edge_counter, 1] == end_node))[0]
 
         if start_node:
             return start_node in self.edges[:,0]
