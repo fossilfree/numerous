@@ -101,4 +101,4 @@ def test_race_condition_1(solver):
     f = [df1, df2]
     df = pd.concat(f, axis=1, sort=False)
     assert np.all(
-        np.isclose(np.array(df['system.link.t1.S']), np.array(df['system.item2.t1.S']), rtol=1e-02, atol=1e-04))
+        np.isclose(np.array(df['system.link.t1.S'])[2:], np.array(df['system.item2.t1.S'][2:]), rtol=1e-02, atol=1e-04))

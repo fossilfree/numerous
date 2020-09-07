@@ -642,7 +642,7 @@ class Model:
             NM_instance.path_variables[key] = value
             NM_instance.path_keys.append(key)
         NM_instance.run_init_callbacks(start_time)
-
+        NM_instance.compute(True)
         NM_instance.historian_update(start_time)
         self.numba_model = NM_instance
         return self.numba_model

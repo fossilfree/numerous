@@ -29,7 +29,7 @@ numba_model_spec = [
     ('historian_data', float64[:, :]),
     ('path_variables', types.DictType(*kv_ty)),
     ('path_keys', types.ListType(types.unicode_type)),
-    ('mapped_variables_array', int64[:,:])
+    ('mapped_variables_array', int64[:, :])
 ]
 
 
@@ -118,7 +118,6 @@ class NumbaModel:
 
         for key, j in zip(self.path_keys,
                           self.var_idxs_pos_3d_helper):
-
             self.path_variables[key] \
                 = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
                 self.var_idxs_pos_3d[2][j]]
@@ -156,7 +155,7 @@ class NumbaModel:
         g = y + _sum - af[order - 1] * dt * f
         return np.ascontiguousarray(g), np.ascontiguousarray(f)
 
-    def compute(self):
+    def compute(self, only_propagate_mappings=False):
         if self.sum_mapping:
             sum_mappings(self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
                          self.sum_slice_idxs, self.scope_vars_3d, self.sum_slice_idxs_len)
@@ -169,7 +168,8 @@ class NumbaModel:
                     self.differing_idxs_pos_3d[2][i]] = self.scope_vars_3d[
                     self.differing_idxs_from_3d[0][i]][self.differing_idxs_from_3d[1][i]][
                     self.differing_idxs_from_3d[2][i]]
-            self.compute_eq(self.scope_vars_3d)
+            if not only_propagate_mappings:
+                self.compute_eq(self.scope_vars_3d)
 
             if self.sum_mapping:
                 sum_mappings(self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
