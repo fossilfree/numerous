@@ -11,7 +11,7 @@ from numerous.engine.simulation import Simulation
 import matplotlib.pyplot as plt
 import numpy as np
 
-from simulation.solvers.base_solver import solver_types
+from numerous.engine.simulation.solvers.base_solver import solver_types
 
 
 class InitialValue(Item, EquationBase):

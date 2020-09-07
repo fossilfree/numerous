@@ -100,7 +100,7 @@ class NumbaModel:
 
         return np.array(result, dtype=np.float64)
 
-    def historian_update(self, time: int) -> None:
+    def historian_update(self, time: np.float64) -> None:
         ix = self.historian_ix
         varix = 1
         self.historian_data[0][ix] = time

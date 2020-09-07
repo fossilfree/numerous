@@ -56,6 +56,9 @@ class Simulation:
         generation_start = time.time()
         self.model = model
         numba_model = model.generate_numba_model(t_start, len(self.time))
+
+
+
         generation_finish = time.time()
         print("Generation time: ", generation_finish - generation_start)
 
@@ -64,12 +67,8 @@ class Simulation:
                                      num_inner, max_event_steps,self.model.states_as_vector, **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
-            print("Compiling Numerous Solver")
-            generation_start = time.time()
             self.solver = Numerous_solver(time_, delta_t, numba_model,
                                           num_inner, max_event_steps,self.model.states_as_vector, **kwargs)
-            generation_finish = time.time()
-            print("Compiling time: ", generation_finish - generation_start)
 
         self.solver.register_endstep(__end_step)
 

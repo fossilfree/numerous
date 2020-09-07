@@ -6,8 +6,8 @@ import pytest
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 from numerous.engine.system import ConnectorItem, ConnectorTwoWay, Item, Subsystem
-from simulation.solvers.base_solver import solver_types
-from .test_equations import TestEq_input, Test_Eq, TestEq_ground
+from numerous.engine.simulation.solvers.base_solver import solver_types
+from tests.test_equations import TestEq_input, Test_Eq, TestEq_ground
 
 
 class I(ConnectorItem):
