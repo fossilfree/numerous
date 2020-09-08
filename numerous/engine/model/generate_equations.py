@@ -130,22 +130,30 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     logging.info('Remove simple assign chains')
 
+
     for n in nodes_map.values():
-        if equation_graph.get(n, 'node_type') == NodeTypes.ASSIGN:
+        if equation_graph.get(n, 'node_type') == NodeTypes.VAR:
             #Get target
-            target_edge = equation_graph.get_edges_for_node_filter(start_node=n, attr='e_type', val='target')[1][0]
-            target = target_edge[1]
+            target = n
+            target_edges_indcs, target_edges = equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val=['target', 'mapping'])
 
-            if not target in vars_assignments:
-                vars_assignments[target] = []
+            for edge, edge_ix in zip(target_edges, target_edges_indcs):
 
-            #Traverse value of assignment - might be  + + +
-            value_edge = equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val='value')[1][0]
-            value = value_edge[0]
+                if not target in vars_assignments:
+                    vars_assignments[target] = []
 
-            visit_assign_value(vars_assignments[target], value, nodes_map, equation_graph)
+                vars_assignments[target].append(edge[0])
 
-            equation_graph.remove_node(n)
+            if target in vars_assignments and len(vars_assignments[target])>1:
+                for edge_ix in target_edges_indcs:
+                    equation_graph.remove_edge(edge_ix)
+                #Traverse value of assignment - might be  + + +
+                #value_edge = equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val='value')[1][0]
+                #value = value_edge[0]
+
+                #visit_assign_value(vars_assignments[target], value, nodes_map, equation_graph)
+
+                #equation_graph.remove_node(n)
 
     #equation_graph.as_graphviz('before eq', force=True)
 
@@ -155,21 +163,25 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
         for i, e in equation_graph.get_edges_for_node(start_node=n):
                 va = e[1].copy()
-                if va in vars_assignments:
+                if va in vars_assignments and len(vars_assignments[va])>1:
 
                     # Make new temp var
                     tmp_label = equation_graph.key_map[va] + '_tmp'
+                    sv = equation_graph.get(e[1], 'scope_var')
+                    sv.set_var = tmp_label
                     tmp = equation_graph.add_node(key=tmp_label,  node_type=NodeTypes.TMP, name=tmp_label, ast=None, file='sum', label=tmp_label, ln=0,
-                                 ast_type=None, scope_var=equation_graph.get(e[1], 'scope_var'), ignore_existing=False)
+                                 ast_type=None, scope_var=sv, ignore_existing=False)
                     # Add temp var to Equation target
-                    equation_graph.edges[i,1] = tmp
+                    #equation_graph.edges[i,1] = tmp
+
+                    equation_graph.add_edge(n, tmp, e_type='target', arg_local=equation_graph.edges_attr['arg_local'][i[0]])
 
                     # Add temp var in var assignments
-
-                    vars_assignments[va].append(tmp)
+                    vars_assignments[va][vars_assignments[va].index(n)]=tmp
+                    #vars_assignments[va].append(tmp)
 
     for a, vals in vars_assignments.items():
-        if len(vals)>0:
+        if len(vals)>1:
             ns = new_sum()
             nsn = equation_graph.add_node(key=ns, node_type=NodeTypes.SUM, name=ns, ast=None, file='sum', label=ns, ln=0, ast_type=None)
             equation_graph.add_edge(nsn,a, e_type='target')
@@ -177,6 +189,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
                 equation_graph.add_edge(v, nsn, e_type='value')
 
+    equation_graph = equation_graph.clean()
+    equation_graph.as_graphviz('eq_sum_swap', force=True)
     llvm_funcs = {}
     mod_body = []
     #Loop over equation functions and generate code
@@ -206,7 +220,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     logging.info('Generate kernel')
 
     #equation_graph.as_graphviz('after')
-    equation_graph = equation_graph.clean()
+    #equation_graph = equation_graph.clean()
     """
     equation_graph_clone = equation_graph.clone()
 
@@ -221,10 +235,65 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     equation_graph_clone= equation_graph_clone.clean()
     """
     #equation_graph.as_graphviz('clean after', force=True)
-    #print(equation_graph.node_map.values())
+    states = []
+    deriv = []
+    mapping = []
+    other = []
+    deriv_aliased = {}
+
+    vars_node_id = {sv.id: equation_graph.key_map[n] for n in
+                    equation_graph.get_where_attr('node_type', val=NodeTypes.VAR) if
+                    (sv := equation_graph.get(n, 'scope_var'))}
+
+    scope_var_node = {equation_graph.key_map[n]: sv for n in
+                      equation_graph.get_where_attr('node_type', val=[NodeTypes.VAR, NodeTypes.TMP]) if
+                      (sv := equation_graph.get(n, 'scope_var'))}
+    print(scope_var_node.keys())
+    for sv_id, sv in scope_variables.items():
+
+        if not sv_id in vars_node_id:
+            full_tag = scope_ids[sv.parent_scope_id]+'.' + sv.tag
+            vars_node_id[sv_id] = full_tag
+
+            if full_tag not in scope_var_node:
+                scope_var_node[full_tag] = sv
+
+            if sv.type == VariableType.DERIVATIVE:
+                if full_tag in aliases:
+                    deriv_aliased[full_tag] = aliases[full_tag]
+
+
+
+
+        if sv.type == VariableType.STATE:
+
+            states.append(vars_node_id[sv_id])
+        elif sv.type == VariableType.DERIVATIVE:
+
+            deriv.append(vars_node_id[sv_id])
+
+    set_variables = {}
+    for ix, sv in enumerate(scope_var_node.values()):
+        sv_tuple = (sv.id, sv, ix)
+        if sv.set_var:
+
+            if not sv.set_var in set_variables:
+                set_variables[sv.set_var] = [None] * sv.set_namespace.len_items
+
+            set_variables[sv.set_var][sv.set_var_ix] = sv_tuple
+        #else:
+        #    set_var = sv.get_path_dot()
+        #    if not set_var in set_variables:
+        #        set_variables[set_var] = [sv_tuple]
+
+    for k, v in set_variables.items():
+        print(k, ': ', v)
+    print(set_variables.keys())
+
     topo_sorted_nodes = equation_graph.topological_nodes()
-    #print([equation_graph.key_map[t] for t in topo_sorted_nodes])
-    #sdfsdf=sdfsdffdf
+
+
+
     for n in topo_sorted_nodes:
         if (nt:= equation_graph.get(n, 'node_type')) == NodeTypes.EQUATION:
             #print('adding scope: ', eq_key)
@@ -243,19 +312,53 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             targets_local = [equation_graph.key_map[te[1]] for i, te in zip(t_indcs, t_edges) if not equation_graph.edges_attr['arg_local'][i] == 'local']
             targets_scope_var = [equation_graph.edges_attr['arg_local'][i] for i, ae in zip(t_indcs, t_edges) if not equation_graph.edges_attr['arg_local'][i]=='local']
             all_targeted += targets_local#[equation_graph.key_map[tl] for tl in targets_local]# if equation_graph.nodes_map[tl][1].node_type != NodeTypes.TMP]
-
+            for k, v in zip(args_scope_var+targets_scope_var, args_local + targets_local):
+                print(k,': ',v)
             scope_vars = {'scope.'+k: v for k, v in zip(args_scope_var+targets_scope_var, args_local + targets_local)}
 
             args = [ast.Name(id=d_u(scope_vars[a])) for a in vardef.args]
 
-            if len(vardef.targets)>1:
-                targets = [ast.Tuple(elts=[ast.Name(id=d_u(scope_vars[t])) for t in vardef.targets])]
-            else:
-                targets = [ast.Name(id=d_u(scope_vars[vardef.targets[0]]))]
+
 
             equation_graph.nodes_attr['scope_var'][n]= {'args': [scope_vars[a] for a in vardef.args], 'targets': [scope_vars[a] for a in vardef.targets]}
+            if equation_graph.get(n, 'vectorized'):
+                if len(vardef.targets) > 1:
+                    targets = [ast.Tuple(
+                        elts=[ast.Subscript(value=ast.Name(id=d_u(scope_vars[t])), slice=ast.Name(id='i')) for t in
+                              vardef.targets])]
+                else:
+                    targets = [ast.Name(id=d_u(scope_vars[vardef.targets[0]]))]
 
-            body.append(ast.Assign(targets=targets, value=ast.Call(func=ast.Name(id=scoped_equations[equation_graph.key_map[n]].replace('.','_')), args=args, keywords=[])))
+
+                for t in vardef.targets:
+                    body.append(ast.Assign(targets=[ast.Name(id=d_u(scope_vars[t]))], value=ast.Call(func=ast.Attribute(attr='empty', value=ast.Name(id='np')), args=[ast.Num(n=len(set_variables[scope_vars[t]]))], keywords=[])))
+
+                for a in vardef.args:
+                    body.append(ast.Assign(targets=[ast.Name(id=d_u(scope_vars[a]))], value=ast.List(elts=[ast.Name(id=v[1].get_path_dot()) for v in set_variables[scope_vars[a]]])))
+
+
+                body.append(
+
+                    #For loop over items in set
+                    ast.For(
+                        body=[ast.Assign(targets=targets, value=ast.Call(func=ast.Name(id=scoped_equations[equation_graph.key_map[n]].replace('.','_')), args=[ast.Subscript(value=ast.Name(id=a), slice=ast.Index(value=ast.Name(id='i'))) for a in args], keywords=[]))],
+                        orelse=[],
+                        iter=ast.Call(func=ast.Name(id='range'), args=[ast.Num(n=len(set_variables[scope_vars[t]]))], keywords=[], target=ast.Name(id='i')),
+                        target=ast.Name(id='i')
+                    )
+                )
+            else:
+                if len(vardef.targets) > 1:
+                    targets = [ast.Tuple(
+                        elts=[ast.Name(id=d_u(scope_vars[t]))for t in
+                              vardef.targets])]
+                else:
+                    targets = [ast.Name(id=d_u(scope_vars[vardef.targets[0]]))]
+
+                body.append(ast.Assign(targets=targets, value=ast.Call(
+                    func=ast.Name(id=scoped_equations[equation_graph.key_map[n]].replace('.', '_')), args=args,
+                    keywords=[])))
+
 
         elif nt == NodeTypes.SUM:
             t_indcs, target_edges = list(equation_graph.get_edges_for_node_filter(start_node=n, attr='e_type', val='target'))
@@ -293,36 +396,11 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     all_must_init = set(all_read).difference(all_targeted)
 
-    vars_node_id = {sv.id: equation_graph.key_map[n] for n in equation_graph.get_where_attr('node_type', val=NodeTypes.VAR) if (sv:=equation_graph.get(n,'scope_var'))}
-
-    scope_var_node = {equation_graph.key_map[n]: sv for n in equation_graph.get_where_attr('node_type', val=[NodeTypes.VAR, NodeTypes.TMP]) if (sv:=equation_graph.get(n,'scope_var'))}
-
-    states = []
-    deriv = []
-    mapping = []
-    other = []
-    deriv_aliased = {}
-    for sv_id, sv in scope_variables.items():
-        if not sv_id in vars_node_id:
-            full_tag = scope_ids[sv.parent_scope_id]+'.' + sv.tag
-            vars_node_id[sv_id] = full_tag
-
-            if full_tag not in scope_var_node:
-                scope_var_node[full_tag] = sv
-
-            if sv.type == VariableType.DERIVATIVE:
-                if full_tag in aliases:
-                    deriv_aliased[full_tag] = aliases[full_tag]
 
 
 
 
-        if sv.type == VariableType.STATE:
 
-            states.append(vars_node_id[sv_id])
-        elif sv.type == VariableType.DERIVATIVE:
-
-            deriv.append(vars_node_id[sv_id])
 
     vars_init = states.copy()
     lenstates=len(vars_init)
@@ -332,6 +410,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     vars_update = deriv.copy()
     lenderiv = len(vars_update)
     vars_update += list(set(all_targeted).difference(vars_update))
+
+
 
     for s, d in zip(states, deriv):
         if not d[:-4] == s:
@@ -349,6 +429,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     if len(variables) > len(set(variables)):
         raise ValueError('Non unique variables')
+
+
 
     body = [
         ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=d_u(i)) for i in vars_init[len(states):]])], value=ast.Subscript(slice=ast.Slice(lower=ast.Num(n=len(states)), upper=ast.Num(n=len(vars_init)), step=None), value=ast.Name(id='variables'))),
@@ -380,7 +462,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #self.variables[var.id].path.path[self.system.id]
 
 
-    skip_kernel = True
+    skip_kernel = False
     if not skip_kernel:
         #mod_body.append(wrap_function('kernel', body, decorators=["njit('float64[:](float64[:],float64[:])')"], args=kernel_args))
         mod_body.append(

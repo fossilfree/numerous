@@ -41,7 +41,7 @@ lower_method = LowerMethod.Codegen
 
 class ModelNamespace:
 
-    def __init__(self, tag, outgoing_mappings, item_tag, item_indcs):
+    def __init__(self, tag, outgoing_mappings, item_tag, item_indcs, path, pos):
         self.tag = tag
         self.item_tag = item_tag
         self.outgoing_mappings = outgoing_mappings
@@ -53,6 +53,12 @@ class ModelNamespace:
         #self.full_tag = item_tag + '_' + tag
         self.full_tag = item_tag + '.' + tag
         self.item_indcs = item_indcs
+
+        self.path = path
+        self.part_of_set = pos
+
+    def get_path_dot(self):
+        return ".".join(self.path)
 
 
 class ModelAssembler:
@@ -211,6 +217,11 @@ class Model:
         logging.info("Assembling numerous Model")
         assemble_start = time.time()
 
+        for item in self.system.registered_items.values():
+            for ns in item.registered_namespaces.values():
+                print('ns: ',ns.get_path_dot())
+                #if not ns.part_of_set:
+                ns.update_set_var()
         # 1. Create list of model namespaces
         model_namespaces = [_ns
                             for item in self.system.registered_items.values()
@@ -225,6 +236,10 @@ class Model:
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
             self.name_spaces.update(name_space)
+
+        for sv in self.scope_variables.values():
+            print(sv.set_var,'-', sv.set_var_ix)
+
 
         self.mappings = []
         def __get_mapping__variable(variable):
@@ -275,8 +290,10 @@ class Model:
         self.equations_top = {}
         logging.info('parsing equations starting')
         for ns in self.name_spaces.values():
-            tag_vars = {v.tag: v for v in self.scope_variables.values() if v.set_var in ns[1][0].set_variables}
-
+            try:
+                tag_vars = {v.tag: v for v in self.scope_variables.values() if v.set_var in ns[1][0].set_variables}
+            except:
+                debug=1
 
             #print('scope_id: ', scope_id)
             #s_id = f's{self.scope_ids.index(scope_id)}'
@@ -290,10 +307,10 @@ class Model:
         #    print(n[0])
 
         #print('mapping: ',self.mappings)
-        self.eg.as_graphviz('eg', force=True)
+        #self.eg.as_graphviz('eg', force=True)
         #Process mappings add update the global graph
         self.aliases, self.eg = process_mappings(self.mappings, self.gg, self.eg, nodes_dep, self.scope_variables, self.scope_ids)
-        self.eg.as_graphviz('eg_m', force=True)
+        #self.eg.as_graphviz('eg_m', force=True)
         self.eg.build_node_edges()
         #self.eg.as_graphviz('equation_graph')
         logging.info('Mappings processed')
@@ -813,10 +830,12 @@ class Model:
     def create_model_namespaces(self, item):
         namespaces_list = []
         for namespace in item.registered_namespaces.values():
-            model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag, namespace.items)
+            #print(namespace.part_of_set)
+            model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag, namespace.items, namespace.path, namespace.part_of_set)
             model_namespace.mappings = namespace.mappings
             model_namespace.variable_scope = namespace.variable_scope
             model_namespace.set_variables = namespace.set_variables
+
             equation_dict = {}
             eq_variables_ids = []
             for eq in namespace.associated_equations.values():

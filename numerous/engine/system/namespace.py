@@ -12,18 +12,29 @@ class VariableNamespaceBase:
     """
 
     def __init__(self, item, tag, is_connector=False, _id=uuid.uuid1()):
+        self.items = [item.id]
         self.is_connector = is_connector
         self.item = item
+        self.set_variables = []
         self.id = str(_id)
-        self.variable_scope = []
+        #self.variable_scope = []
         ## -1 outgoing
         ## 0 no mapping
         ## Currently only used in SetNamespace
         self.mappings = []
         self.tag = tag
+        self.path = [tag]
         self.outgoing_mappings = 0
         self.associated_equations = {}
         self.variables = _DictWrapper(self.__dict__, Variable)
+        self.variable_scope = [self.variables]
+        self.registered = False
+        self.part_of_set = None
+        #print('creating ns with tag: ',tag)
+
+
+    def get_path_dot(self):
+        return ".".join(self.path)
 
     def __getitem__(self, y):
         return self.variables[y]
@@ -100,6 +111,7 @@ class VariableNamespaceBase:
 
             variable.path.extend_path(variable.id, self.id, self.tag)
             variable.path.extend_path(self.id, self.item.id, self.item.tag)
+
         else:
             logging.warning("Variable {0} is already in namespace {1} of item {2}".format(variable.tag,
                                                                                           self.tag, self.item.tag))
@@ -108,6 +120,15 @@ class VariableNamespaceBase:
                 self.variables[variable.tag] = variable
                 variable.extend_path(self.tag)
                 variable.extend_path(self.item.tag)
+
+    def update_set_var(self):
+        pass
+        #for v in self.variables:
+        #    set_var = f"{self.get_path_dot()}.{v.tag}"
+        #    if set_var not in self.set_variables:
+        #        self.set_variables.append(set_var)
+        #    v.update_set_var(set_var, 0)
+
 
     def add_equations(self, list_of_equations, update_bindings=True):
         """
@@ -144,27 +165,46 @@ class SetNamespace(VariableNamespace):
         self.tag = tag
         print(tag)
         self.items = item_indcs
+        self.len_items = len(self.items)
         self.set_variables = []
+        self.variable_scope = []
 
 
+    def update_set_var(self):
+
+        for v in self.variables:
+            print(v.namespace.item.id)
+            print(v.item.id)
+            print(self.items)
+            #ix = self.items.index(v.namespace.item.id)
+            #set_var = f"{self.tag}.{variable.tag}"
+            set_var = f"{self.get_path_dot()}.{v.tag}"
+            if set_var not in self.set_variables:
+                self.set_variables.append(set_var)
+            v.update_set_var(set_var, self)
+        #self.part_of_set = self.get_path_dot()
+        print('pos: ', self.part_of_set)
 
     def add_item_to_set_namespace(self, ns, tag_count):
         mapping = []
         variables = []
         item_ix = self.items.index(ns.item.id)
+        print('ix: ',item_ix)
         for variable in ns.variables:
             self.register_variable(variable,str(tag_count))
             if variable.mapping:
                 mapping.append(-1)
             else:
                 mapping.append(0)
-            variables.append(variable)
-            set_var = f"{self.tag}.{variable.tag}"
-            if set_var not in self.set_variables:
-                self.set_variables.append(set_var)
-            variable.set_var = set_var
-            variable.set_var_ix = item_ix
 
+            variable.set_var_ix = item_ix
+            variables.append(variable)
+            #set_var = f"{self.tag}.{variable.tag}"
+            #if set_var not in self.set_variables:
+            #    self.set_variables.append(set_var)
+            #variable.update_set_var(set_var, item_ix)
+
+        #self.variables += variables
         self.variable_scope.append(variables)
         self.mappings.append(mapping)
         #self.items.append(item)

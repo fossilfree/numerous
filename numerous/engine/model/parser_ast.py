@@ -460,141 +460,152 @@ def qualify_equation(prefix, g, tag_vars):
 
 
 def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_dep, tag_vars, parsed_eq_branches, scoped_equations, parsed_eq):
-    for m in model_namespace.equation_dict.values():
-        for eq in m:
-            #try:
-                #dont now how Kosher this is: https://stackoverflow.com/questions/20059011/check-if-two-python-functions-are-equal
-            eq_key = eq.__qualname__
-            #eq_key = eq.id
+    print('namespace path: ',model_namespace.get_path_dot())
+    if not model_namespace.part_of_set:
 
-            if not eq_key in parsed_eq:
-                    dsource = inspect.getsource(eq)
+        for m in model_namespace.equation_dict.values():
+            for eq in m:
+                #try:
+                    #dont now how Kosher this is: https://stackoverflow.com/questions/20059011/check-if-two-python-functions-are-equal
+                eq_key = eq.__qualname__
+                #eq_key = eq.id
 
-                    tries=0
-                    while tries<10:
-                        try:
-                            dsource = dedent(dsource)
-                            ast_tree = ast.parse(dsource)
-                            break
-                        except IndentationError:
+                if not eq_key in parsed_eq:
+                        dsource = inspect.getsource(eq)
 
-                            tries+=1
-                            if tries > 10-1:
-                                print(dsource)
-                                raise
-
-                    g = Graph()
-                    branches = {}
-                    parse_(ast_tree, eq_key, eq.file, eq.lineno, g, tag_vars, branches=branches)
-
-
-
-                    #Create branched versions of graph
-
-                    branches_ = set()
-                    #print(g.edges_attr['branches'][:g.edge_counter])
-                    [branches_.update(b.keys()) for b in g.edges_attr['branches'][:g.edge_counter] if b]
-                    #print(branches_)
-                    all_branches = [{}]
-                    from copy import deepcopy
-                    for b in branches_:
-
-                        for a in all_branches:
-                            a.update({b: True})
-
-                        all_branches += deepcopy(all_branches)
-                        #print(len(all_branches))
-                        for a in all_branches[int(len(all_branches)/2):]:
-                            a[b]=False
-
-                    if len(all_branches)>1:
-                        #g.as_graphviz(eq_key, force=True)
-                        branch_graphs = []
-                        for a in all_branches:
-
-                            gb = g.clone()
-
-                            for i, b in enumerate(gb.edges_attr['branches'][:g.edge_counter]):
-
-                                for ak in a.keys():
-                                    if ak in b and b[ak] != a[ak]:
-
-                                        gb.remove_edge(i)
-
-                            gb = gb.clean()
-                            #gb.as_graphviz(eq_key+'_'.join([a_k + '_' +str(v) for a_k, v in a.items()]), force=True)
-                            branch_graphs.append((a, gb, eq_key+'_'+postfix_from_branches(a)))
-
-                        for branch in branch_graphs:
-                            parsed_eq_branches[branch[2]] = (eq, dsource, branch[1], branch[0])
-
-                    else:
-                        parsed_eq_branches[eq_key] = (eq, dsource, g, {})
-
-                    parsed_eq[eq_key] = list(branches_)
-
-                    if len(parsed_eq[eq_key])>0:
-                        branches_values = {}
-                        for b in parsed_eq[eq_key]:
-                            branches_values[b] = tag_vars[b].value
-
-
-                        eq_key = eq_key+'_'+postfix_from_branches(branches_values)
-
-                    g = parsed_eq_branches[eq_key][2]
-
-                    g_qualified = qualify_equation(model_namespace.tag, g, tag_vars)
-
-                    #make equation graph
-                    eq_name = ('EQ_'+model_namespace.tag + '_' + eq_key).replace('.','_')
-
-                    scoped_equations[eq_name] = eq_key
-
-                    eq_n = equation_graph.add_node(key=eq_name, node_type=NodeTypes.EQUATION, ast=None, name=eq_name, file=eq_name, ln=0, label=eq_name, ast_type=ast.Call, func=ast.Name(id=eq_key.replace('.','_')))
-
-                    for n in range(g_qualified.node_counter):
-
-                        if g_qualified.get(n, attr='node_type')==NodeTypes.VAR and g_qualified.get(n, attr='scope_var'):
-
-
-
-                            n_key = g_qualified.key_map[n]
-
-                            if not n_key in nodes_dep:
-                                nodes_dep[n_key] = []
-                            if not eq_name in nodes_dep[n_key]:
-                                nodes_dep[n_key].append(eq_name)
-
-                            sv = g_qualified.get(n, 'scope_var')
-
-                            #neq = equation_graph.add_node(key=n_key, node_type=NodeTypes.VAR, scope_var=sv, ignore_existing=True)
-                            neq = equation_graph.add_node(key=n_key, node_type=NodeTypes.VAR, scope_var=sv,
-                                                          ignore_existing=True)
-
-                            targeted = False
-                            read = False
-
-                            end_edges = g_qualified.get_edges_for_node(end_node=n)
-
+                        tries=0
+                        while tries<10:
                             try:
-                                next(end_edges)
-                                equation_graph.add_edge(eq_n, neq, e_type='target', arg_local= sv.tag if sv else 'local')
-                                targeted = True
+                                dsource = dedent(dsource)
+                                ast_tree = ast.parse(dsource)
+                                break
+                            except IndentationError:
+
+                                tries+=1
+                                if tries > 10-1:
+                                    print(dsource)
+                                    raise
+
+                        g = Graph()
+                        branches = {}
+                        parse_(ast_tree, eq_key, eq.file, eq.lineno, g, tag_vars, branches=branches)
+
+
+
+                        #Create branched versions of graph
+
+                        branches_ = set()
+                        #print(g.edges_attr['branches'][:g.edge_counter])
+                        [branches_.update(b.keys()) for b in g.edges_attr['branches'][:g.edge_counter] if b]
+                        #print(branches_)
+                        all_branches = [{}]
+                        from copy import deepcopy
+                        for b in branches_:
+
+                            for a in all_branches:
+                                a.update({b: True})
+
+                            all_branches += deepcopy(all_branches)
+                            #print(len(all_branches))
+                            for a in all_branches[int(len(all_branches)/2):]:
+                                a[b]=False
+
+                        if len(all_branches)>1:
+                            #g.as_graphviz(eq_key, force=True)
+                            branch_graphs = []
+                            for a in all_branches:
+
+                                gb = g.clone()
+
+                                for i, b in enumerate(gb.edges_attr['branches'][:g.edge_counter]):
+
+                                    for ak in a.keys():
+                                        if ak in b and b[ak] != a[ak]:
+
+                                            gb.remove_edge(i)
+
+                                gb = gb.clean()
+                                #gb.as_graphviz(eq_key+'_'.join([a_k + '_' +str(v) for a_k, v in a.items()]), force=True)
+                                branch_graphs.append((a, gb, eq_key+'_'+postfix_from_branches(a)))
+
+                            for branch in branch_graphs:
+                                parsed_eq_branches[branch[2]] = (eq, dsource, branch[1], branch[0])
+
+                        else:
+                            parsed_eq_branches[eq_key] = (eq, dsource, g, {})
+
+                        parsed_eq[eq_key] = list(branches_)
+
+                        if len(parsed_eq[eq_key])>0:
+                            branches_values = {}
+                            for b in parsed_eq[eq_key]:
+                                branches_values[b] = tag_vars[b].value
+
+
+                            eq_key = eq_key+'_'+postfix_from_branches(branches_values)
+
+                g = parsed_eq_branches[eq_key][2]
+
+                ns_path = model_namespace.get_path_dot()
+                eq_path = ns_path+'.'+eq_key
+                g_qualified = qualify_equation(ns_path, g, tag_vars)
+
+                #make equation graph
+                eq_name = ('EQ_'+eq_path).replace('.','_')
+
+                scoped_equations[eq_name] = eq_key
+                a = model_namespace.item_indcs
+
+                eq_n = equation_graph.add_node(key=eq_name,
+                                               node_type=NodeTypes.EQUATION, ast=None,
+                                               name=eq_name, file=eq_name, ln=0, label=eq_name,
+                                               ast_type=ast.Call,
+                                               vectorized=len(model_namespace.item_indcs)>1,
+                                               func=ast.Name(id=eq_key.replace('.','_')))
+
+                for n in range(g_qualified.node_counter):
+
+                    if g_qualified.get(n, attr='node_type')==NodeTypes.VAR and g_qualified.get(n, attr='scope_var'):
+
+
+
+                        n_key = g_qualified.key_map[n]
+
+                        if not n_key in nodes_dep:
+                            nodes_dep[n_key] = []
+                        if not eq_name in nodes_dep[n_key]:
+                            nodes_dep[n_key].append(eq_name)
+
+                        sv = g_qualified.get(n, 'scope_var')
+                        print('n_key: ',n_key)
+                        #neq = equation_graph.add_node(key=n_key, node_type=NodeTypes.VAR, scope_var=sv, ignore_existing=True)
+                        neq = equation_graph.add_node(key=n_key, node_type=NodeTypes.VAR, scope_var=sv,
+                                                      ignore_existing=True)
+
+                        targeted = False
+                        read = False
+
+                        end_edges = g_qualified.get_edges_for_node(end_node=n)
+
+                        try:
+                            next(end_edges)
+                            equation_graph.add_edge(eq_n, neq, e_type='target', arg_local= sv.tag if sv else 'local')
+                            targeted = True
+                        except StopIteration:
+                            pass
+
+                        if not targeted and not read:
+                            start_edges = g_qualified.get_edges_for_node(start_node=n)
+                            try:
+                                next(start_edges)
+                                read=True
+                                equation_graph.add_edge(neq, eq_n, e_type='arg', arg_local= sv.tag if (sv:= g_qualified.get(n, 'scope_var')) else 'local')
                             except StopIteration:
                                 pass
 
-                            if not targeted and not read:
-                                start_edges = g_qualified.get_edges_for_node(start_node=n)
-                                try:
-                                    next(start_edges)
-                                    read=True
-                                    equation_graph.add_edge(neq, eq_n, e_type='arg', arg_local= sv.tag if (sv:= g_qualified.get(n, 'scope_var')) else 'local')
-                                except StopIteration:
-                                    pass
-
-                    if global_graph:
-                        global_graph.update(g_qualified)
-                #g_qualified.topological_nodes()
+                if global_graph:
+                    global_graph.update(g_qualified)
+                    #g_qualified.topological_nodes()
 
 def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_vars, scope_map):
     mg = Graph(preallocate_items=100000)
@@ -603,8 +614,8 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
         target_var = scope_vars[m[0]]
         prefix = scope_map[target_var.parent_scope_id]
         #target_var_id = qualify(target_var.tag, prefix)
-        target_var_id = target_var.set_var
-
+        target_var_id = target_var.set_var if target_var.set_var else target_var.get_path_dot()
+        print('tvar id: ', target_var_id)
         if '-' in target_var_id:
             raise ValueError('argh')
 
@@ -644,7 +655,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
             #mg.add_edge(start=ivarn, end=tn, e_type='mapping')
 
             #ivar_id = qualify(ivar_var.tag, prefix)
-            ivar_id = ivar_var.set_var
+            ivar_id = ivar_var.set_var if ivar_var.set_var else ivar_var.get_path_dot()
 
             if not ivar_id in nodes_dep:
                 nodes_dep[ivar_id] = []
@@ -678,7 +689,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
                 e_m = equation_graph.add_edge(ivar_node_e, t, e_type='mapping', mappings=[(ivar_var.set_var_ix, target_var.set_var_ix)])
             else:
                 equation_graph.edges_attr['mappings'][ix_[0]].append((ivar_var.set_var_ix, target_var.set_var_ix))
-
+                print('set_var_ix: ',target_var.set_var_ix)
 
             #equation_graph.edges_attr
             #equation_graph.add_edge(prev_e, binop_e, e_type='left')

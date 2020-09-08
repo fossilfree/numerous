@@ -106,6 +106,7 @@ class VariablePath:
     def __init__(self, tag, id):
 
         self.path = {id: tag}
+
         self.used_id_pairs = []
 
     def __iter__(self):
@@ -131,9 +132,12 @@ class Variable(MappedValue):
         self.tag = detailed_variable_description.tag
         self.type = detailed_variable_description.type
         self.path = VariablePath([detailed_variable_description.tag], self.id)
+        self.path_ = None
         self.alias = None
         self.set_var = None
         self.set_var_ix = None
+        self.set_namespace = None
+
         if base_variable:
 
             self.value = base_variable.value
@@ -147,8 +151,23 @@ class Variable(MappedValue):
         self.associated_scope = []
         self.idx_in_scope = []
 
+    def get_path_dot(self):
+        return ".".join(self.path_)
+
     def update_value(self, value):
         self.value = value
+
+    def update_set_var(self, set_var, set_namespace):
+        #print(set_var)
+        if not self.set_var:
+            self.set_var = set_var
+            self.set_namespace = set_namespace
+            #self.set_var_ix = ix
+        else:
+            if self.set_var != set_var:
+                print(self.set_var, ' ', set_var)
+                #print(self.set_var_ix, ' ', ix)
+                raise ValueError(f'Setvar for {self.id} already set!')
 
     @staticmethod
     def create(namespace, v_id, tag,

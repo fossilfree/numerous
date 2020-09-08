@@ -643,7 +643,10 @@ class Graph():
             print(start_node)
             raise ValueError('Need at least one node!')
 
-        ix = [i for i in ix if self.edges_attr[attr][i] == val]
+        if isinstance(val, list):
+            ix = [i for i in ix if self.edges_attr[attr][i] in val]
+        else:
+            ix = [i for i in ix if self.edges_attr[attr][i] == val]
 
         return ix, [self.edges[i, :] for i in ix]
 

@@ -25,7 +25,8 @@ class ScopeVariable(MappedValue):
         self.bound_equation_methods = None
         self.parent_scope_id = None
         self.position = None
-
+        self.set_var = base_variable.set_var
+        self.set_var_ix = base_variable.set_var_ix
 
     def update_ix(self, ix):
         self.state_ix = ix

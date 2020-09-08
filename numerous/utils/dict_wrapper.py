@@ -18,6 +18,10 @@ class _DictWrapper(object):
             return self.shadow_dict[item]
         return object.__getattribute__(self, item)
 
+    def pop(self, item):
+        if item in self.shadow_dict:
+            self.shadow_dict.pop(item)
+
     def __iter__(self):
         return iter(self.shadow_dict.values())
 
