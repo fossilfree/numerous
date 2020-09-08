@@ -85,6 +85,7 @@ class Subsystem(ConnectorItem):
             any(self.register_item(item) for item in items)
         elif structure == ItemsStructure.SET:
             self.register_item(ItemSet(items, tag))
+            any(self.register_item(item) for item in items)
 
     def increase_level(self):
         super().increase_level()
@@ -107,13 +108,29 @@ class Subsystem(ConnectorItem):
     def update_variables_path(self, item):
         item.path = self.path + [item.tag]
         for ns in item.registered_namespaces.values():
+
             ns.path = item.path + [ns.tag]
             for var in ns.variables.values():
                 var.path.extend_path(item.id, self.id, self.tag, registering=True)
                 var.path_ = ns.path + [var.tag]
+                var.paths.append(var.path_)
         if isinstance(item, Subsystem):
             for item_ in item.registered_items.values():
                 item.update_variables_path(item_)
+
+    def update_variables_path_(self):
+        #item.path = self.path + [item.tag]
+        for ns in self.registered_namespaces.values():
+
+            ns.path = self.path + [ns.tag]
+            for var in ns.variables.values():
+                var.path.extend_path(self.id, self.id, self.tag, registering=True)
+                var.path_ = ns.path + [var.tag]
+                var.paths.append(var.path_)
+        if isinstance(self, Subsystem):
+            for item_ in self.registered_items.values():
+                if isinstance(item_, Subsystem):
+                    item_.update_variables_path_()
 
     def register_item(self, item):
         """
@@ -123,15 +140,15 @@ class Subsystem(ConnectorItem):
         item : :class:`numerous.engine.system.Item`
             Item to register in the subsystem.
         """
-        if not item.registered:
-            if item.tag in [x.tag for x in self.registered_items.values()]:
-                raise ValueError('Item with tag {} is already registered in system {}'.format(item.tag, self.tag))
-            item._increase_level()
-            self.update_variables_path(item)
+        #if not item.registered:
+        if item.tag in [x.tag for x in self.registered_items.values()]:
+            raise ValueError('Item with tag {} is already registered in system {}'.format(item.tag, self.tag))
+        item._increase_level()
+        self.update_variables_path(item)
 
-            self.registered_items.update({item.id: item})
-        else:
-            raise ValueError(f'Cannot register item {item.tag} more than once!')
+        self.registered_items.update({item.id: item})
+        #else:
+        #    raise ValueError(f'Cannot register item {item.tag} more than once!')
 
 
 class ItemSet(Item, EquationBase):
@@ -163,6 +180,7 @@ class ItemSet(Item, EquationBase):
                 else:
                     ValueError(f'namespace {ns} already in set {ns.part_of_set}')
                 tag_count += 1
-                item.registered_namespaces.pop(ns)
+
+                #item.registered_namespaces.pop(ns)
         for ns in self.registered_namespaces.values():
             ns.items = self.item_ids

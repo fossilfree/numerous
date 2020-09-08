@@ -167,8 +167,11 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
                     # Make new temp var
                     tmp_label = equation_graph.key_map[va] + '_tmp'
-                    sv = equation_graph.get(e[1], 'scope_var')
-                    sv.set_var = tmp_label
+                    #sv = equation_graph.get(e[1], 'scope_var')
+                    for sv in scope_variables.values():
+                        if sv.set_var == equation_graph.key_map[va]:
+                            sv.set_var = tmp_label
+
                     tmp = equation_graph.add_node(key=tmp_label,  node_type=NodeTypes.TMP, name=tmp_label, ast=None, file='sum', label=tmp_label, ln=0,
                                  ast_type=None, scope_var=sv, ignore_existing=False)
                     # Add temp var to Equation target
@@ -334,7 +337,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                     body.append(ast.Assign(targets=[ast.Name(id=d_u(scope_vars[t]))], value=ast.Call(func=ast.Attribute(attr='empty', value=ast.Name(id='np')), args=[ast.Num(n=len(set_variables[scope_vars[t]]))], keywords=[])))
 
                 for a in vardef.args:
-                    body.append(ast.Assign(targets=[ast.Name(id=d_u(scope_vars[a]))], value=ast.List(elts=[ast.Name(id=v[1].get_path_dot()) for v in set_variables[scope_vars[a]]])))
+                    body.append(ast.Assign(targets=[ast.Name(id=d_u(scope_vars[a]))], value=ast.List(elts=[ast.Name(id=d_u(v[1].get_path_dot())) for v in set_variables[scope_vars[a]]])))
 
 
                 body.append(
@@ -347,6 +350,16 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                         target=ast.Name(id='i')
                     )
                 )
+
+                for t in vardef.targets:
+                    scope_vars[t]
+                    print(set_variables[scope_vars[t]])
+                    body.append(ast.Assign(
+                        targets=[ast.Tuple(elts=[ast.Name(id=d_u(v[1].get_path_dot())) for v in set_variables[scope_vars[t]]])],
+                                           value=ast.Name(id=d_u(scope_vars[t]))
+                                           ))
+
+
             else:
                 if len(vardef.targets) > 1:
                     targets = [ast.Tuple(

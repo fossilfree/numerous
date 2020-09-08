@@ -222,6 +222,8 @@ class Model:
                 print('ns: ',ns.get_path_dot())
                 #if not ns.part_of_set:
                 ns.update_set_var()
+
+        self.system.update_variables_path_()
         # 1. Create list of model namespaces
         model_namespaces = [_ns
                             for item in self.system.registered_items.values()

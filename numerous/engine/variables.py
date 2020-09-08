@@ -133,6 +133,7 @@ class Variable(MappedValue):
         self.type = detailed_variable_description.type
         self.path = VariablePath([detailed_variable_description.tag], self.id)
         self.path_ = None
+        self.paths = []
         self.alias = None
         self.set_var = None
         self.set_var_ix = None
