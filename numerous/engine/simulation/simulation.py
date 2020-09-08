@@ -50,7 +50,7 @@ class Simulation:
         def __end_step(solver, y, t):
             solver.y0 = y
             solver.numba_model.historian_update(t)
-            # solver.numba_model.run_callbacks_with_updates(t)
+            solver.numba_model.run_callbacks_with_updates(t)
 
         print("Generating Numba Model")
         generation_start = time.time()

@@ -1,6 +1,10 @@
+from abc import ABC
+
 import pytest
 from pytest import approx
 
+from callback_decorators import CallbackMethodType, NumbaCallback
+from numba_callback import NumbaCallbackBase
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 
@@ -219,15 +223,24 @@ def test_1_item_model(ms1):
 
 @pytest.mark.parametrize("solver", solver_types)
 def test_callback_step_item_model(ms1, solver):
-    def simple_callback(_, variables):
-        if variables['S1.test_item.t1.T2'].value > 1000:
-            raise ValueError("Overflow of state2")
+
+    class SimpleCallback(NumbaCallbackBase):
+        def finalize(self,var_list):
+            pass
+
+        @NumbaCallback(method_type=CallbackMethodType.INITIALIZE)
+        def initialize(self, var_count, number_of_timesteps):
+            pass
+
+        @NumbaCallback(method_type=CallbackMethodType.UPDATE, run_after_init=True)
+        def update(self, time, variables):
+
+            if variables['S1.test_item.t1.T2'] > 1000:
+                 raise ValueError("Overflow of state2")
 
     m1 = Model(ms1)
-    c1 = _SimulationCallback("test")
-    c1.add_callback_function(simple_callback)
-    m1.callbacks.append(c1)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
+    m1.add_callback(SimpleCallback())
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     with pytest.raises(ValueError, match=r".*Overflow of state2.*"):
         s1.solve()
 

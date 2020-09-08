@@ -135,6 +135,7 @@ class Numerous_solver(BaseSolver):
                         x = int(p_size * j_i / progress_c)
                         #print(t)
                         numba_model.historian_update(t)
+                        numba_model.run_callbacks_with_updates(t)
                         if strict_eval:
                             te_array[1] = t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                         else:

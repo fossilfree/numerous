@@ -142,7 +142,7 @@ class Equation_Parser():
                         method_name = internal_method_name + str(j)
                         setattr(numba_model_class, method_name, list_of_functions[j])
                         code_as_string += iteration_block(method_name, j)
-                    code_as_string = "def eval():\n   def " + callable_method_name + "(self," + callable_parameters + "):\n" \
+                    code_as_string = "def eval():\n   def " + callable_method_name + "(self" + callable_parameters + "):\n" \
                                      + code_as_string \
                                      + "   return " + callable_method_name
             else:
@@ -150,12 +150,12 @@ class Equation_Parser():
                     method_name = internal_method_name + str(i)
                     setattr(numba_model_class, method_name, function)
                     code_as_string += iteration_block(method_name, i)
-                code_as_string = "def eval():\n   def " + callable_method_name + "(self," + callable_parameters + "):\n" \
+                code_as_string = "def eval():\n   def " + callable_method_name + "(self" + callable_parameters + "):\n" \
                                  + code_as_string \
                                  + "   return " + callable_method_name
         else:
             code_as_string = "def eval():\n   def " + callable_method_name \
-                             + "(self," + callable_parameters + "):\n      pass\n   return " + callable_method_name
+                             + "(self" + callable_parameters + "):\n      pass\n   return " + callable_method_name
         tree = ast.parse(code_as_string, mode='exec')
         code = compile(tree, filename='test', mode='exec')
         namespace = {}

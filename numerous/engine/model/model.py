@@ -600,7 +600,7 @@ class Model:
                    ", :self.num_uses_per_eq[" + str(i) + "]])\n"
 
         Equation_Parser.create_numba_iterations(NumbaModel, self.compiled_eq, "compute_eq", "func"
-                                                , create_eq_call, "array_3d", map_sorting=self.eq_outgoing_mappings)
+                                                , create_eq_call, ",array_3d", map_sorting=self.eq_outgoing_mappings)
 
         ##Adding callbacks_varaibles to numba specs
         def create_cbi_call(_method_name: str, i: int):
@@ -608,7 +608,7 @@ class Model:
                    "" + _method_name + "(time, self.path_variables)\n"
 
         Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks, "run_callbacks", "callback_func"
-                                                , create_cbi_call, "time")
+                                                , create_cbi_call, ",time")
 
         def create_cbi2_call(_method_name: str, i: int):
             return "      self." \
@@ -622,7 +622,7 @@ class Model:
                    "" + _method_name + "(time, self.path_variables)\n"
 
         Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init_run, "run_init_callbacks",
-                                                "callback_func_init_pre_update", create_cbiu_call, "time")
+                                                "callback_func_init_pre_update", create_cbiu_call, ",time")
 
         @jitclass(numba_model_spec)
         class NumbaModel_instance(NumbaModel):

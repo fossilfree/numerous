@@ -40,8 +40,8 @@ class IVP_solver(BaseSolver):
         except Exception as e:
             print(e)
             raise e
-        finally:
-            return  self.sol,  self.result_status
+
+        return  self.sol,  self.result_status
 
     def prepare_solver(self):
         print("Compiling Numba equations")
