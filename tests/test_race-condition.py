@@ -9,7 +9,7 @@ import numpy as np
 
 from matplotlib import pyplot as plt
 
-from simulation.solvers.base_solver import solver_types
+from numerous.engine.simulation.solvers.base_solver import solver_types
 
 
 

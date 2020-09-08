@@ -6,7 +6,7 @@ from numerous.engine.simulation import Simulation
 
 from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
 from numerous import EquationBase, OutputFilter, Equation
-from .test_equations import TestEq_ground, Test_Eq, TestEq_input
+from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 
 
 @pytest.fixture

@@ -28,11 +28,12 @@ class IVP_solver(BaseSolver):
         solve the model.
         Returns
         -------
-        Solution : 'OdeSoulution'
+        Solution : 'OdeSolution'
                 returns the most recent OdeSolution from scipy
         """
         self.result_status = "Success"
         self.sol = None
+
         try:
             for t in tqdm(self.time[0:-1]):
                 if self.solver_step(t):
@@ -43,13 +44,6 @@ class IVP_solver(BaseSolver):
 
         return  self.sol,  self.result_status
 
-    def prepare_solver(self):
-        print("Compiling Numba equations")
-        compilation_start = time.time()
-        self.diff_function(0, self.y0)
-
-        compilation_finished = time.time()
-        print("Compilation time: ", compilation_finished - compilation_start)
     def solver_step(self,t):
         step_not_finished = True
         current_timestamp = t
@@ -62,7 +56,7 @@ class IVP_solver(BaseSolver):
             t_eval = np.linspace(current_timestamp, t + self.delta_t, self.num_inner + 1)
 
             self.sol = solve_ivp(self.diff_function, (current_timestamp, t + self.delta_t), y0=self.y0, t_eval=t_eval,
-                            dense_output=True,
+                            dense_output=False,
                             **self.options)
             step_not_finished = False
             event_step = self.sol.status == 1
@@ -84,7 +78,7 @@ class IVP_solver(BaseSolver):
 
                 step_not_finished = True
 
-                self.__end_step(self, sol.self.sol(current_timestamp), current_timestamp, event_id=event_id)
+                self.__end_step(self, self.sol(current_timestamp), current_timestamp, event_id=event_id)
             else:
                 if self.sol.success:
                     self.__end_step(self, self.sol.y[:, -1], current_timestamp)

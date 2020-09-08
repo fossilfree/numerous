@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from pytest import approx
 
-from simulation.solvers.base_solver import solver_types
+from numerous.engine.simulation.solvers.base_solver import solver_types
 
 
 class Item1(Item, EquationBase):

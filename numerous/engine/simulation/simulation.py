@@ -56,6 +56,9 @@ class Simulation:
         generation_start = time.time()
         self.model = model
         numba_model = model.generate_numba_model(t_start, len(self.time))
+
+
+
         generation_finish = time.time()
         print("Generation time: ", generation_finish - generation_start)
 
@@ -64,12 +67,8 @@ class Simulation:
                                      num_inner, max_event_steps,self.model.states_as_vector, **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
-            print("Compiling Numerous Solver")
-            generation_start = time.time()
             self.solver = Numerous_solver(time_, delta_t, numba_model,
                                           num_inner, max_event_steps,self.model.states_as_vector, **kwargs)
-            generation_finish = time.time()
-            print("Compiling time: ", generation_finish - generation_start)
 
         self.solver.register_endstep(__end_step)
 
@@ -77,6 +76,15 @@ class Simulation:
         self.start_datetime = start_datetime
         self.info = model.info["Solver"]
         self.info["Number of Equation Calls"] = 0
+
+
+        print("Compiling Numba equations and initializing historian")
+        compilation_start = time.time()
+        numba_model.func(t_start, numba_model.get_states())
+        numba_model.historian_update(t_start)
+        compilation_finished = time.time()
+        print("Compilation time: ", compilation_finished - compilation_start)
+
 
         # self.solver.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
         # self.callbacks = [x.callbacks for x in sorted(model.callbacks,
@@ -101,10 +109,6 @@ class Simulation:
         pass
         # [x.initialize(simulation=self) for x in self.model.callbacks]
 
-    def prepare_solver(self):
-        try:
-            self.solver.prepare_solver()
-        except Exception as e:
-            raise e
+
 
 

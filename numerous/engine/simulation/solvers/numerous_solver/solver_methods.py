@@ -58,6 +58,10 @@ class RK45(BaseMethod):
         self.c = c
 
         self.max_factor = options.get('max_factor', 10)
+        self.atol = options.get('atol', 1e-3)
+        self.rtol = options.get('rtol', 1e-3)
+
+
         self.order = 5
 
 
@@ -65,49 +69,68 @@ class RK45(BaseMethod):
         @njit
         def Rk45(nm, t, dt, y, _not_used1, _not_used2, _solve_state):
 
+
+
+
             c = _solve_state[0]
             a = _solve_state[1]
             b = _solve_state[2]
             max_factor = _solve_state[3]
+            atol = _solve_state[4]
+            rtol = _solve_state[5]
+            step_info = 1
 
             converged = False
             order = 5
             tnew = t+dt
-            e_max = 1e-2
+
+            if len(y) == 0:
+                return tnew, y, True, 1, _solve_state, max_factor
+
             k = np.zeros((order+1, len(y)))
-            k[0,:] = nm.func(t, y)
-            step_info = 1
+            k[0,:] = dt*nm.func(t, y)
+
 
             rk_sum_4 = k[0,:]*b[0,0]
             rk_sum_5 = k[0,:]*b[1,0]
             for i in range(1,order+1):
-                dy = np.dot(k[:i].T, a[i,:i])*dt
-                k[i,:] = nm.func(t+c[i]*dt, y+dy)
+                dy = np.dot(k[:i].T, a[i,:i])
+                k[i,:] = dt*nm.func(t+c[i]*dt, y+dy)
 
                 rk_sum_4 += b[0, i] * k[i]
                 rk_sum_5 += b[1, i] * k[i]
 
-            y5 = y+dt*rk_sum_5
-            y4 = y+dt*rk_sum_4
-
+            y5 = y+rk_sum_5
+            y4 = y+rk_sum_4
 
             res = np.linalg.norm((y5-y4)/dt)
 
+            e_max = atol + np.max(np.abs(y5))*rtol
+
             if res == 0:
-                delta = 10
+                delta = max_factor
             else:
                 delta = (e_max/(2*res))**(1/4)
             if res <= e_max:
                 converged = True
+                #print(res)
+
+            if delta < 0.1:
+                factor = 0.1
+            elif delta >= max_factor:
+                factor = max_factor
+            else:
+                factor = delta
+
 
             ynew = y5
 
-            return tnew, ynew, converged, step_info, _solve_state, delta
+            return tnew, ynew, converged, step_info, _solve_state, factor
 
         self.step_func = Rk45
 
     def get_solver_state(self, *args, **kwargs):
-        return (self.c, self.a, self.b, self.max_factor)
+        return (self.c, self.a, self.b, self.max_factor, self.atol, self.rtol)
 
 class LevenbergMarquardt(BaseMethod):
     def __init__(self, **options):
@@ -126,6 +149,8 @@ class LevenbergMarquardt(BaseMethod):
         update_jacobian_ = options.get('update_jacobian', True)
         abs_tol = options.get('atol', 0.001)
         rel_tol = options.get('rtol', 0.001)
+        self.longer = options.get('longer', 1.2)
+        self.shorter = options.get('longer', 0.8)
         lp = options.get('lp', None)
         profile = False
         if lp is not None:

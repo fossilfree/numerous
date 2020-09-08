@@ -150,7 +150,8 @@ if __name__ == "__main__":
 
 
     fig = []
-    method = 'RK45'
+    method_ns = 'LevenbergMarquardt'
+    method_scipy = 'BDF'
     dt = {'numerous': [], 'scipy': []}
     for i in num_nodes:#range(1,num_nodes+1):
         fig.append(go.Figure())
@@ -159,10 +160,10 @@ if __name__ == "__main__":
 
         # Define simulation
         s_ns = Simulation(m, t_start=0, t_stop=1000, num=1000, num_inner=1, solver_type=SolverType.NUMEROUS,
-                       method=method)
+                       method=method_ns)
 
         s_scipy = Simulation(m, t_start=0, t_stop=1000, num=1000, num_inner=1, solver_type=SolverType.SOLVER_IVP,
-                       method=method)
+                       method=method_scipy)
         #
         # solve simulation
         dt_ns = timeit(s_ns)
@@ -177,14 +178,14 @@ if __name__ == "__main__":
 
         fig[-1].update_xaxes(title_text='Time(s)')
         fig[-1].update_yaxes(title_text=ydatalabel)
-        fig[-1].add_trace(go.Scatter(x=df_ns['time'], y=df_ns[ydatalabel], name=f'numerous solver {method}'))
-        fig[-1].add_trace(go.Scatter(x=df_scipy['time'], y=df_scipy[ydatalabel], name=f'scipy solver {method}'))
+        fig[-1].add_trace(go.Scatter(x=df_ns['time'], y=df_ns[ydatalabel], name=f'numerous solver {method_ns}'))
+        fig[-1].add_trace(go.Scatter(x=df_scipy['time'], y=df_scipy[ydatalabel], name=f'scipy solver {method_scipy}'))
 
     fig.append(go.Figure())
     fig[-1].update_xaxes(title_text='Number of nodes')
     fig[-1].update_yaxes(title_text='Simulation time(s)')
-    fig[-1].add_trace(go.Scatter(x=num_nodes, y=dt['numerous'], name=f'numerous solver {method}'))
-    fig[-1].add_trace(go.Scatter(x=num_nodes, y=dt['scipy'], name=f'scipy solver {method}'))
+    fig[-1].add_trace(go.Scatter(x=num_nodes, y=dt['numerous'], name=f'numerous solver {method_ns}'))
+    fig[-1].add_trace(go.Scatter(x=num_nodes, y=dt['scipy'], name=f'scipy solver {method_scipy}'))
 
     for f in fig:
         f.show()
