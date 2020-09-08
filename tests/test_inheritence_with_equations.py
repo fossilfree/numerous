@@ -6,7 +6,7 @@ from numerous.engine.simulation import Simulation
 
 from numerous.engine.system import Subsystem, Item
 from numerous import EquationBase, Equation
-from simulation.solvers.base_solver import solver_types
+from numerous.engine.simulation.solvers.base_solver import solver_types
 
 
 class Base_eq(Item, EquationBase):

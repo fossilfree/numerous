@@ -6,7 +6,7 @@ class NumbaCallbackBase(ABC):
     def __init__(self):
         self.numba_params_spec = {}
 
-    def register_numba_varaible(self, variable_name, numba_variable_type):
+    def register_numba_variable(self, variable_name, numba_variable_type):
         self.numba_params_spec.update({variable_name: numba_variable_type})
 
     def restore_variables_from_numba(self,numba_model,var_list):

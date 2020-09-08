@@ -1,6 +1,6 @@
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
 from .solver_methods import *
-
+import time
 
 class Numerous_solver(BaseSolver):
 
@@ -30,6 +30,7 @@ class Numerous_solver(BaseSolver):
             raise e
 
         self.y0 = y0
+
         # Generate the solver
         self._non_compiled_solve = self.generate_solver()
         self._solve = self.compile_solver()
@@ -153,6 +154,7 @@ class Numerous_solver(BaseSolver):
                 #dt_ = t_next_eval - t_start
 
                     # solve from start to new test by calling the step function
+
                 t, y, step_converged, step_info, _solve_state, factor = step_integrate_(numba_model,
                                                                                 t_start,
                                                                                 dt_, y,
@@ -164,6 +166,7 @@ class Numerous_solver(BaseSolver):
                 if step_converged:
                     y_previous = y
                     t_previous = t
+                    numba_model.func(t, y)
                     #print(t)
 
 
@@ -175,6 +178,9 @@ class Numerous_solver(BaseSolver):
         return _solve
 
     def compile_solver(self):
+
+        print("Compiling Numerous Solver")
+        generation_start = time.time()
 
         argtypes = []
 
@@ -203,7 +209,14 @@ class Numerous_solver(BaseSolver):
         for a in args:
             argtypes.append(self._non_compiled_solve.typeof_pyval(a))
         # Return the solver function
-        return self._non_compiled_solve.compile(tuple(argtypes))
+
+        _solve= self._non_compiled_solve.compile(tuple(argtypes))
+
+
+        generation_finish = time.time()
+        print("Compiling time: ", generation_finish - generation_start)
+
+        return _solve
 
     def set_state_vector(self, states_as_vector):
         self.y0 = states_as_vector
@@ -244,9 +257,11 @@ class Numerous_solver(BaseSolver):
         .. [1] E. Hairer, S. P. Norsett G. Wanner, "Solving Ordinary Differential
                Equations I: Nonstiff Problems", Sec. II.4.
         """
+
+        f0 = nm.func(t0, y0)
+
         if y0.size == 0:
             return np.inf
-        f0 = nm.func(t0, y0)
 
         scale = atol + np.abs(y0) * rtol
         d0 = np.linalg.norm(y0 / scale)
@@ -265,6 +280,9 @@ class Numerous_solver(BaseSolver):
         else:
             h1 = (0.01 / max(d1, d2)) ** (1 / (order + 1))
 
+        # Restore states in numba model
+        nm.func(t0, y0)
+
         return min(100 * h0, h1)
 
     def solve(self):
@@ -273,7 +291,7 @@ class Numerous_solver(BaseSolver):
 
         Returns
         -------
-        Solution : 'OdeSoulution'
+        Solution : 'OdeSolution'
                 returns the most recent OdeSolution from scipy
 
         """
@@ -287,6 +305,7 @@ class Numerous_solver(BaseSolver):
         # Call the solver
         from copy import deepcopy
         y0 = deepcopy(self.y0)
+
         state = deepcopy(self.y0)
 
 
@@ -300,13 +319,15 @@ class Numerous_solver(BaseSolver):
 
         order = self._method.order
 
-        initial_step = self.select_initial_step(self.numba_model, t_start, y0, 1, order, rtol, atol )  # np.min([100000000*min_step, max_step])
+        initial_step = self.select_initial_step(self.numba_model, t_start,  y0, 1, order-1, rtol, atol )  # np.min([100000000*min_step, max_step])
 
         strict_eval = self.method_options.get('strict_eval')
         outer_itermax = self.method_options.get('outer_itermax')
 
 
         step_integrate_ = self._method.step_func
+
+
 
         # figure out solve_state init
         solve_state = self._method.get_solver_state(len(y0))
