@@ -77,6 +77,15 @@ class Simulation:
         self.info = model.info["Solver"]
         self.info["Number of Equation Calls"] = 0
 
+
+        print("Compiling Numba equations and initializing historian")
+        compilation_start = time.time()
+        numba_model.func(t_start, numba_model.get_states())
+        numba_model.historian_update(t_start)
+        compilation_finished = time.time()
+        print("Compilation time: ", compilation_finished - compilation_start)
+
+
         # self.solver.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
         # self.callbacks = [x.callbacks for x in sorted(model.callbacks,
         #                                               key=lambda callback: callback.priority,
@@ -100,10 +109,6 @@ class Simulation:
         pass
         # [x.initialize(simulation=self) for x in self.model.callbacks]
 
-    def prepare_solver(self):
-        try:
-            self.solver.prepare_solver()
-        except Exception as e:
-            raise e
+
 
 

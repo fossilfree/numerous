@@ -66,8 +66,11 @@ class RK45(BaseMethod):
 
 
 
-        #@njit
+        @njit
         def Rk45(nm, t, dt, y, _not_used1, _not_used2, _solve_state):
+
+
+
 
             c = _solve_state[0]
             a = _solve_state[1]
@@ -75,16 +78,18 @@ class RK45(BaseMethod):
             max_factor = _solve_state[3]
             atol = _solve_state[4]
             rtol = _solve_state[5]
-
-
+            step_info = 1
 
             converged = False
             order = 5
             tnew = t+dt
 
+            if len(y) == 0:
+                return tnew, y, True, 1, _solve_state, max_factor
+
             k = np.zeros((order+1, len(y)))
             k[0,:] = dt*nm.func(t, y)
-            step_info = 1
+
 
             rk_sum_4 = k[0,:]*b[0,0]
             rk_sum_5 = k[0,:]*b[1,0]
@@ -98,13 +103,9 @@ class RK45(BaseMethod):
             y5 = y+rk_sum_5
             y4 = y+rk_sum_4
 
-            #res = np.linalg.norm((1/360 * f[0]*dt-128/4275*f[2]*dt-2197/75240*f[3]*dt+1/50*f[4]*dt+2/55*f[5]*dt)/dt)
             res = np.linalg.norm((y5-y4)/dt)
 
-            e_max = atol + np.amax(np.abs(y5))*rtol
-            #print(diff, res)
-
-
+            e_max = atol + np.max(np.abs(y5))*rtol
 
             if res == 0:
                 delta = max_factor

@@ -22,7 +22,6 @@ class IVP_solver(BaseSolver):
         self.diff_function = numba_model.func
         self.max_event_steps = max_event_steps
         self.options = kwargs
-        self.prepare_solver()
 
     def solve(self):
         """
@@ -45,14 +44,6 @@ class IVP_solver(BaseSolver):
         finally:
             return  self.sol,  self.result_status
 
-    def prepare_solver(self):
-        print("Compiling Numba equations")
-        compilation_start = time.time()
-        self.diff_function(self.time[0], self.y0)
-        self.numba_model.historian_update(self.time[0])
-
-        compilation_finished = time.time()
-        print("Compilation time: ", compilation_finished - compilation_start)
     def solver_step(self,t):
         step_not_finished = True
         current_timestamp = t

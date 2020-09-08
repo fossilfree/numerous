@@ -36,7 +36,7 @@ class Numerous_solver(BaseSolver):
         # self._solve = self.generate_solver()
 
     def generate_solver(self):
-        #@njit
+        @njit
         def _solve(numba_model, _solve_state, initial_step, order, strict_eval, outer_itermax,
                    min_step, max_step, step_integrate_,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
@@ -144,7 +144,7 @@ class Numerous_solver(BaseSolver):
 
                     order_ = add_ring_buffer(t, y, roller, order_)
 
-                dt_ = np.amin([t_next_eval-t_start, t_new_test-t_start])
+                dt_ = min([t_next_eval-t_start, t_new_test-t_start])
                 #dt_ = t_next_eval - t_start
 
                     # solve from start to new test by calling the step function
@@ -200,11 +200,11 @@ class Numerous_solver(BaseSolver):
                 self.time[0],
                 self.time[-1],
                 self.time)
-        #for a in args:
-        #    argtypes.append(self._non_compiled_solve.typeof_pyval(a))
+        for a in args:
+            argtypes.append(self._non_compiled_solve.typeof_pyval(a))
         # Return the solver function
 
-        _solve= self._non_compiled_solve#.compile(tuple(argtypes))
+        _solve= self._non_compiled_solve.compile(tuple(argtypes))
 
 
         generation_finish = time.time()
@@ -251,10 +251,11 @@ class Numerous_solver(BaseSolver):
         .. [1] E. Hairer, S. P. Norsett G. Wanner, "Solving Ordinary Differential
                Equations I: Nonstiff Problems", Sec. II.4.
         """
-        if y0.size == 0:
-            return np.inf
 
         f0 = nm.func(t0, y0)
+
+        if y0.size == 0:
+            return np.inf
 
         scale = atol + np.abs(y0) * rtol
         d0 = np.linalg.norm(y0 / scale)
@@ -275,8 +276,6 @@ class Numerous_solver(BaseSolver):
 
         # Restore states in numba model
         nm.func(t0, y0)
-        nm.historian_update(t0)
-
 
         return min(100 * h0, h1)
 
