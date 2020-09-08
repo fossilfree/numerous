@@ -86,7 +86,11 @@ class Equation_Parser():
                 eq_text = "def eq_body(func_text):\n   def eval(self,scope):\n      pass\n   return eval"
 
             tree = ast.parse(eq_text, mode='exec')
-            code = compile(tree, filename='test', mode='exec')
+            if model.save_equations:
+                text_file = open(eq_id+".py", "w")
+                text_file.write(eq_text)
+                text_file.close()
+            code = compile(tree, filename=eq_id+".py", mode='exec')
             namespace = {}
             exec(code, namespace)
             compiled_equations_idx.append(len(compiled_equations_ids))

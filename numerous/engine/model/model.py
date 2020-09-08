@@ -70,13 +70,15 @@ class Model:
      so they can be accessed as variable values there.
     """
 
-    def __init__(self, system=None, historian=None, assemble=True, validate=False):
+    def __init__(self, system=None, historian=None, assemble=True, validate=False, save_equations = False):
 
         self.numba_callbacks_init = []
         self.numba_callbacks_variables = []
         self.numba_callbacks = []
         self.numba_callbacks_init_run = []
         self.callbacks = []
+
+        self.save_equations= save_equations
 
         self.system = system
         self.events = {}
