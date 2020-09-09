@@ -151,9 +151,11 @@ class Variable(MappedValue):
         self.allow_update = detailed_variable_description.allow_update
         self.associated_scope = []
         self.idx_in_scope = []
+        self.top_item = None
 
     def get_path_dot(self):
-        return ".".join(self.path_)
+        #return ".".join(self.path_)
+        return self.path.path[self.top_item][0]#".".join(self.path.path[self.top_item])
 
     def update_value(self, value):
         self.value = value

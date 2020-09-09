@@ -291,6 +291,9 @@ class Model:
         self.scoped_equations = {}
         self.equations_top = {}
         logging.info('parsing equations starting')
+        for v in self.scope_variables.values():
+            v.top_item = self.system.id
+
         for ns in self.name_spaces.values():
             try:
                 tag_vars = {v.tag: v for v in self.scope_variables.values() if v.set_var in ns[1][0].set_variables}
@@ -1009,19 +1012,11 @@ class AliasedDataFrame(pd.DataFrame):
     _metadata = ['aliases']
 
     def __init__(self, data, aliases={}):
+        #df['system.alias.T']
 
         self.aliases = aliases
-        #print('vars')
-        #for k in self.aliases.keys():
-        #    print(k)
-        super().__init__(data)
-        #for l in list(self):
-        #    print(l)
-        #intersect = set(list(self)).intersection(set(self.aliases))
-        #print('intersect!!: ',intersect)
-        #print(len(intersect))
-        #print(self.aliases.keys())
 
+        super().__init__(data)
 
 
     def __getitem__(self, item):

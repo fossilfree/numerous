@@ -706,7 +706,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
         #equation_graph.add_edge(prev_e, ae, e_type='value')
 
     #gg.as_graphviz('global', force=True)
-    equation_graph.as_graphviz('eq_bf_sub', force=True)
+    #equation_graph.as_graphviz('eq_bf_sub', force=True)
     aliases = {}
 
     if False:
