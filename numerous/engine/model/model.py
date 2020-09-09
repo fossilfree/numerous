@@ -6,7 +6,6 @@ import uuid
 import numpy as np
 from numba import jitclass
 
-
 from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
@@ -20,9 +19,10 @@ from numerous.utils.numba_callback import NumbaCallbackBase
 
 import operator
 
+
 class ModelNamespace:
 
-    def __init__(self, tag,outgoing_mappings):
+    def __init__(self, tag, outgoing_mappings):
         self.tag = tag
         self.outgoing_mappings = outgoing_mappings
         self.equation_dict = {}
@@ -70,7 +70,7 @@ class Model:
      so they can be accessed as variable values there.
     """
 
-    def __init__(self, system=None, historian=None, assemble=True, validate=False, save_equations = False):
+    def __init__(self, system=None, historian=None, assemble=True, validate=False, save_equations=False):
 
         self.numba_callbacks_init = []
         self.numba_callbacks_variables = []
@@ -78,7 +78,7 @@ class Model:
         self.numba_callbacks_init_run = []
         self.callbacks = []
 
-        self.save_equations= save_equations
+        self.save_equations = save_equations
 
         self.system = system
         self.events = {}
@@ -99,6 +99,8 @@ class Model:
         self.variables = {}
         self.flat_variables = {}
         self.path_variables = {}
+        self.aliases = {}
+        self.callback_variables = {}
         self.path_scope_variables = {}
         self.states = {}
         self.period = 1
@@ -118,7 +120,6 @@ class Model:
 
         if validate:
             self.validate()
-
 
     def __add_item(self, item):
         model_namespaces = []
@@ -151,13 +152,12 @@ class Model:
         -  _3d 
 
         """
+
         def __get_mapping__idx(variable):
             if variable.mapping:
                 return __get_mapping__idx(variable.mapping)
             else:
                 return variable.idx_in_scope[0]
-
-
 
         print("Assembling numerous Model")
         assemble_start = time.time()
@@ -176,6 +176,7 @@ class Model:
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
         self.mappings = []
+
         def __get_mapping__variable(variable):
             if variable.mapping:
                 return __get_mapping__variable(variable.mapping)
@@ -187,13 +188,12 @@ class Model:
                 _from = __get_mapping__variable(var)
                 self.mappings.append((var.id, _from.id))
             if not var.mapping_id and var.sum_mapping_ids:
-                self.mappings.append((var.id,var.sum_mapping_ids))
+                self.mappings.append((var.id, var.sum_mapping_ids))
 
         # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping
         # self.synchronized_scope to compiled_eq (by index)
         equation_parser = Equation_Parser()
-        self.compiled_eq, self.compiled_eq_idxs,self.eq_outgoing_mappings = equation_parser.parse(self)
-
+        self.compiled_eq, self.compiled_eq_idxs, self.eq_outgoing_mappings = equation_parser.parse(self)
 
         # 4. Create self.states_idx and self.derivatives_idx
         # Fixes each variable's var_idx (position), updates variables[].idx_in_scope
@@ -212,8 +212,6 @@ class Model:
         self.derivatives_idx = np.fromiter(map(_fst, filter(
             _snd_is_derivative, enumerate(self.scope_variables.values()))),
                                            np.int64)
-
-
 
         # maps flat var_idx to scope_idx
         self.var_idx_to_scope_idx = np.full_like(scope_variables_flat, -1, np.int64)
@@ -302,7 +300,6 @@ class Model:
         self.differing_idxs_from_flat = self.flat_scope_idx_from[_differing_idxs]
         self.differing_idxs_pos_flat = self.flat_scope_idx[_differing_idxs]
 
-
         self.differing_idxs_from_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_from_flat, False)
         self.differing_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_pos_flat, False)
         self.sum_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.sum_idx, False)
@@ -319,11 +316,15 @@ class Model:
         # multiple path
         #
         var_idxs_pos_3d_helper = []
+        var_idxs_pos_3d_helper_callbacks = []
         for i, variable in enumerate(self.variables.values()):
+            self.path_variables.update({variable.id: variable.value})
             for path in variable.path.path[self.system.id]:
-                self.path_variables.update({path: variable.value})
-                var_idxs_pos_3d_helper.append(i)
+                self.aliases.update({path: variable.id})
+                self.callback_variables.update({path: variable.value})
+                var_idxs_pos_3d_helper_callbacks.append(i)
         self.var_idxs_pos_3d_helper = np.array(var_idxs_pos_3d_helper, dtype=np.int64)
+        self.var_idxs_pos_3d_helper_callbacks = np.array(var_idxs_pos_3d_helper_callbacks, dtype=np.int64)
 
         # This can be done more efficiently using two num_scopes-sized view of a (num_scopes+1)-sized array
         _flat_scope_idx_slices_lengths = list(map(len, non_flat_scope_idx))
@@ -331,7 +332,7 @@ class Model:
         self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
 
         assemble_finish = time.time()
-        print("Assemble time: ",assemble_finish - assemble_start)
+        print("Assemble time: ", assemble_finish - assemble_start)
         self.info.update({"Assemble time": assemble_finish - assemble_start})
         self.info.update({"Number of items": len(self.model_items)})
         self.info.update({"Number of variables": len(self.scope_variables)})
@@ -376,7 +377,6 @@ class Model:
     def update_states(self, y):
         self.scope_variables[self.states_idx] = y
 
-
     def history_as_dataframe(self):
         time = self.data[0]
         data = {'time': time}
@@ -388,7 +388,6 @@ class Model:
         self.df = self.df.dropna(subset=['time'])
         self.df = self.df.set_index('time')
         self.df.index = pd.to_timedelta(self.df.index, unit='s')
-
 
     def validate(self):
         """
@@ -645,7 +644,7 @@ class Model:
             NM_instance.path_keys.append(key)
         NM_instance.run_init_callbacks(start_time)
 
-        #NM_instance.historian_update(start_time)
+        # NM_instance.historian_update(start_time)
         self.numba_model = NM_instance
         return self.numba_model
 
@@ -661,12 +660,11 @@ class Model:
         # self.historian_df = self.historian_df.set_index('time')
         # self.historian_df.index = pd.to_timedelta(self.historian_df.index, unit='s')
 
-
         time = self.numba_model.historian_data[0]
         data = {'time': time}
 
         for i, var in enumerate(self.path_variables):
-             data.update({var: self.numba_model.historian_data[i + 1]})
+            data.update({var: self.numba_model.historian_data[i + 1]})
 
         self.historian_df = pd.DataFrame(data)
         # self.df.set_index('time')
