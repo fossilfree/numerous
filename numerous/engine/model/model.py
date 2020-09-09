@@ -319,6 +319,7 @@ class Model:
         var_idxs_pos_3d_helper_callbacks = []
         for i, variable in enumerate(self.variables.values()):
             self.path_variables.update({variable.id: variable.value})
+            var_idxs_pos_3d_helper.append(i)
             for path in variable.path.path[self.system.id]:
                 self.aliases.update({path: variable.id})
                 self.callback_variables.update({path: variable.value})
@@ -643,22 +644,10 @@ class Model:
             NM_instance.path_variables[key] = value
             NM_instance.path_keys.append(key)
         NM_instance.run_init_callbacks(start_time)
-
-        # NM_instance.historian_update(start_time)
         self.numba_model = NM_instance
         return self.numba_model
 
     def create_historian_df(self):
-        # _time = self.numba_model.historian_data[0]
-        # data = {'time': _time}
-        #
-        # for i, var in enumerate(self.path_variables):
-        #     data.update({var: self.numba_model.historian_data[i + 1]})
-        #
-        # self.historian_df = pd.DataFrame(data)
-        # self.historian_df = self.historian_df.dropna(subset=['time'])
-        # self.historian_df = self.historian_df.set_index('time')
-        # self.historian_df.index = pd.to_timedelta(self.historian_df.index, unit='s')
 
         time = self.numba_model.historian_data[0]
         data = {'time': time}
@@ -666,5 +655,21 @@ class Model:
         for i, var in enumerate(self.path_variables):
             data.update({var: self.numba_model.historian_data[i + 1]})
 
-        self.historian_df = pd.DataFrame(data)
-        # self.df.set_index('time')
+        self.historian_df = AliasedDataFrame(data, aliases=self.aliases)
+
+
+class AliasedDataFrame(pd.DataFrame):
+    _metadata = ['aliases']
+
+    def __init__(self, data, aliases={}):
+        self.aliases = aliases
+        super().__init__(data)
+
+    def __getitem__(self, item):
+        if not isinstance(item, list):
+            col = self.aliases[item] if item in self.aliases else item
+            return super().__getitem__(col)
+
+        cols = [self.aliases[i] if i in self.aliases else i for i in item]
+
+        return super().__getitem__(cols)
