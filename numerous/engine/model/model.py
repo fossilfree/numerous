@@ -104,7 +104,6 @@ class Model:
         self.flat_variables = {}
         self.path_variables = {}
         self.aliases = {}
-        self.callback_variables = {}
         self.historian_paths = {}
         self.path_scope_variables = {}
         self.states = {}
@@ -325,28 +324,22 @@ class Model:
         # var_idxs_pos_3d_helper shows position for var_idxs_pos_3d for variables that have
         # multiple path
         #
-        var_idxs_pos_3d_helper = []
         var_idxs_historian_3d = []
         var_idxs_pos_3d_helper_callbacks = []
         for i, variable in enumerate(self.variables.values()):
-            for path in variable.path.path[self.system.id]:
-                self.path_variables.update({path: variable.value})
-                var_idxs_pos_3d_helper.append(i)
-                break
             if variable.logger_level.value >= self.logger_level.value:
                 var_idxs_historian_3d.append(i)
-                if variable.alias is not None:
-                    self.historian_paths.update({variable.alias: variable.value})
-                else:
-                    self.historian_paths.update({variable.path.path[self.system.id][0]: variable.value})
+                self.historian_paths.update({variable.id: variable.value})
+                for path in variable.path.path[self.system.id]:
+                    self.aliases.update({path: variable.id})
+                    if variable.alias is not None:
+                        self.aliases.update({variable.alias: variable.id})
 
-            self.path_variables.update({variable.id: variable.value})
-            var_idxs_pos_3d_helper.append(i)
             for path in variable.path.path[self.system.id]:
-                self.aliases.update({path: variable.id})
-                self.callback_variables.update({path: variable.value})
+                self.path_variables.update({path: variable.value})  # is this used at all?
                 var_idxs_pos_3d_helper_callbacks.append(i)
-        self.var_idxs_pos_3d_helper = np.array(var_idxs_pos_3d_helper, dtype=np.int64)
+
+        self.var_idxs_pos_3d_helper_callbacks = np.array(var_idxs_pos_3d_helper_callbacks, dtype=np.int64)
         self.var_idxs_historian_3d = np.array(var_idxs_historian_3d, dtype=np.int64)
 
         # This can be done more efficiently using two num_scopes-sized view of a (num_scopes+1)-sized array
@@ -445,7 +438,7 @@ class Model:
                     var.mapping = self.scope_variables[var.mapping_id]
                 if var.sum_mapping_id:
                     var.sum_mapping = self.scope_variables[var.sum_mapping_id]
-
+    # TODO: FIX THIS
     def restore_state(self, timestep=-1):
         """
 
@@ -659,14 +652,15 @@ class Model:
         class NumbaModel_instance(NumbaModel):
             pass
 
-        NM_instance = NumbaModel_instance(self.var_idxs_pos_3d, self.var_idxs_pos_3d_helper, self.var_idxs_historian_3d,
+        NM_instance = NumbaModel_instance(self.var_idxs_pos_3d, self.var_idxs_pos_3d_helper_callbacks,
+                                          self.var_idxs_historian_3d,
                                           len(self.compiled_eq), self.state_idxs_3d[0].shape[0],
                                           self.differing_idxs_pos_3d[0].shape[0], self.scope_vars_3d,
                                           self.state_idxs_3d,
                                           self.deriv_idxs_3d, self.differing_idxs_pos_3d, self.differing_idxs_from_3d,
                                           self.num_uses_per_eq, self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
                                           self.sum_slice_idxs, self.sum_mapped_idxs_len, self.sum_mapping,
-                                          self.global_vars, number_of_timesteps, len(self.path_variables), start_time,
+                                          self.global_vars, number_of_timesteps, start_time,
                                           self.mapped_variables_array)
 
         for key, value in self.path_variables.items():

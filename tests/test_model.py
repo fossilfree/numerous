@@ -3,8 +3,8 @@ from abc import ABC
 import pytest
 from pytest import approx
 
-from callback_decorators import CallbackMethodType, NumbaCallback
-from numba_callback import NumbaCallbackBase
+from numerous.utils.callback_decorators import CallbackMethodType, NumbaCallback
+from numerous.utils.numba_callback import NumbaCallbackBase
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 

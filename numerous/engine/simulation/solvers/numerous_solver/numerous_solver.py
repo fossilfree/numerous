@@ -170,7 +170,7 @@ class Numerous_solver(BaseSolver):
                     y_previous = y
                     t_previous = t
                     numba_model.func(t, y)
-                print(t)
+
 
 
             info = {'step_info': step_info}

@@ -6,12 +6,11 @@ kv_ty = (types.unicode_type, float64)
 
 numba_model_spec = [
     ('var_idxs_pos_3d', types.Tuple((int64[:], int64[:], int64[:]))),
-    ('var_idxs_pos_3d_helper', int64[:]),
+    ('var_idxs_pos_3d_helper_callbacks', int64[:]),
     ('var_idxs_historian_3d', int64[:]),
     ('start_time', int32),
     ('eq_count', int32),
     ('number_of_timesteps', int32),
-    ('number_of_variables', int32),
     ('number_of_states', int32),
     ('number_of_mappings', int32),
     ('scope_vars_3d', float64[:, :, :]),
@@ -35,14 +34,16 @@ numba_model_spec = [
 
 
 class NumbaModel:
-    def __init__(self, var_idxs_pos_3d, var_idxs_pos_3d_helper, var_idxs_historian_3d, eq_count, number_of_states, number_of_mappings,
+    def __init__(self, var_idxs_pos_3d, var_idxs_pos_3d_helper_callbacks, var_idxs_historian_3d, eq_count,
+                 number_of_states,
+                 number_of_mappings,
                  scope_vars_3d, state_idxs_3d, deriv_idxs_3d,
                  differing_idxs_pos_3d, differing_idxs_from_3d, num_uses_per_eq,
                  sum_idxs_pos_3d, sum_idxs_sum_3d, sum_slice_idxs, sum_slice_idxs_len, sum_mapping,
-                 global_vars, number_of_timesteps, number_of_variables, start_time, mapped_variables_array):
+                 global_vars, number_of_timesteps, start_time, mapped_variables_array):
 
         self.var_idxs_pos_3d = var_idxs_pos_3d
-        self.var_idxs_pos_3d_helper = var_idxs_pos_3d_helper
+        self.var_idxs_pos_3d_helper_callbacks = var_idxs_pos_3d_helper_callbacks
         self.var_idxs_historian_3d = var_idxs_historian_3d
         self.eq_count = eq_count
         self.number_of_states = number_of_states
@@ -62,12 +63,11 @@ class NumbaModel:
         self.path_variables = typed.Dict.empty(*kv_ty)
         self.path_keys = typed.List.empty_list(types.unicode_type)
         self.number_of_timesteps = number_of_timesteps
-        self.number_of_variables = number_of_variables
         self.start_time = start_time
         self.historian_ix = 0
         ##* simulation.num_inner
         #self.historian_data = np.empty((self.number_of_variables + 1, number_of_timesteps*100), dtype=np.float64)
-        self.historian_data = np.empty((len(var_idxs_historian_3d) + 1, number_of_timesteps * 100), dtype=np.float64)
+        self.historian_data = np.empty((len(var_idxs_historian_3d) + 1, number_of_timesteps), dtype=np.float64)
         self.historian_data.fill(np.nan)
         self.mapped_variables_array = mapped_variables_array
         ##Function is genrated in model.py contains creation and initialization of all callback related variables
@@ -121,7 +121,7 @@ class NumbaModel:
         '''
 
         for key, j in zip(self.path_keys,
-                          self.var_idxs_pos_3d_helper):
+                          self.var_idxs_pos_3d_helper_callbacks):
             self.path_variables[key] \
                 = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
                 self.var_idxs_pos_3d[2][j]]
@@ -129,7 +129,7 @@ class NumbaModel:
         self.run_callbacks(time)
 
         for key, j in zip(self.path_keys,
-                          self.var_idxs_pos_3d_helper):
+                          self.var_idxs_pos_3d_helper_callbacks):
             self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][self.var_idxs_pos_3d[2][j]] \
                 = self.path_variables[key]
 
