@@ -4,7 +4,7 @@ import time
 
 class Numerous_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, numba_model, num_inner, max_event_steps, y0, **kwargs):
+    def __init__(self, time, delta_t,  numba_model, num_inner, max_event_steps, y0, **kwargs):
         super().__init__()
         self.time = time
         self.num_inner = num_inner
@@ -31,6 +31,7 @@ class Numerous_solver(BaseSolver):
 
         self.y0 = y0
 
+
         # Generate the solver
         self._non_compiled_solve = self.generate_solver()
         self._solve = self.compile_solver()
@@ -38,6 +39,7 @@ class Numerous_solver(BaseSolver):
 
     def generate_solver(self):
         @njit
+
         def _solve(numba_model, _solve_state, initial_step, order, strict_eval, outer_itermax,
                    min_step, max_step, step_integrate_,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
@@ -168,7 +170,7 @@ class Numerous_solver(BaseSolver):
                     y_previous = y
                     t_previous = t
                     numba_model.func(t, y)
-                    #print(t)
+                print(t)
 
 
             info = {'step_info': step_info}

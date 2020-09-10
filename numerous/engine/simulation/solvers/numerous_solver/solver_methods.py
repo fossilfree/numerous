@@ -115,8 +115,8 @@ class RK45(BaseMethod):
                 converged = True
                 #print(res)
 
-            if delta < 0.1:
-                factor = 0.1
+            if delta < 0.001:
+                factor = 0.001
             elif delta >= max_factor:
                 factor = max_factor
             else:

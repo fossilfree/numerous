@@ -4,6 +4,7 @@ from typing import Any
 import uuid
 from functools import reduce
 from operator import add
+from numerous.utils.logger_levels import LoggerLevel
 
 
 class VariableBase:
@@ -28,6 +29,8 @@ class VariableDescription:
     type: VariableType = VariableType.PARAMETER
     initial_value: Any = None
     id: str = None
+    logger_level: LoggerLevel = LoggerLevel.ALL
+    alias: str = None
     external_mapping: bool = False
 
 
@@ -48,6 +51,7 @@ class MappedValue(object):
         self.sum_mapping = []
         self.special_mapping = False
         self.addself = False
+        self.logger_level = None
 
     def add_mapping(self, variable):
         if not self.special_mapping:
@@ -134,6 +138,7 @@ class Variable(MappedValue):
         self.mapping = detailed_variable_description.mapping
         self.update_counter = detailed_variable_description.update_counter
         self.allow_update = detailed_variable_description.allow_update
+        self.logger_level = detailed_variable_description.logger_level
         self.associated_scope = []
         self.idx_in_scope = []
 
@@ -143,7 +148,7 @@ class Variable(MappedValue):
     @staticmethod
     def create(namespace, v_id, tag,
                v_type, value, item, metadata,
-               mapping, update_counter, allow_update):
+               mapping, update_counter, allow_update, logger_level, alias):
         return Variable(DetailedVariableDescription(tag=tag,
                                                     id=v_id,
                                                     type=v_type,
@@ -153,8 +158,24 @@ class Variable(MappedValue):
                                                     metadata=metadata,
                                                     mapping=mapping,
                                                     update_counter=update_counter,
-                                                    allow_update=allow_update))
+                                                    allow_update=allow_update,
+                                                    logger_level=logger_level,
+                                                    alias=alias))
 
+    # def __setattr__(self, key, value):
+    #     if key == 'value' and 'update_counter' in self.__dict__:
+    #         if self.allow_update:
+    #             self.update_counter += 1
+    #         else:
+    #             if self.type == VariableType.CONSTANT:
+    #                 raise ValueError(' It is not possible to reassign constant variable {0}'
+    #                                  .format(self.tag))
+    #             else:
+    #
+    #                 raise ValueError('It is not possible to reassign variable {0}'
+    #                                  ' in differential equation'.format(self.tag))
+    #
+    #     object.__setattr__(self, key, value)
 
 
 class _VariableFactory:
@@ -170,7 +191,9 @@ class _VariableFactory:
                                metadata={},
                                mapping=None,
                                update_counter=0,
-                               allow_update=(var_desc.type != VariableType.CONSTANT)
+                               allow_update=(var_desc.type != VariableType.CONSTANT),
+                               logger_level=var_desc.logger_level,
+                               alias=var_desc.alias,
                                )
 
     @staticmethod
@@ -184,6 +207,9 @@ class _VariableFactory:
                              metadata={},
                              mapping=None,
                              update_counter=0,
-                             allow_update=(variable_description.type != VariableType.CONSTANT))
+                             allow_update=(variable_description.type != VariableType.CONSTANT),
+                             logger_level=variable_description.logger_level,
+                             alias=variable_description.alias,
+                             )
 
         return v1

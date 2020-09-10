@@ -46,6 +46,7 @@ class Simulation:
         self.callbacks = []
         self.time = time_
         self.async_callback = []
+        self.model = model
 
         def __end_step(solver, y, t):
             solver.y0 = y
@@ -54,16 +55,13 @@ class Simulation:
 
         print("Generating Numba Model")
         generation_start = time.time()
-        self.model = model
         numba_model = model.generate_numba_model(t_start, len(self.time))
-
-
 
         generation_finish = time.time()
         print("Generation time: ", generation_finish - generation_start)
 
         if solver_type.value == SolverType.SOLVER_IVP.value:
-            self.solver = IVP_solver(time_, delta_t, numba_model,
+            self.solver = IVP_solver(time_, delta_t,  numba_model,
                                      num_inner, max_event_steps,self.model.states_as_vector, **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
@@ -98,6 +96,7 @@ class Simulation:
             sol, result_status = self.solver.solve()
         except Exception as e:
             raise e
+
         finally:
             self.info.update({"Solving status": result_status})
             list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,
