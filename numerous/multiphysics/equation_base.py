@@ -51,7 +51,7 @@ class EquationBase:
                 self.equations.append(method_call)
 
 
-    def add_parameter(self, tag, init_val):
+    def add_parameter(self, tag, init_val, logger_level=None, alias=None):
         """
 
         Parameters
@@ -63,9 +63,9 @@ class EquationBase:
         -------
 
         """
-        self.add_variable(tag, init_val, VariableType.PARAMETER)
+        self.add_variable(tag, init_val, VariableType.PARAMETER, logger_level, alias)
 
-    def add_constant(self, tag, value):
+    def add_constant(self, tag, value, logger_level=None, alias=None):
         """
 
         Parameters
@@ -77,9 +77,9 @@ class EquationBase:
         -------
 
         """
-        self.add_variable(tag, value, VariableType.CONSTANT)
+        self.add_variable(tag, value, VariableType.CONSTANT, logger_level, alias)
 
-    def add_state(self, tag, init_val):
+    def add_state(self, tag, init_val, logger_level=None, alias=None):
         """
 
         Parameters
@@ -93,10 +93,11 @@ class EquationBase:
         """
         if not isinstance(init_val, float) and not isinstance(init_val, int):
             raise ValueError("State must be float or integer")
-        self.add_variable(tag, init_val, VariableType.STATE)
-        self.add_variable(tag + '_dot', 0, VariableType.DERIVATIVE)
+        self.add_variable(tag, init_val, VariableType.STATE, logger_level, alias)
+        self.add_variable(tag + '_dot', 0, VariableType.DERIVATIVE, logger_level,
+                          alias+"_dot" if alias is not None else None)
 
-    def add_variable(self, tag, init_val, var_type):
+    def add_variable(self, tag, init_val, var_type, logger_level, alias):
         """
 
         Parameters
@@ -111,4 +112,4 @@ class EquationBase:
         """
         self.variables_descriptions. \
             register_variable_description(VariableDescription(tag=tag, id=str(uuid.uuid1()), initial_value=init_val,
-                                                              type=var_type))
+                                                              type=var_type, logger_level=logger_level, alias=alias))

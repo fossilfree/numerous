@@ -5,7 +5,7 @@ import time
 import uuid
 import numpy as np
 from numba import jitclass
-
+from numerous.utils.logger_levels import LoggerLevel
 
 from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
@@ -36,6 +36,7 @@ class ModelAssembler:
     def __create_scope(eq_tag, eq_methods, eq_variables, namespace, tag, variables):
         scope_id = "{0}_{1}_{2}".format(eq_tag, namespace.tag, tag, str(uuid.uuid4()))
         scope = Scope(scope_id)
+
         for variable in eq_variables:
             scope.add_variable(variable)
             variable.bound_equation_methods = eq_methods
@@ -70,7 +71,11 @@ class Model:
      so they can be accessed as variable values there.
     """
 
-    def __init__(self, system=None, historian=None, assemble=True, validate=False, save_equations = False):
+    def __init__(self, system=None, logger_level=None, assemble=True, validate=False, save_equations = False):
+        if logger_level == None:
+            self.logger_level = LoggerLevel.ALL
+        else:
+            self.logger_level = logger_level
 
         self.numba_callbacks_init = []
         self.numba_callbacks_variables = []
@@ -99,6 +104,7 @@ class Model:
         self.variables = {}
         self.flat_variables = {}
         self.path_variables = {}
+        self.historian_paths = {}
         self.path_scope_variables = {}
         self.states = {}
         self.period = 1
@@ -319,11 +325,21 @@ class Model:
         # multiple path
         #
         var_idxs_pos_3d_helper = []
+        var_idxs_historian_3d = []
         for i, variable in enumerate(self.variables.values()):
             for path in variable.path.path[self.system.id]:
                 self.path_variables.update({path: variable.value})
                 var_idxs_pos_3d_helper.append(i)
+                break
+            if variable.logger_level.value >= self.logger_level.value:
+                var_idxs_historian_3d.append(i)
+                if variable.alias is not None:
+                    self.historian_paths.update({variable.alias: variable.value})
+                else:
+                    self.historian_paths.update({variable.path.path[self.system.id][0]: variable.value})
+
         self.var_idxs_pos_3d_helper = np.array(var_idxs_pos_3d_helper, dtype=np.int64)
+        self.var_idxs_historian_3d = np.array(var_idxs_historian_3d, dtype=np.int64)
 
         # This can be done more efficiently using two num_scopes-sized view of a (num_scopes+1)-sized array
         _flat_scope_idx_slices_lengths = list(map(len, non_flat_scope_idx))
@@ -422,6 +438,7 @@ class Model:
                 if var.sum_mapping_id:
                     var.sum_mapping = self.scope_variables[var.sum_mapping_id]
 
+    # TODO: Not working currently
     def restore_state(self, timestep=-1):
         """
 
@@ -568,6 +585,9 @@ class Model:
 
     def create_model_namespaces(self, item):
         namespaces_list = []
+        logger_level = item.logger_level
+        if logger_level is None:
+            logger_level = LoggerLevel.ALL
         for namespace in item.registered_namespaces.values():
             model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings)
             equation_dict = {}
@@ -579,6 +599,8 @@ class Model:
                     equations.append(equation)
                 for vardesc in eq.variables_descriptions:
                     variable = namespace.get_variable(vardesc.tag)
+                    if variable.logger_level is None:
+                        variable.logger_level = logger_level
                     self.variables.update({variable.id: variable})
                     ids.append(variable.id)
                 equation_dict.update({eq.tag: equations})
@@ -630,7 +652,7 @@ class Model:
         class NumbaModel_instance(NumbaModel):
             pass
 
-        NM_instance = NumbaModel_instance(self.var_idxs_pos_3d, self.var_idxs_pos_3d_helper,
+        NM_instance = NumbaModel_instance(self.var_idxs_pos_3d, self.var_idxs_pos_3d_helper, self.var_idxs_historian_3d,
                                           len(self.compiled_eq), self.state_idxs_3d[0].shape[0],
                                           self.differing_idxs_pos_3d[0].shape[0], self.scope_vars_3d,
                                           self.state_idxs_3d,
@@ -665,7 +687,7 @@ class Model:
         time = self.numba_model.historian_data[0]
         data = {'time': time}
 
-        for i, var in enumerate(self.path_variables):
+        for i, var in enumerate(self.historian_paths):
              data.update({var: self.numba_model.historian_data[i + 1]})
 
         self.historian_df = pd.DataFrame(data)

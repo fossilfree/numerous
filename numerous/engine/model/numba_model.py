@@ -7,6 +7,7 @@ kv_ty = (types.unicode_type, float64)
 numba_model_spec = [
     ('var_idxs_pos_3d', types.Tuple((int64[:], int64[:], int64[:]))),
     ('var_idxs_pos_3d_helper', int64[:]),
+    ('var_idxs_historian_3d', int64[:]),
     ('start_time', int32),
     ('eq_count', int32),
     ('number_of_timesteps', int32),
@@ -34,7 +35,7 @@ numba_model_spec = [
 
 
 class NumbaModel:
-    def __init__(self, var_idxs_pos_3d, var_idxs_pos_3d_helper, eq_count, number_of_states, number_of_mappings,
+    def __init__(self, var_idxs_pos_3d, var_idxs_pos_3d_helper, var_idxs_historian_3d, eq_count, number_of_states, number_of_mappings,
                  scope_vars_3d, state_idxs_3d, deriv_idxs_3d,
                  differing_idxs_pos_3d, differing_idxs_from_3d, num_uses_per_eq,
                  sum_idxs_pos_3d, sum_idxs_sum_3d, sum_slice_idxs, sum_slice_idxs_len, sum_mapping,
@@ -42,6 +43,7 @@ class NumbaModel:
 
         self.var_idxs_pos_3d = var_idxs_pos_3d
         self.var_idxs_pos_3d_helper = var_idxs_pos_3d_helper
+        self.var_idxs_historian_3d = var_idxs_historian_3d
         self.eq_count = eq_count
         self.number_of_states = number_of_states
         self.scope_vars_3d = scope_vars_3d
@@ -64,7 +66,8 @@ class NumbaModel:
         self.start_time = start_time
         self.historian_ix = 0
         ##* simulation.num_inner
-        self.historian_data = np.empty((self.number_of_variables + 1, number_of_timesteps), dtype=np.float64)
+        #self.historian_data = np.empty((self.number_of_variables + 1, number_of_timesteps*100), dtype=np.float64)
+        self.historian_data = np.empty((len(var_idxs_historian_3d) + 1, number_of_timesteps * 100), dtype=np.float64)
         self.historian_data.fill(np.nan)
         self.mapped_variables_array = mapped_variables_array
         ##Function is genrated in model.py contains creation and initialization of all callback related variables
@@ -104,7 +107,8 @@ class NumbaModel:
         ix = self.historian_ix
         varix = 1
         self.historian_data[0][ix] = time
-        for j in self.var_idxs_pos_3d_helper:
+        #for j in self.var_idxs_pos_3d_helper:
+        for j in self.var_idxs_historian_3d:
             self.historian_data[varix][ix] = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
                 self.var_idxs_pos_3d[2][j]]
             varix += 1
