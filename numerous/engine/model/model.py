@@ -296,7 +296,7 @@ class Model:
 
         for ns in self.name_spaces.values():
             try:
-                tag_vars = {v.tag: v for v in self.scope_variables.values() if v.set_var in ns[1][0].set_variables}
+                tag_vars = {v.tag: v for v in self.scope_variables.values()}
             except:
                 debug=1
 

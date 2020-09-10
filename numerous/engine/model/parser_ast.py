@@ -544,6 +544,7 @@ def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_
 
                             eq_key = eq_key+'_'+postfix_from_branches(branches_values)
 
+                print(parsed_eq_branches.keys())
                 g = parsed_eq_branches[eq_key][2]
 
                 ns_path = model_namespace.get_path_dot()
