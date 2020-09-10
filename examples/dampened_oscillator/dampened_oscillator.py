@@ -64,9 +64,14 @@ class Spring_Equation(EquationBase):
 
         scope.F2 = -scope.F1
 
+class TestEq(EquationBase, Item):
+    def __init__(self, k=2):
+        super().__init__(tag='spring_equation')
 
-
-
+        self.add_parameter('k', k)  #
+        # define namespace and add equation
+        mechanics = self.create_namespace('mechanics')
+        mechanics.add_equations([self])
     # Define the valve as a connector item - connecting two tanks
 class SpringCoupling(ConnectorTwoWay):
     def __init__(self, tag="springcoup", k=1, dx0=0):
@@ -117,6 +122,7 @@ class OscillatorSystem(Subsystem):
             spc2.bind(side1=oscillators[0], side2=oscillators[1])
             spc2.side1.mechanics.v_dot += spc2.mechanics.F1
             spc2.side2.mechanics.v_dot += spc2.mechanics.F2
+
             #Register the items to the subsystem to make it recognize them.
             self.register_items([spc1, spc2], tag="couplings", structure=ItemsStructure.SET)
 
@@ -124,6 +130,9 @@ class OscillatorSystem(Subsystem):
             spc3.bind(side1=oscillators[0], side2=oscillators[1])
             spc3.side1.mechanics.v_dot += spc3.mechanics.F1
             spc3.side2.mechanics.v_dot += spc3.mechanics.F2
+
+
+
             # Register the items to the subsystem to make it recognize them.
             self.register_items([spc3])
             a=1
@@ -136,7 +145,7 @@ if __name__ == "__main__":
 
     # Define simulation
     s = simulation.Simulation(
-        model.Model(OscillatorSystem('system', k=0.01,  c=0.001, a=0, n=2)),
+        model.Model(OscillatorSystem('system', k=0.01,  c=0.001, a=0, n=3, x0=[1,2,3])),
         t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
     )
     # Solve and plot

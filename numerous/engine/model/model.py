@@ -415,7 +415,7 @@ class Model:
 
 
 
-        self.pathed_variables_list = [self.variables[self.scope_vars_vars[v].id].path.path[self.system.id] for v in self.vars_ordered]
+        self.pathed_variables_list = [[self.variables[self.scope_vars_vars[v].id].get_path_dot()]+self.variables[self.scope_vars_vars[v].id].path.path[self.system.id] for v in self.vars_ordered]
 
         self.pathed_variables = []
         aliases_ = {}
@@ -427,7 +427,7 @@ class Model:
 
         for a, r in self.aliases.items():
             r_ = self.pathed_variables[self.vars_ordered.index(r)]
-            a_ = self.variables[self.scope_vars_vars[a].id].path.path[self.system.id]
+            a_ = self.variables[self.scope_vars_vars[a].id].get_path_dot()
             for aa in a_:
                 #print(aa)
                 aliases_[aa]=r_
@@ -1015,6 +1015,7 @@ class AliasedDataFrame(pd.DataFrame):
         #df['system.alias.T']
 
         self.aliases = aliases
+        print(data.keys())
 
         super().__init__(data)
 
