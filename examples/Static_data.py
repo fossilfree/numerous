@@ -58,6 +58,6 @@ if __name__ == "__main__":
     toc = time()
     print('Execution time: ', toc - tic)
     print(len(list(s.model.historian_df)))
-    s.model.historian_df['system.mechanics.T_i.tm0.mechanics.T'].plot()
+    s.model.historian_df['system.tm0.mechanics.T'].plot()
     plt.show()
     plt.interactive(False)

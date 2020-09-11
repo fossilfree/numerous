@@ -93,8 +93,12 @@ class Model:
         self.flat_scope_idx_from = None
         self.historian_df = None
         self.external_mappings = external_mappings
-        self.external_mappings_numpy = self.external_mappings.to_numpy(dtype=np.float64)
-        self.external_mappings_time = self.external_mappings.index.to_numpy(dtype=np.float64)
+        if self.external_mappings:
+            self.external_mappings_numpy = self.external_mappings.to_numpy(dtype=np.float64)
+            self.external_mappings_time = self.external_mappings.index.to_numpy(dtype=np.float64)
+        else:
+            self.external_mappings_numpy = np.array([[0]], dtype=np.float64)
+            self.external_mappings_time = np.array([0], dtype=np.float64)
 
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
