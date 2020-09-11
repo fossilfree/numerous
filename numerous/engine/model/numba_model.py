@@ -24,12 +24,18 @@ numba_model_spec = [
     ('sum_slice_idxs', int64[:]),
     ('sum_slice_idxs_len', int64[:]),
     ('sum_mapping', boolean),
+    ('callbacks', boolean),
     ('global_vars', float64[:]),
     ('historian_ix', int64),
     ('historian_data', float64[:, :]),
     ('path_variables', types.DictType(*kv_ty)),
     ('path_keys', types.ListType(types.unicode_type)),
-    ('mapped_variables_array', int64[:, :])
+    ('mapped_variables_array', int64[:, :]),
+    ('external_mappings_time', float64[:]),
+    ('number_of_external_mappings', int64),
+    ('external_idx_3d', types.Tuple((int64[:], int64[:], int64[:]))),
+    ('external_mappings_numpy', float64[:, :]),
+    ('external_df_idx', int64[:])
 ]
 
 
@@ -37,12 +43,19 @@ class NumbaModel:
     def __init__(self, var_idxs_pos_3d, var_idxs_pos_3d_helper, eq_count, number_of_states, number_of_mappings,
                  scope_vars_3d, state_idxs_3d, deriv_idxs_3d,
                  differing_idxs_pos_3d, differing_idxs_from_3d, num_uses_per_eq,
-                 sum_idxs_pos_3d, sum_idxs_sum_3d, sum_slice_idxs, sum_slice_idxs_len, sum_mapping,
-                 global_vars, number_of_timesteps, number_of_variables, start_time, mapped_variables_array):
+                 sum_idxs_pos_3d, sum_idxs_sum_3d, sum_slice_idxs, sum_slice_idxs_len, sum_mapping, callbacks,
+                 global_vars, number_of_timesteps, number_of_variables, start_time, mapped_variables_array,
+                 external_mappings_time,number_of_external_mappings,external_idx_3d,external_mappings_numpy,external_df_idx):
 
+        self.external_idx_3d = external_idx_3d
+        self.external_df_idx = external_df_idx
+        self.external_mappings_numpy = external_mappings_numpy
+        self.external_mappings_time = external_mappings_time
+        self.number_of_external_mappings = number_of_external_mappings
         self.var_idxs_pos_3d = var_idxs_pos_3d
         self.var_idxs_pos_3d_helper = var_idxs_pos_3d_helper
         self.eq_count = eq_count
+        self.callbacks = callbacks
         self.number_of_states = number_of_states
         self.scope_vars_3d = scope_vars_3d
         self.state_idxs_3d = state_idxs_3d
@@ -100,6 +113,12 @@ class NumbaModel:
 
         return np.array(result, dtype=np.float64)
 
+    def map_external_data(self, t):
+        for i in range(self.number_of_external_mappings):
+            self.scope_vars_3d[self.external_idx_3d[0][i]][self.external_idx_3d[1][i]][
+                self.external_idx_3d[2][i]] = np.interp(t, self.external_mappings_time,
+                                                        self.external_mappings_numpy[:, self.external_df_idx[i]])
+
     def historian_update(self, time: np.float64) -> None:
         ix = self.historian_ix
         varix = 1
@@ -115,19 +134,19 @@ class NumbaModel:
         Updates all the values of all Variable instances stored in
         `self.variables` with the values stored in `self.scope_vars_3d`.
         '''
+        if self.callbacks:
+            for key, j in zip(self.path_keys,
+                              self.var_idxs_pos_3d_helper):
+                self.path_variables[key] \
+                    = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
+                    self.var_idxs_pos_3d[2][j]]
 
-        for key, j in zip(self.path_keys,
-                          self.var_idxs_pos_3d_helper):
-            self.path_variables[key] \
-                = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
-                self.var_idxs_pos_3d[2][j]]
+            self.run_callbacks(time)
 
-        self.run_callbacks(time)
-
-        for key, j in zip(self.path_keys,
-                          self.var_idxs_pos_3d_helper):
-            self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][self.var_idxs_pos_3d[2][j]] \
-                = self.path_variables[key]
+            for key, j in zip(self.path_keys,
+                              self.var_idxs_pos_3d_helper):
+                self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][self.var_idxs_pos_3d[2][j]] \
+                    = self.path_variables[key]
 
     def get_derivatives_idx(self, idx_3d):
         return self.scope_vars_3d[idx_3d]

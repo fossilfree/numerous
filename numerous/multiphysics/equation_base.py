@@ -64,7 +64,7 @@ class EquationBase:
         -------
 
         """
-        self.add_variable(tag, init_val, VariableType.PARAMETER,external_mapping=False)
+        self.add_variable(tag, init_val, VariableType.PARAMETER,external_mapping=external_mapping)
 
     def add_constant(self, tag, value):
         """

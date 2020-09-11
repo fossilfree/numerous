@@ -51,6 +51,7 @@ class Simulation:
             solver.y0 = y
             solver.numba_model.historian_update(t)
             solver.numba_model.run_callbacks_with_updates(t)
+            solver.numba_model.map_external_data(t)
 
         print("Generating Numba Model")
         generation_start = time.time()
