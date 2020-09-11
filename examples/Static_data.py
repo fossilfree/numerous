@@ -43,13 +43,13 @@ if __name__ == "__main__":
     import pandas as pd
     from matplotlib import pyplot as plt
 
-    e_df = pd.DataFrame(np.arange(20).reshape(10, 2),
-                        columns=['time', 'system.oscillator0.mechanics.T_i.tm0.mechanics.T'])
-    e_df['time'] = np.arange(10)
+    e_df = pd.DataFrame(np.arange(200).reshape(100, 2),
+                        columns=['time', 'system.tm0.mechanics.T'])
+    e_df['time'] = np.arange(100)
     e_df.set_index('time', inplace=True)
     # Define simulation
     s = simulation.Simulation(
-        model.Model(StaticDataSystem('system.oscillator0.mechanics.T_i', n=1), external_mappings=e_df),
+        model.Model(StaticDataSystem('system', n=1), external_mappings=e_df),
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1
     )
     # Solve and plot
@@ -58,6 +58,6 @@ if __name__ == "__main__":
     toc = time()
     print('Execution time: ', toc - tic)
     print(len(list(s.model.historian_df)))
-    s.model.historian_df['system.oscillator0.mechanics.T_i.tm0.mechanics.T'].plot()
+    s.model.historian_df['system.mechanics.T_i.tm0.mechanics.T'].plot()
     plt.show()
     plt.interactive(False)
