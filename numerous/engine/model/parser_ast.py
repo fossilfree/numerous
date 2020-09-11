@@ -536,15 +536,18 @@ def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_
 
                         parsed_eq[eq_key] = list(branches_)
 
-                        if len(parsed_eq[eq_key])>0:
-                            branches_values = {}
-                            for b in parsed_eq[eq_key]:
-                                branches_values[b] = tag_vars[b].value
+                if len(parsed_eq[eq_key])>0:
+                    branches_values = {}
+                    for b in parsed_eq[eq_key]:
+                        branches_values[b] = tag_vars[b].value
 
 
-                            eq_key = eq_key+'_'+postfix_from_branches(branches_values)
+                    eq_key = eq_key+'_'+postfix_from_branches(branches_values)
+                #print(parsed_eq.keys())
+                #print(parsed_eq.values())
+                #print(parsed_eq_branches.keys())
+                #eq_key_branch = eq_key + parsed_eq[eq_key] if len(parsed_eq[eq_key])>0 else eq_key
 
-                print(parsed_eq_branches.keys())
                 g = parsed_eq_branches[eq_key][2]
 
                 ns_path = model_namespace.get_path_dot()
@@ -578,7 +581,7 @@ def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_
                             nodes_dep[n_key].append(eq_name)
 
                         sv = g_qualified.get(n, 'scope_var')
-                        print('n_key: ',n_key)
+                        #print('n_key: ',n_key)
                         #neq = equation_graph.add_node(key=n_key, node_type=NodeTypes.VAR, scope_var=sv, ignore_existing=True)
                         neq = equation_graph.add_node(key=n_key, node_type=NodeTypes.VAR, scope_var=sv,
                                                       ignore_existing=True)
@@ -616,7 +619,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
         prefix = scope_map[target_var.parent_scope_id]
         #target_var_id = qualify(target_var.tag, prefix)
         target_var_id = target_var.set_var if target_var.set_var else target_var.get_path_dot()
-        print('tvar id: ', target_var_id)
+        #print('tvar id: ', target_var_id)
         if '-' in target_var_id:
             raise ValueError('argh')
 
@@ -648,7 +651,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
         #tn = mg.add_node(key=target_var.parent_scope_id, ignore_existing=True, label='f(x)')
 
         for i in m[1]:
-            print(scope_vars)
+            #print(scope_vars)
             ivar_var = scope_vars[i]
             prefix = scope_map[ivar_var.parent_scope_id]
             ivarn = mg.add_node(key=ivar_var.parent_scope_id, ignore_existing=True, label=ivar_var.parent_scope_id)
@@ -690,7 +693,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
                 e_m = equation_graph.add_edge(ivar_node_e, t, e_type='mapping', mappings=[(ivar_var.set_var_ix, target_var.set_var_ix)])
             else:
                 equation_graph.edges_attr['mappings'][ix_[0]].append((ivar_var.set_var_ix, target_var.set_var_ix))
-                print('set_var_ix: ',target_var.set_var_ix)
+                #print('set_var_ix: ',target_var.set_var_ix)
 
             #equation_graph.edges_attr
             #equation_graph.add_edge(prev_e, binop_e, e_type='left')

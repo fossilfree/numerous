@@ -6,7 +6,7 @@ import re
 import time
 import uuid
 
-from numba import jitclass
+from numba.experimental import jitclass
 import pandas as pd
 from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
@@ -219,7 +219,7 @@ class Model:
 
         for item in self.system.registered_items.values():
             for ns in item.registered_namespaces.values():
-                print('ns: ',ns.get_path_dot())
+                #print('ns: ',ns.get_path_dot())
                 #if not ns.part_of_set:
                 ns.update_set_var()
 
@@ -239,9 +239,17 @@ class Model:
             self.scope_variables.update(variables)
             self.name_spaces.update(name_space)
 
-        for sv in self.scope_variables.values():
-            print(sv.set_var,'-', sv.set_var_ix)
+        scope_var_dot = [sv.get_path_dot() for sv in self.scope_variables.values()]
+        #for sv in self.scope_variables.values():
+        #    if 'element_1_outside_1_1.t1.h_f' in sv.get_path_dot():
+        #        print(sv.get_path_dot())
+        #        print(sv.path.path)
+        #sssdf=sdfsdf
+        #if not 'climatemachine.HX_element_1.HX_1_1.element_1_outside_1_1.t1.dp' in scope_var_dot:
+        #    raise ValueError()
 
+        #print(self.scope_variables.keys())
+        #self.scope_variables['climatemachine.HX_element_1.HX_1_1.element_1_outside_1_1.t1.dp']
 
         self.mappings = []
         def __get_mapping__variable(variable):
@@ -408,35 +416,56 @@ class Model:
         logging.info('lowering model')
         self.compiled_compute, self.var_func, self.vars_ordered_values, self.vars_ordered, self.scope_vars_vars = generate_equations(self.equations_parsed, self.eg, self.scoped_equations, self.scope_variables, self.scope_ids, self.aliases)
 
-        if len(self.vars_ordered) > len(set(self.vars_ordered)):
-            raise ValueError('non unique variables')
+        #values of all model variables in specific order: self.vars_ordered_values
+        #full tags of all variables in the model in specific order: self.vars_ordered
+        #dict with scope variable id as key and scope variable itself as value
 
-        self.scope_vars_ordered = [self.scope_vars_vars[v] for v in self.vars_ordered]
+        #Create aliases for all paths in each scope variable
+        self.aliases = {}
+        self.path_variables_aliases = {}
+        for sv in self.scope_variables.values():
+            #print(sv.get_path_dot())
+
+            if self.system.id in sv.path.path:
+            #    self.path_variables_aliases[sv.get_path_dot()]=sv.path.path[self.system.id]
+                aliases__ = [a for p in sv.path.path.values() for a in p]
+                #print()
+                #print(sv.get_path_dot())
+                #print(sv.path.path[self.system.id])
+                #print('aliases: ', aliases__)
+
+                self.path_variables_aliases[sv.get_path_dot()] = aliases__
+
+        for k, v in self.path_variables_aliases.items():
+            for a in v:
+                self.aliases[a] = k
+
+        #self.scope_vars_ordered = [self.scope_vars_vars[v] for v in self.vars_ordered]
 
 
 
-        self.pathed_variables_list = [[self.variables[self.scope_vars_vars[v].id].get_path_dot()]+self.variables[self.scope_vars_vars[v].id].path.path[self.system.id] for v in self.vars_ordered]
+        #self.pathed_variables_list = [self.scope_variables[self.scope_vars_vars[v.replace('.','_')].id].path.path[self.system.id] for v in self.vars_ordered]
 
-        self.pathed_variables = []
-        aliases_ = {}
+        #self.pathed_variables = []
+        #aliases_ = {}
 
-        for l in self.pathed_variables_list:
-            self.pathed_variables.append(l[0])
-            for a in l[1:]:
-                aliases_[a] = l[0]
+        #for l in self.pathed_variables_list:
+        #    self.pathed_variables.append(l[0])
+        #    for a in l[1:]:
+         #       aliases_[a] = l[0]
 
-        for a, r in self.aliases.items():
-            r_ = self.pathed_variables[self.vars_ordered.index(r)]
-            a_ = self.variables[self.scope_vars_vars[a].id].get_path_dot()
-            for aa in a_:
+        ##for a, r in self.aliases.items():
+        #    r_ = self.pathed_variables[self.vars_ordered.index(r)]
+        #    a_ = self.variables[self.scope_vars_vars[a].id].path.path[self.system.id]
+        #    for aa in a_:
                 #print(aa)
-                aliases_[aa]=r_
+        #        aliases_[aa]=r_
 
         #self.aliases = {self.variables[self.scope_vars_vars[a].id].path.path[self.system.id][0]:
         #                    self.pathed_variables[self.vars_ordered.index(v)]
                             #self.variables[self.scope_vars_vars[v].id].path.path[self.system.id][0]
         #                 for a, v in self.aliases.items()}
-        self.aliases = aliases_
+        #self.aliases = aliases_
 
         #generate_program(self.gg)
         #asdsad=asdsfsf
@@ -990,8 +1019,9 @@ class Model:
             time = self.numba_model.historian_data[:,0]
             data = {'time': time}
 
-            for i, var in enumerate(self.pathed_variables):
+            for i, var in enumerate(self.vars_ordered):
                  #data.update({".".join(self.variables[var.id].path.path[self.system.id]): self.numba_model.historian_data[:,i+1]})
+                 #print(var)
                  data.update({
                      var: self.numba_model.historian_data[:, i + 1]})
 
@@ -1015,7 +1045,7 @@ class AliasedDataFrame(pd.DataFrame):
         #df['system.alias.T']
 
         self.aliases = aliases
-        print(data.keys())
+        #print(data.keys())
 
         super().__init__(data)
 
@@ -1026,6 +1056,7 @@ class AliasedDataFrame(pd.DataFrame):
             return super().__getitem__(col)
 
         cols = [self.aliases[i] if i in self.aliases else i for i in item]
+        #print('cols: ',cols)
 
 
         return super().__getitem__(cols)
