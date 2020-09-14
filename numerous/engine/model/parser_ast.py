@@ -560,11 +560,13 @@ def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_
                 scoped_equations[eq_name] = eq_key
                 a = model_namespace.item_indcs
 
+                is_set = len(model_namespace.item_indcs)>1
+
                 eq_n = equation_graph.add_node(key=eq_name,
                                                node_type=NodeTypes.EQUATION, ast=None,
                                                name=eq_name, file=eq_name, ln=0, label=eq_name,
                                                ast_type=ast.Call,
-                                               vectorized=len(model_namespace.item_indcs)>1,
+                                               vectorized=is_set,
                                                func=ast.Name(id=eq_key.replace('.','_')))
 
                 for n in range(g_qualified.node_counter):
@@ -584,7 +586,7 @@ def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_
                         #print('n_key: ',n_key)
                         #neq = equation_graph.add_node(key=n_key, node_type=NodeTypes.VAR, scope_var=sv, ignore_existing=True)
                         neq = equation_graph.add_node(key=n_key, node_type=NodeTypes.VAR, scope_var=sv,
-                                                      ignore_existing=True)
+                                                      ignore_existing=True, is_set_var=is_set)
 
                         targeted = False
                         read = False

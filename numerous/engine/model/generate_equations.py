@@ -153,6 +153,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #Replace individual assignments with a sum
     vars_assignments = {}
     vars_assignments_mappings = {}
+    vars_mappings = {}
     nodes_map = equation_graph.node_map
 
     logging.info('Remove simple assign chains')
@@ -170,10 +171,14 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                     vars_assignments[target] = []
                     vars_assignments_mappings[target] = []
 
+                if equation_graph.edges_attr['e_type'][edge_ix] == 'mapping':
+                    vars_mappings[target] = (edge[0], equation_graph.edges_attr['mappings'][edge_ix])
+                    equation_graph.remove_edge(edge_ix)
+
                 vars_assignments[target].append(edge[0])
                 vars_assignments_mappings[target].append(equation_graph.edges_attr['mappings'][edge_ix])
 
-            if target in vars_assignments and len(vars_assignments[target])>1 or :
+            if target in vars_assignments and len(vars_assignments[target])>1:
                 for edge_ix in target_edges_indcs:
                     equation_graph.remove_edge(edge_ix)
                 #Traverse value of assignment - might be  + + +
@@ -247,6 +252,19 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             for v, mappings in zip(vals, vars_assignments_mappings[a]):
                 equation_graph.add_edge(v, nsn, e_type='value', mappings=mappings)
 
+        elif a in vars_mappings:
+            ns = new_sum()
+            nsn = equation_graph.add_node(key=ns, node_type=NodeTypes.SUM, name=ns, ast=None, file='sum', label=ns,
+                                          ln=0, ast_type=None)
+            equation_graph.add_edge(nsn, a, e_type='target')
+            print(equation_graph.key_map[a])
+            print(equation_graph.key_map[vars_mappings[a][0]])
+            print(vars_mappings[a][1])
+
+            equation_graph.add_edge(vars_mappings[a][0], nsn, e_type='value', mappings=vars_mappings[a][1])
+
+
+#    asdasd=sdsdfsdfsdf
     logging.info('Cleaning eq graph')
     equation_graph = equation_graph.clean()
 
@@ -277,6 +295,11 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #Create a kernel of assignments and calls
     all_targeted = []
     all_read = []
+
+    all_targeted_sets = []
+    all_read_sets = []
+
+
     logging.info('Generate kernel')
 
     #equation_graph.as_graphviz('after')
@@ -393,6 +416,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
                 for a in vardef.args:
                     _set_vars = [d_u(v[1].get_path_dot()) for v in set_variables[scope_vars[a]]]
+                    print('set_vars: ',_set_vars)
                     all_read += _set_vars
 
                     body_def.append(ast.Assign(targets=[ast.Name(id=d_u(scope_vars[a]))], value=ast.List(elts=[ast.Name(id=set_v) for set_v in _set_vars])))
@@ -429,6 +453,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                 read_ = [d_u(scope_vars[a]) for a in vardef.args]
 
                 all_read += read_
+                print('read: ', read_)
                 if len(vardef.targets) > 1:
                     targets = [ast.Tuple(
                         elts=[ast.Name(id=d_u(scope_vars[t]))for t in
@@ -529,26 +554,59 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
 
             else:
-                all_targeted.append(d_u(equation_graph.key_map[t]))
 
-                values = []
-                for v in value_edges:
-                    if equation_graph.get(v[0], 'node_type') == NodeTypes.VAR:
-                         all_read.append(d_u(equation_graph.key_map[v[0]]))
-                    values.append(ast.Name(id=d_u(equation_graph.key_map[v[0]])))
 
-                if len(values)>1:
+                if equation_graph.get(t, attr='is_set_var'):
+                    all_targeted_sets.append(d_u(equation_graph.key_map[t]))
+                else:
+                    all_targeted.append(d_u(equation_graph.key_map[t]))
+                print(equation_graph.key_map[t])
+                s = equation_graph.get(t, attr='scope_var')
+
+                target_indcs_map = [[] for i in range(len(set_variables[equation_graph.key_map[t]]))] if equation_graph.get(t, attr='is_set_var') else [[]]
+
+
+                for v, vi in zip(value_edges, v_indcs):
+                    if equation_graph.get(v[0], 'is_set_var'):
+                        all_read_sets.append(d_u(equation_graph.key_map[v[0]]))
+
+                    else:
+                        all_read.append(d_u(equation_graph.key_map[v[0]]))
+                        #values.append(ast.Name(id=d_u(equation_graph.key_map[v[0]])))
+                        #target_indcs_map[mi[1] if mi[1] else 0].append((v[0], mi[0]))
+                    maps = equation_graph.edges_attr['mappings'][vi]
+                    print(maps)
+                    if maps==':':
+                        if equation_graph.key_map[t] in set_variables:
+                            for mi in range(len(set_variables[equation_graph.key_map[t]])):
+                                target_indcs_map[mi].append((v[0], mi))
+                        else:
+                            target_indcs_map[0].append((v[0], None))
+                    else:
+                        for mi in maps:
+                            print('mi: ', mi)
+                            print(v)
+                            target_indcs_map[mi[1] if mi[1] else 0].append((v[0], mi[0]))
+                print(target_indcs_map)
+                if equation_graph.get(t, 'is_set_var'):
+                    map_targs = ast.Tuple(elts=[ast.Subscript(value=ast.Name(id=d_u(equation_graph.key_map[t])), slice= ast.Index(value=ast.Num(n=i))) for i, _ in enumerate(target_indcs_map) if len(_)>0])
+                else:
+                    map_targs = ast.Name(id=d_u(equation_graph.key_map[t]))
+
+                map_values = []
+                for values in target_indcs_map:
+
                     prev = None
                     for v in values:
+                        v_ = ast.Name(id=d_u(equation_graph.key_map[v[0]])) if v[1] is None else ast.Subscript(value=ast.Name(id=d_u(equation_graph.key_map[v[0]])), slice= ast.Index(value=ast.Num(n=v[1])))
                         if prev:
-                            prev = ast.BinOp(op=ast.Add(), left=v, right=prev)
+                            prev = ast.BinOp(op=ast.Add(), left=v_, right=prev)
                         else:
-                            prev=v
-                    assign = ast.Assign(targets=[ast.Name(id=d_u(equation_graph.key_map[target_edges[0][1]]))], value=prev)
-                else:
-                    assign = ast.Assign(targets=[ast.Name(id=d_u(equation_graph.key_map[target_edges[0][1]]))],
-                                        value=values[0])
+                            prev=v_
 
+                    map_values.append(prev)
+
+                assign = ast.Assign(targets=[map_targs], value=ast.Tuple(elts=map_values) if len(map_values)>1 else map_values[0])
                 body.append(assign)
 
         elif nt == NodeTypes.VAR or nt == NodeTypes.TMP:
@@ -587,6 +645,13 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
         if full_tag not in scope_var_node:
             scope_var_node[full_tag] = sv
+
+    print('all read ', all_read)
+    print('all targeted', all_targeted)
+
+    print('all read set ', all_read_sets)
+    print('all targets sets ', all_targeted_sets)
+
 
     all_read = set(all_read)
     contains_dot(all_read)

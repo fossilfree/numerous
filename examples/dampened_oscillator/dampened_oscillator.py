@@ -66,7 +66,7 @@ class Spring_Equation(EquationBase):
 
 class TestEq(EquationBase, Item):
     def __init__(self, k=2):
-        super().__init__(tag='spring_equation')
+        super().__init__(tag='te0')
 
         self.add_parameter('k', k)  #
         # define namespace and add equation
