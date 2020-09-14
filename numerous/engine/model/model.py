@@ -347,6 +347,8 @@ class Model:
         self.flat_scope_idx_slices_end = np.cumsum(_flat_scope_idx_slices_lengths)
         self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
 
+
+
         assemble_finish = time.time()
         print("Assemble time: ",assemble_finish - assemble_start)
         self.info.update({"Assemble time": assemble_finish - assemble_start})
@@ -662,7 +664,7 @@ class Model:
                                           self.sum_slice_idxs, self.sum_mapped_idxs_len, self.sum_mapping,
                                           self.global_vars, number_of_timesteps, start_time,
                                           self.mapped_variables_array)
-
+        j = 0
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value
             NM_instance.path_keys.append(key)

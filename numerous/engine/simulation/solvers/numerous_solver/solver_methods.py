@@ -88,14 +88,26 @@ class RK45(BaseMethod):
                 return tnew, y, True, 1, _solve_state, max_factor
 
             k = np.zeros((order+1, len(y)))
-            k[0,:] = dt*nm.func(t, y)
+            try:
+                tmp = nm.scope_vars_3d.copy()
+                k[0,:] = dt*nm.func(t, y)
+                nm.scope_vars_3d = tmp
+            except:
+                print("there was an exception here")
+                raise Exception("position: 0")
 
 
             rk_sum_4 = k[0,:]*b[0,0]
             rk_sum_5 = k[0,:]*b[1,0]
             for i in range(1,order+1):
                 dy = np.dot(k[:i].T, a[i,:i])
-                k[i,:] = dt*nm.func(t+c[i]*dt, y+dy)
+                try:
+                    tmp=nm.scope_vars_3d.copy()
+                    k[i,:] = dt*nm.func(t+c[i]*dt, y+dy)
+                    nm.scope_vars_3d = tmp
+                except:
+                    print("there was an exception here", i)
+                    raise Exception("position inside")
 
                 rk_sum_4 += b[0, i] * k[i]
                 rk_sum_5 += b[1, i] * k[i]
@@ -113,7 +125,9 @@ class RK45(BaseMethod):
                 delta = (e_max/(2*res))**(1/4)
             if res <= e_max:
                 converged = True
-                #print(res)
+            else:
+                pass
+                #print(delta, dt, t)
 
             if delta < 0.001:
                 factor = 0.001

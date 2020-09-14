@@ -145,7 +145,6 @@ class Numerous_solver(BaseSolver):
                             t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                         ix_eval += 1
 
-
                     t_start = t
                     t_new_test = np.min(te_array)
                     if t >= t_end:
@@ -154,6 +153,7 @@ class Numerous_solver(BaseSolver):
                     order_ = add_ring_buffer(t, y, roller, order_)
 
                 dt_ = min([t_next_eval-t_start, t_new_test-t_start])
+
                 #dt_ = t_next_eval - t_start
 
                     # solve from start to new test by calling the step function
@@ -170,8 +170,7 @@ class Numerous_solver(BaseSolver):
                     y_previous = y
                     t_previous = t
                     numba_model.func(t, y)
-
-
+                    print(t)
 
             info = {'step_info': step_info}
             # Return the part of the history actually filled in
