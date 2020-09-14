@@ -170,7 +170,9 @@ class NumbaModel:
         self.global_vars[0] = _t
         self.compute()
         y_dot = self.get_derivatives()
-
+        for yd in y_dot:
+            print(yd)
+        raise ValueError("arg")
         return y_dot
 
 

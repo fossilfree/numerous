@@ -23,7 +23,7 @@ import sys
 
 from astor.op_util import get_op_symbol, get_op_precedence, Precedence
 from astor.node_util import ExplicitNodeVisitor
-from astor.string_repr import pretty_string
+from numerous.engine.model.string_repr import pretty_string
 from astor.source_repr import pretty_source
 from astor.code_gen import set_precedence
 import astor.code_gen

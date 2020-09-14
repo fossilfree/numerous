@@ -625,12 +625,7 @@ def process_mappings(mappings,gg:Graph, equation_graph:Graph, nodes_dep, scope_v
 
         node_type = NodeTypes.VAR
 
-        #atmp=tmp('=')
-        #if gg:
-        #    ag = gg.add_node(key=atmp, file='mapping', name=m, ln=0, label='=', ast_type=ast.AugAssign, node_type=NodeTypes.ASSIGN, targets=[], value=None, ast_op=ast.Add())
 
-        #ae = equation_graph.add_node(key=atmp,file='mapping', name=m, ln=0, label='=', ast_type=ast.AugAssign, node_type=NodeTypes.ASSIGN,
-        #            targets=[], value=None, ast_op=ast.Add())
         if gg:
             tg = gg.add_node(key=target_var_id , file='mapping', name=m, ln=0, id=target_var_id, label=target_var.tag, ast_type=ast.Attribute, node_type=node_type, scope_var=target_var, ignore_existing=False)
         t = equation_graph.add_node(key=target_var_id, file='mapping', name=m, ln=0, id=target_var_id, label=target_var.tag, ast_type=ast.Attribute, node_type=node_type, scope_var=target_var, ignore_existing=False)

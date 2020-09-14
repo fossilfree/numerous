@@ -132,9 +132,10 @@ class OscillatorSystem(Subsystem):
             spc3.side2.mechanics.v_dot += spc3.mechanics.F2
 
 
-
+            te = TestEq()
+            spc3.mechanics.k = te.mechanics.k
             # Register the items to the subsystem to make it recognize them.
-            self.register_items([spc3])
+            self.register_items([spc3, te])
             a=1
 
 

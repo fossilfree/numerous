@@ -172,7 +172,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
                 vars_assignments[target].append(edge[0])
                 vars_assignments_mappings[target].append(equation_graph.edges_attr['mappings'][edge_ix])
-            if target in vars_assignments and len(vars_assignments[target])>1:
+
+            if target in vars_assignments and len(vars_assignments[target])>1 or :
                 for edge_ix in target_edges_indcs:
                     equation_graph.remove_edge(edge_ix)
                 #Traverse value of assignment - might be  + + +
@@ -293,7 +294,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     equation_graph_clone= equation_graph_clone.clean()
     """
-    #equation_graph.as_graphviz('clean after', force=True)
+    equation_graph.as_graphviz('clean after', force=True)
     states = []
     deriv = []
     mapping = []
@@ -653,7 +654,6 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     llvm_end_seq += [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(states, range(0, lenstates))]
     #llvm_end_seq += [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': d} for ix, d in enumerate(deriv)]
 
-
     [body.append(ast.Assign(targets=[ast.Name(id=d_u(d))], value = ast.Name(id=d_u(a)))) for d, a in deriv_aliased.items()]
 
     # Add code for updating variables
@@ -753,7 +753,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         def test_kernel_nojit(variables, y):
             for i in range(N):
                 deriv = kernel_nojit(variables, y)
-                print(deriv)
+                #print(deriv)
             return deriv
         #print(y)
         tic = time()
