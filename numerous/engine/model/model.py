@@ -303,17 +303,16 @@ class Model:
             v.top_item = self.system.id
 
         for ns in self.name_spaces.values():
-            try:
-                tag_vars = {v.tag: v for v in self.scope_variables.values()}
-            except:
-                debug=1
 
+            tag_vars = {v.tag: v for v in self.scope_variables.values()}
+            tag_vars_ = {v.tag: v for k, v in ns[1][0].variables.items()}
+            print(tag_vars)
             #print('scope_id: ', scope_id)
             #s_id = f's{self.scope_ids.index(scope_id)}'
             #print(eq)
             #if len(eq[0])>0:
 
-            parse_eq(ns[1][0], self.gg, self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations, self.equations_top)
+            parse_eq(ns[1][0], self.gg, self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations, self.equations_top, tag_vars_)
 
         logging.info('parsing equations completed')
         #for n in gg.nodes:

@@ -459,7 +459,7 @@ def qualify_equation(prefix, g, tag_vars):
     return g_qual
 
 
-def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_dep, tag_vars, parsed_eq_branches, scoped_equations, parsed_eq):
+def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_dep, scope_variables, parsed_eq_branches, scoped_equations, parsed_eq, tag_vars_):
     print('namespace path: ',model_namespace.get_path_dot())
     if not model_namespace.part_of_set:
 
@@ -488,7 +488,7 @@ def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_
 
                         g = Graph()
                         branches = {}
-                        parse_(ast_tree, eq_key, eq.file, eq.lineno, g, tag_vars, branches=branches)
+                        parse_(ast_tree, eq_key, eq.file, eq.lineno, g, scope_variables, branches=branches)
 
 
 
@@ -539,10 +539,13 @@ def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_
                 if len(parsed_eq[eq_key])>0:
                     branches_values = {}
                     for b in parsed_eq[eq_key]:
-                        branches_values[b] = tag_vars[b].value
+                        branches_values[b] = tag_vars_[b].value
+
+                        print(b, ': ', tag_vars_[b].value)
 
 
                     eq_key = eq_key+'_'+postfix_from_branches(branches_values)
+                    print('branched eq key: ',eq_key)
                 #print(parsed_eq.keys())
                 #print(parsed_eq.values())
                 #print(parsed_eq_branches.keys())
@@ -552,7 +555,7 @@ def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_
 
                 ns_path = model_namespace.get_path_dot()
                 eq_path = ns_path+'.'+eq_key
-                g_qualified = qualify_equation(ns_path, g, tag_vars)
+                g_qualified = qualify_equation(ns_path, g, scope_variables)
 
                 #make equation graph
                 eq_name = ('EQ_'+eq_path).replace('.','_')

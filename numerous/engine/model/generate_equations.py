@@ -954,6 +954,9 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     #print('Exe time program timeit: ', timeit.timeit(
 #        lambda: dp.diff(variables_values, y), number=N)/N)
+    for v, vv in zip(variables, variables_values):
+        print(v, ': ', vv)
+
     llvm_ = False
     if llvm_:
         return diff_llvm, var_func, variables_values, variables_dot, scope_var_node
