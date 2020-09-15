@@ -556,14 +556,14 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             else:
 
 
-                if equation_graph.get(t, attr='is_set_var'):
+                if is_set_var:=equation_graph.get(t, attr='is_set_var'):
                     all_targeted_sets.append(d_u(equation_graph.key_map[t]))
                 else:
                     all_targeted.append(d_u(equation_graph.key_map[t]))
                 print(equation_graph.key_map[t])
                 s = equation_graph.get(t, attr='scope_var')
 
-                target_indcs_map = [[] for i in range(len(set_variables[equation_graph.key_map[t]]))] if equation_graph.get(t, attr='is_set_var') else [[]]
+                target_indcs_map = [[] for i in range(len(set_variables[equation_graph.key_map[t]]))] if is_set_var else [[]]
 
 
                 for v, vi in zip(value_edges, v_indcs):
@@ -586,6 +586,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                         for mi in maps:
                             print('mi: ', mi)
                             print(v)
+                            print(mi[1] if mi[1] else 0)
+                            print(len(target_indcs_map))
                             target_indcs_map[mi[1] if mi[1] else 0].append((v[0], mi[0]))
                 print(target_indcs_map)
                 if equation_graph.get(t, 'is_set_var'):

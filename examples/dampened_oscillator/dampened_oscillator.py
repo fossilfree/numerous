@@ -73,6 +73,7 @@ class TestEq(EquationBase, Item):
         mechanics = self.create_namespace('mechanics')
         mechanics.add_equations([self])
     # Define the valve as a connector item - connecting two tanks
+
 class SpringCoupling(ConnectorTwoWay):
     def __init__(self, tag="springcoup", k=1, dx0=0):
         super().__init__(tag, side1_name='side1', side2_name='side2')

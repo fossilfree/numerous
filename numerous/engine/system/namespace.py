@@ -122,6 +122,7 @@ class VariableNamespaceBase:
                 variable.extend_path(self.item.tag)
 
     def update_set_var(self):
+
         pass
         #for v in self.variables:
         #    set_var = f"{self.get_path_dot()}.{v.tag}"
@@ -171,19 +172,15 @@ class SetNamespace(VariableNamespace):
 
 
     def update_set_var(self):
-
         for v in self.variables:
-            print(v.namespace.item.id)
-            print(v.item.id)
-            print(self.items)
+
             #ix = self.items.index(v.namespace.item.id)
             #set_var = f"{self.tag}.{variable.tag}"
             set_var = f"{self.get_path_dot()}.{v.tag}"
             if set_var not in self.set_variables:
                 self.set_variables.append(set_var)
             v.update_set_var(set_var, self)
-        #self.part_of_set = self.get_path_dot()
-        print('pos: ', self.part_of_set)
+
 
     def add_item_to_set_namespace(self, ns, tag_count):
         mapping = []
@@ -197,8 +194,10 @@ class SetNamespace(VariableNamespace):
             else:
                 mapping.append(0)
 
+
             variable.set_var_ix = item_ix
             variables.append(variable)
+
             #set_var = f"{self.tag}.{variable.tag}"
             #if set_var not in self.set_variables:
             #    self.set_variables.append(set_var)

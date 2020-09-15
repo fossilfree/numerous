@@ -731,7 +731,7 @@ class Graph():
                     raise
 
 
-            dot.render(file, view=True, format='png')
+            dot.render(file, view=True, format='pdf')
 
     def zero_in_degree(self):
 

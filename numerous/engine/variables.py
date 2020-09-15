@@ -165,6 +165,9 @@ class Variable(MappedValue):
         if not self.set_var:
             self.set_var = set_var
             self.set_namespace = set_namespace
+            print('path: ', self.get_path_dot())
+            print('set_var: ', set_var)
+            print('ns: ', set_namespace.tag)
             #self.set_var_ix = ix
         else:
             if self.set_var != set_var:

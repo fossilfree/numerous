@@ -162,18 +162,22 @@ class ItemSet(Item, EquationBase):
         for item in set_structure_flat:
             self.item_ids.append(item.id)
 
+
         tag_count = 0
         ##TODO Check that all items are of the same type
         for item in set_structure_flat:
             for ns in item.registered_namespaces:
-                print('tag!: ',tag)
+                print('namespace registred is: ',ns.tag)
                 tag_ = ns.tag
                 if not (tag_ in self.registered_namespaces.keys()):
                     print(tag_)
+
                     sns = SetNamespace(self, tag_, self.item_ids)
 
                     sns.add_equations(list(ns.associated_equations.values()), False)
                     self.register_namespace(sns)
+                #else:
+                #    raise ValueError('Cannot register this again')
                 self.registered_namespaces[tag_].add_item_to_set_namespace(ns, tag_count)
                 if not ns.part_of_set:
                     ns.part_of_set = sns

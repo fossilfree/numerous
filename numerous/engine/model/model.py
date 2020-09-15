@@ -221,6 +221,7 @@ class Model:
             for ns in item.registered_namespaces.values():
                 #print('ns: ',ns.get_path_dot())
                 #if not ns.part_of_set:
+
                 ns.update_set_var()
 
         self.system.update_variables_path_()
