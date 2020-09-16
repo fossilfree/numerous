@@ -137,16 +137,16 @@ class RK45(BaseMethod):
             ye = y + np.dot(k[0:order+2].T, b[1,:])
             scale = atol + np.maximum(np.abs(y), np.abs(ynew)) * rtol
 
-            e = (ynew-ye)/dt
+            e = (ynew-ye)
 
-            e_norm = np.linalg.norm(e/scale) / len(e)**0.5
+            e_norm = np.linalg.norm(e/scale)/ (len(e)**0.5)
 
             if e_norm < 1:
                 if e_norm == 0:
                     factor = max_factor
                 else:
                     factor = min(max_factor,
-                                 0.9 * e_norm ** error_exponent)
+                                 0.95 * e_norm ** error_exponent)
 
                 if not last_step:
                     factor = min(1, factor)
@@ -155,7 +155,7 @@ class RK45(BaseMethod):
                 converged = True
             else:
                 factor = max(0.2,
-                             0.9 * e_norm ** error_exponent)
+                             0.95 * e_norm ** error_exponent)
 
             _new_solve_state = (c, a, b, max_factor, atol, rtol, f0, rk_steps, order, error_exponent, converged)
 
