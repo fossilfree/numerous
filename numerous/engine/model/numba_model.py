@@ -31,11 +31,11 @@ numba_model_spec = [
     ('path_variables', types.DictType(*kv_ty)),
     ('path_keys', types.ListType(types.unicode_type)),
     ('mapped_variables_array', int64[:, :]),
-    ('external_mappings_time', float64[:]),
+    ('external_mappings_time', float64[:,:]),
     ('number_of_external_mappings', int64),
     ('external_idx_3d', types.Tuple((int64[:], int64[:], int64[:]))),
-    ('external_mappings_numpy', float64[:, :]),
-    ('external_df_idx', int64[:])
+    ('external_mappings_numpy', float64[:, :,:]),
+    ('external_df_idx', int64[:,:])
 ]
 
 
