@@ -4,13 +4,15 @@ import time
 
 class Numerous_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, numba_model, num_inner, max_event_steps, y0, **kwargs):
+    def __init__(self, time, delta_t,  numba_model, num_inner, max_event_steps, y0, **kwargs):
         super().__init__()
         self.time = time
         self.num_inner = num_inner
         self.delta_t = delta_t
         self.numba_model = numba_model
         self.diff_function = numba_model.func
+
+        self.f0 = self.diff_function(time[0], y0)
         self.max_event_steps = max_event_steps
         self.options = kwargs
 
@@ -20,24 +22,29 @@ class Numerous_solver(BaseSolver):
                              'max_step': kwargs.get('max_step', np.inf), 'first_step': kwargs.get('first_step', None),
                              'atol': kwargs.get('atol', 1e-6), 'rtol': kwargs.get('rtol', 1e-3),
                              'outer_itermax': kwargs.get('outer_itermax', 20),
+                             'submethod': kwargs.get('submethod', None),
                              }
+
+
         self.method_options = odesolver_options
         try:
             self.method = eval(kwargs.get('method', 'RK45'))
-            self._method = self.method(**self.method_options)
+            self._method = self.method(self, **self.method_options)
             assert issubclass(self.method, BaseMethod), f"{self.method} is not a BaseMethod"
         except Exception as e:
             raise e
 
         self.y0 = y0
 
+
         # Generate the solver
         self._non_compiled_solve = self.generate_solver()
         self._solve = self.compile_solver()
-        # self._solve = self.generate_solver()
+        #self._solve = self.generate_solver()
 
     def generate_solver(self):
         @njit
+
         def _solve(numba_model, _solve_state, initial_step, order, strict_eval, outer_itermax,
                    min_step, max_step, step_integrate_,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
@@ -134,15 +141,16 @@ class Numerous_solver(BaseSolver):
                         j_i += 1
                         p_size = 100
                         x = int(p_size * j_i / progress_c)
-                        #print(t)
+                        print(t)
                         numba_model.historian_update(t)
-                        numba_model.run_callbacks_with_updates(t)
+                        #numba_model.run_callbacks_with_updates(t)
                         if strict_eval:
                             te_array[1] = t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                         else:
                             t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                         ix_eval += 1
-
+                        dt = initial_step
+                        te_array[0] = t+dt
 
                     t_start = t
                     t_new_test = np.min(te_array)
@@ -152,6 +160,7 @@ class Numerous_solver(BaseSolver):
                     order_ = add_ring_buffer(t, y, roller, order_)
 
                 dt_ = min([t_next_eval-t_start, t_new_test-t_start])
+
                 #dt_ = t_next_eval - t_start
 
                     # solve from start to new test by calling the step function
@@ -168,9 +177,8 @@ class Numerous_solver(BaseSolver):
                 if step_converged:
                     y_previous = y
                     t_previous = t
-                    numba_model.func(t, y)
+                    #numba_model.func(t, y)
                     #print(t)
-
 
             info = {'step_info': step_info}
             # Return the part of the history actually filled in
@@ -260,7 +268,7 @@ class Numerous_solver(BaseSolver):
                Equations I: Nonstiff Problems", Sec. II.4.
         """
 
-        f0 = nm.func(t0, y0)
+        f0 = self.f0
 
         if y0.size == 0:
             return np.inf

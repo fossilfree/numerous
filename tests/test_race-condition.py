@@ -1,13 +1,10 @@
-from pytest import approx
 import pytest
+
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 from numerous.engine.system import Subsystem, Item
 from numerous.multiphysics import EquationBase, Equation
-import pandas as pd
 import numpy as np
-
-from matplotlib import pyplot as plt
 
 from numerous.engine.simulation.solvers.base_solver import solver_types
 
@@ -98,7 +95,6 @@ def test_race_condition_1(solver):
     sim2.solve()
     df2 = sim2.model.historian_df
 
-    f = [df1, df2]
-    df = pd.concat(f, axis=1, sort=False)
     assert np.all(
-        np.isclose(np.array(df['system.link.t1.S'])[2:], np.array(df['system.item2.t1.S'][2:]), rtol=1e-02, atol=1e-04))
+        np.isclose(np.array(df1['system.link.t1.S'])[2:], np.array(df2['system.item2.t1.S'][2:]), rtol=1e-02, atol=1e-04))
+
