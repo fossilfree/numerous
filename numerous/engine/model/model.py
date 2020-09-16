@@ -109,8 +109,8 @@ class Model:
             self.external_mappings_time = np.array(self.external_mappings_time,dtype=np.float64)
 
         else:
-            self.external_mappings_numpy = np.array([[0]], dtype=np.float64)
-            self.external_mappings_time = np.array([0], dtype=np.float64)
+            self.external_mappings_numpy = np.empty([0,0,0], dtype=np.float64)
+            self.external_mappings_time = np.empty([0,0], dtype=np.float64)
 
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
@@ -293,7 +293,10 @@ class Model:
         self.flat_scope_idx = np.array([x for xs in self.non_flat_scope_idx for x in xs])
 
         self.number_of_external_mappings = number_of_external_mappings
-        self.external_df_idx = np.array(external_df_idx, dtype=np.int64)
+        if self.external_mappings:
+            self.external_df_idx = np.array(external_df_idx, dtype=np.int64)
+        else:
+            self.external_df_idx = np.empty([0, 0], dtype=int)
 
         self.external_idx = np.array(external_idx, dtype=np.int64)
         self.sum_idx = np.array(sum_idx)
@@ -712,6 +715,7 @@ class Model:
             NM_instance.path_variables[key] = value
             NM_instance.path_keys.append(key)
         NM_instance.run_init_callbacks(start_time)
+        NM_instance.map_external_data(start_time)
 
         #NM_instance.historian_update(start_time)
         self.numba_model = NM_instance

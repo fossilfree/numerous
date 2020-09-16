@@ -40,7 +40,7 @@ class Numerous_solver(BaseSolver):
         # Generate the solver
         self._non_compiled_solve = self.generate_solver()
         self._solve = self.compile_solver()
-        #self._solve = self.generate_solver()
+        # self._solve = self.generate_solver()
 
     def generate_solver(self):
         @njit
@@ -56,6 +56,7 @@ class Numerous_solver(BaseSolver):
                 for t in t_eval[1:]:
                     numba_model.func(t, y)
                     numba_model.historian_update(t)
+                    numba_model.map_external_data(t)
                 return  {'step_info': 1}
             t_start = t
             t_previous = 0
@@ -143,7 +144,7 @@ class Numerous_solver(BaseSolver):
                         x = int(p_size * j_i / progress_c)
                         print(t)
                         numba_model.historian_update(t)
-                        #numba_model.run_callbacks_with_updates(t)
+                        numba_model.run_callbacks_with_updates(t)
                         if strict_eval:
                             te_array[1] = t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                         else:

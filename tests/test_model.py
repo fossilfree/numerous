@@ -297,3 +297,63 @@ def test_chain_item_binding_model(ms3, solver):
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
+
+
+class StaticDataTest(EquationBase, Item):
+    def __init__(self, tag="tm"):
+        super(StaticDataTest, self).__init__(tag)
+
+        ##will map to variable with the same path in external dataframe/datasource
+        self.add_parameter('T1', 0, external_mapping=True)
+        self.add_parameter('T2', 0, external_mapping=True)
+        self.add_parameter('T_i1', 0)
+        self.add_parameter('T_i2', 0)
+        mechanics = self.create_namespace('test_nm')
+        mechanics.add_equations([self])
+
+    @Equation()
+    def eval(self, scope):
+        scope.T_i1 = scope.T1
+        scope.T_i2 = scope.T2
+
+
+class StaticDataSystem(Subsystem):
+    def __init__(self, tag, n=1):
+        super().__init__(tag)
+        o_s = []
+        for i in range(n):
+            o = StaticDataTest('tm' + str(i))
+            o_s.append(o)
+        # Register the items to the subsystem to make it recognize them.
+        self.register_items(o_s)
+
+@pytest.mark.parametrize("solver", solver_types)
+def test_external_data(solver):
+    external_mappings = []
+
+    import pandas as pd
+    import numpy as np
+
+    data = {'time': np.arange(100),
+            'Dew Point Temperature {C}': np.arange(100)+1,
+            'Dry Bulb Temperature {C}': np.arange(100)+2,
+            }
+
+    df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
+    index_to_timestep_mapping = 'time'
+    index_to_timestep_mapping_start = 0
+    dataframe_aliases = {
+        'system.tm0.test_nm.T1': "Dew Point Temperature {C}",
+        'system.tm0.test_nm.T2': 'Dry Bulb Temperature {C}'
+    }
+    external_mappings.append(
+        (df, index_to_timestep_mapping, index_to_timestep_mapping_start, dataframe_aliases))
+
+    s = Simulation(
+        Model(StaticDataSystem('system', n=1), external_mappings=external_mappings),
+        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=solver
+    )
+    s.solve()
+    assert approx(np.array(s.model.historian_df['system.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
+    assert approx(np.array(s.model.historian_df['system.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:]+1
+
