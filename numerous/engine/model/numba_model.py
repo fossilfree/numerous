@@ -115,9 +115,11 @@ class NumbaModel:
 
     def map_external_data(self, t):
         for i in range(self.number_of_external_mappings):
+            df_indx = self.external_df_idx[i][0]
+            var_idx = self.external_df_idx[i][1]
             self.scope_vars_3d[self.external_idx_3d[0][i]][self.external_idx_3d[1][i]][
-                self.external_idx_3d[2][i]] = np.interp(t, self.external_mappings_time,
-                                                        self.external_mappings_numpy[:, self.external_df_idx[i]])
+                self.external_idx_3d[2][i]] = np.interp(t, self.external_mappings_time[df_indx],
+                                                        self.external_mappings_numpy[df_indx,:, var_idx])
 
     def historian_update(self, time: np.float64) -> None:
         ix = self.historian_ix

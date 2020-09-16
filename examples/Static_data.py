@@ -15,26 +15,28 @@ class StaticDataTest(EquationBase, Item):
         super(StaticDataTest, self).__init__(tag)
 
         ##will map to variable with the same path in external dataframe/datasource
-        self.add_parameter('T', 0, external_mapping=True)
-        self.add_parameter('T_i', 0)
-        mechanics = self.create_namespace('mechanics')
+        self.add_parameter('T1', 0, external_mapping=True)
+        self.add_parameter('T2', 0, external_mapping=True)
+        self.add_parameter('T_i1', 0)
+        self.add_parameter('T_i2', 0)
+        mechanics = self.create_namespace('test_nm')
         mechanics.add_equations([self])
 
     @Equation()
     def eval(self, scope):
-        scope.T_i = scope.T
+        scope.T_i1 = scope.T1
+        scope.T_i2 = scope.T2
 
 
 class StaticDataSystem(Subsystem):
     def __init__(self, tag, n=1):
         super().__init__(tag)
-        oscillators = []
+        o_s = []
         for i in range(n):
-            # Create oscillator
-            oscillator = StaticDataTest('tm' + str(i))
-            oscillators.append(oscillator)
+            o = StaticDataTest('tm' + str(i))
+            o_s.append(o)
         # Register the items to the subsystem to make it recognize them.
-        self.register_items(oscillators)
+        self.register_items(o_s)
 
 
 if __name__ == "__main__":
@@ -43,21 +45,29 @@ if __name__ == "__main__":
     import pandas as pd
     from matplotlib import pyplot as plt
 
-    e_df = pd.DataFrame(np.arange(200).reshape(100, 2),
-                        columns=['time', 'system.tm0.mechanics.T'])
-    e_df['time'] = np.arange(100)
-    e_df.set_index('time', inplace=True)
-    # Define simulation
+    external_mappings = []
+    malmo_sturup_data_frame = pd.read_csv("malmo_sturup-2019.json.csv")
+    index_to_timestep_mapping = 'time'
+    index_to_timestep_mapping_start = 0
+    dataframe_aliases = {
+        'system.tm0.test_nm.T1': "Dew Point Temperature {C}",
+        'system.tm0.test_nm.T2': 'Dry Bulb Temperature {C}'
+    }
+    external_mappings.append(
+        (malmo_sturup_data_frame, index_to_timestep_mapping, index_to_timestep_mapping_start, dataframe_aliases))
+
     s = simulation.Simulation(
-        model.Model(StaticDataSystem('system', n=1), external_mappings=e_df),
+        model.Model(StaticDataSystem('system', n=1), external_mappings=external_mappings),
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1
     )
+
     # Solve and plot
     tic = time()
     s.solve()
     toc = time()
     print('Execution time: ', toc - tic)
     print(len(list(s.model.historian_df)))
-    s.model.historian_df['system.tm0.mechanics.T'].plot()
+    s.model.historian_df['system.tm0.test_nm.T_i1'].plot()
+    s.model.historian_df['system.tm0.test_nm.T_i2'].plot()
     plt.show()
     plt.interactive(False)

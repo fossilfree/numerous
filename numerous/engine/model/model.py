@@ -93,9 +93,17 @@ class Model:
         self.flat_scope_idx_from = None
         self.historian_df = None
         self.external_mappings = external_mappings
+        self.external_mappings_numpy = []
+        self.external_mappings_time = []
+        self.external_columns =[]
         if self.external_mappings:
-            self.external_mappings_numpy = self.external_mappings.to_numpy(dtype=np.float64)
-            self.external_mappings_time = self.external_mappings.index.to_numpy(dtype=np.float64)
+            for (df,index_to_timestep_mapping,index_to_timestep_mapping_start,dataframe_aliases) in self.external_mappings:
+                self.external_columns.append(list(dataframe_aliases.keys()))
+                self.external_mappings_numpy.append(df[list(dataframe_aliases.values())].to_numpy(dtype=np.float64))
+                self.external_mappings_time.append(df[index_to_timestep_mapping].to_numpy(dtype=np.float64))
+            self.external_mappings_numpy = np.array(self.external_mappings_numpy,dtype=np.float64)
+            self.external_mappings_time = np.array(self.external_mappings_time,dtype=np.float64)
+
         else:
             self.external_mappings_numpy = np.array([[0]], dtype=np.float64)
             self.external_mappings_time = np.array([0], dtype=np.float64)
@@ -235,15 +243,21 @@ class Model:
         external_idx = []
         external_df_idx = []
         self.sum_mapping = False
-
+        number_of_external_mappings = 0
         for scope_idx, scope in enumerate(self.synchronized_scope.values()):
             for scope_var_idx, var in enumerate(scope.variables.values()):
                 _from = __get_mapping__idx(self.variables[var.mapping_id]) \
                     if var.mapping_id else var.position
                 if var.external_mapping:
                     external_idx.append(self.variables[var.id].idx_in_scope[0])
-                    external_df_idx.append(np.where(self.external_mappings.columns.values
-                                                    == self.variables[var.id].path.path[self.system.id])[0][0])
+                    number_of_external_mappings+=1
+                    for i,external_column in enumerate(self.external_columns):
+                        for path in self.variables[var.id].path.path[self.system.id]:
+                            if path in external_column:
+                                i1 = external_column.index(path)
+                                external_df_idx.append((i, i1))
+
+
                     # self.variables[var.id].path.path[self.system.id]
                     # self.variables[var.mapping_id].path[self.system]
                     # where to search id
@@ -270,7 +284,7 @@ class Model:
         self.flat_scope_idx_from = np.array([x for xs in self.non_flat_scope_idx_from for x in xs])
         self.flat_scope_idx = np.array([x for xs in self.non_flat_scope_idx for x in xs])
 
-        self.number_of_external_mappings = len(external_df_idx)
+        self.number_of_external_mappings = number_of_external_mappings
         self.external_df_idx = np.array(external_df_idx, dtype=np.int64)
 
         self.external_idx = np.array(external_idx, dtype=np.int64)
@@ -650,7 +664,7 @@ class Model:
         Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init_run, "run_init_callbacks",
                                                 "callback_func_init_pre_update", create_cbiu_call, ",time")
 
-        @jitclass(numba_model_spec)
+        # @jitclass(numba_model_spec)
         class NumbaModel_instance(NumbaModel):
             pass
 
