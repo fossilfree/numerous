@@ -6,71 +6,102 @@ import logging
 from .linalg.lapack.lapack_python import lapack_solve_triangular, lapack_cholesky
 
 class BaseMethod:
-    def __init__(self):
+    def __init__(self, numerous_solver, **options):
         raise NotImplementedError
     def get_solver_state(self, *args, **kwargs):
         raise NotImplementedError
 
 
 class RK45(BaseMethod):
-    def __init__(self, **options):
-        c = np.zeros(6)
-        c[0] = 0
-        c[1] = 1 / 4
-        c[2] = 3 / 8
-        c[3] = 12 / 13
-        c[4] = 1
-        c[5] = 1 / 2
-        a = np.zeros((6, 5))
-        b = np.zeros((2, 6))
-        a[1, 0] = 1 / 4
-        a[2, 0] = 3 / 32
-        a[2, 1] = 9 / 32
-        a[3, 0] = 1932 / 2197
-        a[3, 1] = -7200 / 2197
-        a[3, 2] = 7296 / 2197
-        a[4, 0] = 439 / 216
-        a[4, 1] = -8
-        a[4, 2] = 3680 / 513
-        a[4, 3] = -845 / 4104
-        a[5, 0] = -8 / 27
-        a[5, 1] = 2
-        a[5, 2] = -3544 / 2565
-        a[5, 3] = 1859 / 4104
-        a[5, 4] = -11 / 40
+    def __init__(self, numerous_solver, **options):
 
-        b[0, 0] = 25 / 216
-        b[0, 1] = 0
-        b[0, 2] = 1408 / 2565
-        b[0, 3] = 2197 / 4104
-        b[0, 4] = -1 / 5
-        b[0, 5] = 0
+        submethod=options['submethod']
 
-        b[1, 0] = 16 / 135
-        b[1, 1] = 0
-        b[1, 2] = 6656 / 12825
-        b[1, 3] = 28561 / 56430
-        b[1, 4] = -9 / 50
-        b[1, 5] = 2 / 55
+        if submethod == None:
+            submethod = 'RKDP45'
 
+        if submethod == 'RKF45':
+
+            c = np.zeros(6)
+            c[0] = 0
+            c[1] = 1 / 4
+            c[2] = 3 / 8
+            c[3] = 12 / 13
+            c[4] = 1
+            c[5] = 1 / 2
+            a = np.zeros((6, 5))
+            b = np.zeros((2, 6))
+            a[1, 0] = 1 / 4
+            a[2, 0] = 3 / 32
+            a[2, 1] = 9 / 32
+            a[3, 0] = 1932 / 2197
+            a[3, 1] = -7200 / 2197
+            a[3, 2] = 7296 / 2197
+            a[4, 0] = 439 / 216
+            a[4, 1] = -8
+            a[4, 2] = 3680 / 513
+            a[4, 3] = -845 / 4104
+            a[5, 0] = -8 / 27
+            a[5, 1] = 2
+            a[5, 2] = -3544 / 2565
+            a[5, 3] = 1859 / 4104
+            a[5, 4] = -11 / 40
+
+            b[1, 0] = 16 / 135
+            b[1, 1] = 0
+            b[1, 2] = 6656 / 12825
+            b[1, 3] = 28561 / 56430
+            b[1, 4] = -9 / 50
+            b[1, 5] = 2 / 55
+
+            b[0, 0] = 25 / 216
+            b[0, 1] = 0
+            b[0, 2] = 1408 / 2565
+            b[0, 3] = 2197 / 4104
+            b[0, 4] = -1 / 5
+            b[0, 5] = 0
+            self.order = 4
+            self.rk_steps = 5
+            self.e_order = 5
+        elif submethod == 'RKDP45':
+            c=np.zeros(7)
+            c[0] = 0
+            c[1] = 1/5
+            c[2] = 3/10
+            c[3] = 4/5
+            c[4] = 8/9
+            c[5] = 1
+            c[6] = 1
+
+            a = np.zeros((6,6))
+            a[1:] = [1/5, 0, 0, 0, 0 ,0]
+            a[2:] = [3/40, 9/40, 0, 0, 0, 0]
+            a[3:] = [44/45, -56/15, 32/9, 0, 0, 0]
+            a[4:] = [19372/6561, -25360/2187, 64448/6561, -212/729, 0, 0]
+            a[5:] = [9017/3168, -355/33, 46732/5247, 49/176, -5103/18656, 0]
+
+            b = np.zeros((2,7))
+            b[0:] = [35/384, 0, 500/1113, 125/192, -2187/6784, 11/84, 0]
+            b[1:] = [5179/57600, 0, 7571/16695, 393/640, -92097/339200, 187/2100, 1/40]
+            self.e_order = 4
+            self.order = 5
+            self.rk_steps = 5
+
+        else:
+            raise Exception("incorrect submethod specified")
+
+        self.f0 = numerous_solver.f0
         self.a = a
         self.b = b
         self.c = c
 
+        self.error_exponent = (-1 / (self.e_order + 1))
         self.max_factor = options.get('max_factor', 10)
         self.atol = options.get('atol', 1e-3)
         self.rtol = options.get('rtol', 1e-3)
 
-
-        self.order = 5
-
-
-
         @njit
         def Rk45(nm, t, dt, y, _not_used1, _not_used2, _solve_state):
-
-
-
 
             c = _solve_state[0]
             a = _solve_state[1]
@@ -78,76 +109,69 @@ class RK45(BaseMethod):
             max_factor = _solve_state[3]
             atol = _solve_state[4]
             rtol = _solve_state[5]
+            f0 = _solve_state[6]
+            rk_steps = _solve_state[7]
+            order = _solve_state[8]
+            error_exponent = _solve_state[9]
+            last_step = _solve_state[10]
             step_info = 1
 
             converged = False
-            order = 5
+
             tnew = t+dt
 
             if len(y) == 0:
                 return tnew, y, True, 1, _solve_state, max_factor
 
-            k = np.zeros((order+1, len(y)))
-            try:
-                tmp = nm.scope_vars_3d.copy()
-                k[0,:] = dt*nm.func(t, y)
-                nm.scope_vars_3d = tmp
-            except:
-                print("there was an exception here")
-                raise Exception("position: 0")
+            k = np.zeros((rk_steps+2, len(y)))
+            k[0,:] = f0*dt#dt*nm.func(t, y)#
 
-
-            rk_sum_4 = k[0,:]*b[0,0]
-            rk_sum_5 = k[0,:]*b[1,0]
-            for i in range(1,order+1):
+            for i in range(1,rk_steps+1):
                 dy = np.dot(k[:i].T, a[i,:i])
-                try:
-                    tmp=nm.scope_vars_3d.copy()
-                    k[i,:] = dt*nm.func(t+c[i]*dt, y+dy)
-                    nm.scope_vars_3d = tmp
-                except:
-                    print("there was an exception here", i)
-                    raise Exception("position inside")
+                k[i,:] = dt*nm.func(t+c[i]*dt, y+dy)
 
-                rk_sum_4 += b[0, i] * k[i]
-                rk_sum_5 += b[1, i] * k[i]
+            ynew = y + np.dot(k[0:order+2].T, b[0,:])
+            fnew = nm.func(tnew, ynew)  # can possibly save one call here...
+            k[-1, :] = dt*fnew
 
-            y5 = y+rk_sum_5
-            y4 = y+rk_sum_4
+            ye = y + np.dot(k[0:order+2].T, b[1,:])
+            scale = atol + np.maximum(np.abs(y), np.abs(ynew)) * rtol
 
-            res = np.linalg.norm((y5-y4)/dt)
+            e = (ynew-ye)/dt
 
-            e_max = atol + np.max(np.abs(y5))*rtol
+            e_norm = np.linalg.norm(e/scale) / len(e)**0.5
 
-            if res == 0:
-                delta = max_factor
-            else:
-                delta = (e_max/(2*res))**(1/4)
-            if res <= e_max:
+            if e_norm < 1:
+                if e_norm == 0:
+                    factor = max_factor
+                else:
+                    factor = min(max_factor,
+                                 0.9 * e_norm ** error_exponent)
+
+                if not last_step:
+                    factor = min(1, factor)
+
+                f0=fnew
                 converged = True
             else:
-                pass
-                #print(delta, dt, t)
+                factor = max(0.2,
+                             0.9 * e_norm ** error_exponent)
 
-            if delta < 0.001:
-                factor = 0.001
-            elif delta >= max_factor:
-                factor = max_factor
-            else:
-                factor = delta
+            _new_solve_state = (c, a, b, max_factor, atol, rtol, f0, rk_steps, order, error_exponent, converged)
 
-
-            ynew = y5
-
-            return tnew, ynew, converged, step_info, _solve_state, factor
+            return tnew, ynew, converged, step_info, _new_solve_state, factor
 
         self.step_func = Rk45
 
     def get_solver_state(self, *args, **kwargs):
-        return (self.c, self.a, self.b, self.max_factor, self.atol, self.rtol)
+        return (self.c, self.a, self.b, self.max_factor, self.atol, self.rtol, self.f0, self.rk_steps, self.order,
+                self.error_exponent, True)
+
+
+
 
 class LevenbergMarquardt(BaseMethod):
-    def __init__(self, **options):
+    def __init__(self, numerous_solver, **options):
         self.order = 5
 
         l_init = options.get('l', 1)

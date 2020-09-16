@@ -11,6 +11,8 @@ class Numerous_solver(BaseSolver):
         self.delta_t = delta_t
         self.numba_model = numba_model
         self.diff_function = numba_model.func
+
+        self.f0 = self.diff_function(time[0], y0)
         self.max_event_steps = max_event_steps
         self.options = kwargs
 
@@ -20,11 +22,14 @@ class Numerous_solver(BaseSolver):
                              'max_step': kwargs.get('max_step', np.inf), 'first_step': kwargs.get('first_step', None),
                              'atol': kwargs.get('atol', 1e-6), 'rtol': kwargs.get('rtol', 1e-3),
                              'outer_itermax': kwargs.get('outer_itermax', 20),
+                             'submethod': kwargs.get('submethod', None),
                              }
+
+
         self.method_options = odesolver_options
         try:
             self.method = eval(kwargs.get('method', 'RK45'))
-            self._method = self.method(**self.method_options)
+            self._method = self.method(self, **self.method_options)
             assert issubclass(self.method, BaseMethod), f"{self.method} is not a BaseMethod"
         except Exception as e:
             raise e
@@ -35,7 +40,7 @@ class Numerous_solver(BaseSolver):
         # Generate the solver
         self._non_compiled_solve = self.generate_solver()
         self._solve = self.compile_solver()
-        # self._solve = self.generate_solver()
+        #self._solve = self.generate_solver()
 
     def generate_solver(self):
         @njit
@@ -136,7 +141,7 @@ class Numerous_solver(BaseSolver):
                         j_i += 1
                         p_size = 100
                         x = int(p_size * j_i / progress_c)
-                        #print(t)
+                        print(t)
                         numba_model.historian_update(t)
                         #numba_model.run_callbacks_with_updates(t)
                         if strict_eval:
@@ -169,8 +174,8 @@ class Numerous_solver(BaseSolver):
                 if step_converged:
                     y_previous = y
                     t_previous = t
-                    numba_model.func(t, y)
-                    print(t)
+                    #numba_model.func(t, y)
+                    #print(t)
 
             info = {'step_info': step_info}
             # Return the part of the history actually filled in
@@ -260,7 +265,7 @@ class Numerous_solver(BaseSolver):
                Equations I: Nonstiff Problems", Sec. II.4.
         """
 
-        f0 = nm.func(t0, y0)
+        f0 = self.f0
 
         if y0.size == 0:
             return np.inf

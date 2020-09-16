@@ -70,7 +70,8 @@ class Model:
      so they can be accessed as variable values there.
     """
 
-    def __init__(self, system=None, logger_level=None, assemble=True, validate=False, save_equations = False):
+    def __init__(self, system=None, logger_level=None, assemble=True, validate=False, save_equations = False,
+                 ):
         if logger_level == None:
             self.logger_level = LoggerLevel.ALL
         else:
@@ -327,13 +328,14 @@ class Model:
         var_idxs_historian_3d = []
         var_idxs_pos_3d_helper_callbacks = []
         for i, variable in enumerate(self.variables.values()):
+
             if variable.logger_level.value >= self.logger_level.value:
                 var_idxs_historian_3d.append(i)
                 self.historian_paths.update({variable.id: variable.value})
                 for path in variable.path.path[self.system.id]:
                     self.aliases.update({path: variable.id})
-                    if variable.alias is not None:
-                        self.aliases.update({variable.alias: variable.id})
+                if variable.alias is not None:
+                    self.aliases.update({variable.alias: variable.id})
 
             for path in variable.path.path[self.system.id]:
                 self.path_variables.update({path: variable.value})  # is this used at all?

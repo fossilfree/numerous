@@ -29,7 +29,7 @@ numba_model_spec = [
     ('historian_data', float64[:, :]),
     ('path_variables', types.DictType(*kv_ty)),
     ('path_keys', types.ListType(types.unicode_type)),
-    ('mapped_variables_array', int64[:, :])
+    ('mapped_variables_array', int64[:, :]),
 ]
 
 
@@ -187,27 +187,6 @@ class NumbaModel:
 
             it+=1
             if it > itermax:
-                test = np.abs(prev_scope_vars_3d - self.scope_vars_3d) < 1e-6
-                print("about to stop...")
-                ix_err = np.argwhere(test == False)
-                for j in range(len(self.path_keys)):
-                    for ix in ix_err:
-                        if self.var_idxs_pos_3d[0][j] == ix[0] and self.var_idxs_pos_3d[1][j] == ix[1] and self.var_idxs_pos_3d[2][j] == ix[2]:
-                            ix_hist = np.argwhere(self.var_idxs_historian_3d == self.var_idxs_pos_3d_helper_callbacks[j])
-
-                            if len(ix_hist) > 0: # This value exists in the historian
-                                if True:#ix_hist != ix_hist_old:
-                                    #history=self.historian_data[ix_hist[0]+1]
-                                    print("History: ", self.path_keys[j], ix_hist[0])
-                                    ix_hist_old = ix_hist
-                                    for p in range(self.historian_ix):
-                                        print(p, self.historian_data[0][p], self.historian_data[ix_hist[0][0]+1][p])
-
-                            print("last values:")
-                            print(self.path_keys[j], start_scope_vars_3d[ix[0], ix[1], ix[2]], prev_scope_vars_3d[ix[0], ix[1], ix[2]],
-                                  self.scope_vars_3d[ix[0], ix[1], ix[2]],
-                                  np.abs(prev_scope_vars_3d[ix[0], ix[1], ix[2]]-self.scope_vars_3d[ix[0], ix[1], ix[2]]))
-
                 raise Exception("maximum number of iterations has been reached")
             prev_scope_vars_3d = np.copy(self.scope_vars_3d)
 
