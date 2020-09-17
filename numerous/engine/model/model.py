@@ -1,14 +1,15 @@
-import copy
 import itertools
 import pandas as pd
 import time
 import uuid
 import numpy as np
 from numba import jitclass
+
+from model.external_mappings.external_mappings import ExternalMapping, EmptyMapping
 from numerous.utils.logger_levels import LoggerLevel
 
 from numerous.engine.model.equation_parser import Equation_Parser
-from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
+from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
 
 from numerous.engine.scope import Scope, ScopeVariable
@@ -20,9 +21,10 @@ from numerous.utils.numba_callback import NumbaCallbackBase
 
 import operator
 
+
 class ModelNamespace:
 
-    def __init__(self, tag,outgoing_mappings):
+    def __init__(self, tag, outgoing_mappings):
         self.tag = tag
         self.outgoing_mappings = outgoing_mappings
         self.equation_dict = {}
@@ -70,13 +72,14 @@ class Model:
      so they can be accessed as variable values there.
     """
 
-    def __init__(self, system=None, logger_level=None, assemble=True, validate=False, save_equations = False,
+    def __init__(self, system=None, logger_level=None, assemble=True, validate=False, save_equations=False,
                  external_mappings=None):
         if logger_level == None:
             self.logger_level = LoggerLevel.ALL
         else:
             self.logger_level = logger_level
 
+        self.external_mappings = ExternalMapping(external_mappings) if external_mappings else EmptyMapping()
         self.numba_callbacks_indicator = False
         self.numba_callbacks_init = []
         self.numba_callbacks_variables = []
@@ -84,7 +87,7 @@ class Model:
         self.numba_callbacks_init_run = []
         self.callbacks = []
 
-        self.save_equations= save_equations
+        self.save_equations = save_equations
 
         self.system = system
         self.events = {}
@@ -96,21 +99,6 @@ class Model:
         self.flat_scope_idx = None
         self.flat_scope_idx_from = None
         self.historian_df = None
-        self.external_mappings = external_mappings
-        self.external_mappings_numpy = []
-        self.external_mappings_time = []
-        self.external_columns =[]
-        if self.external_mappings:
-            for (df,index_to_timestep_mapping,index_to_timestep_mapping_start,dataframe_aliases) in self.external_mappings:
-                self.external_columns.append(list(dataframe_aliases.keys()))
-                self.external_mappings_numpy.append(df[list(dataframe_aliases.values())].to_numpy(dtype=np.float64))
-                self.external_mappings_time.append(df[index_to_timestep_mapping].to_numpy(dtype=np.float64))
-            self.external_mappings_numpy = np.array(self.external_mappings_numpy,dtype=np.float64)
-            self.external_mappings_time = np.array(self.external_mappings_time,dtype=np.float64)
-
-        else:
-            self.external_mappings_numpy = np.empty([0,0,0], dtype=np.float64)
-            self.external_mappings_time = np.empty([0,0], dtype=np.float64)
 
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
@@ -141,7 +129,6 @@ class Model:
 
         if validate:
             self.validate()
-
 
     def __add_item(self, item):
         model_namespaces = []
@@ -174,13 +161,12 @@ class Model:
         -  _3d 
 
         """
+
         def __get_mapping__idx(variable):
             if variable.mapping:
                 return __get_mapping__idx(variable.mapping)
             else:
                 return variable.idx_in_scope[0]
-
-
 
         print("Assembling numerous Model")
         assemble_start = time.time()
@@ -199,6 +185,7 @@ class Model:
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
         self.mappings = []
+
         def __get_mapping__variable(variable):
             if variable.mapping:
                 return __get_mapping__variable(variable.mapping)
@@ -210,13 +197,12 @@ class Model:
                 _from = __get_mapping__variable(var)
                 self.mappings.append((var.id, _from.id))
             if not var.mapping_id and var.sum_mapping_ids:
-                self.mappings.append((var.id,var.sum_mapping_ids))
+                self.mappings.append((var.id, var.sum_mapping_ids))
 
         # 3. Compute compiled_eq and compiled_eq_idxs, the latter mapping
         # self.synchronized_scope to compiled_eq (by index)
         equation_parser = Equation_Parser()
-        self.compiled_eq, self.compiled_eq_idxs,self.eq_outgoing_mappings = equation_parser.parse(self)
-
+        self.compiled_eq, self.compiled_eq_idxs, self.eq_outgoing_mappings = equation_parser.parse(self)
 
         # 4. Create self.states_idx and self.derivatives_idx
         # Fixes each variable's var_idx (position), updates variables[].idx_in_scope
@@ -236,8 +222,6 @@ class Model:
             _snd_is_derivative, enumerate(self.scope_variables.values()))),
                                            np.int64)
 
-
-
         # maps flat var_idx to scope_idx
         self.var_idx_to_scope_idx = np.full_like(scope_variables_flat, -1, np.int64)
         self.var_idx_to_scope_idx_from = np.full_like(scope_variables_flat, -1, np.int64)
@@ -248,8 +232,9 @@ class Model:
         sum_mapped = []
         sum_mapped_idx = []
         sum_mapped_idx_len = []
+
         external_idx = []
-        external_df_idx = []
+
         self.sum_mapping = False
         number_of_external_mappings = 0
         for scope_idx, scope in enumerate(self.synchronized_scope.values()):
@@ -258,17 +243,8 @@ class Model:
                     if var.mapping_id else var.position
                 if var.external_mapping:
                     external_idx.append(self.variables[var.id].idx_in_scope[0])
-                    number_of_external_mappings+=1
-                    for i,external_column in enumerate(self.external_columns):
-                        for path in self.variables[var.id].path.path[self.system.id]:
-                            if path in external_column:
-                                i1 = external_column.index(path)
-                                external_df_idx.append((i, i1))
-
-
-                    # self.variables[var.id].path.path[self.system.id]
-                    # self.variables[var.mapping_id].path[self.system]
-                    # where to search id
+                    number_of_external_mappings += 1
+                    self.external_mappings.add_df_idx(self.variables, var.id, self.system.id)
 
                 self.var_idx_to_scope_idx[var.position] = scope_idx
                 self.var_idx_to_scope_idx_from[_from] = scope_idx
@@ -293,10 +269,7 @@ class Model:
         self.flat_scope_idx = np.array([x for xs in self.non_flat_scope_idx for x in xs])
 
         self.number_of_external_mappings = number_of_external_mappings
-        if self.external_mappings:
-            self.external_df_idx = np.array(external_df_idx, dtype=np.int64)
-        else:
-            self.external_df_idx = np.empty([0, 0], dtype=int)
+        self.external_mappings.store_mappings()
 
         self.external_idx = np.array(external_idx, dtype=np.int64)
         self.sum_idx = np.array(sum_idx)
@@ -347,7 +320,6 @@ class Model:
         self.differing_idxs_from_flat = self.flat_scope_idx_from[_differing_idxs]
         self.differing_idxs_pos_flat = self.flat_scope_idx[_differing_idxs]
 
-
         self.differing_idxs_from_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_from_flat, False)
         self.differing_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.differing_idxs_pos_flat, False)
         self.sum_idxs_pos_3d = self._var_idxs_to_3d_idxs(self.sum_idx, False)
@@ -388,10 +360,8 @@ class Model:
         self.flat_scope_idx_slices_end = np.cumsum(_flat_scope_idx_slices_lengths)
         self.flat_scope_idx_slices_start = np.hstack([[0], self.flat_scope_idx_slices_end[:-1]])
 
-
-
         assemble_finish = time.time()
-        print("Assemble time: ",assemble_finish - assemble_start)
+        print("Assemble time: ", assemble_finish - assemble_start)
         self.info.update({"Assemble time": assemble_finish - assemble_start})
         self.info.update({"Number of items": len(self.model_items)})
         self.info.update({"Number of variables": len(self.scope_variables)})
@@ -436,7 +406,6 @@ class Model:
     def update_states(self, y):
         self.scope_variables[self.states_idx] = y
 
-
     def history_as_dataframe(self):
         time = self.data[0]
         data = {'time': time}
@@ -448,7 +417,6 @@ class Model:
         self.df = self.df.dropna(subset=['time'])
         self.df = self.df.set_index('time')
         self.df.index = pd.to_timedelta(self.df.index, unit='s')
-
 
     def validate(self):
         """
@@ -481,6 +449,7 @@ class Model:
                     var.mapping = self.scope_variables[var.mapping_id]
                 if var.sum_mapping_id:
                     var.sum_mapping = self.scope_variables[var.sum_mapping_id]
+
     # TODO: FIX THIS
     def restore_state(self, timestep=-1):
         """
@@ -667,7 +636,7 @@ class Model:
                    "" + eq_method_name + "(array_3d[" + str(i) + \
                    ", :self.num_uses_per_eq[" + str(i) + "]])\n"
 
-        Equation_Parser.create_numba_iterations(NumbaModel, self.compiled_eq, "compute_eq", "func"
+        Equation_Parser.create_numba_iterations(CompiledModel, self.compiled_eq, "compute_eq", "func"
                                                 , create_eq_call, ",array_3d", map_sorting=self.eq_outgoing_mappings)
 
         ##Adding callbacks_varaibles to numba specs
@@ -675,41 +644,45 @@ class Model:
             return "      self." \
                    "" + _method_name + "(time, self.path_variables)\n"
 
-        Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks, "run_callbacks", "callback_func"
+        Equation_Parser.create_numba_iterations(CompiledModel, self.numba_callbacks, "run_callbacks", "callback_func"
                                                 , create_cbi_call, ",time")
 
         def create_cbi2_call(_method_name: str, i: int):
             return "      self." \
                    "" + _method_name + "(self.number_of_variables,self.number_of_timesteps)\n"
 
-        Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init, "init_callbacks",
+        Equation_Parser.create_numba_iterations(CompiledModel, self.numba_callbacks_init, "init_callbacks",
                                                 "callback_func_init_", create_cbi2_call, "")
 
         def create_cbiu_call(_method_name: str, i: int):
             return "      self." \
                    "" + _method_name + "(time, self.path_variables)\n"
 
-        Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init_run, "run_init_callbacks",
+        Equation_Parser.create_numba_iterations(CompiledModel, self.numba_callbacks_init_run, "run_init_callbacks",
                                                 "callback_func_init_pre_update", create_cbiu_call, ",time")
 
         @jitclass(numba_model_spec)
-        class NumbaModel_instance(NumbaModel):
+        class CompiledModel_instance(CompiledModel):
             pass
 
-        NM_instance = NumbaModel_instance(self.var_idxs_pos_3d, self.var_idxs_pos_3d_helper_callbacks,
-                                          self.var_idxs_historian_3d,
-                                          len(self.compiled_eq), self.state_idxs_3d[0].shape[0],
-                                          self.differing_idxs_pos_3d[0].shape[0], self.scope_vars_3d,
-                                          self.state_idxs_3d,
-                                          self.deriv_idxs_3d, self.differing_idxs_pos_3d, self.differing_idxs_from_3d,
-                                          self.num_uses_per_eq, self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
-                                          self.sum_slice_idxs, self.sum_mapped_idxs_len, self.sum_mapping,
-                                          self.numba_callbacks_indicator,
-                                          self.global_vars, number_of_timesteps, start_time,
-                                          self.mapped_variables_array,
-                                          self.external_mappings_time, self.number_of_external_mappings,
-                                          self.external_idx_3d,
-                                          self.external_mappings_numpy, self.external_df_idx)
+        NM_instance = CompiledModel_instance(self.var_idxs_pos_3d, self.var_idxs_pos_3d_helper_callbacks,
+                                             self.var_idxs_historian_3d,
+                                             len(self.compiled_eq), self.state_idxs_3d[0].shape[0],
+                                             self.differing_idxs_pos_3d[0].shape[0], self.scope_vars_3d,
+                                             self.state_idxs_3d,
+                                             self.deriv_idxs_3d, self.differing_idxs_pos_3d,
+                                             self.differing_idxs_from_3d,
+                                             self.num_uses_per_eq, self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
+                                             self.sum_slice_idxs, self.sum_mapped_idxs_len, self.sum_mapping,
+                                             self.numba_callbacks_indicator,
+                                             self.global_vars, number_of_timesteps, start_time,
+                                             self.mapped_variables_array,
+                                             self.external_mappings.external_mappings_time,
+                                             self.number_of_external_mappings,
+                                             self.external_idx_3d,
+                                             self.external_mappings.external_mappings_numpy,
+                                             self.external_mappings.external_df_idx,
+                                             self.external_mappings.approximation_info)
 
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value
@@ -717,7 +690,7 @@ class Model:
         NM_instance.run_init_callbacks(start_time)
         NM_instance.map_external_data(start_time)
 
-        #NM_instance.historian_update(start_time)
+        # NM_instance.historian_update(start_time)
         self.numba_model = NM_instance
         return self.numba_model
 
@@ -727,7 +700,7 @@ class Model:
         data = {'time': time}
 
         for i, var in enumerate(self.historian_paths):
-             data.update({var: self.numba_model.historian_data[i + 1]})
+            data.update({var: self.numba_model.historian_data[i + 1]})
 
         self.historian_df = AliasedDataFrame(data, aliases=self.aliases)
 

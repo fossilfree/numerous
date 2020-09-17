@@ -1,8 +1,8 @@
+from model.external_mappings.approximation_type import ApproximationType
 from numerous.multiphysics.equation_decorators import Equation
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
 from numerous.engine.system import Subsystem
-import numpy as np
 
 if __name__ == "__main__":
     from numerous.engine import model, simulation
@@ -50,11 +50,12 @@ if __name__ == "__main__":
     index_to_timestep_mapping = 'time'
     index_to_timestep_mapping_start = 0
     dataframe_aliases = {
-        'system.tm0.test_nm.T1': "Dew Point Temperature {C}",
-        'system.tm0.test_nm.T2': 'Dry Bulb Temperature {C}'
+        'system.tm0.test_nm.T1': ("Dew Point Temperature {C}", ApproximationType.PIESEWISE),
+        'system.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', ApproximationType.LINEAR)
     }
     external_mappings.append(
-        (malmo_sturup_data_frame, index_to_timestep_mapping, index_to_timestep_mapping_start, dataframe_aliases))
+        (malmo_sturup_data_frame, index_to_timestep_mapping, index_to_timestep_mapping_start,
+         dataframe_aliases))
 
     s = simulation.Simulation(
         model.Model(StaticDataSystem('system', n=1), external_mappings=external_mappings),

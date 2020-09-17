@@ -173,11 +173,12 @@ class Numerous_solver(BaseSolver):
                                                                                 _solve_state)
 
                 dt *= factor
-                numba_model.map_external_data(t)
+
 
                 if step_converged:
                     y_previous = y
                     t_previous = t
+                    numba_model.map_external_data(t)
                     #numba_model.func(t, y)
                     #print(t)
 

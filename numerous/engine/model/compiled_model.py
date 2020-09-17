@@ -1,3 +1,5 @@
+import math
+
 from numba import int32, float64, boolean, int64, prange, njit, types, typed
 import numpy as np
 
@@ -31,15 +33,22 @@ numba_model_spec = [
     ('path_variables', types.DictType(*kv_ty)),
     ('path_keys', types.ListType(types.unicode_type)),
     ('mapped_variables_array', int64[:, :]),
-    ('external_mappings_time', float64[:,:]),
+    ('external_mappings_time', float64[:, :]),
     ('number_of_external_mappings', int64),
     ('external_idx_3d', types.Tuple((int64[:], int64[:], int64[:]))),
-    ('external_mappings_numpy', float64[:, :,:]),
-    ('external_df_idx', int64[:,:])
+    ('external_mappings_numpy', float64[:, :, :]),
+    ('external_df_idx', int64[:, :]),
+    ('approximation_type', boolean[:])
 ]
 
 
-class NumbaModel:
+@njit
+def step_aproximation(t, time_array, data_array):
+    idx = np.searchsorted(time_array, t, side='left')
+    return data_array[idx]
+
+
+class CompiledModel:
     def __init__(self, var_idxs_pos_3d, var_idxs_pos_3d_helper_callbacks, var_idxs_historian_3d, eq_count,
                  number_of_states,
                  number_of_mappings,
@@ -47,7 +56,8 @@ class NumbaModel:
                  differing_idxs_pos_3d, differing_idxs_from_3d, num_uses_per_eq,
                  sum_idxs_pos_3d, sum_idxs_sum_3d, sum_slice_idxs, sum_slice_idxs_len, sum_mapping, callbacks,
                  global_vars, number_of_timesteps, start_time, mapped_variables_array,
-                 external_mappings_time,number_of_external_mappings,external_idx_3d,external_mappings_numpy,external_df_idx):
+                 external_mappings_time, number_of_external_mappings, external_idx_3d, external_mappings_numpy,
+                 external_df_idx, approximation_type):
 
         self.external_idx_3d = external_idx_3d
         self.external_df_idx = external_df_idx
@@ -78,8 +88,7 @@ class NumbaModel:
         self.number_of_timesteps = number_of_timesteps
         self.start_time = start_time
         self.historian_ix = 0
-        ##* simulation.num_inner
-        #self.historian_data = np.empty((self.number_of_variables + 1, number_of_timesteps*100), dtype=np.float64)
+        self.approximation_type = approximation_type
         self.historian_data = np.empty((len(var_idxs_historian_3d) + 1, number_of_timesteps), dtype=np.float64)
         self.historian_data.fill(np.nan)
         self.mapped_variables_array = mapped_variables_array
@@ -122,13 +131,16 @@ class NumbaModel:
             var_idx = self.external_df_idx[i][1]
             self.scope_vars_3d[self.external_idx_3d[0][i]][self.external_idx_3d[1][i]][
                 self.external_idx_3d[2][i]] = np.interp(t, self.external_mappings_time[df_indx],
-                                                        self.external_mappings_numpy[df_indx,:, var_idx])
+                                                        self.external_mappings_numpy[df_indx, :, var_idx]) if \
+            self.approximation_type[i] else \
+                step_aproximation(t, self.external_mappings_time[df_indx],
+                                  self.external_mappings_numpy[df_indx, :, var_idx])
 
     def historian_update(self, time: np.float64) -> None:
         ix = self.historian_ix
         varix = 1
         self.historian_data[0][ix] = time
-        #for j in self.var_idxs_pos_3d_helper:
+        # for j in self.var_idxs_pos_3d_helper:
         for j in self.var_idxs_historian_3d:
             self.historian_data[varix][ix] = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
                 self.var_idxs_pos_3d[2][j]]
@@ -189,7 +201,7 @@ class NumbaModel:
         prev_scope_vars_3d = self.scope_vars_3d.copy()
         start_scope_vars_3d = self.scope_vars_3d.copy()
         itermax = 20
-        it=0
+        it = 0
         ix_hist_old = np.argwhere(self.var_idxs_historian_3d == self.var_idxs_pos_3d_helper_callbacks[0])
         while mapping_:
             for i in range(self.number_of_mappings):
@@ -206,7 +218,7 @@ class NumbaModel:
 
             mapping_ = not np.all(np.abs(prev_scope_vars_3d - self.scope_vars_3d) < 1e-6)
 
-            it+=1
+            it += 1
             if it > itermax:
                 raise Exception("maximum number of iterations has been reached")
             prev_scope_vars_3d = np.copy(self.scope_vars_3d)
