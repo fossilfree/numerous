@@ -155,6 +155,7 @@ class Subsystem(ConnectorItem):
 class ItemSet(Item, EquationBase):
 
     def __init__(self, set_structure, tag):
+        tag= "SET_"+tag
         super().__init__(tag)
 
         set_structure_flat = set_structure#.flatten()

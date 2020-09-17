@@ -261,8 +261,9 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                         fake_sv[d_u(svf.get_path_dot())] = svf
 
                     scope_variables.update(fake_sv)
-
-
+                    #if d_u(svf.get_path_dot()) == 'climatemachine_ClimateMachineManualController_VaporizerNozzle_element_2_nozzle_2_t1_x_f_tmp':
+                    #    raise ValueError('arg')
+                    #print('tmp label: ',tmp_label)
                     tmp = equation_graph.add_node(key=tmp_label,  node_type=NodeTypes.TMP, name=tmp_label, ast=None, file='sum', label=tmp_label, ln=0,
                                  ast_type=None, scope_var=svf, ignore_existing=False)
                     # Add temp var to Equation target
@@ -456,21 +457,25 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
                 for a in vardef.args:
                     try:
-                        for sv_ in set_variables:
-                            print(sv_)
-                            if not sv_:
-                                raise ValueError('aasss')
-                        print(scope_vars)
-                        print(a)
-                        print(scope_vars[a])
-                        print(set_variables[scope_vars[a]])
+                        #for sv_ in set_variables:
+                    #        print(sv_)
+                     #       if not sv_:
+                      #          raise ValueError('aasss')
+                       # print(scope_vars)
+                       # print(a)
+                       # print(scope_vars[a])
+                       # print(set_variables[scope_vars[a]])
                         _set_vars = [d_u(v[1].get_path_dot()) for v in set_variables[scope_vars[a]]]
                         #print('set_vars: ',_set_vars)
                         all_read += _set_vars
 
                         body_def.append(ast.Assign(targets=[ast.Name(id=d_u(scope_vars[a]))], value=ast.List(elts=[ast.Name(id=set_v) for set_v in _set_vars])))
                     except TypeError:
-                        pass
+                        print(a)
+                        print(scope_vars[a])
+                        print(set_variables[scope_vars[a]])
+                        raise
+                    #    pass
 
 
 
@@ -741,6 +746,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     variables = vars_init + vars_update
 
     variables += set([d_u(sv.get_path_dot()) for sv in scope_variables.values()]).difference(variables)
+
+
     variables_dot = [scope_var_node[v].get_path_dot() for v in variables]
     #if not 'climatemachine.HX_element_1.HX_1_1.element_1_outside_1_1.t1.dp' in variables_dot:
     #    raise ValueError()
