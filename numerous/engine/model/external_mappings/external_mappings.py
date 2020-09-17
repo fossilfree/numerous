@@ -1,6 +1,6 @@
 import numpy as np
 
-from model.external_mappings.approximation_type import ApproximationType
+from model.external_mappings.interpolation_type import InterpolationType
 
 
 class ExternalMapping:
@@ -9,23 +9,23 @@ class ExternalMapping:
         self.external_mappings_numpy = []
         self.external_mappings_time = []
         self.external_columns = []
-        self.approximation_type = []
+        self.interpoaltion_type = []
         for (df, index_to_timestep_mapping, index_to_timestep_mapping_start,
              dataframe_aliases) in self.external_mappings:
             self.external_columns.append(list(dataframe_aliases.keys()))
-            self.approximation_type.append([a_tuple[1] for a_tuple in list(dataframe_aliases.values())])
+            self.interpoaltion_type.append([a_tuple[1] for a_tuple in list(dataframe_aliases.values())])
             self.external_mappings_numpy.append(df[[a_tuple[0] for a_tuple in list(dataframe_aliases.values())]
                                                 ].to_numpy(dtype=np.float64))
             self.external_mappings_time.append(df[index_to_timestep_mapping].to_numpy(dtype=np.float64))
         self.external_mappings_numpy = np.array(self.external_mappings_numpy, dtype=np.float64)
         self.external_mappings_time = np.array(self.external_mappings_time, dtype=np.float64)
-        self.approximation_type = [item for sublist in self.approximation_type for item in sublist]
+        self.interpoaltion_type = [item for sublist in self.interpoaltion_type for item in sublist]
         self.external_df_idx = []
-        self.approximation_info = []
+        self.interpolation_info = []
 
     def store_mappings(self):
         self.external_df_idx = np.array(self.external_df_idx, dtype=np.int64)
-        self.approximation_info = np.array(self.approximation_info, dtype=np.bool)
+        self.interpolation_info = np.array(self.interpolation_info, dtype=np.bool)
 
     def add_df_idx(self, variables, var_id, system_id):
         for i, external_column in enumerate(self.external_columns):
@@ -33,8 +33,8 @@ class ExternalMapping:
                 if path in external_column:
                     i1 = external_column.index(path)
                     self.external_df_idx.append((i, i1))
-                    self.approximation_info.append(
-                        self.approximation_type[i].value == ApproximationType.LINEAR.value)
+                    self.interpolation_info.append(
+                        self.interpoaltion_type[i].value == InterpolationType.LINEAR.value)
 
 
 class EmptyMapping:

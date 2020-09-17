@@ -682,7 +682,7 @@ class Model:
                                              self.external_idx_3d,
                                              self.external_mappings.external_mappings_numpy,
                                              self.external_mappings.external_df_idx,
-                                             self.external_mappings.approximation_info)
+                                             self.external_mappings.interpolation_info)
 
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value

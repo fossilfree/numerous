@@ -3,7 +3,7 @@ from abc import ABC
 import pytest
 from pytest import approx
 
-from model.external_mappings.approximation_type import ApproximationType
+from model.external_mappings.interpolation_type import InterpolationType
 from numerous.utils.callback_decorators import CallbackMethodType, NumbaCallback
 from numerous.utils.numba_callback import NumbaCallbackBase
 from numerous.engine.model import Model
@@ -344,8 +344,8 @@ def test_external_data(solver):
     index_to_timestep_mapping = 'time'
     index_to_timestep_mapping_start = 0
     dataframe_aliases = {
-        'system.tm0.test_nm.T1': ("Dew Point Temperature {C}", ApproximationType.PIESEWISE),
-        'system.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', ApproximationType.PIESEWISE)
+        'system.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
+        'system.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE)
     }
     external_mappings.append(
         (df, index_to_timestep_mapping, index_to_timestep_mapping_start, dataframe_aliases))
