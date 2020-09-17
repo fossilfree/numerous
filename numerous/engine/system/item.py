@@ -27,7 +27,7 @@ class Item(Node):
         self.level = 1
         self.parent_item = None
         self.registered = False
-
+        self.parent_set = None
 
         if tag:
             self.tag = tag
@@ -91,7 +91,7 @@ class Item(Node):
             If namespace is already registered for this item.
         """
         if not namespace.registered:
-            print('registering single ns: ',namespace.get_path_dot())
+            #print('registering single ns: ',namespace.get_path_dot())
             if namespace.tag in self.registered_namespaces.keys():
                 raise ValueError('Namespace with name {0} is already registered in item {1}'
                                  .format(namespace.tag, self.tag))

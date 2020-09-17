@@ -217,12 +217,20 @@ class Model:
         logging.info("Assembling numerous Model")
         assemble_start = time.time()
 
-        for item in self.system.registered_items.values():
-            for ns in item.registered_namespaces.values():
-                #print('ns: ',ns.get_path_dot())
-                #if not ns.part_of_set:
+        def update_set_vars(items):
 
-                ns.update_set_var()
+            for item in items:
+
+                for ns in item.registered_namespaces.values():
+
+
+                    ns.update_set_var()
+
+                if isinstance(item, Subsystem):
+                    update_set_vars(item.registered_items.values())
+
+        update_set_vars(self.system.registered_items.values())
+
 
         self.system.update_variables_path_()
         # 1. Create list of model namespaces

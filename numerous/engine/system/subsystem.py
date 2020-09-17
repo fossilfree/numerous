@@ -84,8 +84,9 @@ class Subsystem(ConnectorItem):
         if structure == ItemsStructure.LIST:
             any(self.register_item(item) for item in items)
         elif structure == ItemsStructure.SET:
+
             self.register_item(ItemSet(items, tag))
-            any(self.register_item(item) for item in items)
+            self.register_items(items)
 
     def increase_level(self):
         super().increase_level()
@@ -159,18 +160,32 @@ class ItemSet(Item, EquationBase):
         set_structure_flat = set_structure#.flatten()
 
         self.item_ids = []
+
+        self.item_type = None
+
         for item in set_structure_flat:
+            if not self.item_type:
+                self.item_type = type(item)
+
+            if not isinstance(item, self.item_type):
+                raise TypeError(f'Error in registering set {tag} - All items in a set must have same type! This set is of type {self.item_type} not {type(item)}!')
+
             self.item_ids.append(item.id)
+            if item.parent_set is None:
+                item.parent_set = tag
+            else:
+                raise ValueError(f'Item {item} already part of set {item.parent_set} - cannot add to {tag}')
+
 
 
         tag_count = 0
         ##TODO Check that all items are of the same type
         for item in set_structure_flat:
             for ns in item.registered_namespaces:
-                print('namespace registred is: ',ns.tag)
+                #print('namespace registred is: ',ns.tag)
                 tag_ = ns.tag
                 if not (tag_ in self.registered_namespaces.keys()):
-                    print(tag_)
+                    #print(tag_)
 
                     sns = SetNamespace(self, tag_, self.item_ids)
 

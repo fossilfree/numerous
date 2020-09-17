@@ -550,6 +550,8 @@ class Graph():
     def remove_node(self, node):
         self.nodes_attr['deleted'][node] = 1
 
+
+
     def clean(self):
         self.lower_graph = None
         self.node_edges = None

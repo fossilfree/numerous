@@ -186,7 +186,7 @@ class SetNamespace(VariableNamespace):
         mapping = []
         variables = []
         item_ix = self.items.index(ns.item.id)
-        print('ix: ',item_ix)
+        #print('ix: ',item_ix)
         for variable in ns.variables:
             self.register_variable(variable,str(tag_count))
             if variable.mapping:
