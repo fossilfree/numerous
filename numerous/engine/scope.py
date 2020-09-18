@@ -20,7 +20,6 @@ class ScopeVariable(MappedValue):
         self.value = base_variable.get_value()
         self.type = base_variable.type
         self.tag = base_variable.tag
-        self.external_mapping = base_variable.external_mapping
         self.state_ix = None
         self.associated_state_scope = []
         self.bound_equation_methods = None

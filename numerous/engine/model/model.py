@@ -241,7 +241,7 @@ class Model:
             for scope_var_idx, var in enumerate(scope.variables.values()):
                 _from = __get_mapping__idx(self.variables[var.mapping_id]) \
                     if var.mapping_id else var.position
-                if var.external_mapping:
+                if self.external_mappings.is_mapped_var(self.variables, var.id, self.system.id):
                     external_idx.append(self.variables[var.id].idx_in_scope[0])
                     number_of_external_mappings += 1
                     self.external_mappings.add_df_idx(self.variables, var.id, self.system.id)

@@ -51,20 +51,19 @@ class EquationBase:
                 self.equations.append(method_call)
 
 
-    def add_parameter(self, tag, init_val, logger_level=None, alias=None, external_mapping=False):
+    def add_parameter(self, tag, init_val, logger_level=None, alias=None):
         """
 
         Parameters
         ----------
         tag
         init_val
-        external_mapping
 
         Returns
         -------
 
         """
-        self.add_variable(tag, init_val, VariableType.PARAMETER, logger_level, alias, external_mapping)
+        self.add_variable(tag, init_val, VariableType.PARAMETER, logger_level, alias)
 
     def add_constant(self, tag, value, logger_level=None, alias=None):
         """
@@ -98,7 +97,7 @@ class EquationBase:
         self.add_variable(tag + '_dot', 0, VariableType.DERIVATIVE, logger_level,
                           alias+"_dot" if alias is not None else None)
 
-    def add_variable(self, tag, init_val, var_type, logger_level, alias, external_mapping=False):
+    def add_variable(self, tag, init_val, var_type, logger_level, alias):
         """
 
         Parameters
@@ -106,7 +105,7 @@ class EquationBase:
         tag
         init_val
         var_type
-        external_mapping
+        external_mappng
 
         Returns
         -------
@@ -114,5 +113,4 @@ class EquationBase:
         """
         self.variables_descriptions. \
             register_variable_description(VariableDescription(tag=tag, id=str(uuid.uuid1()), initial_value=init_val,
-                                                              type=var_type, logger_level=logger_level, alias=alias,
-                                                              external_mapping=external_mapping))
+                                                              type=var_type, logger_level=logger_level, alias=alias))

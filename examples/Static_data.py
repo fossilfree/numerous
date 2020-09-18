@@ -15,8 +15,8 @@ class StaticDataTest(EquationBase, Item):
         super(StaticDataTest, self).__init__(tag)
 
         ##will map to variable with the same path in external dataframe/datasource
-        self.add_parameter('T1', 0, external_mapping=True)
-        self.add_parameter('T2', 0, external_mapping=True)
+        self.add_parameter('T1', 0, )
+        self.add_parameter('T2', 0, )
         self.add_parameter('T_i1', 0)
         self.add_parameter('T_i2', 0)
         mechanics = self.create_namespace('test_nm')

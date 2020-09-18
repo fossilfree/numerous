@@ -31,7 +31,6 @@ class VariableDescription:
     id: str = None
     logger_level: LoggerLevel = LoggerLevel.ALL
     alias: str = None
-    external_mapping: bool = False
 
 
 @dataclass
@@ -126,7 +125,6 @@ class Variable(MappedValue):
         self.namespace = detailed_variable_description.namespace
         self.tag = detailed_variable_description.tag
         self.type = detailed_variable_description.type
-        self.external_mapping = detailed_variable_description.external_mapping
         self.path = VariablePath([detailed_variable_description.tag], self.id)
         self.alias = None
         if base_variable:
@@ -148,12 +146,11 @@ class Variable(MappedValue):
 
     @staticmethod
     def create(namespace, v_id, tag,
-               v_type,external_mapping, value, item, metadata,
+               v_type, value, item, metadata,
                mapping, update_counter, allow_update, logger_level, alias):
         return Variable(DetailedVariableDescription(tag=tag,
                                                     id=v_id,
                                                     type=v_type,
-                                                    external_mapping=external_mapping,
                                                     initial_value=value,
                                                     namespace=namespace,
                                                     item=item,
@@ -174,7 +171,6 @@ class _VariableFactory:
                                v_id="{0}_{1}_{2}_{3}".format(item.tag, namespace.tag, var_desc.tag, uuid.uuid4()),
                                tag=var_desc.tag,
                                v_type=var_desc.type,
-                               external_mapping=var_desc.external_mapping,
                                value=var_desc.initial_value,
                                item=item,
                                metadata={},

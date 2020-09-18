@@ -36,6 +36,13 @@ class ExternalMapping:
                     self.interpolation_info.append(
                         self.interpoaltion_type[i].value == InterpolationType.LINEAR.value)
 
+    def is_mapped_var(self, variables, var_id, system_id):
+        for path in variables[var_id].path.path[system_id]:
+            for columns in self.external_columns:
+                if path in columns:
+                    return True
+
+
 
 class EmptyMapping:
     def __init__(self):
