@@ -1,6 +1,6 @@
 import numpy as np
 
-from model.external_mappings.interpolation_type import InterpolationType
+from numerous.engine.model.external_mappings.interpolation_type import InterpolationType
 
 
 class ExternalMapping:
