@@ -5,7 +5,7 @@ import uuid
 import numpy as np
 from numba import jitclass
 
-from model.external_mappings.external_mappings import ExternalMapping, EmptyMapping
+from numerous.engine.model.external_mappings.external_mappings import ExternalMapping, EmptyMapping
 from numerous.utils.logger_levels import LoggerLevel
 
 from numerous.engine.model.equation_parser import Equation_Parser
