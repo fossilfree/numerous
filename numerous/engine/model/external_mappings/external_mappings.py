@@ -53,3 +53,6 @@ class EmptyMapping:
 
     def store_mappings(self):
         pass
+
+    def is_mapped_var(self, variables, var_id, system_id):
+        pass
