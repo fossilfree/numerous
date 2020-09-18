@@ -1,8 +1,5 @@
 from numerous.engine.system import Item, Subsystem, ItemPath
 from numerous.multiphysics import EquationBase, Equation
-from numerous.engine.variables import OverloadAction
-from numerous.engine.model import Model
-from numerous.engine.simulation import Simulation
 import pytest
 
 
