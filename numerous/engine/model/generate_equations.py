@@ -402,6 +402,9 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #Sort the graph topologically to start generating code
     topo_sorted_nodes = equation_graph.topological_nodes()
 
+    #Initialize llvm program - will be a list of intermediate llvm instructions to be lowered in generate_llvm
+    llvm_program = []
+
     #Generate the ast for the python kernel
     body_def = []
     for n in topo_sorted_nodes:
@@ -431,11 +434,12 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             scope_vars = {'scope.'+k: v for k, v in zip(args_scope_var+targets_scope_var, args_local + targets_local)}
 
             #find the a
-            args = [ast.Name(id=d_u(scope_vars[a])) for a in vardef.args]
+
 
             #Put the information of args and targets in the scope_var attr of the graph node for thos equation
             equation_graph.nodes_attr['scope_var'][n]= {'args': [scope_vars[a] for a in vardef.args], 'targets': [scope_vars[a] for a in vardef.targets]}
 
+            #Record targeted and read variables
             if equation_graph.get(n, 'vectorized'):
                 # Record all targeted varables
                 for t in vardef.targets:
@@ -456,11 +460,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                                  vardef.targets]
 
             #Generate ast for this equation call
+            args_ast = [ast.Name(id=d_u(scope_vars[a])) for a in vardef.args]
             if equation_graph.get(n, 'vectorized'):
-
-                #for t in vardef.targets:
-
-                #    body_def.append(ast.Assign(targets=[ast.Name(id=d_u(scope_vars[t]))], value=ast.Call(func=ast.Attribute(attr='empty', value=ast.Name(id='np')), args=[ast.Num(n=len(set_variables[scope_vars[t]]))], keywords=[])))
 
                 # Generate ast for targets
                 if len(vardef.targets) > 1:
@@ -477,14 +478,12 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
                     ast.For(
                         body=[ast.Assign(targets=targets, value=ast.Call(func=ast.Name(id=scoped_equations[equation_graph.key_map[n]].replace('.','_')),
-                                                                         args=[ast.Subscript(value=ast.Name(id=a), slice=ast.Index(value=ast.Name(id='i'))) for a in args], keywords=[]))],
+                                                                         args=[ast.Subscript(value=ast.Name(id=a), slice=ast.Index(value=ast.Name(id='i'))) for a in args_ast], keywords=[]))],
                         orelse=[],
                         iter=ast.Call(func=ast.Name(id='range'), args=[ast.Num(n=len(set_variables[scope_vars[t]]))], keywords=[], target=ast.Name(id='i')),
                         target=ast.Name(id='i')
                     )
                 )
-
-
 
             else:
 
@@ -499,8 +498,24 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
 
                 body.append(ast.Assign(targets=targets, value=ast.Call(
-                    func=ast.Name(id=scoped_equations[equation_graph.key_map[n]].replace('.', '_')), args=args,
+                    func=ast.Name(id=scoped_equations[equation_graph.key_map[n]].replace('.', '_')), args=args_ast,
                     keywords=[])))
+
+            #Generate llvm lines
+            args = [scope_vars[a] for a in vardef.args]
+
+            # Generate targets
+            targets = [scope_vars[t] for t
+                       in
+                       vardef.targets]
+
+            # Define the funciton to call for this eq
+            ext_func = recurse_Attribute(equation_graph.get(n, 'func'))
+
+            # Add this eq to the llvm_program
+            llvm_program.append({'func': 'call', 'ext_func': ext_func, 'args': args, 'targets': targets})
+
+
 
         #Add the sum statements
         elif nt == NodeTypes.SUM:
@@ -542,17 +557,10 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                     else:
                         raise ValueError(f'this must be a mistake {equation_graph.key_map[v[0]]}')
 
-
-
-
-
-                #mappings_ast_pairs
                 mappings_ast_pairs = [[]]*l_mapping #To be list of tuples of var and target for each indix in target
 
                 #process specific index mappings
                 for m_ix in mappings['ix']:
-
-
 
                     #m_ix[0] is a variable mapped to the current set variable
                     #m_ix[1] is a dict:
@@ -565,46 +573,10 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                     for target_ix, value_ix in m_ix[1].items():
                         mappings_ast_pairs[target_ix].append((from_, value_ix))
 
-                    #tar = ast.Tuple(elts=[
-                    #    ast.Subscript(
-                    #        slice=ast.Index(value=ast.Num(n=mmix)), value=ast.Name(id=d_u(t_sv.set_var))) for mmix in m_ix1_keys
-                    #])
 
-                        #ast.Subscript(
-                        #slice=ast.Index(value=ast.Tuple(elts=[ast.Num(n=mmix) for mmix in m_ix1_keys]) if len(m_ix1_keys)>1 else ast.Num(n=m_ix1_keys[0])),
-                        #value=ast.Name(id=d_u(t_sv.set_var)))
-                    """
-                    def add_ast_gen(elts_to_sum, op=ast.Add()):
-                        prev = None
-                        for ets in elts_to_sum:
-                            if prev:
-                                prev = ast.BinOp(op=op, left=prev, right=ets)
-                            else:
-                                prev = ets
-                        return prev
+                # Generate ast for the mappings
 
-                    var_elts = [
-                        add_ast_gen([ast.Name(id=d_u(from_)) if m__ is None else ast.Subscript(slice=ast.Index(ast.Num(n=m__)), value=ast.Name(id=d_u(from_))) for m__ in m_]) for m_ in m_ix[1].values()]
-
-                    print(scalar_variables.keys())
-                    if from_ in set_variables:
-                        all_read_set_vars.append(from_)
-                    elif from_ in scalar_variables:
-                        all_read.append(from_)
-                    else:
-                        raise ValueError(f'Variable {from_} is unknown')
-                    #[[all_read.append(d_u(m_ix[0])) for m__ in m_ if m__ is None] for m_ in m_ix[1].values()]
-
-                    var = ast.Tuple(
-                        elts=var_elts
-                    ) if len(var_elts)>1 else var_elts[0]
-
-                    body.append(ast.AugAssign(target=tar, value=var, op=ast.Add()))
-
-                    """
-
-                print(mappings['ix'])
-
+                #Utility function to make a ..+..+.. type ast from list of elts
                 def add_ast_gen(elts_to_sum, op=ast.Add()):
                     prev = None
                     for ets in elts_to_sum:
@@ -616,23 +588,23 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
                 map_targets = []
                 map_values = []
-                print(mappings_ast_pairs)
+
                 for t_ix, map_ in enumerate(mappings_ast_pairs):
                     map_targets.append(ast.Subscript(
                             slice=ast.Index(value=ast.Num(n=t_ix)), value=ast.Name(id=d_u(t_sv.set_var))))
-
-                    map_val_list = [ast.Subscript(
+                    if len(map_)>0:
+                        map_val_list = [ast.Subscript(
                             slice=ast.Index(value=ast.Num(n=v_ix)), value=ast.Name(id=d_u(v_target))) if not v_ix is None else ast.Name(id=d_u(v_target)) for v_target, v_indcs in map_ for v_ix in v_indcs]
+                    else:
+                        map_val_list = [ast.Num(n=0)]
+
                     map_values.append(map_val_list)
 
                 body.append(ast.Assign(targets=[ast.Tuple(elts=map_targets)], value = ast.Tuple(elts=[add_ast_gen(mv) for mv in map_values])))
 
                 if len(mappings[':'])>0:
                     #Mappings of full set vars to the target
-                    #if len(mappings[':'])>1:
                     prev = None
-                    #else:
-                    #    prev = ast.Num(n=0)
 
                     for mcolon in mappings[':']:
 
@@ -646,25 +618,27 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                     else:
                         body.append(ast.Assign(targets=[ast.Name(id=d_u(t_sv.set_var))], value = prev))
 
-                else:
-                    #Make sure target is initialized if mappings are on single index form only
-                    #body.append(ast.Assign(targets=[ast.Name(id=d_u(equation_graph.key_map[t]))], value=ast.Call(func=ast.Attribute(attr='empty', value=ast.Name(id='np')), args=[ast.Num(n=l_mapping)], keywords=[])))
-                    #all_targeted_set_vars.append(equation_graph.key_map[t])
-                    pass
+                    #For LLVM
+                    # TODO: Make llvm generator compatible with this...
+
+                # Generate llvm
+
+                # TODO: Make llvm generator compatible with this...
+                llvm_program.append({'func': 'sum', 'target': t_sv.set_var, 'args': mappings_ast_pairs})
+                llvm_program.append({'func': 'sum', 'target': t_sv.set_var, 'args': mappings[':']})
 
             else:
 
-
+                #Register targeted variables
                 if is_set_var:=equation_graph.get(t, attr='is_set_var'):
                     all_targeted_set_vars.append(equation_graph.key_map[t])
                 else:
 
                     all_targeted.append(equation_graph.key_map[t])
-                #print(equation_graph.key_map[t])
-                s = equation_graph.get(t, attr='scope_var')
+
+
 
                 target_indcs_map = [[] for i in range(len(set_variables[equation_graph.key_map[t]]))] if is_set_var else [[]]
-                #print(target_indcs_map)
 
                 for v, vi in zip(value_edges, v_indcs):
                     if equation_graph.get(v[0], 'is_set_var'):
@@ -672,10 +646,9 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
                     else:
                         all_read.append(equation_graph.key_map[v[0]])
-                        #values.append(ast.Name(id=d_u(equation_graph.key_map[v[0]])))
-                        #target_indcs_map[mi[1] if mi[1] else 0].append((v[0], mi[0]))
+
                     maps = equation_graph.edges_attr['mappings'][vi]
-                    #print(maps)
+
                     if maps==':':
                         if equation_graph.key_map[t] in set_variables:
                             for mi in range(len(set_variables[equation_graph.key_map[t]])):
@@ -684,16 +657,16 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                             target_indcs_map[0].append((v[0], None))
                     else:
                         for mi in maps:
-                            #print('mi: ', mi)
-                            #print(v)
-                            #print(mi[1] if mi[1] else 0)
-                            #print(len(target_indcs_map))
+
                             target_indcs_map[mi[1] if mi[1] else 0].append((v[0], mi[0]))
-                #print(target_indcs_map)
+
+                target_var = equation_graph.key_map[t]
+
+                # Generate ast
                 if equation_graph.get(t, 'is_set_var'):
-                    map_targs = ast.Tuple(elts=[ast.Subscript(value=ast.Name(id=d_u(equation_graph.key_map[t])), slice= ast.Index(value=ast.Num(n=i))) for i, _ in enumerate(target_indcs_map) if len(_)>0])
+                    map_targs = ast.Tuple(elts=[ast.Subscript(value=ast.Name(id=d_u(target_var)), slice= ast.Index(value=ast.Num(n=i))) for i, _ in enumerate(target_indcs_map) if len(_)>0])
                 else:
-                    map_targs = ast.Name(id=d_u(equation_graph.key_map[t]))
+                    map_targs = ast.Name(id=d_u(target_var))
 
                 map_values = []
                 for values in target_indcs_map:
@@ -711,6 +684,11 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                 assign = ast.Assign(targets=[map_targs], value=ast.Tuple(elts=map_values) if len(map_values)>1 else map_values[0])
                 body.append(assign)
 
+                # Generate llvm
+
+                # TODO: Make llvm generator compatible with this...
+                llvm_program.append({'func': 'sum', 'target': target_var, 'args': target_indcs_map})
+
         elif nt == NodeTypes.VAR or nt == NodeTypes.TMP:
             pass
 
@@ -718,7 +696,9 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             raise ValueError('Unused node: ', equation_graph.key_map[n])
 
 
+    ############### Check variables and make sets for codegen
 
+    # Define helper functions to check the variables and sub lists
     def non_unique_check(listname_, list_):
 
         if len(list_) > len(set(list_)):
@@ -741,6 +721,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             if not s in set_variables:
                 raise ValueError(f'Not a set variable: {s}')
 
+    # Update maps between scope variables
     for sv_id, sv in scope_variables.items():
         full_tag = d_u(sv.get_path_dot())
         if not sv_id in vars_node_id:
@@ -756,11 +737,14 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         if full_tag not in scope_var_node:
             scope_var_node[full_tag] = sv
 
+    #Check that its only set variables in the lists for that purpose
     are_all_set_variables(all_read_set_vars)
     are_all_set_variables(all_targeted_set_vars)
 
+    # Only variables that are not targeted should be in read
     all_read_set_vars = set(all_read_set_vars).difference(all_targeted_set_vars)
 
+    # Unroll all scalar variables from set variables
     all_read_scalars_from_set = []
     for arsv in all_read_set_vars:
         a = set_variables[arsv]
@@ -816,11 +800,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     all_targeted_scalars_from_set_dash = list(set(all_targeted_scalars_from_set_dash).difference(vars_update))
 
-
-
     vars_update += [at for at in all_targeted_dash if at not in vars_update]
-
-
 
     for s, d in zip(states, deriv):
         if not d[:-4] == s:
@@ -828,7 +808,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             raise IndexError('unsorted derivs')
 
 
-    #indcs = (lenstates, leninit, lenderiv)
+    indcs = (lenstates, leninit, lenderiv)
 
     variables = vars_init + all_read_scalars_from_set_dash + vars_update + all_targeted_scalars_from_set_dash
 
@@ -836,8 +816,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
 
     variables_dot = [scope_var_node[v].get_path_dot() for v in variables]
-    #if not 'climatemachine.HX_element_1.HX_1_1.element_1_outside_1_1.t1.dp' in variables_dot:
-    #    raise ValueError()
+
+    variables_values = np.array([scope_var_node[v].value for v in variables], dtype=np.float64)
 
     non_unique_check('initialized vars', vars_init)
     len_vars_init_ = len(vars_init+all_read_scalars_from_set_dash)
@@ -846,9 +826,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     non_unique_check('variables', variables)
 
-    #if len(vars_update) > len(set(vars_update)):
-      #  raise ValueError('Non unique update vars')
-
+    #Generate ast for defining local variables and export results
     state_vars = [None] * len(states)
     body_init_set_var = []
     for rsv in all_read_set_vars:
@@ -885,15 +863,6 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         #ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=d_u(s)) for s in states])], value=ast.Name(id='y')),
            ] +  body_def + body
 
-    llvm_sequence = []
-    #llvm_sequence = [{'func': 'load', 'ix': ix, 'var': vi, 'arg': 'variables'} for vi, ix  in zip(vars_init[len(states):], range(len(states), len(vars_init)))]
-    llvm_sequence += [{'func': 'load', 'ix': ix+lenstates, 'var': v, 'arg': 'variables'} for ix, v in enumerate(vars_init[lenstates:])]
-    llvm_sequence += [{'func': 'load', 'ix': ix, 'var': s, 'arg': 'y'} for ix, s in enumerate(states)]
-    llvm_end_seq = []
-    #llvm_end_seq = [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(vars_update, range(len(vars_init), len(vars_init)+len(vars_update)))]
-    llvm_end_seq += [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(states, range(0, lenstates))]
-    #llvm_end_seq += [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': d} for ix, d in enumerate(deriv)]
-
     [body.append(ast.Assign(targets=[ast.Name(id=d_u(d))], value = ast.Name(id=d_u(a)))) for d, a in deriv_aliased.items()]
 
     # Add code for updating variables
@@ -909,68 +878,63 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         ast.Subscript(value=ast.Name(id=d_u(svn_.set_var)), slice=ast.Index(ast.Num(n=svn_.set_var_ix))) if (svn_:=scope_var_node[u]).set_var else ast.Name(id=d_u(u)) for u  in states
     ]), targets=[ast.Subscript(slice=ast.Slice(lower=ast.Num(n=0), upper=ast.Num(n=len(states)), step=None), value=ast.Name(id='variables'))]))
 
-    #body.append(ast.Return(value=ast.Call(func=ast.Name(id='np.array'), args=[ast.List(elts=[ast.Name(id=d) for d in deriv]), ast.Name(id='np.float64')], keywords=[])))
     body.append(ast.Return(value=ast.Subscript(slice=ast.Slice(lower=ast.Num(n=leninit), upper=ast.Num(n=leninit+lenderiv), step=None), value=ast.Name(id='variables'))))
     kernel_args = dot_dict(args=[ast.Name(id='variables'), ast.Name(id='y')], vararg=None, defaults=[], kwarg=None)
-
-    #self.variables[var.id].path.path[self.system.id]
-
 
     skip_kernel = False
     if not skip_kernel:
         #mod_body.append(wrap_function('kernel', body, decorators=["njit('float64[:](float64[:],float64[:])')"], args=kernel_args))
         mod_body.append(
         wrap_function('kernel_nojit', body, decorators=[], args=kernel_args))
-    logging.info('generate program')
-    #run_program_source, lib_body, program, indices, llvm_program = generate_program(equation_graph, variables, indcs, deriv_aliased)
-    logging.info('done program')
-    #mod_body+=lib_body
-
-    #LLVM
-    #llvm_sequence += llvm_program + llvm_end_seq
-    #llvm_sequence += llvm_end_seq
 
 
     source = generate_code_file(mod_body, 'kernel.py')
     logging.info('compiling...')
 
-
-
     import timeit
     print('Compile time: ', timeit.timeit(
         lambda: exec('from kernel import *', globals()), number=1))
 
-    #print(scope_var_node.keys())
-    #variables_values = np.array([scope_var_node[v].value for v in variables], dtype=np.float64)
-    variables_values = np.array([scope_var_node[v].value for v in variables], dtype=np.float64)
+    #logging.info('generate program')
 
-    #variables_values_ = np.array([scope_var_node[v].value for v in variables], dtype=np.float64)
+    # run_program_source, lib_body, program, indices, llvm_program = generate_program(equation_graph, variables, indcs, deriv_aliased)
 
-    #for v, vv in zip(variables, variables_values_):
-    #    print(v,': ',vv)
-#    asfsdf=sdfsdf
+    # logging.info('done program')
+    # mod_body+=lib_body
+
+    # Assemblying sequence of LLVM statements
+    llvm_sequence = []
+    llvm_sequence += [{'func': 'load', 'ix': ix + lenstates, 'var': v, 'arg': 'variables'} for ix, v in
+                      enumerate(vars_init[lenstates:])]
+    llvm_sequence += [{'func': 'load', 'ix': ix, 'var': s, 'arg': 'y'} for ix, s in enumerate(states)]
+    llvm_end_seq = []
+    llvm_end_seq += [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in
+                     zip(states, range(0, lenstates))]
+
+    llvm_sequence += llvm_program + llvm_end_seq
+
     from numerous.engine.model.generate_llvm import generate as generate_llvm
 
-    #for fn, f in llvm_funcs.items():
-    #    f['func'] = globals()[f['name']]
+    for fn, f in llvm_funcs.items():
+        f['func'] = globals()[f['name']]
 
-    #for l in llvm_sequence:
-    #    if 'ext_func' in l:
-    #        l['ext_func'] = llvm_funcs[l['ext_func']]['name']
+    for l in llvm_sequence:
+        if 'ext_func' in l:
+            l['ext_func'] = llvm_funcs[l['ext_func']]['name']
 
 
+    #TODO: upgrade generate llvm to handle sets
     #from numba import njit, float64, int64
     #logging.info('generate llvm')
     #diff_llvm, var_func, var_func_set, max_deriv = generate_llvm(llvm_sequence, llvm_funcs.values(), variables, variables_values, leninit, lenderiv)
 
     ###TESTS####
-    y = variables_values[:lenderiv]
-    y_ = variables_values[:lenderiv].astype(np.float64)
-    #variables_ = variables_values.astype(np.float32)#np.array([0, 1, 0, 1, 0, 1, 0, 1], np.float32)
+    y = variables_values[:lenderiv].astype(np.float64)
 
     from time import time
     N = 10000
 
+    # TODO: Use this code to define a benchmark of llvm
     #@njit('float64[:](float64[:], int64)')
     #def diff_bench_llvm(y, N):
 
@@ -979,9 +943,9 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     #    return derivatives
 
-    tic = time()
+    #tic = time()
     #derivs_llvm = diff_bench_llvm(y, N)
-    toc = time()
+    #toc = time()
     #llvm_vars = var_func(0)
     #print('llvm derivs: ', list(zip(deriv, derivs_llvm)))
     #print('llvm vars: ', list(zip(variables, var_func(0))))
@@ -1000,7 +964,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         deriv_no_jot = test_kernel_nojit(variables_values, y)
         toc = time()
 
-        #sdfsdf=sdfsdfsdf
+
         class AssemlbedModel():
             def __init__(self, vars, vals):
                 self.variables = vars
@@ -1046,14 +1010,15 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
         print('no jit derivs: ', list(zip(deriv, deriv_no_jot)))
         print('no jit vars: ', list(zip(variables, am.var_func(0))))
 
-        print('var diff')
+        #TODO: This code can be moved to a test to check if results of llvm and regular kernel is the same
+        #print('var diff')
         #for k, v_n, v_llvm in zip(variables, am.var_func(0), var_func(0)):
         #    print(k,': ',v_n,' ',v_llvm,' diff: ', v_n-v_llvm)
 
-        print('deriv diff')
+        #print('deriv diff')
         #for k, v_n, v_llvm in zip(deriv, deriv_no_jot, derivs_llvm):
         #    if abs(v_n) >1e-20:
-        #        rel_diff = (v_n - v_llvm) / v_n
+        ##        rel_diff = (v_n - v_llvm) / v_n
         #    else:
         #        rel_diff = 0
 
