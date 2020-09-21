@@ -49,12 +49,13 @@ if __name__ == "__main__":
     malmo_sturup_data_frame = pd.read_csv("malmo_sturup-2019.json.csv")
     index_to_timestep_mapping = 'time'
     index_to_timestep_mapping_start = 0
+    time_multiplier = 60
     dataframe_aliases = {
         'system.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
         'system.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.LINEAR)
     }
     external_mappings.append(
-        (malmo_sturup_data_frame, index_to_timestep_mapping, index_to_timestep_mapping_start,
+        (malmo_sturup_data_frame, index_to_timestep_mapping, index_to_timestep_mapping_start,time_multiplier,
          dataframe_aliases))
 
     s = simulation.Simulation(

@@ -348,7 +348,7 @@ def test_external_data(solver):
         'system.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE)
     }
     external_mappings.append(
-        (df, index_to_timestep_mapping, index_to_timestep_mapping_start, dataframe_aliases))
+        (df, index_to_timestep_mapping, index_to_timestep_mapping_start, 1, dataframe_aliases))
 
     s = Simulation(
         Model(StaticDataSystem('system', n=1), external_mappings=external_mappings),
