@@ -926,9 +926,9 @@ class Model:
             def func(self, _t, y):
                 #print('diff: ', _t)
                 d = compute(y)
-                for d_ in d:
-                    print(d_)
-                raise ValueError('')
+                #for d_ in d:
+                #    print(d_)
+                #raise ValueError('')
                 return d
 
             def historian_update(self, t):

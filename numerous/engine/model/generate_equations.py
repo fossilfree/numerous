@@ -543,45 +543,37 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                         raise ValueError(f'this must be a mistake {equation_graph.key_map[v[0]]}')
 
 
-                if len(mappings[':'])>0:
-                    #Mappings of full set vars to the target
-                    if len(mappings[':'])>1:
-                        prev = None
-                    else:
-                        prev = ast.Num(n=0)
-                    for mcolon in mappings[':']:
 
-                        if prev:
-                            #print('prev: ',prev)
-                            prev = ast.BinOp(left=prev, right=ast.Name(id=d_u(mcolon)), op=ast.Add())
-                        else:
-                            prev = ast.Name(id=d_u(mcolon))
 
-                    body.append(ast.Assign(targets=[ast.Name(id=d_u(t_sv.set_var))], value = prev))
 
-                else:
-                    #Make sure target is initialized if mappings are on single index form only
-                    #body.append(ast.Assign(targets=[ast.Name(id=d_u(equation_graph.key_map[t]))], value=ast.Call(func=ast.Attribute(attr='empty', value=ast.Name(id='np')), args=[ast.Num(n=l_mapping)], keywords=[])))
-                    #all_targeted_set_vars.append(equation_graph.key_map[t])
-                    pass
+                #mappings_ast_pairs
+                mappings_ast_pairs = [[]]*l_mapping #To be list of tuples of var and target for each indix in target
 
                 #process specific index mappings
                 for m_ix in mappings['ix']:
+
+
+
                     #m_ix[0] is a variable mapped to the current set variable
                     #m_ix[1] is a dict:
                     # Keys which are indices to this set variable.
-                    # Values are are indices to the variable mapped to this set variable
+                    # Values which are indices to the variable mapped to this set variable
                     from_ = m_ix[0]
-                    m_ix1_keys = list(m_ix[1].keys())
-                    tar = ast.Tuple(elts=[
-                        ast.Subscript(
-                            slice=ast.Index(value=ast.Num(n=mmix)), value=ast.Name(id=d_u(t_sv.set_var))) for mmix in m_ix1_keys
-                    ])
+                    #m_ix1_keys = list(m_ix[1].keys())
+
+                    # loop over all indices in target
+                    for target_ix, value_ix in m_ix[1].items():
+                        mappings_ast_pairs[target_ix].append((from_, value_ix))
+
+                    #tar = ast.Tuple(elts=[
+                    #    ast.Subscript(
+                    #        slice=ast.Index(value=ast.Num(n=mmix)), value=ast.Name(id=d_u(t_sv.set_var))) for mmix in m_ix1_keys
+                    #])
 
                         #ast.Subscript(
                         #slice=ast.Index(value=ast.Tuple(elts=[ast.Num(n=mmix) for mmix in m_ix1_keys]) if len(m_ix1_keys)>1 else ast.Num(n=m_ix1_keys[0])),
                         #value=ast.Name(id=d_u(t_sv.set_var)))
-
+                    """
                     def add_ast_gen(elts_to_sum, op=ast.Add()):
                         prev = None
                         for ets in elts_to_sum:
@@ -609,6 +601,56 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
                     body.append(ast.AugAssign(target=tar, value=var, op=ast.Add()))
 
+                    """
+
+                print(mappings['ix'])
+
+                def add_ast_gen(elts_to_sum, op=ast.Add()):
+                    prev = None
+                    for ets in elts_to_sum:
+                        if prev:
+                            prev = ast.BinOp(op=op, left=prev, right=ets)
+                        else:
+                            prev = ets
+                    return prev
+
+                map_targets = []
+                map_values = []
+                print(mappings_ast_pairs)
+                for t_ix, map_ in enumerate(mappings_ast_pairs):
+                    map_targets.append(ast.Subscript(
+                            slice=ast.Index(value=ast.Num(n=t_ix)), value=ast.Name(id=d_u(t_sv.set_var))))
+
+                    map_val_list = [ast.Subscript(
+                            slice=ast.Index(value=ast.Num(n=v_ix)), value=ast.Name(id=d_u(v_target))) if not v_ix is None else ast.Name(id=d_u(v_target)) for v_target, v_indcs in map_ for v_ix in v_indcs]
+                    map_values.append(map_val_list)
+
+                body.append(ast.Assign(targets=[ast.Tuple(elts=map_targets)], value = ast.Tuple(elts=[add_ast_gen(mv) for mv in map_values])))
+
+                if len(mappings[':'])>0:
+                    #Mappings of full set vars to the target
+                    #if len(mappings[':'])>1:
+                    prev = None
+                    #else:
+                    #    prev = ast.Num(n=0)
+
+                    for mcolon in mappings[':']:
+
+                        if prev:
+                            #print('prev: ',prev)
+                            prev = ast.BinOp(left=prev, right=ast.Name(id=d_u(mcolon)), op=ast.Add())
+                        else:
+                            prev = ast.Name(id=d_u(mcolon))
+                    if len(mappings['ix'])>0:
+                        body.append(ast.AugAssign(target=ast.Name(id=d_u(t_sv.set_var)), value=prev, op=ast.Add()))
+                    else:
+                        body.append(ast.Assign(targets=[ast.Name(id=d_u(t_sv.set_var))], value = prev))
+
+                else:
+                    #Make sure target is initialized if mappings are on single index form only
+                    #body.append(ast.Assign(targets=[ast.Name(id=d_u(equation_graph.key_map[t]))], value=ast.Call(func=ast.Attribute(attr='empty', value=ast.Name(id='np')), args=[ast.Num(n=l_mapping)], keywords=[])))
+                    #all_targeted_set_vars.append(equation_graph.key_map[t])
+                    pass
 
             else:
 
@@ -765,7 +807,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     vars_init += list(all_must_init.difference(vars_init))
 
-    leninit = len(vars_init)
+    leninit = len(vars_init + all_read_scalars_from_set_dash)
 
     non_unique_check('deriv: ', deriv)
     non_unique_check('all targeted: ', all_targeted_dash)
@@ -786,7 +828,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
             raise IndexError('unsorted derivs')
 
 
-    indcs = (lenstates, leninit, lenderiv)
+    #indcs = (lenstates, leninit, lenderiv)
 
     variables = vars_init + all_read_scalars_from_set_dash + vars_update + all_targeted_scalars_from_set_dash
 
@@ -798,7 +840,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #    raise ValueError()
 
     non_unique_check('initialized vars', vars_init)
-    len_vars_init_ = len(vars_init)
+    len_vars_init_ = len(vars_init+all_read_scalars_from_set_dash)
     vars_init += deriv
     non_unique_check('updated vars', vars_update)
 
