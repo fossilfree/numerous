@@ -15,8 +15,8 @@ class ExternalMapping:
             self.external_columns.append(list(dataframe_aliases.keys()))
             self.interpoaltion_type.append([a_tuple[1] for a_tuple in list(dataframe_aliases.values())])
             self.external_mappings_numpy.append(df[[a_tuple[0] for a_tuple in list(dataframe_aliases.values())]
-                                                ].to_numpy(dtype=np.float64))
-            self.external_mappings_time.append(time_multiplier*df[index_to_timestep_mapping].to_numpy(dtype=np.float64))
+                                                ].to_numpy(dtype=np.float64)[index_to_timestep_mapping_start:])
+            self.external_mappings_time.append(time_multiplier*df[index_to_timestep_mapping].to_numpy(dtype=np.float64)[index_to_timestep_mapping_start:])
         self.external_mappings_numpy = np.array(self.external_mappings_numpy, dtype=np.float64)
         self.external_mappings_time = np.array(self.external_mappings_time, dtype=np.float64)
         self.interpoaltion_type = [item for sublist in self.interpoaltion_type for item in sublist]
