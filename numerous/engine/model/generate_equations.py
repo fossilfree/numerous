@@ -191,7 +191,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     logging.info('Remove simple assign chains')
 
-
+    #TODO: Move to preparation section
+    # Create a map of each variable and the variables mapped to it
     for n in nodes_map.values():
         if equation_graph.get(n, 'node_type') == NodeTypes.VAR:
             #Get target
@@ -220,7 +221,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     from tqdm import tqdm
 
     from copy import copy
-
+    # TODO: Move to preparation section
+    # Loop over equations - if one or more of the outputs are also mapped to - then replace this output with a temp var
     for ii, n in tqdm(enumerate(equation_graph.get_where_attr('node_type', NodeTypes.EQUATION))):
 
         for i, e in equation_graph.get_edges_for_node(start_node=n):
@@ -264,7 +266,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                     vars_assignments_mappings[va][(nix:= vars_assignments[va].index(n))]= ':'
                     vars_assignments[va][nix] = tmp
 
-
+    # TODO: Move to preparation section
+    # Generate SUM nodes and edges between targeting variables and the sum node + sum node to target var
     logging.info('Add mappings')
     for a, vals in vars_assignments.items():
         if len(vals)>1:
@@ -294,34 +297,42 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     #Loop over equation functions and generate code
 
-
-
-
     eq_vardefs={}
     logging.info('make equations for compilation')
+    # Loop over all equations and generate the equation functions
     for eq_key, eq in equations.items():
-        #print(eq)
         vardef = Vardef()
-        #vardef__ = Vardef()
         vardef_llvm = Vardef_llvm()
+
+        #Create python function
         func, vardef_ = function_from_graph_generic(eq[2],eq_key.replace('.','_'), var_def_=vardef, decorators = ["njit"])
-        #func__, vardef___ = function_from_graph_generic(eq[2], eq_key.replace('.', '_')+'_nojit', var_def_=vardef__,
-         #                                           decorators=[])
         eq[2].lower_graph = None
+
+        #Create llvm-targeted eq functions
         func_llvm, vardef__, signature, fname, args, targets = function_from_graph_generic_llvm(eq[2], eq_key.replace('.', '_'), var_def_=vardef_llvm)
         llvm_funcs[eq_key.replace('.', '_')]={'func_ast': func_llvm, 'signature': signature, 'name': fname, 'args': args, 'targets': targets}
+
+        #
         eq_vardefs[eq_key] = vardef
 
         mod_body.append(func)
         #mod_body.append(func__)
 
         mod_body.append(func_llvm)
+
+    # Body for the kernel in python
     body=[]
-    #Create a kernel of assignments and calls
+
+    # List of all variables targeted in the system
     all_targeted = []
+
+    # List of all variables read in the system
     all_read = []
 
+    # List of all variables targeted in the system
     all_targeted_set_vars = []
+
+    # List of all variables read in the system
     all_read_set_vars = []
 
 
@@ -557,6 +568,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
                     else:
                         raise ValueError(f'this must be a mistake {equation_graph.key_map[v[0]]}')
 
+                #list of all mappings to the current target var - each element is a tuple - first item is a from-variable and second is indices
                 mappings_ast_pairs = [[]]*l_mapping #To be list of tuples of var and target for each indix in target
 
                 #process specific index mappings
@@ -725,7 +737,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     for sv_id, sv in scope_variables.items():
         full_tag = d_u(sv.get_path_dot())
         if not sv_id in vars_node_id:
-
+            # TODO: Remove this
             vars_node_id[sv_id] = full_tag
 
 
