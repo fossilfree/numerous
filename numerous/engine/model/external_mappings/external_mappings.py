@@ -47,7 +47,7 @@ class EmptyMapping:
     def __init__(self):
         self.external_mappings_numpy = np.empty([0, 0, 0], dtype=np.float64)
         self.external_mappings_time = np.empty([0, 0], dtype=np.float64)
-        self.external_df_idx = np.empty([0, 0], dtype=int)
+        self.external_df_idx = np.empty([0, 0], dtype=np.int64)
         self.interpolation_info = np.empty([0], dtype=np.bool)
 
     def store_mappings(self):
