@@ -44,7 +44,7 @@ numba_model_spec = [
 
 @njit
 def step_aproximation(t, time_array, data_array):
-    idx = np.searchsorted(time_array, t, side='left')
+    idx = np.searchsorted(time_array, t, side='right')-1
     return data_array[idx]
 
 
@@ -200,7 +200,7 @@ class CompiledModel:
         mapping_ = True
         prev_scope_vars_3d = self.scope_vars_3d.copy()
         start_scope_vars_3d = self.scope_vars_3d.copy()
-        itermax = 20
+        itermax = 100
         it = 0
         ix_hist_old = np.argwhere(self.var_idxs_historian_3d == self.var_idxs_pos_3d_helper_callbacks[0])
         while mapping_:
