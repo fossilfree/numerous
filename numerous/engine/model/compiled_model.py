@@ -198,10 +198,8 @@ class CompiledModel:
 
         mapping_ = True
         prev_scope_vars_3d = self.scope_vars_3d.copy()
-        start_scope_vars_3d = self.scope_vars_3d.copy()
-        itermax = 100
+        itermax = 20
         it = 0
-        ix_hist_old = np.argwhere(self.var_idxs_historian_3d == self.var_idxs_pos_3d_helper_callbacks[0])
         while mapping_:
             for i in range(self.number_of_mappings):
                 self.scope_vars_3d[self.differing_idxs_pos_3d[0][i]][self.differing_idxs_pos_3d[1][i]][
