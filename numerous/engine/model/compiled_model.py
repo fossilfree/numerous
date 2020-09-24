@@ -47,7 +47,6 @@ def step_aproximation(t, time_array, data_array):
     idx = np.searchsorted(time_array, t, side='right')-1
     return data_array[idx]
 
-
 class CompiledModel:
     def __init__(self, var_idxs_pos_3d, var_idxs_pos_3d_helper_callbacks, var_idxs_historian_3d, eq_count,
                  number_of_states,
