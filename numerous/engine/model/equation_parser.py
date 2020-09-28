@@ -46,7 +46,7 @@ class Equation_Parser():
 
                     eq_text = string_without_empty_lines + " \n"
 
-                    eq_text = eq_text.replace("global_variables)", ")")
+                    # eq_text = eq_text.replace("global_variables)", ")")
                     for i, tag in enumerate(model.global_variables_tags):
                         ##TODO write coments to regex
                         p = re.compile(r"(?<=global_variables)\." + tag + r"(?=[^\w])")
@@ -64,7 +64,7 @@ class Equation_Parser():
 
                     eq_text = eq_text.replace("@Equation()", "@simple_vectorize(func_text, scopes_map)")
                     eq_text = eq_text.replace("self,", "")
-                    eq_text = eq_text.replace("def eval( scope)", "def eval(scope, scope_id)")
+                    eq_text = eq_text.replace("def eval( scope)", "def eval(scope, scope_id,global_variables)")
                     eq_text = eq_text.strip()
                     idx = eq_text.find('\n') + 1
 
@@ -79,7 +79,8 @@ class Equation_Parser():
 
                     eq_text = eq_text_2 + "\n   return eval"
                     # eq_text = "def test():\n   from numba import guvectorize\n   import numpy as np\n"+eq_text
-                    eq_text = "def eq_body(func_text, scopes_map):\n   from numerous.engine.model.simple_vectorizer import simple_vectorize\n   import numpy as np\n" + eq_text
+                    eq_text = "def eq_body(func_text, scopes_map):\n   from numerous.engine.model.simple_vectorizer " \
+                              "import simple_vectorize\n   import numpy as np\n" + eq_text
             else:
                 eq_id = "empty_equation"
                 eq_out_m = 0
@@ -87,7 +88,8 @@ class Equation_Parser():
                 if eq_id in compiled_equations_ids:
                     compiled_equations_idx.append(compiled_equations_ids.index(eq_id))
                     continue
-                eq_text = "def eq_body(func_text, scopes_map):\n   def eval(self,scope):\n      pass\n   return eval"
+                eq_text = "def eq_body(func_text, scopes_map):\n   def eval(self,scope,global_variables):\n      " \
+                          "pass\n   return eval "
 
             tree = ast.parse(eq_text, mode='exec')
             if model.save_equations:

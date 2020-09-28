@@ -24,9 +24,10 @@ class Thermal_Conductance_Equation(EquationBase):
         self.add_parameter('P2', 0)
 
     @Equation()
-    def eval(self,scope):
+    def eval(self, scope):
         P = (scope.T1 - scope.T2) * scope.k
         #print(scope.T1, scope.T2)
+        # print(global_variables.time)
         scope.P1 = -P
         scope.P2 = P
 
