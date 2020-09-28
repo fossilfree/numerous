@@ -924,9 +924,9 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
 
     #TODO: upgrade generate llvm to handle sets
-    #from numba import njit, float64, int64
-    #logging.info('generate llvm')
-    #diff_llvm, var_func, var_func_set, max_deriv = generate_llvm(llvm_sequence, llvm_funcs.values(), variables, variables_values, leninit, lenderiv)
+    from numba import njit, float64, int64
+    logging.info('generate llvm')
+    diff_llvm, var_func, var_func_set, max_deriv = generate_llvm(llvm_sequence, llvm_funcs.values(), variables, variables_values, leninit, lenderiv)
 
     ###TESTS####
     y = variables_values[:lenderiv].astype(np.float64)
