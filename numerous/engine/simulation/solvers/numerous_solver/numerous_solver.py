@@ -12,7 +12,7 @@ class Numerous_solver(BaseSolver):
         self.numba_model = numba_model
         self.diff_function = numba_model.func
 
-        self.f0 = self.diff_function(time[0], y0)
+        self.f0 = numba_model.func(time[0], y0)
         self.max_event_steps = max_event_steps
         self.options = kwargs
 

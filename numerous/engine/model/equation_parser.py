@@ -88,7 +88,7 @@ class Equation_Parser():
                 if eq_id in compiled_equations_ids:
                     compiled_equations_idx.append(compiled_equations_ids.index(eq_id))
                     continue
-                eq_text = "def eq_body(func_text, scopes_map):\n   def eval(self,scope,global_variables):\n      " \
+                eq_text = "def eq_body(func_text, scopes_map):\n   def eval(self,scope):\n      " \
                           "pass\n   return eval "
 
             tree = ast.parse(eq_text, mode='exec')
