@@ -284,7 +284,7 @@ class Model:
         self.num_vars_per_eq = np.fromiter(map(len, self.non_flat_scope_idx), np.int64)[
             np.unique(self.compiled_eq_idxs, return_index=True)[1]]
         # eq_idx -> # equation instances
-        self.num_uses_per_eq = np.unique(self.compiled_eq_idxs, return_counts=True)[1]
+        self.num_uses_per_eq = np.array(np.unique(self.compiled_eq_idxs, return_counts=True)[1], dtype=np.int64)
 
         # float64 array of all variables' current value
         # self.flat_variables = np.array([x.value for x in self.variables.values()])
