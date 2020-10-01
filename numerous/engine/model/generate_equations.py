@@ -127,7 +127,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #Replace individual assignments with a sum
     vars_assignments = {}
     nodes_map = equation_graph.node_map
-
+    from numerous.engine.model.generate_llvm import LLVMGenerator
+    llvm_generator = LLVMGenerator()
     logging.info('Remove simple assign chains')
 
     for n in nodes_map.values():
@@ -411,7 +412,6 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #for v, vv in zip(variables, variables_values_):
     #    print(v,': ',vv)
 #    asfsdf=sdfsdf
-    from numerous.engine.model.generate_llvm import generate as generate_llvm
 
     for fn, f in llvm_funcs.items():
         f['func'] = globals()[f['name']]
@@ -423,7 +423,8 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
     from numba import njit, float64, int64
     logging.info('generate llvm')
-    diff_llvm, var_func, var_func_set, max_deriv = generate_llvm(llvm_sequence, llvm_funcs.values(), variables, variables_values, leninit, lenderiv)
+
+    diff_llvm, var_func, var_func_set, max_deriv = llvm_generator.generate(llvm_sequence, llvm_funcs.values(), variables, variables_values, leninit, lenderiv)
 
     ###TESTS####
     y = variables_values[:lenderiv]
