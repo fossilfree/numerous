@@ -360,9 +360,12 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #llvm_sequence = [{'func': 'load', 'ix': ix, 'var': vi, 'arg': 'variables'} for vi, ix  in zip(vars_init[len(states):], range(len(states), len(vars_init)))]
     llvm_sequence += [{'func': 'load', 'ix': ix+lenstates, 'var': v, 'arg': 'variables'} for ix, v in enumerate(vars_init[lenstates:])]
     llvm_sequence += [{'func': 'load', 'ix': ix, 'var': s, 'arg': 'y'} for ix, s in enumerate(states)]
+    llvm_generator.add_load(sequence =vars_init[lenstates:] ,name='variables')
+    llvm_generator.add_load(sequence=states, name='y')
     llvm_end_seq = []
     #llvm_end_seq = [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(vars_update, range(len(vars_init), len(vars_init)+len(vars_update)))]
     llvm_end_seq += [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in zip(states, range(0, lenstates))]
+    llvm_generator.add_store(sequence=zip(states, range(0, lenstates)), name='variables')
     #llvm_end_seq += [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': d} for ix, d in enumerate(deriv)]
 
 
@@ -585,8 +588,6 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     #tic = time()
     #dp.test(variables_values, y)
     #toc = time()
-
-
 
     #print(f'Exe time program - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
 

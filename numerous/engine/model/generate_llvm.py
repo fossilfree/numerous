@@ -27,6 +27,21 @@ class LLVMGenerator:
         self.detailed_print('target triple: ', target_machine.triple)
         self.module = ll.Module()
         self.ext_funcs = {}
+        # Define the overall function
+        self.fnty = ll.FunctionType(ll.DoubleType().as_pointer(), [
+            ll.DoubleType().as_pointer()
+        ])
+
+        self.fnty.args[0].name = "y"
+
+        self.bb_entry = func.append_basic_block(name='entry')
+        self.bb_loop = func.append_basic_block(name='main')
+        self.bb_store = func.append_basic_block(name='store')
+        self.bb_exit = func.append_basic_block(name='exit')
+
+        self.builder = ll.IRBuilder()
+
+        self.builder.position_at_end(self.bb_entry)
 
     def add_external_function(self, function):
         """
@@ -53,13 +68,6 @@ class LLVMGenerator:
         self.detailed_print('program lines: ', len(program))
         t1 = time()
 
-        # Define the overall function
-        fnty = ll.FunctionType(ll.DoubleType().as_pointer(), [
-            ll.DoubleType().as_pointer()
-        ])
-
-        fnty.args[0].name = "y"
-
         for function in functions:
             self.add_external_function(function)
 
@@ -72,72 +80,50 @@ class LLVMGenerator:
         var_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), max_var),
                                              [float(v) for v in variable_values])
 
-        func = ll.Function(self.module, fnty, name="kernel")
+        func = ll.Function(self.module, self.fnty, name="kernel")
 
-        bb_entry = func.append_basic_block(name='entry')
-        bb_loop = func.append_basic_block(name='main')
-        bb_store = func.append_basic_block(name='store')
-        bb_exit = func.append_basic_block(name='exit')
 
-        builder = ll.IRBuilder()
 
-        builder.position_at_end(bb_entry)
-        index0 = builder.phi(ll.IntType(64), name='ix0')
+
+
+        index0 = self.builder.phi(ll.IntType(64), name='ix0')
         index0.add_incoming(ll.Constant(index0.type, 0), bb_entry)
 
         values = {}
 
         poplist = []
-        for ix, p in enumerate(program):
 
-            if p['func'] == 'load':
-
-                index = builder.phi(ll.IntType(64), name=p['arg'] + f"_ix_{p['ix']}")
-                index.add_incoming(ll.Constant(index.type, p['ix']), bb_entry)
-
-                if p['arg'] == 'variables':
-                    ptr = var_global
-                    indices = [index0, index]
-
-                elif p['arg'] == 'y':
-                    ptr = func.args[0]
-                    indices = [index]
-
-                eptr = builder.gep(ptr, indices, name=p['arg'] + "_" + p['var'])
-                values[p['var']] = eptr
-
-                poplist.append(ix)
 
         [program.pop(i) for i in reversed(poplist)]
 
-        builder.branch(bb_loop)
-        builder.position_at_end(bb_loop)
+        self.builder.branch(self.bb_loop)
+        self.builder.position_at_end(self.bb_loop)
 
         poplist = []
         single_arg_sum_counter = 0
         for ix, p in enumerate(program):
 
             if 'args' in p:
-                args = [builder.load(values[a], 'arg_' + a) for a in p['args']]
+                args = [self.builder.load(values[a], 'arg_' + a) for a in p['args']]
 
             target_pointers = []
             if 'targets' in p:
 
                 for t in p['targets']:
-                    index = builder.phi(ll.IntType(64), name=t + "_ix")
-                    index.add_incoming(ll.Constant(index.type, variables.index(t)), bb_entry)
+                    index = self.builder.phi(ll.IntType(64), name=t + "_ix")
+                    index.add_incoming(ll.Constant(index.type, variables.index(t)), self.bb_entry)
 
                     ptr = var_global
                     indices = [index0, index]
 
-                    eptr = builder.gep(ptr, indices, name=t)
+                    eptr = self.builder.gep(ptr, indices, name=t)
 
                     target_pointers.append(eptr)
                     values[t] = eptr
 
             if p['func'] == 'call':
 
-                builder.call(self.ext_funcs[p['ext_func']], args + target_pointers)
+                self.builder.call(self.ext_funcs[p['ext_func']], args + target_pointers)
 
                 poplist.append(ix)
 
@@ -146,27 +132,27 @@ class LLVMGenerator:
 
             elif p['func'] == 'sum':
 
-                accum = builder.phi(ll.DoubleType())
-                accum.add_incoming(ll.Constant(accum.type, 0), bb_entry)
+                accum = self.builder.phi(ll.DoubleType())
+                accum.add_incoming(ll.Constant(accum.type, 0), self.bb_entry)
                 la = len(p['args'])
                 if la == 0:
                     pass
                 elif la == 1:
                     single_arg_sum_counter += 1
                     for t in p['targets']:
-                        builder.store(args[0], values[t])
+                        self.builder.store(args[0], values[t])
                 elif la == 2:
                     sum_ = builder.fadd(args[0], args[1])
                     for t in p['targets']:
-                        builder.store(sum_, values[t])
+                        self.builder.store(sum_, values[t])
 
                 else:
-                    accum = builder.fadd(args[0], args[1])
+                    accum = self.builder.fadd(args[0], args[1])
                     for i, a in enumerate(args[2:]):
-                        accum = builder.fadd(accum, a)
+                        accum = self.builder.fadd(accum, a)
 
                     for t in p['targets']:
-                        builder.store(accum, values[t])
+                        self.builder.store(accum, values[t])
 
                 poplist.append(ix)
 
@@ -174,40 +160,28 @@ class LLVMGenerator:
 
         self.detailed_print('single assignments: ', single_arg_sum_counter)
 
-        builder.branch(bb_store)
-        builder.position_at_end(bb_store)
+        self.builder.branch(self.bb_store)
+        self.builder.position_at_end(self.bb_store)
 
         poplist = []
 
-        for ix, p in enumerate(program):
-            if p['func'] == 'store':
 
-                index = builder.phi(ll.IntType(64), name=p['arg'] + f"_ix_{p['ix']}")
-                index.add_incoming(ll.Constant(index.type, p['ix']), bb_store)
-
-                if p['arg'] == 'variables':
-                    ptr = var_global
-                    indices = [index0, index]
-
-                eptr = builder.gep(ptr, indices)
-                builder.store(builder.load(values[p['var']]), eptr)
-                poplist.append(ix)
 
         [program.pop(i) for i in reversed(poplist)]
 
         if len(program) > 0:
             raise ValueError(f'Still program lines left: {str(program)}')
 
-        builder.branch(bb_exit)
+        self.builder.branch(self.bb_exit)
 
-        builder.position_at_end(bb_exit)
+        self.builder.position_at_end(self.bb_exit)
 
-        indexd = builder.phi(ll.IntType(64))
+        indexd = self.builder.phi(ll.IntType(64))
+        indexd.add_incoming(ll.Constant(indexd.type, ix_d), self.bb_entry)
 
-        indexd.add_incoming(ll.Constant(indexd.type, ix_d), bb_entry)
-        dg_ptr = builder.gep(var_global, [index0, indexd])
+        dg_ptr = self.builder.gep(var_global, [index0, indexd])
 
-        builder.ret(dg_ptr)
+        self.builder.ret(dg_ptr)
         # Vars function
         fnty_vars = ll.FunctionType(ll.DoubleType().as_pointer(), [ll.IntType(64)
                                                                    ])
@@ -226,6 +200,7 @@ class LLVMGenerator:
 
         index0_var = builder_var.phi(ll.IntType(64))
         index0_var.add_incoming(ll.Constant(index0_var.type, 0), bb_entry_var)
+
         vg_ptr = builder_var.gep(var_global, [index0_var, index0_var])
         builder_var.ret(vg_ptr)
 
@@ -283,6 +258,7 @@ class LLVMGenerator:
 
         @njit('float64[:](float64[:],int64)')
         def variables_(var, set_):
+            print("test1")
             variables_pointer = vars_(0)
             variables_array = carray(variables_pointer, (max_var,))
 
@@ -311,3 +287,40 @@ class LLVMGenerator:
     def save_module(self, filename):
         with open(filename, 'w') as f:
             f.write(str(self.module))
+
+    def add_load(self, sequence, name):
+        for ix, v in enumerate(sequence):
+            index = self.builder.phi(ll.IntType(64), name=name + f"_ix_"+str(ix))
+            index.add_incoming(ll.Constant(index.type, ix), self.bb_entry)
+
+            if name == 'variables':
+                ptr = var_global
+                indices = [index0, index]
+
+            elif name == 'y':
+                ptr = self.func.args[0]
+                indices = [index]
+
+            eptr = self.builder.gep(ptr, indices, name + "_" + v)
+            self.values[v] = eptr
+
+    def add_store(self, sequence, name):
+        for ix, v in enumerate(sequence):
+            index = self.builder.phi(ll.IntType(64), name=name + f"_ix_"+str(ix))
+            index.add_incoming(ll.Constant(index.type, ix), self.bb_store)
+
+            if name== 'variables':
+                ptr = var_global
+                indices = [index0, index]
+
+            eptr = builder.gep(ptr, indices)
+            self.builder.store(self.builder.load(self.values[v]), eptr)
+
+    def add_call(self):
+        pass
+
+    def add_mapping(self):
+        pass
+
+    
+
