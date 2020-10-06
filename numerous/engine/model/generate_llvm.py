@@ -1,8 +1,6 @@
 from __future__ import print_function
-
 from ctypes import CFUNCTYPE, POINTER, c_double, c_float, c_void_p, c_int64
 from numba import carray, cfunc, njit
-
 from time import perf_counter as time
 from numerous import config
 import faulthandler
@@ -22,7 +20,7 @@ ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
 
 class LLVMGenerator:
 
-    def __init__(self):
+    def __init__(self,variable_values,n_deriv,n_var):
         self.detailed_print('target data: ', target_machine.target_data)
         self.detailed_print('target triple: ', target_machine.triple)
         self.module = ll.Module()
@@ -34,6 +32,15 @@ class LLVMGenerator:
 
         self.fnty.args[0].name = "y"
 
+        max_deriv = np.int64(n_deriv)
+        max_var = np.int64(n_var)
+
+        var_global = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), max_var), 'global_var')
+        var_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), max_var),
+                                             [float(v) for v in variable_values])
+
+        func = ll.Function(self.module, self.fnty, name="kernel")
+
         self.bb_entry = func.append_basic_block(name='entry')
         self.bb_loop = func.append_basic_block(name='main')
         self.bb_store = func.append_basic_block(name='store')
@@ -42,6 +49,11 @@ class LLVMGenerator:
         self.builder = ll.IRBuilder()
 
         self.builder.position_at_end(self.bb_entry)
+
+        self.index0 = self.builder.phi(ll.IntType(64), name='ix0')
+        self.index0.add_incoming(ll.Constant(self.index0.type, 0), self.bb_entry)
+
+        self.values = {}
 
     def add_external_function(self, function):
         """
@@ -64,8 +76,7 @@ class LLVMGenerator:
 
         self.ext_funcs[name] = f_llvm
 
-    def generate(self, program, functions, variables, variable_values, ix_d, n_deriv):
-        self.detailed_print('program lines: ', len(program))
+    def generate(self, program, functions, variables, ix_d):
         t1 = time()
 
         for function in functions:
@@ -73,28 +84,6 @@ class LLVMGenerator:
 
         # Define global variable array
 
-        max_deriv = np.int64(n_deriv)
-        max_var = np.int64(len(variables))
-
-        var_global = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), max_var), 'global_var')
-        var_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), max_var),
-                                             [float(v) for v in variable_values])
-
-        func = ll.Function(self.module, self.fnty, name="kernel")
-
-
-
-
-
-        index0 = self.builder.phi(ll.IntType(64), name='ix0')
-        index0.add_incoming(ll.Constant(index0.type, 0), bb_entry)
-
-        values = {}
-
-        poplist = []
-
-
-        [program.pop(i) for i in reversed(poplist)]
 
         self.builder.branch(self.bb_loop)
         self.builder.position_at_end(self.bb_loop)
@@ -162,12 +151,6 @@ class LLVMGenerator:
 
         self.builder.branch(self.bb_store)
         self.builder.position_at_end(self.bb_store)
-
-        poplist = []
-
-
-
-        [program.pop(i) for i in reversed(poplist)]
 
         if len(program) > 0:
             raise ValueError(f'Still program lines left: {str(program)}')
@@ -318,9 +301,9 @@ class LLVMGenerator:
 
     def add_call(self):
         pass
-
     def add_mapping(self):
         pass
-
-    
-
+    def add_set_call(self):
+        pass
+    def add_set_mapping(self):
+        pass
