@@ -285,37 +285,7 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
 
             equation_graph.add_edge(vars_mappings[a][0], nsn, e_type='value', mappings=vars_mappings[a][1])
 
-    logging.info('Cleaning eq graph')
-    equation_graph = equation_graph.clean()
 
-    llvm_funcs = {}
-    mod_body = []
-
-
-    #Loop over equation functions and generate code
-
-
-
-
-    eq_vardefs={}
-    logging.info('make equations for compilation')
-    for eq_key, eq in equations.items():
-        #print(eq)
-        vardef = Vardef()
-        #vardef__ = Vardef()
-        vardef_llvm = Vardef_llvm()
-        func, vardef_ = function_from_graph_generic(eq[2],eq_key.replace('.','_'), var_def_=vardef, decorators = ["njit"])
-        #func__, vardef___ = function_from_graph_generic(eq[2], eq_key.replace('.', '_')+'_nojit', var_def_=vardef__,
-         #                                           decorators=[])
-        eq[2].lower_graph = None
-        func_llvm, vardef__, signature, fname, args, targets = function_from_graph_generic_llvm(eq[2], eq_key.replace('.', '_'), var_def_=vardef_llvm)
-        llvm_funcs[eq_key.replace('.', '_')]={'func_ast': func_llvm, 'signature': signature, 'name': fname, 'args': args, 'targets': targets}
-        eq_vardefs[eq_key] = vardef
-
-        mod_body.append(func)
-        #mod_body.append(func__)
-
-        mod_body.append(func_llvm)
     body=[]
     #Create a kernel of assignments and calls
     all_targeted = []
@@ -403,7 +373,42 @@ def generate_equations(equations, equation_graph: Graph, scoped_equations, scope
     topo_sorted_nodes = equation_graph.topological_nodes()
 
     #Initialize llvm program - will be a list of intermediate llvm instructions to be lowered in generate_llvm
-    llvm_program = []
+
+    LLVMGenerator(variables,variable_values,n_deriv,n_var)
+
+    logging.info('Cleaning eq graph')
+    equation_graph = equation_graph.clean()
+
+    llvm_funcs = {}
+
+    mod_body = []
+
+    # Loop over equation functions and generate code
+
+    eq_vardefs = {}
+    logging.info('make equations for compilation')
+    for eq_key, eq in equations.items():
+        # print(eq)
+        vardef = Vardef()
+        # vardef__ = Vardef()
+        vardef_llvm = Vardef_llvm()
+        func, vardef_ = function_from_graph_generic(eq[2], eq_key.replace('.', '_'), var_def_=vardef,
+                                                    decorators=["njit"])
+        # func__, vardef___ = function_from_graph_generic(eq[2], eq_key.replace('.', '_')+'_nojit', var_def_=vardef__,
+        #                                           decorators=[])
+        eq[2].lower_graph = None
+        func_llvm, vardef__, signature, fname, args, targets = function_from_graph_generic_llvm(eq[2],
+                                                                                                eq_key.replace('.',
+                                                                                                               '_'),
+                                                                                                var_def_=vardef_llvm)
+        llvm_funcs[eq_key.replace('.', '_')] = {'func_ast': func_llvm, 'signature': signature, 'name': fname,
+                                                'args': args, 'targets': targets}
+        eq_vardefs[eq_key] = vardef
+
+        mod_body.append(func)
+        # mod_body.append(func__)
+
+        mod_body.append(func_llvm)
 
     #Generate the ast for the python kernel
     body_def = []

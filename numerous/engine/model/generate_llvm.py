@@ -20,7 +20,7 @@ ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
 
 class LLVMGenerator:
 
-    def __init__(self,variable_values,n_deriv,n_var):
+    def __init__(self,variables,variable_values,n_deriv,n_var):
         self.detailed_print('target data: ', target_machine.target_data)
         self.detailed_print('target triple: ', target_machine.triple)
         self.module = ll.Module()
@@ -76,7 +76,7 @@ class LLVMGenerator:
 
         self.ext_funcs[name] = f_llvm
 
-    def generate(self, program, functions, variables, ix_d):
+    def generate(self, program, functions, ix_d):
         t1 = time()
 
         for function in functions:
