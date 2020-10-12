@@ -50,8 +50,7 @@ class LLVMGenerator:
 
         self.builder.position_at_end(self.bb_entry)
 
-        self.index0 = self.builder.phi(ll.IntType(64), name='ix0')
-        self.index0.add_incoming(ll.Constant(self.index0.type, 0), self.bb_entry)
+        self.index0 = ll.IntType(64)(0)
 
         self.values = {}
 
@@ -99,8 +98,7 @@ class LLVMGenerator:
             if 'targets' in p:
 
                 for t in p['targets']:
-                    index = self.builder.phi(ll.IntType(64), name=t + "_ix")
-                    index.add_incoming(ll.Constant(index.type, variables.index(t)), self.bb_entry)
+                    index = ll.IntType(64)(variables.index(t))
 
                     ptr = var_global
                     indices = [index0, index]
@@ -114,15 +112,7 @@ class LLVMGenerator:
 
                 self.builder.call(self.ext_funcs[p['ext_func']], args + target_pointers)
 
-                poplist.append(ix)
-
-
-
-
             elif p['func'] == 'sum':
-
-                accum = self.builder.phi(ll.DoubleType())
-                accum.add_incoming(ll.Constant(accum.type, 0), self.bb_entry)
                 la = len(p['args'])
                 if la == 0:
                     pass
@@ -143,10 +133,6 @@ class LLVMGenerator:
                     for t in p['targets']:
                         self.builder.store(accum, values[t])
 
-                poplist.append(ix)
-
-        [program.pop(i) for i in reversed(poplist)]
-
         self.detailed_print('single assignments: ', single_arg_sum_counter)
 
         self.builder.branch(self.bb_store)
@@ -159,15 +145,13 @@ class LLVMGenerator:
 
         self.builder.position_at_end(self.bb_exit)
 
-        indexd = self.builder.phi(ll.IntType(64))
-        indexd.add_incoming(ll.Constant(indexd.type, ix_d), self.bb_entry)
+        indexd = ll.IntType(64)(ix_d)
 
         dg_ptr = self.builder.gep(var_global, [index0, indexd])
 
         self.builder.ret(dg_ptr)
         # Vars function
-        fnty_vars = ll.FunctionType(ll.DoubleType().as_pointer(), [ll.IntType(64)
-                                                                   ])
+        fnty_vars = ll.FunctionType(ll.DoubleType().as_pointer(), [ll.IntType(64)])
 
         vars_func = ll.Function(self.module, fnty_vars, name="vars")
 
@@ -181,9 +165,7 @@ class LLVMGenerator:
 
         builder_var.position_at_end(bb_exit_var)
 
-        index0_var = builder_var.phi(ll.IntType(64))
-        index0_var.add_incoming(ll.Constant(index0_var.type, 0), bb_entry_var)
-
+        index0_var =ll.IntType(64)(0)
         vg_ptr = builder_var.gep(var_global, [index0_var, index0_var])
         builder_var.ret(vg_ptr)
 
@@ -273,8 +255,7 @@ class LLVMGenerator:
 
     def add_load(self, sequence, name):
         for ix, v in enumerate(sequence):
-            index = self.builder.phi(ll.IntType(64), name=name + f"_ix_"+str(ix))
-            index.add_incoming(ll.Constant(index.type, ix), self.bb_entry)
+            index = ll.IntType(64)(ix)
 
             if name == 'variables':
                 ptr = var_global
@@ -289,8 +270,7 @@ class LLVMGenerator:
 
     def add_store(self, sequence, name):
         for ix, v in enumerate(sequence):
-            index = self.builder.phi(ll.IntType(64), name=name + f"_ix_"+str(ix))
-            index.add_incoming(ll.Constant(index.type, ix), self.bb_store)
+            index = ll.IntType(64)(ix)
 
             if name== 'variables':
                 ptr = var_global
