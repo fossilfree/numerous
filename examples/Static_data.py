@@ -1,4 +1,5 @@
-from model.external_mappings.interpolation_type import InterpolationType
+from numerous.engine.model.external_mappings import ExternalMappingElement, InterpolationType
+from numerous.utils.data_loader import LocalDataLoader
 from numerous.multiphysics.equation_decorators import Equation
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
@@ -46,7 +47,7 @@ if __name__ == "__main__":
     from matplotlib import pyplot as plt
 
     external_mappings = []
-    malmo_sturup_data_frame = pd.read_csv("malmo_sturup-2019.json.csv")
+    malmo_sturup_data_frame = "malmo_sturup-2019.csv"
     index_to_timestep_mapping = 'time'
     index_to_timestep_mapping_start = 0
     time_multiplier = 60
@@ -55,13 +56,12 @@ if __name__ == "__main__":
         'system.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.LINEAR)
     }
     external_mappings.append(
-        (malmo_sturup_data_frame, index_to_timestep_mapping, index_to_timestep_mapping_start,time_multiplier,
-         dataframe_aliases))
-
-    s = simulation.Simulation(
-        model.Model(StaticDataSystem('system', n=1), external_mappings=external_mappings),
-        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1
-    )
+        ExternalMappingElement(malmo_sturup_data_frame, index_to_timestep_mapping, index_to_timestep_mapping_start,
+                               time_multiplier,
+                               dataframe_aliases))
+    model = model.Model(StaticDataSystem('system', n=1), external_mappings=external_mappings,
+                        data_loader=LocalDataLoader())
+    s = simulation.Simulation(model, t_start=0, t_stop=1000000.0, num=10000, num_inner=10000, max_step=.1)
 
     # Solve and plot
     tic = time()

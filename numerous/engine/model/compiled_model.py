@@ -1,6 +1,6 @@
 import math
 
-from numba import int32, float64, boolean, int64, prange, njit, types, typed
+from numba import int32, float64, boolean, int64, njit, types, typed
 import numpy as np
 
 # key and value types
@@ -38,14 +38,17 @@ numba_model_spec = [
     ('external_idx_3d', types.Tuple((int64[:], int64[:], int64[:]))),
     ('external_mappings_numpy', float64[:, :, :]),
     ('external_df_idx', int64[:, :]),
-    ('approximation_type', boolean[:])
+    ('approximation_type', boolean[:]),
+    ('is_external_data', boolean),
+    ('max_external_t', int64)
 ]
 
 
 @njit
 def step_aproximation(t, time_array, data_array):
-    idx = np.searchsorted(time_array, t, side='right')-1
+    idx = np.searchsorted(time_array, t, side='right') - 1
     return data_array[idx]
+
 
 class CompiledModel:
     def __init__(self, var_idxs_pos_3d, var_idxs_pos_3d_helper_callbacks, var_idxs_historian_3d, eq_count,
@@ -56,7 +59,7 @@ class CompiledModel:
                  sum_idxs_pos_3d, sum_idxs_sum_3d, sum_slice_idxs, sum_slice_idxs_len, sum_mapping, callbacks,
                  global_vars, number_of_timesteps, start_time, mapped_variables_array,
                  external_mappings_time, number_of_external_mappings, external_idx_3d, external_mappings_numpy,
-                 external_df_idx, approximation_type):
+                 external_df_idx, approximation_type, is_external_data, max_external_t):
 
         self.external_idx_3d = external_idx_3d
         self.external_df_idx = external_df_idx
@@ -91,6 +94,8 @@ class CompiledModel:
         self.historian_data = np.empty((len(var_idxs_historian_3d) + 1, number_of_timesteps), dtype=np.float64)
         self.historian_data.fill(np.nan)
         self.mapped_variables_array = mapped_variables_array
+        self.is_external_data = is_external_data
+        self.max_external_t = max_external_t
         ##Function is genrated in model.py contains creation and initialization of all callback related variables
 
     def update_states(self, state_values):
@@ -131,15 +136,23 @@ class CompiledModel:
             self.scope_vars_3d[self.external_idx_3d[0][i]][self.external_idx_3d[1][i]][
                 self.external_idx_3d[2][i]] = np.interp(t, self.external_mappings_time[df_indx],
                                                         self.external_mappings_numpy[df_indx, :, var_idx]) if \
-            self.approximation_type[i] else \
+                self.approximation_type[i] else \
                 step_aproximation(t, self.external_mappings_time[df_indx],
                                   self.external_mappings_numpy[df_indx, :, var_idx])
+
+    def update_external_data(self, external_mappings_numpy, external_mappings_time):
+        self.external_mappings_time = external_mappings_time
+        self.external_mappings_numpy = external_mappings_numpy
+
+    def is_external_data_update_needed(self, t):
+        if self.is_external_data and t > self.max_external_t:
+            return True
+        return False
 
     def historian_update(self, time: np.float64) -> None:
         ix = self.historian_ix
         varix = 1
         self.historian_data[0][ix] = time
-        # for j in self.var_idxs_pos_3d_helper:
         for j in self.var_idxs_historian_3d:
             self.historian_data[varix][ix] = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
                 self.var_idxs_pos_3d[2][j]]

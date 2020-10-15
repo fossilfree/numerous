@@ -73,13 +73,14 @@ class Model:
     """
 
     def __init__(self, system=None, logger_level=None, assemble=True, validate=False, save_equations=False,
-                 external_mappings=None):
+                 external_mappings=None, data_loader=None):
         if logger_level == None:
             self.logger_level = LoggerLevel.ALL
         else:
             self.logger_level = logger_level
 
-        self.external_mappings = ExternalMapping(external_mappings) if external_mappings else EmptyMapping()
+        self.is_external_data = True if external_mappings else False
+        self.external_mappings = ExternalMapping(external_mappings,data_loader) if external_mappings else EmptyMapping()
         self.numba_callbacks_indicator = False
         self.numba_callbacks_init = []
         self.numba_callbacks_variables = []
@@ -682,7 +683,11 @@ class Model:
                                              self.external_idx_3d,
                                              self.external_mappings.external_mappings_numpy,
                                              self.external_mappings.external_df_idx,
-                                             self.external_mappings.interpolation_info)
+                                             self.external_mappings.interpolation_info,
+                                             self.is_external_data, self.external_mappings.t_max
+                                             )
+
+
 
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value

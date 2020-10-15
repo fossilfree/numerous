@@ -1,5 +1,6 @@
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
 from .solver_methods import *
+from numba import njit, objmode
 import time
 
 class Numerous_solver(BaseSolver):
@@ -179,6 +180,13 @@ class Numerous_solver(BaseSolver):
                     y_previous = y
                     t_previous = t
                     numba_model.map_external_data(t)
+                    if numba_model.is_external_data_update_needed(t):
+                        with objmode:
+                            self.model.external_mappings.load_new_external_data_batch(t)
+                            external_mappings_numpy = self.model.external_mappings.external_mappings_numpy
+                            external_mappings_time = self.model.external_mappings.external_mappings_time
+
+                        numba_model.update_external_data(external_mappings_numpy,external_mappings_time)
                     #numba_model.func(t, y)
                     #print(t)
 

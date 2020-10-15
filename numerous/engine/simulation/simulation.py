@@ -49,10 +49,17 @@ class Simulation:
         self.model = model
 
         def __end_step(solver, y, t):
+            """
+
+            """
             solver.y0 = y
             solver.numba_model.historian_update(t)
             solver.numba_model.run_callbacks_with_updates(t)
             solver.numba_model.map_external_data(t)
+            if solver.numba_model.is_external_data_update_needed(t):
+                self.model.external_mappings.load_new_external_data_batch(t)
+                solver.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
+                                                        self.model.external_mappings.external_mappings_time)
 
         print("Generating Numba Model")
         generation_start = time.time()
