@@ -182,7 +182,7 @@ class Numerous_solver(BaseSolver):
                     numba_model.map_external_data(t)
                     if numba_model.is_external_data_update_needed(t):
                         with objmode:
-                            self.model.external_mappings.load_new_external_data_batch(t)
+                            numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
                             external_mappings_numpy = self.model.external_mappings.external_mappings_numpy
                             external_mappings_time = self.model.external_mappings.external_mappings_time
 

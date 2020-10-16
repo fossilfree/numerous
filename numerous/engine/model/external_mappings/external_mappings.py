@@ -1,4 +1,5 @@
 import numpy as np
+from pandas import DataFrame
 
 from numerous.engine.model.external_mappings.interpolation_type import InterpolationType
 
@@ -14,7 +15,8 @@ class ExternalMapping:
         self.t_max = 0
         ##loading initial dataframes
         for element in self.external_mappings:
-            element.add_df(self.data_loader.load(element.data_frame_id, element.index_to_timestep_mapping_start))
+            df = self.data_loader.load(element.data_frame_id, element.index_to_timestep_mapping_start)
+            element.add_df(df)
         ##mapping data
         for element in self.external_mappings:
             self.external_columns.append(list(element.dataframe_aliases.keys()))
@@ -39,8 +41,12 @@ class ExternalMapping:
 
         for element in self.external_mappings:
             ## TODO division round bugs? we can skip a row here
-            element.add_df(self.data_loader.load(element.data_frame_id, int(t/element.time_multiplier)))
+            df = self.data_loader.load(element.data_frame_id, int(t / element.time_multiplier) - 1)
 
+            if df.empty:
+                return False
+
+            element.add_df(df)
         for element in self.external_mappings:
             self.external_mappings_numpy.append(element.df[[a_tuple[0] for a_tuple in list(element.dataframe_aliases.values())]
                                                 ].to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
@@ -51,6 +57,7 @@ class ExternalMapping:
         self.external_mappings_time = np.array(self.external_mappings_time, dtype=np.float64)
         ## TODO extend for multiple dataframes
         self.t_max = np.max(self.external_mappings_time[0])
+        return True
 
     def store_mappings(self):
         self.external_df_idx = np.array(self.external_df_idx, dtype=np.int64)
@@ -86,7 +93,14 @@ class ExternalMappingElement:
 
     ##TODO check that e_m is correct format (have all the mappings) after loading
     def add_df(self, df):
-        self.df = df.get_chunk()
+        if self.df is not None:
+            columns = self.df.columns
+            self.df = df
+            self.df.columns = columns
+        else:
+            self.df = df
+
+
 
 class EmptyMapping:
     def __init__(self):

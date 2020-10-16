@@ -60,7 +60,7 @@ if __name__ == "__main__":
                                time_multiplier,
                                dataframe_aliases))
     model = model.Model(StaticDataSystem('system', n=1), external_mappings=external_mappings,
-                        data_loader=LocalDataLoader())
+                        data_loader=LocalDataLoader(chunksize=None))
     s = simulation.Simulation(model, t_start=0, t_stop=1000000.0, num=10000, num_inner=10000, max_step=.1)
 
     # Solve and plot
