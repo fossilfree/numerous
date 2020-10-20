@@ -20,7 +20,7 @@ ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
 
 class LLVMGenerator:
 
-    def __init__(self,variables,variable_values,n_deriv,n_var):
+    def __init__(self, variables, variable_values, n_deriv, n_var):
         self.detailed_print('target data: ', target_machine.target_data)
         self.detailed_print('target triple: ', target_machine.triple)
         self.module = ll.Module()
@@ -68,8 +68,9 @@ class LLVMGenerator:
         f_c_sym = llvm.add_symbol(name, f_c.address)
 
         fnty_c_func = ll.FunctionType(ll.VoidType(),
-                                      [ll.DoubleType() for _ in function['args']] + [ll.DoubleType().as_pointer() for _ in
-                                                                              function['targets']])
+                                      [ll.DoubleType() for _ in function['args']] + [ll.DoubleType().as_pointer() for _
+                                                                                     in
+                                                                                     function['targets']])
         fnty_c_func.as_pointer(f_c_sym)
         f_llvm = ll.Function(self.module, fnty_c_func, name=name)
 
@@ -82,7 +83,6 @@ class LLVMGenerator:
             self.add_external_function(function)
 
         # Define global variable array
-
 
         self.builder.branch(self.bb_loop)
         self.builder.position_at_end(self.bb_loop)
@@ -165,7 +165,7 @@ class LLVMGenerator:
 
         builder_var.position_at_end(bb_exit_var)
 
-        index0_var =ll.IntType(64)(0)
+        index0_var = ll.IntType(64)(0)
         vg_ptr = builder_var.gep(var_global, [index0_var, index0_var])
         builder_var.ret(vg_ptr)
 
@@ -272,7 +272,7 @@ class LLVMGenerator:
         for ix, v in enumerate(sequence):
             index = ll.IntType(64)(ix)
 
-            if name== 'variables':
+            if name == 'variables':
                 ptr = var_global
                 indices = [index0, index]
 
@@ -281,9 +281,12 @@ class LLVMGenerator:
 
     def add_call(self):
         pass
+
     def add_mapping(self):
         pass
+
     def add_set_call(self):
         pass
+
     def add_set_mapping(self):
         pass

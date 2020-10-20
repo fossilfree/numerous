@@ -1,5 +1,4 @@
 from enum import IntEnum, unique
-from numerous.engine.model.graph import Graph
 from numerous.engine.model.source_gen import SourceGeneratorNumerous
 
 import ast, astor

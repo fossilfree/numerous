@@ -1,5 +1,5 @@
-from numerous.engine.model.graph import Graph
-from numerous.engine.model.utils import NodeTypes, recurse_Attribute, wrap_function, dot_dict, generate_code_file
+from model.grpah_representation.graph import Graph
+from numerous.engine.model.utils import NodeTypes, recurse_Attribute, wrap_function, dot_dict
 import ast
 
 def library_function(funcs_map):

@@ -1,17 +1,15 @@
-import ast
 import itertools
 import numpy as np
-import operator
-import re
 import time
 import uuid
 
 from numba.experimental import jitclass
 import pandas as pd
+
+from model.grpah_representation import EquationGraph
 from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
-from examples.historyDataFrameCallbackExample import HistoryDataFrameCallback
 from numerous.engine.scope import Scope, ScopeVariable
 # from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 
@@ -21,12 +19,11 @@ from numerous.utils.numba_callback import NumbaCallbackBase
 
 import operator
 
-from enum import IntEnum, unique
+from enum import IntEnum
 from numerous.engine.model.parser_ast import parse_eq
 #from numerous_graph.graph import Graph
-from numerous.engine.model.graph import Graph
+from model.grpah_representation.graph import Graph
 from numerous.engine.model.parser_ast import process_mappings
-from numerous.engine.model.generate_model import generate
 
 from numerous.engine.model.generate_equations import generate_equations
 
@@ -333,6 +330,8 @@ class Model:
         self.aliases, self.eg = process_mappings(self.mappings, self.gg, self.eg, nodes_dep, self.scope_variables, self.scope_ids)
         #self.eg.as_graphviz('eg_m', force=True)
         self.eg.build_node_edges()
+        self.eg = EquationGraph.from_graph(self.eg)
+        self.eg.remove_chains()
         #self.eg.as_graphviz('equation_graph')
         logging.info('Mappings processed')
         #equation_graph_simplified.as_graphviz('equation_graph_simplified')
@@ -422,7 +421,8 @@ class Model:
         #if len(self.gg.nodes)<100:
         #self.gg.as_graphviz('global')
         logging.info('lowering model')
-        self.compiled_compute, self.var_func, self.vars_ordered_values, self.vars_ordered, self.scope_vars_vars = generate_equations(self.equations_parsed, self.eg, self.scoped_equations, self.scope_variables, self.scope_ids, self.aliases)
+        self.compiled_compute, self.var_func, self.vars_ordered_values, self.vars_ordered, self.scope_vars_vars =\
+            generate_equations(self.equations_parsed, self.eg, self.scoped_equations, self.scope_variables, self.scope_ids, self.aliases)
 
         #values of all model variables in specific order: self.vars_ordered_values
         #full tags of all variables in the model in specific order: self.vars_ordered

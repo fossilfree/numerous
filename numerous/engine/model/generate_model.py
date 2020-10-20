@@ -1,7 +1,6 @@
-from numerous.engine.variables import VariableType
 import ast, astor
-from numerous.engine.model.graph import Graph
-from numerous.engine.model.parser_ast import attr_ast, function_from_graph
+from model.grpah_representation.graph import Graph
+from numerous.engine.model.parser_ast import function_from_graph
 from numerous.engine.model.utils import NodeTypes, wrap_module, wrap_function, dot_dict, generate_code_file
 
 import numpy as np
@@ -289,7 +288,7 @@ def generate(global_graph, vars_map, special_indcs):
 
     #x = len(program[:,0])
 
-    from numba import njit, prange
+    from numba import njit
     @njit('float64[:](float64[:], float64[:])', fastmath=True)#, parallel=True)
     def diff(variables, y):
         variables[states_ix_start:states_ix_end] = y

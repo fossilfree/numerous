@@ -1,6 +1,6 @@
-import ast, astor
-from numerous.engine.model.graph import Graph
-from numerous.engine.model.parser_ast import NodeTypes, EquationNode, EquationEdge, attr_ast
+import ast
+from model.grpah_representation.graph import Graph
+from numerous.engine.model.parser_ast import EquationNode
 
 
 class dot_dict:
