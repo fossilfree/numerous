@@ -129,49 +129,6 @@ class EquationGenerator:
 def generate_equations(equations, equation_graph: EquationGraph, scoped_equations, scope_variables, scope_ids, aliases):
     print('n var: ', len(scope_variables))
 
-    logging.info('create assignments')
-    from tqdm import tqdm
-
-    ## generator ii  n i e for node
-    for ii, n in tqdm(enumerate(equation_graph.get_where_attr('node_type', NodeTypes.EQUATION))):
-
-        for i, e in equation_graph.get_edges_for_node(start_node=n):
-            va = e[1].copy()
-            if va in vars_assignments and len(vars_assignments[va]) > 1:
-
-                # Make new temp var
-                tmp_label = equation_graph.key_map[va] + '_tmp'
-                sv = equation_graph.get(e[1], 'scope_var')
-
-                # Create fake scope variables for tmp setvar
-
-                fake_sv = {}
-                svf = None
-                for i_, svi in tqdm(enumerate(scope_variables.values())):
-                    if sv.set_var and svi.set_var == sv.set_var:
-                        svf = TemporaryVar(svi, tmp_label)
-                        fake_sv[d_u(svf.get_path_dot())] = svf
-
-                if not sv.set_var:
-                    svf = TemporaryVar(sv, tmp_label)
-                    fake_sv[d_u(svf.get_path_dot())] = svf
-
-                scope_variables.update(fake_sv)
-                # if d_u(svf.get_path_dot()) == 'climatemachine_ClimateMachineManualController_VaporizerNozzle_element_2_nozzle_2_t1_x_f_tmp':
-                #    raise ValueError('arg')
-                # print('tmp label: ',tmp_label)
-                tmp = equation_graph.add_node(key=tmp_label, node_type=NodeTypes.TMP, name=tmp_label, ast=None,
-                                              file='sum', label=tmp_label, ln=0,
-                                              ast_type=None, scope_var=svf, ignore_existing=False)
-                # Add temp var to Equation target
-                # equation_graph.edges[i,1] = tmp
-
-                equation_graph.add_edge(n, tmp, e_type='target', arg_local=equation_graph.edges_attr['arg_local'][i[0]])
-                # Add temp var in var assignments
-                # print('sdfsdf: ',equation_graph.edges_attr['mappings'][i[0]])
-
-                vars_assignments_mappings[va][(nix := vars_assignments[va].index(n))] = ':'
-                vars_assignments[va][nix] = tmp
 
     logging.info('Add mappings')
     for a, vals in vars_assignments.items():

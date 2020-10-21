@@ -332,6 +332,7 @@ class Model:
         self.eg.build_node_edges()
         self.eg = EquationGraph.from_graph(self.eg)
         self.eg.remove_chains()
+        self.eg.create_assignments()
         #self.eg.as_graphviz('equation_graph')
         logging.info('Mappings processed')
         #equation_graph_simplified.as_graphviz('equation_graph_simplified')
