@@ -795,7 +795,7 @@ def generate_equations(equations, equation_graph: EquationGraph, scoped_equation
 
     llvm_sequence += llvm_program + llvm_end_seq
 
-    from numerous.engine.model.generate_llvm import generate as generate_llvm
+    from numerous.engine.model.llvm_builder import generate as generate_llvm
 
     for fn, f in llvm_funcs.items():
         f['func'] = globals()[f['name']]

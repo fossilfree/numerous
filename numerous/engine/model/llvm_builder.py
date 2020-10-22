@@ -19,7 +19,7 @@ ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
 
 class LLVMBuilder:
 
-    def __init__(self, variables, variable_values, n_var, ix_d, n_deriv):
+    def __init__(self, variable_values, n_var, ix_d, n_deriv):
         self.detailed_print('target data: ', target_machine.target_data)
         self.detailed_print('target triple: ', target_machine.triple)
         self.module = ll.Module()
@@ -34,8 +34,6 @@ class LLVMBuilder:
         self.n_deriv = n_deriv
 
         self.max_var = np.int64(n_var)
-
-        self.variables = variables
 
         self.var_global = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), self.max_var), 'global_var')
         self.var_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), self.max_var),
@@ -128,7 +126,7 @@ class LLVMBuilder:
         @njit('float64[:](float64[:])')
         def diff(y):
             deriv_pointer = diff_(y.ctypes)
-            return carray(deriv_pointer, (n_deriv,)).copy()
+            return carray(deriv_pointer, (self.n_deriv,)).copy()
 
         @njit('float64[:](float64)')
         def variables__(f):
@@ -175,7 +173,9 @@ class LLVMBuilder:
 
     def add_call(self, external_function, args, targets):
         self._add_external_function(external_function)
-        self.builder.call(self.ext_funcs[external_function], args + target_pointers)
+        arg_pointers = self._get_arg_pointers(args)
+        target_pointers = self._get_target_pointers(targets)
+        self.builder.call(self.ext_funcs[external_function], arg_pointers + target_pointers)
 
     def build_var(self):
         fnty_vars = ll.FunctionType(ll.DoubleType().as_pointer(), [ll.IntType(64)])
