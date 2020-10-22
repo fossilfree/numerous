@@ -1,7 +1,6 @@
 from __future__ import print_function
 from ctypes import CFUNCTYPE, POINTER, c_double, c_float, c_void_p, c_int64
 from numba import carray, cfunc, njit
-from time import perf_counter as time
 from numerous import config
 import faulthandler
 import numpy as np
@@ -18,9 +17,9 @@ target_machine = llvm.Target.from_default_triple().create_target_machine()
 ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
 
 
-class LLVMGenerator:
+class LLVMBuilder:
 
-    def __init__(self, variables, variable_values, n_var):
+    def __init__(self, variables, variable_values, n_var, ix_d, n_deriv):
         self.detailed_print('target data: ', target_machine.target_data)
         self.detailed_print('target triple: ', target_machine.triple)
         self.module = ll.Module()
@@ -31,6 +30,8 @@ class LLVMGenerator:
         ])
         self.index0 = 0
         self.fnty.args[0].name = "y"
+        self.ix_d = ix_d
+        self.n_deriv = n_deriv
 
         self.max_var = np.int64(n_var)
 
@@ -51,7 +52,7 @@ class LLVMGenerator:
 
         self.values = {}
 
-    def add_external_function(self, function):
+    def _add_external_function(self, function):
         """
         Wrap the function and make it available in the LLVM module
         """
@@ -73,72 +74,25 @@ class LLVMGenerator:
 
         self.ext_funcs[name] = f_llvm
 
-    def generate(self, program, functions, ix_d, n_deriv):
-        for function in functions:
-            self.add_external_function(function)
+    def generate(self):
 
         # Define global variable array
         self.builder.branch(self.bb_loop)
         self.builder.position_at_end(self.bb_loop)
 
         single_arg_sum_counter = 0
-        for ix, p in enumerate(program):
 
-            if 'args' in p:
-                args = [self.builder.load(self.values[a], 'arg_' + a) for a in p['args']]
-
-            target_pointers = []
-            if 'targets' in p:
-
-                for t in p['targets']:
-                    index = ll.IntType(64)(self.variables.index(t))
-
-                    ptr = self.var_global
-                    indices = [self.index0, index]
-
-                    eptr = self.builder.gep(ptr, indices, name=t)
-
-                    target_pointers.append(eptr)
-                    self.values[t] = eptr
-
-            if p['func'] == 'call':
-
-                self.builder.call(self.ext_funcs[p['ext_func']], args + target_pointers)
-
-            elif p['func'] == 'sum':
-                la = len(p['args'])
-                if la == 0:
-                    pass
-                elif la == 1:
-                    single_arg_sum_counter += 1
-                    for t in p['targets']:
-                        self.builder.store(args[0], self.values[t])
-                elif la == 2:
-                    sum_ =  self.builder.fadd(args[0], args[1])
-                    for t in p['targets']:
-                        self.builder.store(sum_, self.values[t])
-
-                else:
-                    accum = self.builder.fadd(args[0], args[1])
-                    for i, a in enumerate(args[2:]):
-                        accum = self.builder.fadd(accum, a)
-
-                    for t in p['targets']:
-                        self.builder.store(accum, self.values[t])
-
+        # ----
         self.detailed_print('single assignments: ', single_arg_sum_counter)
 
         self.builder.branch(self.bb_store)
         self.builder.position_at_end(self.bb_store)
 
-        if len(program) > 0:
-            raise ValueError(f'Still program lines left: {str(program)}')
-
         self.builder.branch(self.bb_exit)
 
         self.builder.position_at_end(self.bb_exit)
 
-        indexd = ll.IntType(64)(ix_d)
+        indexd = ll.IntType(64)(self.ix_d)
 
         dg_ptr = self.builder.gep(self.var_global, [self.index0, indexd])
 
@@ -164,7 +118,6 @@ class LLVMGenerator:
         cfptr = ee.get_function_address("kernel")
         cfptr_var = ee.get_function_address("vars")
 
-
         c_float_type = type(np.ctypeslib.as_ctypes(np.float64()))
         self.detailed_print(c_float_type)
 
@@ -174,7 +127,6 @@ class LLVMGenerator:
 
         @njit('float64[:](float64[:])')
         def diff(y):
-
             deriv_pointer = diff_(y.ctypes)
             return carray(deriv_pointer, (n_deriv,)).copy()
 
@@ -221,9 +173,9 @@ class LLVMGenerator:
             eptr = self.builder.gep(ptr, indices)
             self.builder.store(self.builder.load(self.values[v]), eptr)
 
-    def add_call(self):
-        pass
-
+    def add_call(self, external_function, args, targets):
+        self._add_external_function(external_function)
+        self.builder.call(self.ext_funcs[external_function], args + target_pointers)
 
     def build_var(self):
         fnty_vars = ll.FunctionType(ll.DoubleType().as_pointer(), [ll.IntType(64)])
@@ -244,9 +196,43 @@ class LLVMGenerator:
         vg_ptr = builder_var.gep(self.var_global, [index0_var, index0_var])
         builder_var.ret(vg_ptr)
 
+    def add_mapping(self, args, targets):
 
-    def add_mapping(self):
-        pass
+        la = len(args)
+        if la == 0:
+            pass
+        elif la == 1:
+            for t in targets:
+                self.builder.store(args[0], self.values[t])
+        elif la == 2:
+            sum_ = self.builder.fadd(args[0], args[1])
+            for t in targets:
+                self.builder.store(sum_, self.values[t])
+
+        else:
+            accum = self.builder.fadd(args[0], args[1])
+            for i, a in enumerate(args[2:]):
+                accum = self.builder.fadd(accum, a)
+
+            for t in targets:
+                self.builder.store(accum, self.values[t])
+
+    def _get_arg_pointers(self, args):
+        return [self.builder.load(self.values[a], 'arg_' + a) for a in args]
+
+    def _get_target_pointers(self, targets):
+        target_pointers = []
+        for t in targets:
+            index = ll.IntType(64)(self.variables.index(t))
+
+            ptr = self.var_global
+            indices = [self.index0, index]
+
+            eptr = self.builder.gep(ptr, indices, name=t)
+
+            target_pointers.append(eptr)
+            self.values[t] = eptr
+        return target_pointers
 
     def add_set_call(self):
         pass

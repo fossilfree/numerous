@@ -1,6 +1,5 @@
 
 
-
 def test_llvm_1_mapping():
    llvm_program =
 
