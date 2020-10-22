@@ -18,8 +18,16 @@ ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
 
 
 class LLVMBuilder:
+    """
+    Building an LLVM module.
+    """
 
-    def __init__(self, variable_values, n_var, ix_d, n_deriv):
+    def __init__(self, variable_values, n_deriv):
+        """
+        variable_values - initial values of global variables array. Array should be ordered in such way
+         that all the derivatives are located in the tail.
+        n_deriv - number of derivatives
+        """
         self.detailed_print('target data: ', target_machine.target_data)
         self.detailed_print('target triple: ', target_machine.triple)
         self.module = ll.Module()
@@ -30,20 +38,21 @@ class LLVMBuilder:
         ])
         self.index0 = 0
         self.fnty.args[0].name = "y"
-        self.ix_d = ix_d
+
         self.n_deriv = n_deriv
 
-        self.max_var = np.int64(n_var)
+        self.max_var = variable_values.shape[0]
+        self.ix_d =  self.max_var - n_deriv
 
         self.var_global = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), self.max_var), 'global_var')
         self.var_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), self.max_var),
                                                   [float(v) for v in variable_values])
         ##Fixed structure of the kernel
-        func = ll.Function(self.module, self.fnty, name="kernel")
-        self.bb_entry = func.append_basic_block(name='entry')
-        self.bb_loop = func.append_basic_block(name='main')
-        self.bb_store = func.append_basic_block(name='store')
-        self.bb_exit = func.append_basic_block(name='exit')
+        self.func = ll.Function(self.module, self.fnty, name="kernel")
+        self.bb_entry = self.func.append_basic_block(name='entry')
+        self.bb_loop = self.func.append_basic_block(name='main')
+        self.bb_store = self.func.append_basic_block(name='store')
+        self.bb_exit = self.func.append_basic_block(name='exit')
         self.builder = ll.IRBuilder()
         self.builder.position_at_end(self.bb_entry)
         self.index0 = ll.IntType(64)(0)
@@ -72,16 +81,14 @@ class LLVMBuilder:
 
         self.ext_funcs[name] = f_llvm
 
-    def generate(self):
+    def generate(self, filename):
 
         # Define global variable array
         self.builder.branch(self.bb_loop)
         self.builder.position_at_end(self.bb_loop)
 
-        single_arg_sum_counter = 0
-
         # ----
-        self.detailed_print('single assignments: ', single_arg_sum_counter)
+        # self.detailed_print('single assignments: ', single_arg_sum_counter)
 
         self.builder.branch(self.bb_store)
         self.builder.position_at_end(self.bb_store)
@@ -95,9 +102,11 @@ class LLVMBuilder:
         dg_ptr = self.builder.gep(self.var_global, [self.index0, indexd])
 
         self.builder.ret(dg_ptr)
-        # Vars function
 
-        self.save_module('llvm_IR_code.txt')
+        # build vars function
+        self._build_var()
+
+        self.save_module(filename)
 
         llmod = llvm.parse_assembly(str(self.module))
 
@@ -123,15 +132,17 @@ class LLVMBuilder:
 
         vars_ = CFUNCTYPE(POINTER(c_float_type), c_int64)(cfptr_var)
 
+        n_deriv = self.n_deriv
         @njit('float64[:](float64[:])')
         def diff(y):
             deriv_pointer = diff_(y.ctypes)
-            return carray(deriv_pointer, (self.n_deriv,)).copy()
+            return carray(deriv_pointer, (n_deriv,)).copy()
 
+        max_var = self.max_var
         @njit('float64[:](float64)')
-        def variables__(f):
+        def variables__():
             variables_pointer = vars_(0)
-            variables_array = carray(variables_pointer, (self.max_var,))
+            variables_array = carray(variables_pointer, (max_var,))
 
             return variables_array.copy()
 
@@ -145,22 +156,38 @@ class LLVMBuilder:
         with open(filename, 'w') as f:
             f.write(str(self.module))
 
-    def add_load(self, sequence, name):
+    # llvm_sequence += [{'func': 'load', 'ix': ix + lenstates, 'var': v, 'arg': 'variables'} for ix, v in
+    #                   enumerate(vars_init[lenstates:])]
+    # llvm_sequence += [{'func': 'load', 'ix': ix, 'var': s, 'arg': 'y'} for ix, s in enumerate(states)]
+    def load_global(self, sequence, name):
+        """
+
+        """
         for ix, v in enumerate(sequence):
             index = ll.IntType(64)(ix)
-
-            if name == 'variables':
-                ptr = self.var_global
-                indices = [self.index0, index]
-
-            elif name == 'y':
-                ptr = self.func.args[0]
-                indices = [index]
+            ptr = self.var_global
+            indices = [self.index0, index]
 
             eptr = self.builder.gep(ptr, indices, name + "_" + v)
             self.values[v] = eptr
 
-    def add_store(self, sequence, name):
+    def load_global_variable(self, v, ix, name):
+        index = ll.IntType(64)(ix)
+        ptr = self.var_global
+        indices = [self.index0, index]
+
+        eptr = self.builder.gep(ptr, indices, name + "_" + v)
+        self.values[v] = eptr
+
+    def load_states(self,sequence, name):
+        for ix, v in enumerate(sequence):
+            index = ll.IntType(64)(ix)
+            ptr = self.func.args[0]
+            indices = [index]
+            eptr = self.builder.gep(ptr, indices, name + "_" + v)
+            self.values[v] = eptr
+
+    def store(self, sequence, name):
         for ix, v in enumerate(sequence):
             index = ll.IntType(64)(ix)
 
@@ -177,7 +204,7 @@ class LLVMBuilder:
         target_pointers = self._get_target_pointers(targets)
         self.builder.call(self.ext_funcs[external_function], arg_pointers + target_pointers)
 
-    def build_var(self):
+    def _build_var(self):
         fnty_vars = ll.FunctionType(ll.DoubleType().as_pointer(), [ll.IntType(64)])
 
         vars_func = ll.Function(self.module, fnty_vars, name="vars")
