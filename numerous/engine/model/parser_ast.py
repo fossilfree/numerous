@@ -2,7 +2,7 @@ import inspect
 import ast  # , astor
 from textwrap import dedent
 
-from numerous.engine.model.grpah_representation import EquationGraph, Graph
+from numerous.engine.model.graph_representation import EquationGraph, Graph
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute, Vardef, dot_dict, wrap_function
 from numerous.engine.variables import VariableType
 from numerous.engine.scope import ScopeVariable

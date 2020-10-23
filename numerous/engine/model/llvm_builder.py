@@ -22,11 +22,13 @@ class LLVMBuilder:
     Building an LLVM module.
     """
 
-    def __init__(self, variable_values, n_deriv):
+    def __init__(self, initial_values, variable_names, number_of_states, number_of_derivatives):
         """
-        variable_values - initial values of global variables array. Array should be ordered in such way
+        initial_values - initial values of global variables array. Array should be ordered in such way
          that all the derivatives are located in the tail.
-        n_deriv - number of derivatives
+        variable_names - dictionary
+        number_of_states - number of states
+        number_of_derivatives -  number of derivatives
         """
         self.detailed_print('target data: ', target_machine.target_data)
         self.detailed_print('target triple: ', target_machine.triple)
@@ -39,14 +41,21 @@ class LLVMBuilder:
         self.index0 = 0
         self.fnty.args[0].name = "y"
 
-        self.n_deriv = n_deriv
+        self.variable_names = {}
 
-        self.max_var = variable_values.shape[0]
-        self.ix_d =  self.max_var - n_deriv
+        for k, v in variable_names.items():
+            self.variable_names[k] = v
+            self.variable_names[v] = k
+        self.number_of_states = number_of_states
+
+        self.n_deriv = number_of_derivatives
+
+        self.max_var = initial_values.shape[0]
+        self.ix_d = self.max_var - number_of_derivatives
 
         self.var_global = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), self.max_var), 'global_var')
         self.var_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), self.max_var),
-                                                  [float(v) for v in variable_values])
+                                                  [float(v) for v in initial_values])
         ##Fixed structure of the kernel
         self.func = ll.Function(self.module, self.fnty, name="kernel")
         self.bb_entry = self.func.append_basic_block(name='entry')
@@ -58,6 +67,14 @@ class LLVMBuilder:
         self.index0 = ll.IntType(64)(0)
 
         self.values = {}
+
+        # go through  all states to put them in load block
+        for i in range(self.number_of_states):
+            self.load_state_variable(self.variable_names[i])
+
+        # go through all states to put them in store block
+        for i in range(self.number_of_states):
+            self.store_variable(self.variable_names[i])
 
     def _add_external_function(self, function):
         """
@@ -133,13 +150,15 @@ class LLVMBuilder:
         vars_ = CFUNCTYPE(POINTER(c_float_type), c_int64)(cfptr_var)
 
         n_deriv = self.n_deriv
+
         @njit('float64[:](float64[:])')
         def diff(y):
             deriv_pointer = diff_(y.ctypes)
             return carray(deriv_pointer, (n_deriv,)).copy()
 
         max_var = self.max_var
-        @njit('float64[:](float64)')
+
+        @njit('float64[:]()')
         def variables__():
             variables_pointer = vars_(0)
             variables_array = carray(variables_pointer, (max_var,))
@@ -159,44 +178,27 @@ class LLVMBuilder:
     # llvm_sequence += [{'func': 'load', 'ix': ix + lenstates, 'var': v, 'arg': 'variables'} for ix, v in
     #                   enumerate(vars_init[lenstates:])]
     # llvm_sequence += [{'func': 'load', 'ix': ix, 'var': s, 'arg': 'y'} for ix, s in enumerate(states)]
-    def load_global(self, sequence, name):
-        """
 
-        """
-        for ix, v in enumerate(sequence):
-            index = ll.IntType(64)(ix)
-            ptr = self.var_global
-            indices = [self.index0, index]
-
-            eptr = self.builder.gep(ptr, indices, name + "_" + v)
-            self.values[v] = eptr
-
-    def load_global_variable(self, v, ix, name):
-        index = ll.IntType(64)(ix)
+    def load_global_variable(self, variable_name):
+        index = ll.IntType(64)(self.variable_names[variable_name])
         ptr = self.var_global
         indices = [self.index0, index]
+        eptr = self.builder.gep(ptr, indices, name="variable_" + variable_name)
+        self.values[variable_name] = eptr
 
-        eptr = self.builder.gep(ptr, indices, name + "_" + v)
-        self.values[v] = eptr
+    def load_state_variable(self, state_name):
+        index = ll.IntType(64)(self.variable_names[state_name])
+        ptr = self.func.args[0]
+        indices = [index]
+        eptr = self.builder.gep(ptr, indices, name="state_" + state_name)
+        self.values[state_name] = eptr
 
-    def load_states(self,sequence, name):
-        for ix, v in enumerate(sequence):
-            index = ll.IntType(64)(ix)
-            ptr = self.func.args[0]
-            indices = [index]
-            eptr = self.builder.gep(ptr, indices, name + "_" + v)
-            self.values[v] = eptr
-
-    def store(self, sequence, name):
-        for ix, v in enumerate(sequence):
-            index = ll.IntType(64)(ix)
-
-            if name == 'variables':
-                ptr = self.var_global
-                indices = [self.index0, index]
-
-            eptr = self.builder.gep(ptr, indices)
-            self.builder.store(self.builder.load(self.values[v]), eptr)
+    def store_variable(self, variable_name):
+        index = ll.IntType(64)(self.variable_names[variable_name])
+        ptr = self.var_global
+        indices = [self.index0, index]
+        eptr = self.builder.gep(ptr, indices)
+        self.builder.store(self.builder.load(self.values[variable_name]), eptr)
 
     def add_call(self, external_function, args, targets):
         self._add_external_function(external_function)
@@ -223,26 +225,23 @@ class LLVMBuilder:
         vg_ptr = builder_var.gep(self.var_global, [index0_var, index0_var])
         builder_var.ret(vg_ptr)
 
+    def _store_to_global_target(self, target, value):
+        if target not in self.values:
+            self.load_global_variable(target)
+        self.builder.store(value, self.values[target])
+
     def add_mapping(self, args, targets):
-
         la = len(args)
-        if la == 0:
-            pass
-        elif la == 1:
+        if la == 1:
             for t in targets:
-                self.builder.store(args[0], self.values[t])
-        elif la == 2:
-            sum_ = self.builder.fadd(args[0], args[1])
-            for t in targets:
-                self.builder.store(sum_, self.values[t])
-
+                self._store_to_global_target(t, args[0])
         else:
             accum = self.builder.fadd(args[0], args[1])
             for i, a in enumerate(args[2:]):
                 accum = self.builder.fadd(accum, a)
 
             for t in targets:
-                self.builder.store(accum, self.values[t])
+                self.load_global_variable(t, accum)
 
     def _get_arg_pointers(self, args):
         return [self.builder.load(self.values[a], 'arg_' + a) for a in args]

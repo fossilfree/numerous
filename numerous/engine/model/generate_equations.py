@@ -1,4 +1,4 @@
-from model.grpah_representation import EquationGraph
+from model.graph_representation import EquationGraph
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute, wrap_function, dot_dict, generate_code_file
 from numerous.engine.model.parser_ast import function_from_graph_generic, \
     function_from_graph_generic_llvm  # , EquationNode, EquationEdge

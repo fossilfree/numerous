@@ -6,7 +6,7 @@ import uuid
 from numba.experimental import jitclass
 import pandas as pd
 
-from model.grpah_representation import EquationGraph
+from model.graph_representation import EquationGraph
 from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
@@ -22,7 +22,7 @@ import operator
 from enum import IntEnum
 from numerous.engine.model.parser_ast import parse_eq
 #from numerous_graph.graph import Graph
-from model.grpah_representation.graph import Graph
+from model.graph_representation.graph import Graph
 from numerous.engine.model.parser_ast import process_mappings
 
 from numerous.engine.model.generate_equations import generate_equations

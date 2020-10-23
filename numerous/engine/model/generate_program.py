@@ -1,4 +1,4 @@
-from model.grpah_representation.graph import Graph
+from model.graph_representation.graph import Graph
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute, wrap_function, dot_dict
 import ast
 

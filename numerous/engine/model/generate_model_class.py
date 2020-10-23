@@ -1,5 +1,5 @@
 import ast
-from model.grpah_representation.graph import Graph
+from model.graph_representation.graph import Graph
 from numerous.engine.model.parser_ast import EquationNode
 
 

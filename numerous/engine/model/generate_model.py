@@ -1,5 +1,5 @@
 import ast, astor
-from model.grpah_representation.graph import Graph
+from model.graph_representation.graph import Graph
 from numerous.engine.model.parser_ast import function_from_graph
 from numerous.engine.model.utils import NodeTypes, wrap_module, wrap_function, dot_dict, generate_code_file
 
