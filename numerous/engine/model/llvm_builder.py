@@ -76,6 +76,7 @@ class LLVMBuilder:
         for i in range(self.number_of_states):
             self.store_variable(self.variable_names[i])
 
+
     def _add_external_function(self, function):
         """
         Wrap the function and make it available in the LLVM module
@@ -194,11 +195,14 @@ class LLVMBuilder:
         self.values[state_name] = eptr
 
     def store_variable(self, variable_name):
+        _block = self.builder.block
+        self.builder.position_at_end( self.bb_store)
         index = ll.IntType(64)(self.variable_names[variable_name])
         ptr = self.var_global
         indices = [self.index0, index]
         eptr = self.builder.gep(ptr, indices)
         self.builder.store(self.builder.load(self.values[variable_name]), eptr)
+        self.builder.position_at_end(_block)
 
     def add_call(self, external_function, args, targets):
         self._add_external_function(external_function)
@@ -227,38 +231,43 @@ class LLVMBuilder:
 
     def _store_to_global_target(self, target, value):
         if target not in self.values:
-            self.load_global_variable(target)
+            self._create_target_pointer(target)
         self.builder.store(value, self.values[target])
+
+    def _load_args(self,args):
+        loaded_args = []
+        for a in args:
+            if a not in self.values:
+                self.load_global_variable(a)
+            loaded_args.append(self.builder.load(self.values[a], 'arg_' + a))
+        return loaded_args
 
     def add_mapping(self, args, targets):
         la = len(args)
+
+        loaded_args_ptr = self._load_args(args)
+
         if la == 1:
             for t in targets:
-                self._store_to_global_target(t, args[0])
+                self._store_to_global_target(t, loaded_args_ptr[0])
         else:
-            accum = self.builder.fadd(args[0], args[1])
-            for i, a in enumerate(args[2:]):
+            accum = self.builder.fadd(loaded_args_ptr[0], loaded_args_ptr[1])
+            for i, a in enumerate(loaded_args_ptr[2:]):
                 accum = self.builder.fadd(accum, a)
 
             for t in targets:
-                self.load_global_variable(t, accum)
+                self._store_to_global_target(t, accum)
 
     def _get_arg_pointers(self, args):
         return [self.builder.load(self.values[a], 'arg_' + a) for a in args]
 
-    def _get_target_pointers(self, targets):
-        target_pointers = []
-        for t in targets:
-            index = ll.IntType(64)(self.variables.index(t))
-
+    def _create_target_pointer(self, t):
+            index = ll.IntType(64)(self.variable_names[t])
             ptr = self.var_global
             indices = [self.index0, index]
-
             eptr = self.builder.gep(ptr, indices, name=t)
-
-            target_pointers.append(eptr)
             self.values[t] = eptr
-        return target_pointers
+
 
     def add_set_call(self):
         pass
