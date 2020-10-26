@@ -76,22 +76,19 @@ class LLVMBuilder:
         for i in range(self.number_of_states):
             self.store_variable(self.variable_names[i])
 
-
-    def _add_external_function(self, function):
+    def _add_external_function(self, function, signature, args_count, targets_count):
         """
         Wrap the function and make it available in the LLVM module
         """
-        f_c = cfunc(sig=function['signature'])(function['func'])
-
+        f_c = cfunc(sig=signature)(function)
 
         name = function.__qualname__
 
         f_c_sym = llvm.add_symbol(name, f_c.address)
-
+        llvm_signature = np.tile(ll.DoubleType(), args_count).tolist() + np.tile(ll.DoubleType().as_pointer(),
+                                                                                 targets_count).tolist()
         fnty_c_func = ll.FunctionType(ll.VoidType(),
-                                      [ll.DoubleType() for _ in function['args']] + [ll.DoubleType().as_pointer() for _
-                                                                                     in
-                                                                                     function['targets']])
+                                      llvm_signature)
         fnty_c_func.as_pointer(f_c_sym)
         f_llvm = ll.Function(self.module, fnty_c_func, name=name)
 
@@ -194,7 +191,7 @@ class LLVMBuilder:
 
     def store_variable(self, variable_name):
         _block = self.builder.block
-        self.builder.position_at_end( self.bb_store)
+        self.builder.position_at_end(self.bb_store)
         index = ll.IntType(64)(self.variable_names[variable_name])
         ptr = self.var_global
         indices = [self.index0, index]
@@ -202,11 +199,11 @@ class LLVMBuilder:
         self.builder.store(self.builder.load(self.values[variable_name]), eptr)
         self.builder.position_at_end(_block)
 
-    def add_call(self, external_function, args, targets):
-        self._add_external_function(external_function)
+    def add_call(self, external_function,signature, args, targets):
+        self._add_external_function(external_function,signature,len(args),len(targets))
         arg_pointers = self._get_arg_pointers(args)
         target_pointers = self._get_target_pointers(targets)
-        self.builder.call(self.ext_funcs[external_function], arg_pointers + target_pointers)
+        self.builder.call(self.ext_funcs[external_function.__qualname__], arg_pointers + target_pointers)
 
     def _build_var(self):
         fnty_vars = ll.FunctionType(ll.DoubleType().as_pointer(), [ll.IntType(64)])
@@ -232,7 +229,7 @@ class LLVMBuilder:
             self._create_target_pointer(target)
         self.builder.store(value, self.values[target])
 
-    def _load_args(self,args):
+    def _load_args(self, args):
         loaded_args = []
         for a in args:
             if a not in self.values:
@@ -260,12 +257,11 @@ class LLVMBuilder:
         return [self.builder.load(self.values[a], 'arg_' + a) for a in args]
 
     def _create_target_pointer(self, t):
-            index = ll.IntType(64)(self.variable_names[t])
-            ptr = self.var_global
-            indices = [self.index0, index]
-            eptr = self.builder.gep(ptr, indices, name=t)
-            self.values[t] = eptr
-
+        index = ll.IntType(64)(self.variable_names[t])
+        ptr = self.var_global
+        indices = [self.index0, index]
+        eptr = self.builder.gep(ptr, indices, name=t)
+        self.values[t] = eptr
 
     def add_set_call(self):
         pass
