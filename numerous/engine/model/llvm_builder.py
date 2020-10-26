@@ -24,7 +24,7 @@ class LLVMBuilder:
 
     def __init__(self, initial_values, variable_names, number_of_states, number_of_derivatives):
         """
-        initial_values - initial values of global variables array. Array should be ordered in such way
+        initial_values - initial values of global variables array. Array should be ordered in  such way
          that all the derivatives are located in the tail.
         variable_names - dictionary
         number_of_states - number of states
@@ -83,10 +83,8 @@ class LLVMBuilder:
         """
         f_c = cfunc(sig=function['signature'])(function['func'])
 
-        if not 'name' in function:
-            function['name'] = function['func'].__qualname__
 
-        name = function['name']
+        name = function.__qualname__
 
         f_c_sym = llvm.add_symbol(name, f_c.address)
 
