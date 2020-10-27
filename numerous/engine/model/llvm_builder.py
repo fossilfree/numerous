@@ -78,6 +78,9 @@ class LLVMBuilder:
         for i in range(self.number_of_states):
             self.store_variable(self.variable_names[i])
 
+        self.builder.position_at_end(self.bb_entry)
+        self.builder.branch(self.bb_loop)
+
     def add_external_function(self, function, signature, args_count, targets_count):
         """
         Wrap the function and make it available in the LLVM module
@@ -98,8 +101,7 @@ class LLVMBuilder:
 
     def generate(self, filename):
 
-        self.builder.position_at_end(self.bb_entry)
-        self.builder.branch(self.bb_loop)
+
         self.builder.position_at_end(self.bb_loop)
 
         # ----
@@ -132,6 +134,8 @@ class LLVMBuilder:
 
         pm.run(llmod)
 
+        with open("llvm_opt.txt", 'w') as f:
+            f.write(str(llmod))
         # self.detailed_print("-- optimize:", t6 - t5)
 
         ee.add_module(llmod)
@@ -234,15 +238,10 @@ class LLVMBuilder:
             self._create_target_pointer(target)
         self.builder.store(value, self.values[target])
 
-    def _load_args(self, args):
-        loaded_args = []
-        for a in args:
-            if a not in self.values:
-                self.load_global_variable(a)
-            loaded_args.append(self.builder.load(self.values[a], 'arg_' + a))
-        return loaded_args
+
 
     def add_mapping(self, args, targets):
+        self.builder.position_at_end(self.bb_loop)
         la = len(args)
 
         loaded_args_ptr = self._load_args(args)
@@ -259,7 +258,26 @@ class LLVMBuilder:
                 self._store_to_global_target(t, accum)
 
     def _get_arg_pointers(self, args):
-        return [self.builder.load(self.values[a], 'arg_' + a) for a in args]
+        result = []
+        self.builder.position_at_end(self.bb_loop)
+        for a in args:
+            if a in self.values:
+                result.append(self.builder.load(self.values[a], 'arg_' + a))
+            else:
+                self.load_global_variable(a)
+                result.append(self.builder.load(self.values[a], 'arg_' + a))
+
+        return result
+
+    def _load_args(self, args):
+        loaded_args = []
+        self.builder.position_at_end(self.bb_loop)
+        for a in args:
+            if a not in self.values:
+                self.load_global_variable(a)
+            loaded_args.append(self.builder.load(self.values[a], 'arg_' + a))
+        return loaded_args
+
 
     def _get_target_pointers(self, targets):
         return [self.values[target] for target in targets]
@@ -271,35 +289,32 @@ class LLVMBuilder:
         eptr = self.builder.gep(ptr, indices, name=t)
         self.values[t] = eptr
 
-    def add_set_call(self, size):
+    def add_set_call(self, external_function, size):
         # function,args2d,targets2d):
         ## TODO check allign
         ##crete new block
-
+        self.builder.position_at_end(self.bb_loop)
         size_ptr = ll.IntType(64)(size)
-        inc = self.builder.alloca(ll.IntType(64), name='inc')
-        self.builder.store(ll.IntType(64)(0), inc)
 
         loop_cond = self.func.append_basic_block(name='for' + str(self.loopcount) + '.cond')
         self.builder.position_at_end(loop_cond)
+        i0 = self.builder.phi(ll.IntType(64), name='loop' + str(self.loopcount) + '.ix')
 
         self.builder.position_at_end(self.bb_loop)
         self.builder.branch(loop_cond)
 
         loop_body = self.func.append_basic_block(name='for' + str(self.loopcount) + '.body')
         self.builder.position_at_end(loop_body)
+        # self.builder.call(self.ext_funcs[external_function.__qualname__], arg_pointers + target_pointers)
 
         loop_inc = self.func.append_basic_block(name='for' + str(self.loopcount) + '.inc')
         self.builder.position_at_end(loop_inc)
-        inc_value = self.builder.load(inc)
-        result = self.builder.add(inc_value, ll.IntType(64)(1), name="res")
+        result = self.builder.add(i0, ll.IntType(64)(1), name="res")
         self.builder.branch(loop_cond)
 
         loop_end = self.func.append_basic_block(name='main' + str(self.loopcount))
-        self.builder.position_at_end(loop_end)
 
         self.builder.position_at_end(loop_cond)
-        i0 = self.builder.phi(ll.IntType(64), name='loop' + str(self.loopcount) + '.ix')
         i0.add_incoming(ll.IntType(64)(0), self.bb_loop)
         i0.add_incoming(result, loop_inc)
         cmp = self.builder.icmp_unsigned("<", i0, size_ptr, name="cmp")

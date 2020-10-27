@@ -132,6 +132,15 @@ def test_llvm_1_function_and_mappings():
 
     assert approx(var_func()) == np.array([2.1, 2.2, 2.3, -100., 50., 6., 7., 100., 9.])
 
-#
-# def test_llvm_1_loop_operation():
-#     llvm_program =
+def test_llvm_2_function_and_mappings():
+    llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
+    llvm_program.add_external_function(eval_llvm, eval_llvm_signature, 2, 2)
+
+    llvm_program.add_call(eval_llvm, ["oscillator1.mechanics.b", "oscillator1.mechanics.y"],
+                          ["oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"])
+
+    diff, var_func = llvm_program.generate(filename)
+
+    assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([7., 100., 9.])
+
+    assert approx(var_func()) == np.array([2.1, 2.2, 2.3, -100., 5., 6., 7., 100., 9.])
