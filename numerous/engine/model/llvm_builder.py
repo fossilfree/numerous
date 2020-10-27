@@ -30,6 +30,8 @@ class LLVMBuilder:
         number_of_states - number of states
         number_of_derivatives -  number of derivatives
         """
+
+        self.loopcount = 0
         self.detailed_print('target data: ', target_machine.target_data)
         self.detailed_print('target triple: ', target_machine.triple)
         self.module = ll.Module()
@@ -56,7 +58,7 @@ class LLVMBuilder:
         self.var_global = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), self.max_var), 'global_var')
         self.var_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), self.max_var),
                                                   [float(v) for v in initial_values])
-        ##Fixed structure of the kernel
+        ##Creatinf the fixed structure of the kernel
         self.func = ll.Function(self.module, self.fnty, name="kernel")
         self.bb_entry = self.func.append_basic_block(name='entry')
         self.bb_loop = self.func.append_basic_block(name='main')
@@ -76,7 +78,7 @@ class LLVMBuilder:
         for i in range(self.number_of_states):
             self.store_variable(self.variable_names[i])
 
-    def _add_external_function(self, function, signature, args_count, targets_count):
+    def add_external_function(self, function, signature, args_count, targets_count):
         """
         Wrap the function and make it available in the LLVM module
         """
@@ -96,7 +98,7 @@ class LLVMBuilder:
 
     def generate(self, filename):
 
-        # Define global variable array
+        self.builder.position_at_end(self.bb_entry)
         self.builder.branch(self.bb_loop)
         self.builder.position_at_end(self.bb_loop)
 
@@ -199,10 +201,13 @@ class LLVMBuilder:
         self.builder.store(self.builder.load(self.values[variable_name]), eptr)
         self.builder.position_at_end(_block)
 
-    def add_call(self, external_function,signature, args, targets):
-        self._add_external_function(external_function,signature,len(args),len(targets))
+    def add_call(self, external_function, args, targets):
         arg_pointers = self._get_arg_pointers(args)
+        for target in targets:
+            if target not in self.values:
+                self._create_target_pointer(target)
         target_pointers = self._get_target_pointers(targets)
+        self.builder.position_at_end(self.bb_loop)
         self.builder.call(self.ext_funcs[external_function.__qualname__], arg_pointers + target_pointers)
 
     def _build_var(self):
@@ -256,6 +261,9 @@ class LLVMBuilder:
     def _get_arg_pointers(self, args):
         return [self.builder.load(self.values[a], 'arg_' + a) for a in args]
 
+    def _get_target_pointers(self, targets):
+        return [self.values[target] for target in targets]
+
     def _create_target_pointer(self, t):
         index = ll.IntType(64)(self.variable_names[t])
         ptr = self.var_global
@@ -263,8 +271,45 @@ class LLVMBuilder:
         eptr = self.builder.gep(ptr, indices, name=t)
         self.values[t] = eptr
 
-    def add_set_call(self):
-        pass
+    def add_set_call(self, size):
+        # function,args2d,targets2d):
+        ## TODO check allign
+        ##crete new block
 
-    def add_set_mapping(self):
+        size_ptr = ll.IntType(64)(size)
+        inc = self.builder.alloca(ll.IntType(64), name='inc')
+        self.builder.store(ll.IntType(64)(0), inc)
+
+        loop_cond = self.func.append_basic_block(name='for' + str(self.loopcount) + '.cond')
+        self.builder.position_at_end(loop_cond)
+
+        self.builder.position_at_end(self.bb_loop)
+        self.builder.branch(loop_cond)
+
+        loop_body = self.func.append_basic_block(name='for' + str(self.loopcount) + '.body')
+        self.builder.position_at_end(loop_body)
+
+        loop_inc = self.func.append_basic_block(name='for' + str(self.loopcount) + '.inc')
+        self.builder.position_at_end(loop_inc)
+        inc_value = self.builder.load(inc)
+        result = self.builder.add(inc_value, ll.IntType(64)(1), name="res")
+        self.builder.branch(loop_cond)
+
+        loop_end = self.func.append_basic_block(name='main' + str(self.loopcount))
+        self.builder.position_at_end(loop_end)
+
+        self.builder.position_at_end(loop_cond)
+        i0 = self.builder.phi(ll.IntType(64), name='loop' + str(self.loopcount) + '.ix')
+        i0.add_incoming(ll.IntType(64)(0), self.bb_loop)
+        i0.add_incoming(result, loop_inc)
+        cmp = self.builder.icmp_unsigned("<", i0, size_ptr, name="cmp")
+        self.builder.cbranch(cmp, loop_body, loop_end)
+
+        self.builder.position_at_end(loop_body)
+        self.builder.branch(loop_inc)
+        self.bb_loop = loop_end
+
+        self.loopcount += 1
+
+    def add_set_mapping(self, args2d, targets2d):
         pass
