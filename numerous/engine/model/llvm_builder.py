@@ -101,7 +101,6 @@ class LLVMBuilder:
 
     def generate(self, filename):
 
-
         self.builder.position_at_end(self.bb_loop)
 
         # ----
@@ -177,10 +176,6 @@ class LLVMBuilder:
         with open(filename, 'w') as f:
             f.write(str(self.module))
 
-    # llvm_sequence += [{'func': 'load', 'ix': ix + lenstates, 'var': v, 'arg': 'variables'} for ix, v in
-    #                   enumerate(vars_init[lenstates:])]
-    # llvm_sequence += [{'func': 'load', 'ix': ix, 'var': s, 'arg': 'y'} for ix, s in enumerate(states)]
-
     def load_global_variable(self, variable_name):
         index = ll.IntType(64)(self.variable_names[variable_name])
         ptr = self.var_global
@@ -194,6 +189,10 @@ class LLVMBuilder:
         indices = [index]
         eptr = self.builder.gep(ptr, indices, name="state_" + state_name)
         self.values[state_name] = eptr
+        ptr = self.var_global
+        indices = [self.index0, index]
+        eptr = self.builder.gep(ptr, indices)
+        self.builder.store(self.builder.load(self.values[state_name]), eptr)
 
     def store_variable(self, variable_name):
         _block = self.builder.block
@@ -206,7 +205,7 @@ class LLVMBuilder:
         self.builder.position_at_end(_block)
 
     def add_call(self, external_function, args, targets):
-        arg_pointers = self._get_arg_pointers(args)
+        arg_pointers = self._load_args(args)
         for target in targets:
             if target not in self.values:
                 self._create_target_pointer(target)
@@ -238,8 +237,6 @@ class LLVMBuilder:
             self._create_target_pointer(target)
         self.builder.store(value, self.values[target])
 
-
-
     def add_mapping(self, args, targets):
         self.builder.position_at_end(self.bb_loop)
         la = len(args)
@@ -257,17 +254,6 @@ class LLVMBuilder:
             for t in targets:
                 self._store_to_global_target(t, accum)
 
-    def _get_arg_pointers(self, args):
-        result = []
-        self.builder.position_at_end(self.bb_loop)
-        for a in args:
-            if a in self.values:
-                result.append(self.builder.load(self.values[a], 'arg_' + a))
-            else:
-                self.load_global_variable(a)
-                result.append(self.builder.load(self.values[a], 'arg_' + a))
-
-        return result
 
     def _load_args(self, args):
         loaded_args = []
@@ -277,7 +263,6 @@ class LLVMBuilder:
                 self.load_global_variable(a)
             loaded_args.append(self.builder.load(self.values[a], 'arg_' + a))
         return loaded_args
-
 
     def _get_target_pointers(self, targets):
         return [self.values[target] for target in targets]
@@ -289,11 +274,23 @@ class LLVMBuilder:
         eptr = self.builder.gep(ptr, indices, name=t)
         self.values[t] = eptr
 
-    def add_set_call(self, external_function, size):
+    def add_set_call(self, external_function,variable_name_arg,variable_name_trg):
         # function,args2d,targets2d):
         ## TODO check allign
-        ##crete new block
         self.builder.position_at_end(self.bb_loop)
+        number_of_ix = len(variable_name_arg[0])
+        size = len(variable_name_arg)
+
+        index_arg = (ll.IntType(64)(self.variable_names[variable_name_arg[0][0]]-1))
+        index_arg_ptr = self.builder.alloca(ll.IntType(64))
+        self.builder.store(index_arg, index_arg_ptr)
+
+        index_trg = (ll.IntType(64)(self.variable_names[variable_name_trg[0][0]]-1))
+        index_trg_ptr = self.builder.alloca( ll.IntType(64))
+        self.builder.store(index_trg, index_trg_ptr)
+
+        ##crete new block
+
         size_ptr = ll.IntType(64)(size)
 
         loop_cond = self.func.append_basic_block(name='for' + str(self.loopcount) + '.cond')
@@ -305,7 +302,33 @@ class LLVMBuilder:
 
         loop_body = self.func.append_basic_block(name='for' + str(self.loopcount) + '.body')
         self.builder.position_at_end(loop_body)
-        # self.builder.call(self.ext_funcs[external_function.__qualname__], arg_pointers + target_pointers)
+
+        loaded_args = []
+        loaded_trgs = []
+        for i1 in range(number_of_ix):
+            index_arg = self.builder.load(index_arg_ptr)
+            index_trg = self.builder.load(index_trg_ptr)
+
+            index_arg =  self.builder.add(index_arg, ll.IntType(64)(1), name="index_arg")
+            index_trg =  self.builder.add(index_trg, ll.IntType(64)(1), name="index_trg")
+
+            self.builder.store(index_arg, index_arg_ptr)
+            self.builder.store(index_trg, index_trg_ptr)
+
+            indices_trg = [self.index0, index_trg]
+            indices_arg = [self.index0, index_arg]
+
+            eptr_arg = self.builder.gep(self.var_global, indices_arg, name="loop_"+ str(self.loopcount)+" _arg_")
+            eptr_trg = self.builder.gep(self.var_global, indices_trg, name="loop_" + str(self.loopcount) + " _trg_")
+
+
+            loaded_args.append(self.builder.load(eptr_arg, 'arg_' + str(self.loopcount)+"_"+str(i1)))
+            loaded_trgs.append(eptr_trg)
+
+
+        self.builder.call(self.ext_funcs[external_function.__qualname__], loaded_args + loaded_trgs)
+
+
 
         loop_inc = self.func.append_basic_block(name='for' + str(self.loopcount) + '.inc')
         self.builder.position_at_end(loop_inc)
