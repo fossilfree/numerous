@@ -23,10 +23,17 @@ class LocalDataLoader(DataLoader):
         if self.chunksize is not None:
             self.is_chunks = True
 
-
-    def load(self, df_id: str, t: int) -> Tuple[None, bool]:
+    def load(self, df_id: str, t: int) -> DataFrame:
         if self.is_chunks:
             return pd.read_csv(df_id, header=0, skiprows=t, chunksize=self.chunksize).get_chunk()
         else:
             return pd.read_csv(df_id, header=0, skiprows=t, chunksize=self.chunksize)
 
+
+class InMemoryDataLoader(DataLoader):
+
+    def __init__(self, df):
+        self.df = df
+
+    def load(self, df_id: str, t: int) -> DataFrame:
+        return self.df

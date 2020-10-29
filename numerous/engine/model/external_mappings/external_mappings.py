@@ -48,11 +48,12 @@ class ExternalMapping:
 
             element.add_df(df)
         for element in self.external_mappings:
-            self.external_mappings_numpy.append(element.df[[a_tuple[0] for a_tuple in list(element.dataframe_aliases.values())]
-                                                ].to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
+            self.external_mappings_numpy.append(
+                element.df[[a_tuple[0] for a_tuple in list(element.dataframe_aliases.values())]
+                ].to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
             self.external_mappings_time.append(
                 element.time_multiplier * element.df[element.index_to_timestep_mapping].to_numpy(dtype=np.float64)[
-                                  element.index_to_timestep_mapping_start:])
+                                          element.index_to_timestep_mapping_start:])
         self.external_mappings_numpy = np.array(self.external_mappings_numpy, dtype=np.float64)
         self.external_mappings_time = np.array(self.external_mappings_time, dtype=np.float64)
         ## TODO extend for multiple dataframes
@@ -90,7 +91,6 @@ class ExternalMappingElement:
         self.dataframe_aliases = dataframe_aliases
         self.df = None
 
-
     ##TODO check that e_m is correct format (have all the mappings) after loading
     def add_df(self, df):
         if self.df is not None:
@@ -101,12 +101,12 @@ class ExternalMappingElement:
             self.df = df
 
 
-
 class EmptyMapping:
     def __init__(self):
         self.external_mappings_numpy = np.empty([0, 0, 0], dtype=np.float64)
         self.external_mappings_time = np.empty([0, 0], dtype=np.float64)
         self.external_df_idx = np.empty([0, 0], dtype=np.int64)
+        self.t_max = 0
         self.interpolation_info = np.empty([0], dtype=np.bool)
 
     def store_mappings(self):

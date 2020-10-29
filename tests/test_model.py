@@ -1,6 +1,9 @@
 from abc import ABC
 
 import pytest
+from numerous.engine.model.external_mappings import ExternalMappingElement
+
+from numerous.utils.data_loader import LocalDataLoader, InMemoryDataLoader
 from pytest import approx
 
 from model.external_mappings.interpolation_type import InterpolationType
@@ -305,8 +308,8 @@ class StaticDataTest(EquationBase, Item):
         super(StaticDataTest, self).__init__(tag)
 
         ##will map to variable with the same path in external dataframe/datasource
-        self.add_parameter('T1', 0, external_mapping=True)
-        self.add_parameter('T2', 0, external_mapping=True)
+        self.add_parameter('T1', 0)
+        self.add_parameter('T2', 0)
         self.add_parameter('T_i1', 0)
         self.add_parameter('T_i2', 0)
         mechanics = self.create_namespace('test_nm')
@@ -347,11 +350,11 @@ def test_external_data(solver):
         'system.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
         'system.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE)
     }
-    external_mappings.append(
-        (df, index_to_timestep_mapping, index_to_timestep_mapping_start, 1, dataframe_aliases))
-
+    external_mappings.append( ExternalMappingElement
+        ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1, dataframe_aliases))
+    data_loader = InMemoryDataLoader(df)
     s = Simulation(
-        Model(StaticDataSystem('system', n=1), external_mappings=external_mappings),
+        Model(StaticDataSystem('system', n=1), external_mappings=external_mappings,data_loader=data_loader),
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=solver
     )
     s.solve()
