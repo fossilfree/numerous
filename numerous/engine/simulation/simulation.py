@@ -53,9 +53,15 @@ class Simulation:
 
             """
             solver.y0 = y
+
             solver.numba_model.historian_update(t)
             solver.numba_model.run_callbacks_with_updates(t)
             solver.numba_model.map_external_data(t)
+
+            if solver.numba_model.is_store_required():
+                self.model.historin.store(numba_model.historian_data)
+                solver.numba_model.historian_reinit()
+
             if solver.numba_model.is_external_data_update_needed(t):
                 solver.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
                 if solver.numba_model.is_external_data:

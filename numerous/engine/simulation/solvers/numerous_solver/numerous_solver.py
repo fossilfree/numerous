@@ -177,6 +177,11 @@ class Numerous_solver(BaseSolver):
                     y_previous = y
                     t_previous = t
                     numba_model.map_external_data(t)
+                    if numba_model.is_store_required():
+                        with objmode:
+                            self.model.historin.store(numba_model.historian_data)
+                            numba_model.historian_reinit()
+
                     if numba_model.is_external_data_update_needed(t):
                         with objmode(is_external_data='boolean', external_mappings_numpy="float64[:, :, :]",
                                      external_mappings_time="float64[:, :]"):

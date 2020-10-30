@@ -40,7 +40,8 @@ numba_model_spec = [
     ('external_df_idx', int64[:, :]),
     ('approximation_type', boolean[:]),
     ('is_external_data', boolean),
-    ('max_external_t', int64)
+    ('max_external_t', int64),
+    ('historian_max_size', int64),
 ]
 
 
@@ -59,7 +60,7 @@ class CompiledModel:
                  sum_idxs_pos_3d, sum_idxs_sum_3d, sum_slice_idxs, sum_slice_idxs_len, sum_mapping, callbacks,
                  global_vars, number_of_timesteps, start_time, mapped_variables_array,
                  external_mappings_time, number_of_external_mappings, external_idx_3d, external_mappings_numpy,
-                 external_df_idx, approximation_type, is_external_data, max_external_t):
+                 external_df_idx, approximation_type, is_external_data, max_external_t, historian_max_size):
 
         self.external_idx_3d = external_idx_3d
         self.external_df_idx = external_df_idx
@@ -91,7 +92,10 @@ class CompiledModel:
         self.start_time = start_time
         self.historian_ix = 0
         self.approximation_type = approximation_type
-        self.historian_data = np.empty((len(var_idxs_historian_3d) + 1, number_of_timesteps), dtype=np.float64)
+
+        self.historian_max_size = historian_max_size
+
+        self.historian_data = np.empty((len(var_idxs_historian_3d) + 1, self.historian_max_size), dtype=np.float64)
         self.historian_data.fill(np.nan)
         self.mapped_variables_array = mapped_variables_array
         self.is_external_data = is_external_data
@@ -148,6 +152,16 @@ class CompiledModel:
         if self.is_external_data and t > self.max_external_t:
             return True
         return False
+
+    def is_store_required(self):
+        if self.historian_ix > self.historian_max_size:
+            return True
+        return False
+
+    def historian_reinit(self):
+        self.historian_data = np.empty((len(self.var_idxs_historian_3d) + 1, self.historian_max_size), dtype=np.float64)
+        self.historian_data.fill(np.nan)
+        self.historian_ix = 0
 
     def historian_update(self, time: np.float64) -> None:
         ix = self.historian_ix

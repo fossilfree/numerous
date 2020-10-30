@@ -5,6 +5,7 @@ import uuid
 import numpy as np
 from numba import jitclass
 
+from historian import InMemoryHistorian
 from numerous.engine.model.external_mappings.external_mappings import ExternalMapping, EmptyMapping
 from numerous.utils.logger_levels import LoggerLevel
 
@@ -73,7 +74,7 @@ class Model:
     """
 
     def __init__(self, system=None, logger_level=None, assemble=True, validate=False, save_equations=False,
-                 external_mappings=None, data_loader=None):
+                 external_mappings=None, data_loader=None, historian=InMemoryHistorian()):
         if logger_level == None:
             self.logger_level = LoggerLevel.ALL
         else:
@@ -87,6 +88,7 @@ class Model:
         self.numba_callbacks = []
         self.numba_callbacks_init_run = []
         self.callbacks = []
+        self.historian = historian
 
         self.save_equations = save_equations
 
@@ -582,7 +584,6 @@ class Model:
         """
 
         """
-
         self.callbacks.append(callback_class)
         numba_update_function = Equation_Parser.parse_non_numba_function(callback_class.update, r"@NumbaCallback.+")
         self.numba_callbacks.append(numba_update_function)
@@ -627,7 +628,6 @@ class Model:
 
     # Method that generates numba_model
     def generate_numba_model(self, start_time, number_of_timesteps):
-
         for spec_dict in self.numba_callbacks_variables:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
@@ -684,7 +684,8 @@ class Model:
                                              self.external_mappings.external_mappings_numpy,
                                              self.external_mappings.external_df_idx,
                                              self.external_mappings.interpolation_info,
-                                             self.is_external_data, self.external_mappings.t_max
+                                             self.is_external_data, self.external_mappings.t_max,
+                                             self.historian.get_historian_max_size(number_of_timesteps)
                                              )
 
 
