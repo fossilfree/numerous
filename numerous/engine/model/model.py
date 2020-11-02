@@ -1,4 +1,6 @@
 import itertools
+from copy import copy
+
 import pandas as pd
 import time
 import uuid
@@ -81,7 +83,8 @@ class Model:
             self.logger_level = logger_level
 
         self.is_external_data = True if external_mappings else False
-        self.external_mappings = ExternalMapping(external_mappings,data_loader) if external_mappings else EmptyMapping()
+        self.external_mappings = ExternalMapping(external_mappings,
+                                                 data_loader) if external_mappings else EmptyMapping()
         self.numba_callbacks_indicator = False
         self.numba_callbacks_init = []
         self.numba_callbacks_variables = []
@@ -547,6 +550,9 @@ class Model:
             callbacks = []
         self.events.update({name: _Event(name, self, event_function=event_function, callbacks=callbacks)})
 
+    def store_history(self, history):
+        self.historian.store(self._generate_history_df(history))
+
     def add_event_callback(self, event_name, event_callback):
         """
         Adding the callback to existing event
@@ -688,8 +694,6 @@ class Model:
                                              self.historian.get_historian_max_size(number_of_timesteps)
                                              )
 
-
-
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value
             NM_instance.path_keys.append(key)
@@ -701,21 +705,28 @@ class Model:
         return self.numba_model
 
     def create_historian_df(self):
+        self.historian_df = self._generate_history_df(self.numba_model.historian_data)
+        self.historian.store(self.historian_df)
 
-        time = self.numba_model.historian_data[0]
+    def _generate_history_df(self, historian_data):
+        time = historian_data[0]
         data = {'time': time}
 
         for i, var in enumerate(self.historian_paths):
-            data.update({var: self.numba_model.historian_data[i + 1]})
-
-        self.historian_df = AliasedDataFrame(data, aliases=self.aliases)
+            data.update({var: historian_data[i + 1]})
+        return AliasedDataFrame(data, aliases={v: k for k, v in self.aliases.items()}, rename_columns=True)
 
 
 class AliasedDataFrame(pd.DataFrame):
     _metadata = ['aliases']
 
-    def __init__(self, data, aliases={}):
+    def __init__(self, data, aliases={}, rename_columns=False):
         self.aliases = aliases
+        if rename_columns:
+            tmp = copy(list(data.keys()))
+            for key in tmp:
+                if key in self.aliases.keys():
+                    data[self.aliases[key]] = data.pop(key)
         super().__init__(data)
 
     def __getitem__(self, item):

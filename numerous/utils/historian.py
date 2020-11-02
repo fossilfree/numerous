@@ -11,6 +11,10 @@ class Historian:
         else:
             return self.max_size
 
+    def store(self, df):
+        pass
+
+
 class InMemoryHistorian(Historian):
 
     def __init__(self):

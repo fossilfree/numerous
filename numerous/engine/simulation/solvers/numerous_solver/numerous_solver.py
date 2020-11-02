@@ -179,7 +179,7 @@ class Numerous_solver(BaseSolver):
                     numba_model.map_external_data(t)
                     if numba_model.is_store_required():
                         with objmode:
-                            self.model.historin.store(numba_model.historian_data)
+                            self.model.store_history(numba_model.historian_data)
                             numba_model.historian_reinit()
 
                     if numba_model.is_external_data_update_needed(t):

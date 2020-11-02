@@ -59,7 +59,7 @@ class Simulation:
             solver.numba_model.map_external_data(t)
 
             if solver.numba_model.is_store_required():
-                self.model.historin.store(numba_model.historian_data)
+                self.model.store_history(numba_model.historian_data)
                 solver.numba_model.historian_reinit()
 
             if solver.numba_model.is_external_data_update_needed(t):
