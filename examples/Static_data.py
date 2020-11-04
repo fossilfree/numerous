@@ -67,17 +67,18 @@ if __name__ == "__main__":
     history_file = "test.csv"
     if os.path.exists(history_file):
         os.remove(history_file)
-    histr = InMemoryHistorian()
+    histr = LocalHistorian(history_file, 1000)
+    # histr = InMemoryHistorian()
     model = model.Model(StaticDataSystem('system', n=1), external_mappings=external_mappings,
-                        data_loader=LocalDataLoader(chunksize=None),historian=histr)
+                        data_loader=LocalDataLoader(chunksize=None), historian=histr)
     s = simulation.Simulation(model, t_start=0, t_stop=10000.0, num=10000, num_inner=100, max_step=.1)
 
     # Solve and plot
     tic = time()
     s.solve()
     toc = time()
-    # historian_df = pandas.read_csv(history_file)
-    historian_df =s.model.historian_df
+    historian_df = pandas.read_csv(history_file)
+    # historian_df =s.model.historian_df
     print('Execution time: ', toc - tic)
     print(len(list(s.model.historian_df)))
     historian_df['system.tm0.test_nm.T_i1'].plot()

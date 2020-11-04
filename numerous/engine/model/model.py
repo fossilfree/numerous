@@ -691,8 +691,8 @@ class Model:
                                              self.external_mappings.external_df_idx,
                                              self.external_mappings.interpolation_info,
                                              self.is_external_data, self.external_mappings.t_max,
-                                             self.historian.get_historian_max_size(number_of_timesteps)
-                                             )
+                                             self.historian.get_historian_max_size(number_of_timesteps),
+                                             self.historian.need_to_correct())
 
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value
@@ -705,35 +705,42 @@ class Model:
         return self.numba_model
 
     def create_historian_df(self):
-        self.historian_df = self._generate_history_df(self.numba_model.historian_data)
+        self.historian_df = self._generate_history_df(self.numba_model.historian_data, rename_columns=False)
         self.historian.store(self.historian_df)
 
-    def _generate_history_df(self, historian_data):
+    def _generate_history_df(self, historian_data, rename_columns=True):
         time = historian_data[0]
         data = {'time': time}
 
         for i, var in enumerate(self.historian_paths):
             data.update({var: historian_data[i + 1]})
-        return AliasedDataFrame(data, aliases={v: k for k, v in self.aliases.items()}, rename_columns=True)
+        ## solve for 1 to n 
+        return AliasedDataFrame(data, aliases=self.aliases, rename_columns=rename_columns)
 
 
 class AliasedDataFrame(pd.DataFrame):
     _metadata = ['aliases']
 
     def __init__(self, data, aliases={}, rename_columns=False):
+        super().__init__(data)
         self.aliases = aliases
-        if rename_columns:
+        self.rename_columns = rename_columns
+        if self.rename_columns:
+            aliases_reversed =  {v: k for k, v in self.aliases.items()}
             tmp = copy(list(data.keys()))
             for key in tmp:
-                if key in self.aliases.keys():
-                    data[self.aliases[key]] = data.pop(key)
-        super().__init__(data)
+                if key in aliases_reversed.keys():
+                    data[aliases_reversed[key]] = data.pop(key)
+            super().__init__(data)
 
     def __getitem__(self, item):
-        if not isinstance(item, list):
-            col = self.aliases[item] if item in self.aliases else item
-            return super().__getitem__(col)
+        if not self.rename_columns:
+            if not isinstance(item, list):
+                col = self.aliases[item] if item in self.aliases else item
+                return super().__getitem__(col)
 
-        cols = [self.aliases[i] if i in self.aliases else i for i in item]
+            cols = [self.aliases[i] if i in self.aliases else i for i in item]
 
-        return super().__getitem__(cols)
+            return super().__getitem__(cols)
+        else:
+            return super().__getitem__(item)
