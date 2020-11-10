@@ -25,7 +25,7 @@ from numerous.engine.model.parser_ast import parse_eq
 from model.graph_representation.graph import Graph
 from numerous.engine.model.parser_ast import process_mappings
 
-from numerous.engine.model.generate_equations import generate_equations
+from numerous.engine.model.generate_equations import EquationGenerator
 
 class LowerMethod(IntEnum):
     Tensor=0
@@ -330,9 +330,7 @@ class Model:
         self.aliases, self.eg = process_mappings(self.mappings, self.gg, self.eg, nodes_dep, self.scope_variables, self.scope_ids)
         #self.eg.as_graphviz('eg_m', force=True)
         self.eg.build_node_edges()
-        self.eg = EquationGraph.from_graph(self.eg)
-        self.eg.remove_chains()
-        self.eg.create_assignments()
+
         #self.eg.as_graphviz('equation_graph')
         logging.info('Mappings processed')
         #equation_graph_simplified.as_graphviz('equation_graph_simplified')
@@ -392,13 +390,16 @@ class Model:
                 if v.id in vars_node_id:
                     self.vars_ordered_map.append(vars_node_id[v.id])
                 else:
-                    #vars_ordered_map.append(f'dummy__{count}')
-                    self.vars_ordered_map.append(v.id.replace('-','_'))#.replace('.','_'))
+                    self.vars_ordered_map.append(v.id.replace('-','_'))
                     count+=1
 
         logging.info('variables sorted')
-        # #dsdfsdfsd = sdfsdf
 
+
+        self.eg = EquationGraph.from_graph(self.eg)
+        self.eg.remove_chains()
+        self.eg.create_assignments(self.scope_variables)
+        self.eg.add_mappings()
 
         if lower_method == LowerMethod.Codegen:
             self.lower_model_codegen()
@@ -422,8 +423,9 @@ class Model:
         #if len(self.gg.nodes)<100:
         #self.gg.as_graphviz('global')
         logging.info('lowering model')
+        eq_gen = EquationGenerator(self.eg)
         self.compiled_compute, self.var_func, self.vars_ordered_values, self.vars_ordered, self.scope_vars_vars =\
-            generate_equations(self.equations_parsed, self.eg, self.scoped_equations, self.scope_variables, self.scope_ids, self.aliases)
+            eq_gen.generate_equations(self.equations_parsed, self.scoped_equations, self.scope_variables, self.scope_ids, self.aliases)
 
         #values of all model variables in specific order: self.vars_ordered_values
         #full tags of all variables in the model in specific order: self.vars_ordered
