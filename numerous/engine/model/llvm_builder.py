@@ -103,8 +103,6 @@ class LLVMBuilder:
 
         self.builder.position_at_end(self.bb_loop)
 
-        # ----
-        # self.detailed_print('single assignments: ', single_arg_sum_counter)
 
         self.builder.branch(self.bb_store)
         self.builder.position_at_end(self.bb_store)
@@ -119,8 +117,11 @@ class LLVMBuilder:
 
         self.builder.ret(dg_ptr)
 
-        # build vars function
-        self._build_var()
+        # build vars read function
+        self._build_var_r()
+
+        # build vars write function
+        self._build_var_w()
 
         self.save_module(filename)
 
@@ -141,14 +142,18 @@ class LLVMBuilder:
 
         ee.finalize_object()
         cfptr = ee.get_function_address("kernel")
-        cfptr_var = ee.get_function_address("vars")
+
+        cfptr_var_r = ee.get_function_address("vars_r")
+        cfptr_var_w = ee.get_function_address("vars_w")
 
         c_float_type = type(np.ctypeslib.as_ctypes(np.float64()))
         self.detailed_print(c_float_type)
 
         diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type))(cfptr)
 
-        vars_ = CFUNCTYPE(POINTER(c_float_type), c_int64)(cfptr_var)
+        vars_r = CFUNCTYPE(POINTER(c_float_type), c_int64)(cfptr_var_r)
+
+        vars_w = CFUNCTYPE(c_void_p, c_double, c_int64)(cfptr_var_w)
 
         n_deriv = self.n_deriv
 
@@ -160,13 +165,19 @@ class LLVMBuilder:
         max_var = self.max_var
 
         @njit('float64[:]()')
-        def variables__():
-            variables_pointer = vars_(0)
+        def read_variables():
+            variables_pointer = vars_r(0)
             variables_array = carray(variables_pointer, (max_var,))
 
             return variables_array.copy()
 
-        return diff, variables__
+        @njit('void(float64,int64)')
+        def write_variables(var, idx):
+            vars_w(var, idx)
+
+
+        return diff, read_variables, write_variables
+        # write_variables
 
     def detailed_print(self, *args, sep=' ', end='\n', file=None):
         if config.PRINT_LLVM:
@@ -213,10 +224,10 @@ class LLVMBuilder:
         self.builder.position_at_end(self.bb_loop)
         self.builder.call(self.ext_funcs[external_function.__qualname__], arg_pointers + target_pointers)
 
-    def _build_var(self):
+    def _build_var_r(self):
         fnty_vars = ll.FunctionType(ll.DoubleType().as_pointer(), [ll.IntType(64)])
 
-        vars_func = ll.Function(self.module, fnty_vars, name="vars")
+        vars_func = ll.Function(self.module, fnty_vars, name="vars_r")
 
         bb_entry_var = vars_func.append_basic_block()
 
@@ -231,6 +242,27 @@ class LLVMBuilder:
         index0_var = ll.IntType(64)(0)
         vg_ptr = builder_var.gep(self.var_global, [index0_var, index0_var])
         builder_var.ret(vg_ptr)
+
+    def _build_var_w(self):
+        fnty_vars = ll.FunctionType(ll.VoidType(), [ll.DoubleType(), ll.IntType(64)])
+        fnty_vars.args[0].name = "vars"
+        fnty_vars.args[1].name = "idx"
+        vars_func = ll.Function(self.module, fnty_vars, name="vars_w")
+        bb_entry_var = vars_func.append_basic_block()
+        bb_exit_var = vars_func.append_basic_block()
+
+        builder_var = ll.IRBuilder()
+        builder_var.position_at_end(bb_entry_var)
+        builder_var.branch(bb_exit_var)
+        builder_var.position_at_end(bb_exit_var)
+
+        index = vars_func.args[1]
+        ptr = self.var_global
+        indices = [self.index0, index]
+        eptr = builder_var.gep(ptr, indices)
+        builder_var.store(vars_func.args[0], eptr)
+
+        builder_var.ret_void()
 
     def _store_to_global_target(self, target, value):
         if target not in self.values:
@@ -254,7 +286,6 @@ class LLVMBuilder:
             for t in targets:
                 self._store_to_global_target(t, accum)
 
-
     def _load_args(self, args):
         loaded_args = []
         self.builder.position_at_end(self.bb_loop)
@@ -274,19 +305,18 @@ class LLVMBuilder:
         eptr = self.builder.gep(ptr, indices, name=t)
         self.values[t] = eptr
 
-    def add_set_call(self, external_function,variable_name_arg,variable_name_trg):
-        # function,args2d,targets2d):
+    def add_set_call(self, external_function, variable_name_arg, variable_name_trg):
         ## TODO check allign
         self.builder.position_at_end(self.bb_loop)
         number_of_ix = len(variable_name_arg[0])
         size = len(variable_name_arg)
 
-        index_arg = (ll.IntType(64)(self.variable_names[variable_name_arg[0][0]]-1))
+        index_arg = (ll.IntType(64)(self.variable_names[variable_name_arg[0][0]] - 1))
         index_arg_ptr = self.builder.alloca(ll.IntType(64))
         self.builder.store(index_arg, index_arg_ptr)
 
-        index_trg = (ll.IntType(64)(self.variable_names[variable_name_trg[0][0]]-1))
-        index_trg_ptr = self.builder.alloca( ll.IntType(64))
+        index_trg = (ll.IntType(64)(self.variable_names[variable_name_trg[0][0]] - 1))
+        index_trg_ptr = self.builder.alloca(ll.IntType(64))
         self.builder.store(index_trg, index_trg_ptr)
 
         ##crete new block
@@ -309,8 +339,8 @@ class LLVMBuilder:
             index_arg = self.builder.load(index_arg_ptr)
             index_trg = self.builder.load(index_trg_ptr)
 
-            index_arg =  self.builder.add(index_arg, ll.IntType(64)(1), name="index_arg")
-            index_trg =  self.builder.add(index_trg, ll.IntType(64)(1), name="index_trg")
+            index_arg = self.builder.add(index_arg, ll.IntType(64)(1), name="index_arg")
+            index_trg = self.builder.add(index_trg, ll.IntType(64)(1), name="index_trg")
 
             self.builder.store(index_arg, index_arg_ptr)
             self.builder.store(index_trg, index_trg_ptr)
@@ -318,17 +348,13 @@ class LLVMBuilder:
             indices_trg = [self.index0, index_trg]
             indices_arg = [self.index0, index_arg]
 
-            eptr_arg = self.builder.gep(self.var_global, indices_arg, name="loop_"+ str(self.loopcount)+" _arg_")
+            eptr_arg = self.builder.gep(self.var_global, indices_arg, name="loop_" + str(self.loopcount) + " _arg_")
             eptr_trg = self.builder.gep(self.var_global, indices_trg, name="loop_" + str(self.loopcount) + " _trg_")
 
-
-            loaded_args.append(self.builder.load(eptr_arg, 'arg_' + str(self.loopcount)+"_"+str(i1)))
+            loaded_args.append(self.builder.load(eptr_arg, 'arg_' + str(self.loopcount) + "_" + str(i1)))
             loaded_trgs.append(eptr_trg)
 
-
         self.builder.call(self.ext_funcs[external_function.__qualname__], loaded_args + loaded_trgs)
-
-
 
         loop_inc = self.func.append_basic_block(name='for' + str(self.loopcount) + '.inc')
         self.builder.position_at_end(loop_inc)

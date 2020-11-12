@@ -420,12 +420,12 @@ class Model:
 
 
     def lower_model_codegen(self):
-        #if len(self.gg.nodes)<100:
-        #self.gg.as_graphviz('global')
+
         logging.info('lowering model')
         eq_gen = EquationGenerator(self.eg)
+
         self.compiled_compute, self.var_func, self.vars_ordered_values, self.vars_ordered, self.scope_vars_vars =\
-            eq_gen.generate_equations(self.equations_parsed, self.scoped_equations, self.scope_variables, self.scope_ids, self.aliases)
+            eq_gen.generate_equations(self.equations_parsed, self.scoped_equations, self.scope_variables, self.aliases)
 
         #values of all model variables in specific order: self.vars_ordered_values
         #full tags of all variables in the model in specific order: self.vars_ordered
@@ -435,15 +435,10 @@ class Model:
         self.aliases = {}
         self.path_variables_aliases = {}
         for sv in self.scope_variables.values():
-            #print(sv.get_path_dot())
 
             if self.system.id in sv.path.path:
-            #    self.path_variables_aliases[sv.get_path_dot()]=sv.path.path[self.system.id]
                 aliases__ = [a for p in sv.path.path.values() for a in p]
-                #print()
-                #print(sv.get_path_dot())
-                #print(sv.path.path[self.system.id])
-                #print('aliases: ', aliases__)
+
 
                 self.path_variables_aliases[sv.get_path_dot()] = aliases__
 
@@ -451,38 +446,6 @@ class Model:
             for a in v:
                 self.aliases[a] = k
 
-        #self.scope_vars_ordered = [self.scope_vars_vars[v] for v in self.vars_ordered]
-
-
-
-        #self.pathed_variables_list = [self.scope_variables[self.scope_vars_vars[v.replace('.','_')].id].path.path[self.system.id] for v in self.vars_ordered]
-
-        #self.pathed_variables = []
-        #aliases_ = {}
-
-        #for l in self.pathed_variables_list:
-        #    self.pathed_variables.append(l[0])
-        #    for a in l[1:]:
-         #       aliases_[a] = l[0]
-
-        ##for a, r in self.aliases.items():
-        #    r_ = self.pathed_variables[self.vars_ordered.index(r)]
-        #    a_ = self.variables[self.scope_vars_vars[a].id].path.path[self.system.id]
-        #    for aa in a_:
-                #print(aa)
-        #        aliases_[aa]=r_
-
-        #self.aliases = {self.variables[self.scope_vars_vars[a].id].path.path[self.system.id][0]:
-        #                    self.pathed_variables[self.vars_ordered.index(v)]
-                            #self.variables[self.scope_vars_vars[v].id].path.path[self.system.id][0]
-        #                 for a, v in self.aliases.items()}
-        #self.aliases = aliases_
-
-        #generate_program(self.gg)
-        #asdsad=asdsfsf
-        #self.compiled_compute = generate(self.gg, self.vars_ordered_map, self.special_indcs)
-
-        #self.compiled_compute = generate_code(self.gg, self.vars_ordered_map, ((0, self.states_end_ix),(self.states_end_ix, self.deriv_end_ix), (self.deriv_end_ix, self.mapping_end_ix)))
 
 
         self.info.update({"Solver": {}})

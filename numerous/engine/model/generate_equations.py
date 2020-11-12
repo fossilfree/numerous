@@ -8,6 +8,8 @@ import ast
 from numba import objmode
 import numpy as np
 
+from string_utils import d_u
+
 
 class Vardef:
     def __init__(self):
@@ -87,56 +89,18 @@ class Vardef_llvm:
             return self.targets
 
 
-
-
-
 class EquationGenerator:
     def __init__(self, equation_graph):
         self.equation_graph = equation_graph
 
-    def generate_equations(self, scoped_equations, scope_variables, aliases):
-        print('n var: ', len(scope_variables))
-
-        logging.info('Add mappings')
-
-
-        body = []
-        # Create a kernel of assignments and calls
-        all_targeted = []
-        all_read = []
-
-        all_targeted_set_vars = []
-        all_read_set_vars = []
-
+    def generate_equations(self, equations, scoped_equations, scope_variables, aliases):
         logging.info('Generate kernel')
 
-        # equation_graph.as_graphviz('after')
-        # equation_graph = equation_graph.clean()
-        """
-        equation_graph_clone = equation_graph.clone()
-    
-        for n in equation_graph_clone.node_map.values():
-            s = equation_graph_clone.get_edges_for_node(start_node=n)
-            e = equation_graph_clone.get_edges_for_node(end_node=n)
-            if len(list(s))+len(list(e))<=1:
-                equation_graph_clone.remove_node(n)
-                #for i in set(ix_s +ix_e):
-                #    equation_graph_clone.remove_edge(i)
-    
-        equation_graph_clone= equation_graph_clone.clean()
-        """
-        # equation_graph.as_graphviz('clean after', force=True)
         states = []
         deriv = []
         deriv_aliased = {}
-
-        # vars_node_id = {sv.id: equation_graph.key_map[n] for n in
-        #                equation_graph.get_where_attr('node_type', val=NodeTypes.VAR) if
-        #                (sv := equation_graph.get(n, 'scope_var'))}
         vars_node_id = {}
-        # scope_var_node = {equation_graph.key_map[n]: sv for n in
-        #                  equation_graph.get_where_attr('node_type', val=[NodeTypes.VAR, NodeTypes.TMP]) if
-        #                  (sv := equation_graph.get(n, 'scope_var'))}
+
         scope_var_node = {}
         for sv_id, sv in scope_variables.items():
             full_tag = d_u(sv.get_path_dot())
@@ -176,18 +140,25 @@ class EquationGenerator:
                 scalar_variables[sv.get_path_dot()] = sv
 
         # Sort the graph topologically to start generating code
-        topo_sorted_nodes = equation_graph.topological_nodes()
+        topo_sorted_nodes = self.equation_graph.topological_nodes()
 
         # Initialize llvm program - will be a list of intermediate llvm instructions to be lowered in generate_llvm
 
         # LLVMGenerator(variables, variable_values, n_deriv, n_var)
 
         logging.info('Cleaning eq graph')
-        equation_graph = equation_graph.clean()
+        equation_graph = self.equation_graph.clean()
 
         llvm_funcs = {}
 
         mod_body = []
+
+        # Create a kernel of assignments and calls
+        body = []
+        all_targeted = []
+        all_read = []
+        all_targeted_set_vars = []
+        all_read_set_vars = []
 
         # Loop over equation functions and generate code
 
@@ -686,7 +657,7 @@ class EquationGenerator:
                                                 value=ast.Call(
                                                     func=ast.Attribute(attr='empty', value=ast.Name(id='np')),
                                                     args=[ast.Num(n=len(set_variables[tsv]))], keywords=[]
-                                                    )))
+                                                )))
 
         body = body_init_set_var + [
             ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=d_u(i)) for i in vars_init[len(states):]])],
@@ -738,8 +709,6 @@ class EquationGenerator:
             lambda: exec('from kernel import *', globals()), number=1))
 
         # logging.info('generate program')
-
-        # run_program_source, lib_body, program, indices, llvm_program = generate_program(equation_graph, variables, indcs, deriv_aliased)
 
         # logging.info('done program')
         # mod_body+=lib_body

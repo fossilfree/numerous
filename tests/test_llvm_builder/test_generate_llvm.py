@@ -40,7 +40,7 @@ def test_llvm_1_to_1_mapping_state():
 
     llvm_program.add_mapping(["oscillator1.mechanics.x"], ["oscillator1.mechanics.x_dot"])
 
-    diff, var_func = llvm_program.generate(filename)
+    diff, var_func, _ = llvm_program.generate(filename)
 
     assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([2.1, 8, 9.])
 
@@ -50,7 +50,7 @@ def test_llvm_1_to_1_mapping_parameter():
 
     llvm_program.add_mapping(["oscillator1.mechanics.b"], ["oscillator1.mechanics.x_dot"])
 
-    diff, var_func = llvm_program.generate(filename)
+    diff, var_func, _ = llvm_program.generate(filename)
 
     assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([5, 8, 9.])
 
@@ -61,7 +61,7 @@ def test_llvm_n_to_1_sum_mapping():
     llvm_program.add_mapping(["oscillator1.mechanics.x", "oscillator1.mechanics.y", "oscillator1.mechanics.b"],
                              ["oscillator1.mechanics.x_dot"])
 
-    diff, var_func = llvm_program.generate(filename)
+    diff, var_func, _ = llvm_program.generate(filename)
 
     assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([9.3, 8, 9.])
 
@@ -72,7 +72,7 @@ def test_llvm_1_to_n_mapping():
     llvm_program.add_mapping(["oscillator1.mechanics.x"],
                              ["oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot"])
 
-    diff, var_func = llvm_program.generate(filename)
+    diff, var_func, _ = llvm_program.generate(filename)
 
     assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([2.1, 2.1, 9.])
 
@@ -85,7 +85,7 @@ def test_llvm_1_function():
                           ["oscillator1.mechanics.x", "oscillator1.mechanics.y"],
                           ["oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot"])
 
-    diff, var_func = llvm_program.generate(filename)
+    diff, var_func, _ = llvm_program.generate(filename)
 
     assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([50, -50, 9.])
     assert approx(diff(np.array([2.3, 2.2, 2.1]))) == np.array([-100, 100, 9.])
@@ -102,7 +102,7 @@ def test_llvm_1_function_and_mapping():
     llvm_program.add_mapping(args=["oscillator1.mechanics.a"],
                              targets=["oscillator1.mechanics.x_dot"])
 
-    diff, var_func = llvm_program.generate(filename)
+    diff, var_func, _ = llvm_program.generate(filename)
 
     assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([50, -50, 9.])
     assert approx(diff(np.array([2.3, 2.2, 2.1]))) == np.array([-100, 100, 9.])
@@ -124,7 +124,7 @@ def test_llvm_1_function_and_mappings():
     llvm_program.add_call(eval_llvm, ["oscillator1.mechanics.b", "oscillator1.mechanics.y"],
                           ["oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"])
 
-    diff, var_func = llvm_program.generate(filename)
+    diff, var_func, _ = llvm_program.generate(filename)
 
     assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([7., 100., 9.])
 
@@ -138,7 +138,7 @@ def test_llvm_2_function_and_mappings():
     llvm_program.add_call(eval_llvm, ["oscillator1.mechanics.b", "oscillator1.mechanics.y"],
                           ["oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"])
 
-    diff, var_func = llvm_program.generate(filename)
+    diff, var_func, _ = llvm_program.generate(filename)
 
     assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([7., 100., 9.])
 
@@ -154,8 +154,20 @@ def test_llvm_loop():
                               [["oscillator1.mechanics.c", "oscillator1.mechanics.x_dot"],
                                ["oscillator1.mechanics.y_dot", "oscillator1.mechanics.z_dot"]])
 
-    diff, var_func = llvm_program.generate(filename)
+    diff, var_func, _ = llvm_program.generate(filename)
 
     assert approx(diff(np.array([2.6, 2.2, 2.3]))) == np.array([100, 50., -50])
 
     assert approx(var_func()) == np.array([2.6, 2.2, 2.3, 4., 5., -100., 100., 50., -50.])
+
+
+def test_llvm_idx_write():
+    llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
+    llvm_program.add_mapping(["oscillator1.mechanics.b"],
+                             ["oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot"])
+    diff, var_func, var_write = llvm_program.generate(filename)
+
+    var_write(100, 4)
+
+    assert approx(var_func()) == np.array([1.0, 2.0, 3.0, 4., 100., 6., 7., 8., 9.])
+    assert approx(diff(np.array([2.6, 2.2, 2.3]))) == np.array([100, 100., 9.])
