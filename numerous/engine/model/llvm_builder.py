@@ -1,5 +1,5 @@
 from __future__ import print_function
-from ctypes import CFUNCTYPE, POINTER, c_double, c_float, c_void_p, c_int64
+from ctypes import CFUNCTYPE, POINTER, c_double, c_void_p, c_int64
 from numba import carray, cfunc, njit
 from numerous import config
 import faulthandler
@@ -36,6 +36,7 @@ class LLVMBuilder:
         self.detailed_print('target triple: ', target_machine.triple)
         self.module = ll.Module()
         self.ext_funcs = {}
+
         # Define the overall function
         self.fnty = ll.FunctionType(ll.DoubleType().as_pointer(), [
             ll.DoubleType().as_pointer()
@@ -58,7 +59,8 @@ class LLVMBuilder:
         self.var_global = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), self.max_var), 'global_var')
         self.var_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), self.max_var),
                                                   [float(v) for v in initial_values])
-        ##Creatinf the fixed structure of the kernel
+
+        # Creatinf the fixed structure of the kernel
         self.func = ll.Function(self.module, self.fnty, name="kernel")
         self.bb_entry = self.func.append_basic_block(name='entry')
         self.bb_loop = self.func.append_basic_block(name='main')
@@ -99,10 +101,9 @@ class LLVMBuilder:
 
         self.ext_funcs[name] = f_llvm
 
-    def generate(self, filename):
+    def generate(self, filename=None, save_opt=False):
 
         self.builder.position_at_end(self.bb_loop)
-
 
         self.builder.branch(self.bb_store)
         self.builder.position_at_end(self.bb_store)
@@ -123,7 +124,8 @@ class LLVMBuilder:
         # build vars write function
         self._build_var_w()
 
-        self.save_module(filename)
+        if filename:
+            self.save_module(filename)
 
         llmod = llvm.parse_assembly(str(self.module))
 
@@ -133,10 +135,9 @@ class LLVMBuilder:
         pmb.populate(pm)
 
         pm.run(llmod)
-
-        with open("llvm_opt.txt", 'w') as f:
-            f.write(str(llmod))
-        # self.detailed_print("-- optimize:", t6 - t5)
+        if save_opt:
+            with open("llvm_opt.txt", 'w') as f:
+                f.write(str(llmod))
 
         ee.add_module(llmod)
 
@@ -174,7 +175,6 @@ class LLVMBuilder:
         @njit('void(float64,int64)')
         def write_variables(var, idx):
             vars_w(var, idx)
-
 
         return diff, read_variables, write_variables
         # write_variables

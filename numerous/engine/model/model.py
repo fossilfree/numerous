@@ -245,19 +245,8 @@ class Model:
             self.scope_variables.update(variables)
             self.name_spaces.update(name_space)
 
-        scope_var_dot = [sv.get_path_dot() for sv in self.scope_variables.values()]
-        #for sv in self.scope_variables.values():
-        #    if 'element_1_outside_1_1.t1.h_f' in sv.get_path_dot():
-        #        print(sv.get_path_dot())
-        #        print(sv.path.path)
-        #sssdf=sdfsdf
-        #if not 'climatemachine.HX_element_1.HX_1_1.element_1_outside_1_1.t1.dp' in scope_var_dot:
-        #    raise ValueError()
+        mappings = []
 
-        #print(self.scope_variables.keys())
-        #self.scope_variables['climatemachine.HX_element_1.HX_1_1.element_1_outside_1_1.t1.dp']
-
-        self.mappings = []
         def __get_mapping__variable(variable):
             if variable.mapping:
                 return __get_mapping__variable(variable.mapping)
@@ -267,14 +256,14 @@ class Model:
         for scope_var_idx, var in enumerate(self.scope_variables.values()):
             if var.mapping:
                 _from = self.__get_mapping__variable(self.variables[var.mapping.id])
-                self.mappings.append((var.id, [_from.id]))
+                mappings.append((var.id, [_from.id]))
             if not var.mapping and var.sum_mapping:
                 sum_mapping = []
                 for mapping_id in var.sum_mapping:
 
                     _from = self.__get_mapping__variable(self.variables[mapping_id.id])
                     sum_mapping.append(_from.id)
-                self.mappings.append((var.id, sum_mapping))
+                mappings.append((var.id, sum_mapping))
 
 
 
@@ -286,9 +275,7 @@ class Model:
 
         self.scope_ids = {}
         for s in self.synchronized_scope.keys():
-            #print(type(self.name_spaces[s][1][0]))
             s_id = f'{self.name_spaces[s][1][0].full_tag}'
-            #print('k: ', s_id)
             s_id_ = s_id
             count = 1
             while s_id_ in list(self.scope_ids.values()):
@@ -296,9 +283,8 @@ class Model:
                 count += 1
 
             self.scope_ids[s] = s_id_
-            #print(s_id_)
-        #sdfsd=sdfsdf
-        scope_item_tag = {}
+
+
 
         nodes_dep = {}
         self.equations_parsed = {}
@@ -324,10 +310,10 @@ class Model:
         #for n in gg.nodes:
         #    print(n[0])
 
-        #print('mapping: ',self.mappings)
+
         #self.eg.as_graphviz('eg', force=True)
         #Process mappings add update the global graph
-        self.aliases, self.eg = process_mappings(self.mappings, self.gg, self.eg, nodes_dep, self.scope_variables, self.scope_ids)
+        self.aliases, self.eg = process_mappings(mappings, self.gg, self.eg, nodes_dep, self.scope_variables, self.scope_ids)
         #self.eg.as_graphviz('eg_m', force=True)
         self.eg.build_node_edges()
 
