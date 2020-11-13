@@ -161,18 +161,15 @@ class Variable(MappedValue):
         self.value = value
 
     def update_set_var(self, set_var, set_namespace):
-        #print(set_var)
         if not self.set_var:
             self.set_var = set_var
             self.set_namespace = set_namespace
             print('path: ', self.get_path_dot())
             print('set_var: ', set_var)
             print('ns: ', set_namespace.tag)
-            #self.set_var_ix = ix
         else:
             if self.set_var != set_var:
                 print(self.set_var, ' ', set_var)
-                #print(self.set_var_ix, ' ', ix)
                 raise ValueError(f'Setvar for {self.id} already set!')
 
     @staticmethod

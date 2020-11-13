@@ -106,10 +106,18 @@ class Subsystem(ConnectorItem):
                 DG.add_edge(self.tag, item.tag)
         return DG
 
+    # def update_variables_path(self, item, c_item):
+    #     for ns in item.registered_namespaces.values():
+    #         for var in ns.variables.values():
+    #             var.path.extend_path(c_item.id, self.id, self.tag, registering=True)
+    #     if isinstance(item, Subsystem):
+    #         for item in item.registered_items.values():
+    #             self.update_variables_path(item, c_item)
+    #
     def update_variables_path(self, item):
+        ##TODO #1002 refavtor this and update_variables_path_ as well as TODO #1001
         item.path = self.path + [item.tag]
         for ns in item.registered_namespaces.values():
-
             ns.path = item.path + [ns.tag]
             for var in ns.variables.values():
                 var.path.extend_path(item.id, self.id, self.tag, registering=True)
@@ -120,9 +128,7 @@ class Subsystem(ConnectorItem):
                 item.update_variables_path(item_)
 
     def update_variables_path_(self):
-        #item.path = self.path + [item.tag]
         for ns in self.registered_namespaces.values():
-
             ns.path = self.path + [ns.tag]
             for var in ns.variables.values():
                 var.path.extend_path(self.id, self.id, self.tag, registering=True)
@@ -155,10 +161,10 @@ class Subsystem(ConnectorItem):
 class ItemSet(Item, EquationBase):
 
     def __init__(self, set_structure, tag):
-        tag= "SET_"+tag
+        tag = "SET_"+tag
         super().__init__(tag)
 
-        set_structure_flat = set_structure#.flatten()
+        set_structure_flat = set_structure
 
         self.item_ids = []
 
@@ -169,7 +175,9 @@ class ItemSet(Item, EquationBase):
                 self.item_type = type(item)
 
             if not isinstance(item, self.item_type):
-                raise TypeError(f'Error in registering set {tag} - All items in a set must have same type! This set is of type {self.item_type} not {type(item)}!')
+                raise TypeError(f'Error in registering set {tag} - '
+                                f'All items in a set must have same type! This set is of type {self.item_type} '
+                                f'not {type(item)}!')
 
             self.item_ids.append(item.id)
             if item.parent_set is None:
@@ -177,30 +185,20 @@ class ItemSet(Item, EquationBase):
             else:
                 raise ValueError(f'Item {item} already part of set {item.parent_set} - cannot add to {tag}')
 
-
-
         tag_count = 0
-        ##TODO Check that all items are of the same type
         for item in set_structure_flat:
             for ns in item.registered_namespaces:
-                #print('namespace registred is: ',ns.tag)
+
                 tag_ = ns.tag
                 if not (tag_ in self.registered_namespaces.keys()):
-                    #print(tag_)
-
                     sns = SetNamespace(self, tag_, self.item_ids)
-
                     sns.add_equations(list(ns.associated_equations.values()), False)
                     self.register_namespace(sns)
-                #else:
-                #    raise ValueError('Cannot register this again')
                 self.registered_namespaces[tag_].add_item_to_set_namespace(ns, tag_count)
                 if not ns.part_of_set:
                     ns.part_of_set = sns
                 else:
                     ValueError(f'namespace {ns} already in set {ns.part_of_set}')
                 tag_count += 1
-
-                #item.registered_namespaces.pop(ns)
         for ns in self.registered_namespaces.values():
             ns.items = self.item_ids

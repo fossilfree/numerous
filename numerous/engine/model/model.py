@@ -213,16 +213,14 @@ class Model:
 
         logging.info("Assembling numerous Model")
         assemble_start = time.time()
-
+        ##TODO #1001 move this to subsystem class
         def update_set_vars(items):
-
+            """
+             preprocessing of set namespaces.
+            """
             for item in items:
-
                 for ns in item.registered_namespaces.values():
-
-
                     ns.update_set_var()
-
                 if isinstance(item, Subsystem):
                     update_set_vars(item.registered_items.values())
 

@@ -124,11 +124,7 @@ class VariableNamespaceBase:
     def update_set_var(self):
 
         pass
-        #for v in self.variables:
-        #    set_var = f"{self.get_path_dot()}.{v.tag}"
-        #    if set_var not in self.set_variables:
-        #        self.set_variables.append(set_var)
-        #    v.update_set_var(set_var, 0)
+
 
 
     def add_equations(self, list_of_equations, update_bindings=True):
@@ -173,9 +169,6 @@ class SetNamespace(VariableNamespace):
 
     def update_set_var(self):
         for v in self.variables:
-
-            #ix = self.items.index(v.namespace.item.id)
-            #set_var = f"{self.tag}.{variable.tag}"
             set_var = f"{self.get_path_dot()}.{v.tag}"
             if set_var not in self.set_variables:
                 self.set_variables.append(set_var)
