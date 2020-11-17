@@ -115,7 +115,7 @@ class Subsystem(ConnectorItem):
     #             self.update_variables_path(item, c_item)
     #
     def update_variables_path(self, item):
-        ##TODO #1002 refavtor this and update_variables_path_ as well as TODO #1001
+        ##TODO #1002 refactor this and update_variables_path_ as well as TODO #1001
         item.path = self.path + [item.tag]
         for ns in item.registered_namespaces.values():
             ns.path = item.path + [ns.tag]

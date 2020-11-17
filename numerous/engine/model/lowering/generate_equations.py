@@ -1,6 +1,5 @@
-from model.graph_representation import EquationGraph
-from numerous.engine.model.utils import NodeTypes, recurse_Attribute, wrap_function, dot_dict, generate_code_file
-from numerous.engine.model.parser_ast import function_from_graph_generic, \
+from model.lowering.utils import NodeTypes, recurse_Attribute, wrap_function, dot_dict, generate_code_file
+from model.graph_representation.parser_ast import function_from_graph_generic, \
     function_from_graph_generic_llvm  # , EquationNode, EquationEdge
 from numerous.engine.variables import VariableType
 import logging
@@ -93,12 +92,11 @@ class EquationGenerator:
     def __init__(self, equation_graph):
         self.equation_graph = equation_graph
 
-    def generate_equations(self, equations, scoped_equations, scope_variables, aliases):
+    def generate_equations(self, equations, scoped_equations, scope_variables):
         logging.info('Generate kernel')
 
         states = []
         deriv = []
-        deriv_aliased = {}
         vars_node_id = {}
 
         scope_var_node = {}
@@ -107,10 +105,6 @@ class EquationGenerator:
             if not sv_id in vars_node_id:
 
                 vars_node_id[sv_id] = full_tag
-
-                if sv.type == VariableType.DERIVATIVE:
-                    if full_tag in aliases:
-                        deriv_aliased[full_tag] = aliases[full_tag]
 
             if full_tag not in scope_var_node:
                 scope_var_node[full_tag] = sv
@@ -526,13 +520,7 @@ class EquationGenerator:
         for sv_id, sv in scope_variables.items():
             full_tag = d_u(sv.get_path_dot())
             if not sv_id in vars_node_id:
-
                 vars_node_id[sv_id] = full_tag
-
-                if sv.type == VariableType.DERIVATIVE:
-                    if full_tag in aliases:
-                        deriv_aliased[full_tag] = aliases[full_tag]
-
             if full_tag not in scope_var_node:
                 scope_var_node[full_tag] = sv
 
@@ -667,9 +655,6 @@ class EquationGenerator:
             # ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=d_u(s)) for s in states])], value=ast.Name(id='y')),
         ] + body_def + body
 
-        [body.append(ast.Assign(targets=[ast.Name(id=d_u(d))], value=ast.Name(id=d_u(a)))) for d, a in
-         deriv_aliased.items()]
-
         # Add code for updating variables
 
         elts_vu = [
@@ -724,7 +709,7 @@ class EquationGenerator:
 
         llvm_sequence += llvm_program + llvm_end_seq
 
-        from numerous.engine.model.llvm_builder import generate as generate_llvm
+        from model.lowering.llvm_builder import generate as generate_llvm
 
         for fn, f in llvm_funcs.items():
             f['func'] = globals()[f['name']]

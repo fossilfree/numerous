@@ -3,7 +3,7 @@ import ast  # , astor
 from textwrap import dedent
 
 from numerous.engine.model.graph_representation import EquationGraph, Graph
-from numerous.engine.model.utils import NodeTypes, recurse_Attribute, Vardef, dot_dict, wrap_function
+from model.lowering.utils import NodeTypes, recurse_Attribute, Vardef, dot_dict, wrap_function
 from numerous.engine.variables import VariableType
 from numerous.engine.scope import ScopeVariable
 from copy import deepcopy
@@ -805,4 +805,4 @@ def process_mappings(mappings, gg: Graph, equation_graph: Graph, nodes_dep, scop
 
     logging.info('done cleaning')
 
-    return aliases, equation_graph
+    return equation_graph

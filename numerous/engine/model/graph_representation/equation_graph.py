@@ -1,7 +1,7 @@
 from numerous import VariableType
 from string_utils import d_u
 from .graph import Graph
-from numerous.engine.model.utils import NodeTypes
+from model.lowering.utils import NodeTypes
 
 
 class TemporaryVar():
