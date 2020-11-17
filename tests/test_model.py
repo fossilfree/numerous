@@ -1,12 +1,21 @@
+from abc import ABC
+
 import pytest
+from numerous.engine.model.external_mappings import ExternalMappingElement
+
+from numerous.utils.data_loader import LocalDataLoader, InMemoryDataLoader
 from pytest import approx
 
+from model.external_mappings.interpolation_type import InterpolationType
+from numerous.utils.callback_decorators import CallbackMethodType, NumbaCallback
+from numerous.utils.numba_callback import NumbaCallbackBase
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 
 from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
 from numerous import EquationBase, OutputFilter, Equation
-from .test_equations import TestEq_ground, Test_Eq, TestEq_input
+from numerous.engine.simulation.solvers.base_solver import solver_types
+from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 
 
 @pytest.fixture
@@ -27,12 +36,11 @@ def test_eq1():
             self.add_constant('RG', 2)
 
         @Equation()
-        def eval(self,scope):
+        def eval(self, scope):
             scope.T1_dot = scope.P - (scope.T1 - scope.T2) / scope.R1
             scope.T2_dot = (scope.T1 - scope.T2) / scope.R1 - (scope.T2 - scope.T3) / scope.R2
             scope.T3_dot = (scope.T2 - scope.T3) / scope.R2 - (scope.T3 - scope.T4) / scope.R3
             scope.T4_dot = (scope.T3 - scope.T4) / scope.R3 - (scope.T4 - scope.TG) / scope.RG
-
 
     return TestEq1(P=100)
 
@@ -179,22 +187,25 @@ def ms3():
     return S3('S3')
 
 
-def test_model_var_referencing(ms1):
+@pytest.mark.parametrize("solver", solver_types)
+def test_model_var_referencing(ms1, solver):
     m1 = Model(ms1)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
     s1.solve()
     assert approx(list(m1.states_as_vector[::-1]), rel=0.01) == [2010, 1010, 510, 210]
 
 
-def test_model_save_only_aliases(ms3):
+@pytest.mark.parametrize("solver", solver_types)
+def test_model_save_only_aliases(ms3, solver):
     of = OutputFilter(only_aliases=True)
     m1 = Model(ms3, historian_filter=of)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
     s1.solve()
     assert m1.historian_df.empty
 
 
-def test_model_save_only_aliases2(ms3):
+@pytest.mark.parametrize("solver", solver_types)
+def test_model_save_only_aliases2(ms3, solver):
     of = OutputFilter(only_aliases=True)
     m1 = Model(ms3, historian_filter=of)
     item = m1.search_items('2')[0]
@@ -203,9 +214,9 @@ def test_model_save_only_aliases2(ms3):
         var[0].alias = str(i)
         columns_number += 1
 
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
     s1.solve()
-    assert  m1.historian_df.columns.size == columns_number
+    assert m1.historian_df.columns.size == columns_number
 
 
 def test_1_item_model(ms1):
@@ -214,16 +225,26 @@ def test_1_item_model(ms1):
     assert item.t1.P.value == 100
 
 
-def test_callback_step_item_model(ms1):
-    def simple_callback(_, variables):
-        if variables['S1.test_item.t1.T2'].value > 1000:
-            raise ValueError("Overflow of state2")
+@pytest.mark.parametrize("solver", solver_types)
+def test_callback_step_item_model(ms1, solver):
+
+    class SimpleCallback(NumbaCallbackBase):
+        def finalize(self,var_list):
+            pass
+
+        @NumbaCallback(method_type=CallbackMethodType.INITIALIZE)
+        def initialize(self, var_count, number_of_timesteps):
+            pass
+
+        @NumbaCallback(method_type=CallbackMethodType.UPDATE, run_after_init=True)
+        def update(self, time, variables):
+
+            if variables['S1.test_item.t1.T2'] > 1000:
+                 raise ValueError("Overflow of state2")
 
     m1 = Model(ms1)
-    c1 = _SimulationCallback("test")
-    c1.add_callback_function(simple_callback)
-    m1.callbacks.append(c1)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
+    m1.add_callback(SimpleCallback())
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     with pytest.raises(ValueError, match=r".*Overflow of state2.*"):
         s1.solve()
 
@@ -237,22 +258,26 @@ def test_add_item_twice_with_same_tag(ms2):
         ms2.register_items([Item_('1')])
 
 
-def test_chain_item_model(ms2):
+@pytest.mark.parametrize("solver", solver_types)
+def test_chain_item_model(ms2, solver):
     m1 = Model(ms2)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
 
-def test_chain_item_binding_model_nested(ms3):
+@pytest.mark.parametrize("solver", solver_types)
+def test_chain_item_binding_model_nested(ms3, solver):
     ms4 = Subsystem('new_s')
     ms4.register_item(ms3)
     m1 = Model(ms4)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
-def test_chain_item_binding_model_nested2(ms3):
+
+@pytest.mark.parametrize("solver", solver_types)
+def test_chain_item_binding_model_nested2(ms3, solver):
     ms4 = Subsystem('new_s4')
     ms4.register_item(ms3)
     ms5 = Subsystem('new_s5')
@@ -263,17 +288,76 @@ def test_chain_item_binding_model_nested2(ms3):
     ms7 = Subsystem('new_s7')
     ms7.register_item(ms6)
     m1 = Model(ms7)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     s1.solve()
     assert len(m1.path_variables) == 50
     assert len(m1.variables) == 25
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
 
-
-
-def test_chain_item_binding_model(ms3):
+@pytest.mark.parametrize("solver", solver_types)
+def test_chain_item_binding_model(ms3, solver):
     m1 = Model(ms3)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
+
+
+class StaticDataTest(EquationBase, Item):
+    def __init__(self, tag="tm"):
+        super(StaticDataTest, self).__init__(tag)
+
+        ##will map to variable with the same path in external dataframe/datasource
+        self.add_parameter('T1', 0)
+        self.add_parameter('T2', 0)
+        self.add_parameter('T_i1', 0)
+        self.add_parameter('T_i2', 0)
+        mechanics = self.create_namespace('test_nm')
+        mechanics.add_equations([self])
+
+    @Equation()
+    def eval(self, scope):
+        scope.T_i1 = scope.T1
+        scope.T_i2 = scope.T2
+
+
+class StaticDataSystem(Subsystem):
+    def __init__(self, tag, n=1):
+        super().__init__(tag)
+        o_s = []
+        for i in range(n):
+            o = StaticDataTest('tm' + str(i))
+            o_s.append(o)
+        # Register the items to the subsystem to make it recognize them.
+        self.register_items(o_s)
+
+@pytest.mark.parametrize("solver", solver_types)
+def test_external_data(solver):
+    external_mappings = []
+
+    import pandas as pd
+    import numpy as np
+
+    data = {'time': np.arange(100),
+            'Dew Point Temperature {C}': np.arange(100)+1,
+            'Dry Bulb Temperature {C}': np.arange(100)+2,
+            }
+
+    df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
+    index_to_timestep_mapping = 'time'
+    index_to_timestep_mapping_start = 0
+    dataframe_aliases = {
+        'system.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
+        'system.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE)
+    }
+    external_mappings.append( ExternalMappingElement
+        ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1, dataframe_aliases))
+    data_loader = InMemoryDataLoader(df)
+    s = Simulation(
+        Model(StaticDataSystem('system', n=1), external_mappings=external_mappings,data_loader=data_loader),
+        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=solver
+    )
+    s.solve()
+    assert approx(np.array(s.model.historian_df['system.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
+    assert approx(np.array(s.model.historian_df['system.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:]+1
+

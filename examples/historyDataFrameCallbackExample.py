@@ -11,8 +11,8 @@ class HistoryDataFrameCallback(NumbaCallbackBase):
 
     def __init__(self):
         super(HistoryDataFrameCallback, self).__init__()
-        self.register_numba_varaible('data', float64[:, :])
-        self.register_numba_varaible('ix', int64)
+        self.register_numba_variable('data', float64[:, :])
+        self.register_numba_variable('ix', int64)
 
     @NumbaCallback(method_type=CallbackMethodType.INITIALIZE)
     def initialize(self, var_count, number_of_timesteps):

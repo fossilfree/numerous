@@ -46,33 +46,55 @@ class Simulation:
         self.callbacks = []
         self.time = time_
         self.async_callback = []
+        self.model = model
 
         def __end_step(solver, y, t):
+            """
+
+            """
             solver.y0 = y
+
             solver.numba_model.historian_update(t)
-            # solver.numba_model.run_callbacks_with_updates(t)
+            solver.numba_model.run_callbacks_with_updates(t)
+            solver.numba_model.map_external_data(t)
+
+            if solver.numba_model.is_store_required():
+                self.model.store_history(numba_model.historian_data)
+                solver.numba_model.historian_reinit()
+
+            if solver.numba_model.is_external_data_update_needed(t):
+                solver.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
+                if solver.numba_model.is_external_data:
+                    solver.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
+                                                            self.model.external_mappings.external_mappings_time)
 
         print("Generating Numba Model")
         generation_start = time.time()
-        self.model = model
         numba_model = model.generate_numba_model(t_start, len(self.time))
+
         generation_finish = time.time()
         print("Generation time: ", generation_finish - generation_start)
 
-        if solver_type == SolverType.SOLVER_IVP:
+        if solver_type.value == SolverType.SOLVER_IVP.value:
             self.solver = IVP_solver(time_, delta_t, numba_model,
-                                     num_inner, max_event_steps, **kwargs)
+                                     num_inner, max_event_steps, self.model.states_as_vector, **kwargs)
 
-        if solver_type == SolverType.NUMEROUS:
+        if solver_type.value == SolverType.NUMEROUS.value:
             self.solver = Numerous_solver(time_, delta_t, numba_model,
-                                          num_inner, max_event_steps, **kwargs)
+                                          num_inner, max_event_steps, self.model.states_as_vector, **kwargs)
 
         self.solver.register_endstep(__end_step)
-        self.solver.set_state_vector(self.model.states_as_vector)
 
         self.start_datetime = start_datetime
         self.info = model.info["Solver"]
         self.info["Number of Equation Calls"] = 0
+
+        print("Compiling Numba equations and initializing historian")
+        compilation_start = time.time()
+        numba_model.func(t_start, numba_model.get_states())
+        numba_model.historian_update(t_start)
+        compilation_finished = time.time()
+        print("Compilation time: ", compilation_finished - compilation_start)
 
         # self.solver.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
         # self.callbacks = [x.callbacks for x in sorted(model.callbacks,
@@ -81,15 +103,13 @@ class Simulation:
 
     def solve(self):
         self.__init_step()
-        print('Solving!')
+        result_status = "not finished"
         try:
             sol, result_status = self.solver.solve()
-
         except Exception as e:
-            print('Caught error')
             raise e
+
         finally:
-            print('completed solve')
             self.info.update({"Solving status": result_status})
             list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,
                                                               self.model.path_variables), self.model.callbacks))
@@ -99,11 +119,3 @@ class Simulation:
     def __init_step(self):
         pass
         # [x.initialize(simulation=self) for x in self.model.callbacks]
-
-    def __end_step(self, solver, y, t, event_id=None, **kwargs):
-
-        solver.y0 = y
-        solver.numba_model.historian_update(t)
-        # solver.numba_model.run_callbacks_with_updates(t)
-
-

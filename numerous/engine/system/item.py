@@ -2,6 +2,7 @@ from numerous.engine.system.connector import Connector
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.system.namespace import VariableNamespace, VariableNamespaceBase
 from numerous.engine.system.node import Node
+from numerous.utils.logger_levels import LoggerLevel
 
 DEFAULT_NAMESPACE = 'default'
 
@@ -21,7 +22,7 @@ class Item(Node):
 
        """
 
-    def __init__(self, tag=None):
+    def __init__(self, tag=None, logger_level=None):
         self.registered_namespaces = _DictWrapper(self.__dict__, VariableNamespaceBase)
         self.callbacks = []
         self.level = 1
@@ -29,6 +30,7 @@ class Item(Node):
         self.registered = False
         self.parent_set = None
 
+        self.logger_level = logger_level
         if tag:
             self.tag = tag
 
@@ -154,3 +156,6 @@ class Item(Node):
             return self
         else:
             return None
+
+    def set_logger_level(self, logger_level=None):
+        self.logger_level = logger_level

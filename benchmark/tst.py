@@ -1,37 +1,14 @@
-import random
+import plotly.graph_objects as go
 import time
 
 
-from numerous.engine.model import  Model
+from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 from numerous.engine.simulation.solvers.base_solver import SolverType
 from numerous.engine.system import Item, ConnectorTwoWay, Subsystem
 
 from numerous import EquationBase
 from numerous.multiphysics import Equation
-import os
-
-def kill_files(folder):
-    for the_file in os.listdir(folder):
-        file_path = os.path.join(folder, the_file)
-        try:
-            if os.path.isfile(file_path):
-                os.unlink(file_path)
-        except Exception as e:
-            print("failed on filepath: %s" % file_path)
-
-
-def kill_numba_cache():
-
-    root_folder = os.path.realpath(__file__ + "/../")
-
-    for root, dirnames, filenames in os.walk(root_folder):
-        for dirname in dirnames:
-            if dirname == "__pycache__":
-                try:
-                    kill_files(root + "/" + dirname)
-                except Exception as e:
-                    print("failed on %s", root)
 
 class Thermal_Conductance_Equation(EquationBase):
     """
@@ -47,8 +24,10 @@ class Thermal_Conductance_Equation(EquationBase):
         self.add_parameter('P2', 0)
 
     @Equation()
-    def eval(self,scope):
+    def eval(self, scope):
         P = (scope.T1 - scope.T2) * scope.k
+        #print(scope.T1, scope.T2)
+        # print(global_variables.time)
         scope.P1 = -P
         scope.P2 = P
 
@@ -65,20 +44,42 @@ class Thermal_Capacitance(EquationBase, Item):
         self.add_parameter('P', 0)
         self.add_state('T', T0)
 
-        thermal_transport = self.create_namespace('thermal_transport')
-        thermal_transport.add_equations([self])
+        thermal_capacitance = self.create_namespace('thermal_capacitance')
+        thermal_capacitance.add_equations([self])
 
     @Equation()
     def eval(self, scope):
+#        print(scope.C, scope.P, scope.T)
+
         scope.T_dot = scope.P / scope.C
 
 
+class Thermal_Conductor(Subsystem):
+    def __init__(self, tag="tm", k=100, side1=None, side2=None):
+        super().__init__(tag)
 
-class Thermal_Conductor(ConnectorTwoWay):
+        # Create a namespace for thermal transport equations
+
+        thermal_transport = self.create_namespace('thermal_transport')
+        # Add the the thermal conductance equation
+        thermal_transport.add_equations([Thermal_Conductance_Equation(k=k)])
+
+        self.register_items([side1, side2])
+
+        thermal_transport.T1 = side1.thermal_capacitance.T
+        thermal_transport.T2 = side2.thermal_capacitance.T
+        side1.thermal_capacitance.P += thermal_transport.P1
+        side2.thermal_capacitance.P += thermal_transport.P2
+
+
+
+
+class Thermal_Conductor_old(ConnectorTwoWay):
     def __init__(self, tag="tm", k=100):
         super().__init__(tag, side1_name='side1', side2_name='side2')
 
         #Create a namespace for thermal transport equations
+
         thermal_transport = self.create_namespace('thermal_transport')
         #Add the the thermal conductance equation
         thermal_transport.add_equations([Thermal_Conductance_Equation(k=k)])
@@ -89,7 +90,7 @@ class Thermal_Conductor(ConnectorTwoWay):
 
         #Map variables between binding and internal variables for side 1 - this is so the variables of the binding side 1 item will be updated based on operations in the equation of the item
         thermal_transport.T1 = self.side1.thermal_transport.T
-        self.side1.thermal_transport.P = thermal_transport.P1
+        self.side1.thermal_transport.P += thermal_transport.P1
 
         # Create variables T and P in side 2 binding - this is so we now the item we later bind will have these variable
         self.side2.thermal_transport.create_variable(name='T')
@@ -97,7 +98,7 @@ class Thermal_Conductor(ConnectorTwoWay):
 
         # Map variables between binding and internal variables for side 2 - this is so the variables of the binding side 2 item will be updated based on operations in the equation of the item
         thermal_transport.T2 = self.side2.thermal_transport.T
-        self.side2.thermal_transport.P = thermal_transport.P2
+        self.side2.thermal_transport.P += thermal_transport.P2
 
 
 class ThermalCapacitancesSeries(Subsystem):
@@ -109,18 +110,17 @@ class ThermalCapacitancesSeries(Subsystem):
 
         #Create N heat capacitances and connect them.
 
-        inlet_node = Thermal_Capacitance('node0', C=100, T0=Tinit)
+        inlet_node = Thermal_Capacitance('node0', C=10000, T0=Tinit)
         items.append(inlet_node)
         prev_node = inlet_node
         for i in range(1,num_nodes):
-            import pickle as pickle
-
 
             #Create thermal conductor
             node = Thermal_Capacitance('node' + str(i), C=100, T0=T0)
             # Connect the last node to the new node with a conductor
-            thermal_conductor = Thermal_Conductor('thermal_conductor' + str(i), k=k)
-            thermal_conductor.bind(side1=prev_node, side2=node)
+            #thermal_conductor = Thermal_Conductor('thermal_conductor' + str(i), k=k)
+            thermal_conductor = Thermal_Conductor('thermal_conductor' + str(i), k=k, side1=prev_node, side2=node)
+            #thermal_conductor.bind(side1=prev_node, side2=node)
             #Append the thermal conductor to the item.
             items.append(thermal_conductor)
             items.append(node)
@@ -130,66 +130,70 @@ class ThermalCapacitancesSeries(Subsystem):
         self.register_items(items)
 
 def timeit(s):
-    kill_numba_cache()
-    s.solve()
+    # kill_numba_cache()
     start = time.time()
     s.solve()
     end = time.time()
     dt = end - start
+    print(dt)
     return dt
 
 if __name__ == "__main__":
-    import resource
-    import sys
-
-    # print(resource.getrlimit(resource.RLIMIT_STACK))
-    # print(sys.getrecursionlimit())
-
-    max_rec = 0x100000
-
-    # May segfault without this line. 0x100 is a guess at the size of each stack frame.
-    resource.setrlimit(resource.RLIMIT_STACK, [0x1000 * max_rec, resource.RLIM_INFINITY])
-    sys.setrecursionlimit(max_rec)
-    # Create a model with three nodes
 
     X = []
     Y = []
     Z = []
 
-    num_nodes =[2,5]
+    num_nodes =[10,100,1000,2000,10000]
     Tinit = 100
     T0 = 25
     k = 1
 
-    solver_type = SolverType.SOLVER_IVP
+
+    fig = []
+    method_ns = 'LevenbergMarquardt'
+    method_scipy = 'BDF'
+    dt = {'numerous': [], 'scipy': []}
     for i in num_nodes:#range(1,num_nodes+1):
+        fig.append(go.Figure())
 
         m = Model(ThermalCapacitancesSeries("tcs", num_nodes=i, Tinit=Tinit, T0=T0, k=k))
 
-
-        # print(m.states_as_vector)
         # Define simulation
-        s = Simulation(m, t_start=0, t_stop=100, num=100, num_inner=1, max_step=0.1, solver_type=solver_type)
+        s_ns = Simulation(m, t_start=0, t_stop=1000, num=1000, num_inner=1, solver_type=SolverType.NUMEROUS,
+                       method=method_ns)
+
+        s_scipy = Simulation(m, t_start=0, t_stop=1000, num=1000, num_inner=1, solver_type=SolverType.SOLVER_IVP,
+                       method=method_scipy)
         #
         # solve simulation
-        dt = timeit(s)
+        dt_ns = timeit(s_ns)
+        dt_scipy = timeit(s_scipy)
 
-    # print(m.states_as_vector)
-    # print some statitics and info
-    # print(m.states_as_vector)
-    #print(m.info)
+        dt['numerous'].append(dt_ns)
+        dt['scipy'].append(dt_scipy)
+        df_ns = s_ns.model.historian_df
+        df_scipy = s_scipy.model.historian_df
+        ydatalabel = f'tcs.node{i-1}.thermal_capacitance.T'
+        #ydatalabel = f'tcs.node1.thermal_transport.T'
 
-        X.append(i)
-        Z.append(m.info['Assemble time'])
-        Y.append(dt)
+        fig[-1].update_xaxes(title_text='Time(s)')
+        fig[-1].update_yaxes(title_text=ydatalabel)
+        fig[-1].add_trace(go.Scatter(x=df_ns['time'], y=df_ns[ydatalabel], name=f'numerous solver {method_ns}'))
+        fig[-1].add_trace(go.Scatter(x=df_scipy['time'], y=df_scipy[ydatalabel], name=f'scipy solver {method_scipy}'))
 
-    import matplotlib.pyplot as plt
-    fig = plt.figure()
-    ax = plt.axes()
-    ax.plot(X, Y, label='solve')
-    #ax.plot(X, Z, label='assemble')
-    plt.legend(loc="upper left")
-    plt.xlabel("number of objects")
-    plt.ylabel("seconds")
-    plt.title(f'SolverType: {solver_type}')
-    plt.show()
+    fig.append(go.Figure())
+    fig[-1].update_xaxes(title_text='Number of nodes')
+    fig[-1].update_yaxes(title_text='Simulation time(s)')
+    fig[-1].add_trace(go.Scatter(x=num_nodes, y=dt['numerous'], name=f'numerous solver {method_ns}'))
+    fig[-1].add_trace(go.Scatter(x=num_nodes, y=dt['scipy'], name=f'scipy solver {method_scipy}'))
+
+    for f in fig:
+        f.show()
+
+
+
+
+
+
+

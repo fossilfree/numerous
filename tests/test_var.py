@@ -2,7 +2,7 @@ import pytest
 
 from numerous.engine.variables import _VariableFactory, OverloadAction, VariableType, Variable
 from numerous import VariableDescription
-from .test_equations import *
+from tests.test_equations import *
 
 
 @pytest.fixture

@@ -6,6 +6,9 @@ class SolverType(Enum):
     NUMEROUS = 1
 
 
+solver_types = [SolverType.NUMEROUS, SolverType.SOLVER_IVP]
+
+
 class BaseSolver:
     def __init__(self):
         pass

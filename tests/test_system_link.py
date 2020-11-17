@@ -7,6 +7,8 @@ from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 import numpy as np
 
+from numerous.engine.simulation.solvers.base_solver import solver_types
+
 
 class InitialValue(Item, EquationBase):
     def __init__(self, tag='initialvalue', x0=1):
@@ -73,11 +75,11 @@ def system15():
 def system51():
     return Root(N_outer=1, N_inner=5)
 
-
-def test_system_link_1_5(system15):
+@pytest.mark.parametrize("solver", solver_types)
+def test_system_link_1_5(system15, solver):
     model = Model(system15)
 
-    sim = Simulation(model, t_start=0, t_stop=100, num=200)
+    sim = Simulation(model, t_start=0, t_stop=100, num=200, solver_type=solver)
 
     sim.solve()
     df = sim.model.historian_df
@@ -85,11 +87,11 @@ def test_system_link_1_5(system15):
     assert approx(np.array(df['root.linkersubsystem_4.item_0.t1.x'])[1:]) == \
            expected(len(df.index[:-1]), 5, 0.9)
 
-
-def test_system_link_5_1(system51):
+@pytest.mark.parametrize("solver", solver_types)
+def test_system_link_5_1(system51, solver):
     model = Model(system51)
 
-    sim = Simulation(model, t_start=0, t_stop=100, num=200)
+    sim = Simulation(model, t_start=0, t_stop=100, num=200, solver_type=solver)
 
     sim.solve()
     df = sim.model.historian_df
