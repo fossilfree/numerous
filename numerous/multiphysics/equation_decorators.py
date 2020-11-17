@@ -18,6 +18,9 @@ class Equation(object):
         wrapper._equation = True
         wrapper.lines = inspect.getsource(func)
         wrapper.id = self.id
+        #a = inspect.getsourcelines(func)
+        wrapper.lineno = inspect.getsourcelines(func)[1]
+        wrapper.file = inspect.getfile(func)
         # wrapper.i = self.i
         return wrapper
 

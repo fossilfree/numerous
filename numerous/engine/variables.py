@@ -56,6 +56,8 @@ class MappedValue(object):
         if not self.special_mapping:
             if variable.id == self.id:
                 raise RecursionError("Variable {0} cannot be mapped to itself", self.id)
+            #location_context =
+            #self.mapping = (variable, location_context)
             self.mapping = variable
         self.special_mapping = False
 
@@ -68,6 +70,12 @@ class MappedValue(object):
                 raise ValueError('It is not possible to add a summation to {0}. Variable already have mapping'
                                  ''.format(self.tag))
             else:
+                #import inspect
+                #curframe = inspect.currentframe()
+                #calframe = inspect.getouterframes(curframe, 2)
+                #print(calframe)
+                #print(self.tag, ' mapped to: ', other.tag, ' by ', calframe[1][3])
+
                 self.add_sum_mapping(other)
                 self.special_mapping = True
                 return self
@@ -102,12 +110,14 @@ class VariablePath:
     def __init__(self, tag, id):
 
         self.path = {id: tag}
+
         self.used_id_pairs = []
 
     def __iter__(self):
         return iter(self.path.values())
 
-    def extend_path(self, current_id, new_id, new_tag):
+    def extend_path(self, current_id, new_id, new_tag, registering=True):
+        #pass
         if not (current_id + new_id in self.used_id_pairs):
             if new_id in self.path:
                 self.path[new_id].extend([new_tag + '.' + x for x in self.path[current_id]])
@@ -126,7 +136,13 @@ class Variable(MappedValue):
         self.tag = detailed_variable_description.tag
         self.type = detailed_variable_description.type
         self.path = VariablePath([detailed_variable_description.tag], self.id)
+        self.path_ = None
+        self.paths = []
         self.alias = None
+        self.set_var = None
+        self.set_var_ix = None
+        self.set_namespace = None
+
         if base_variable:
 
             self.value = base_variable.value
@@ -140,9 +156,26 @@ class Variable(MappedValue):
         self.logger_level = detailed_variable_description.logger_level
         self.associated_scope = []
         self.idx_in_scope = []
+        self.top_item = None
+
+    def get_path_dot(self):
+        return ".".join(self.path_)
+        #return self.path.path[self.top_item][0]#".".join(self.path.path[self.top_item])
 
     def update_value(self, value):
         self.value = value
+
+    def update_set_var(self, set_var, set_namespace):
+        if not self.set_var:
+            self.set_var = set_var
+            self.set_namespace = set_namespace
+            print('path: ', self.get_path_dot())
+            print('set_var: ', set_var)
+            print('ns: ', set_namespace.tag)
+        else:
+            if self.set_var != set_var:
+                print(self.set_var, ' ', set_var)
+                raise ValueError(f'Setvar for {self.id} already set!')
 
     @staticmethod
     def create(namespace, v_id, tag,

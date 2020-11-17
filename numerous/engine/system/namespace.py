@@ -1,6 +1,6 @@
 import logging
 import uuid
-
+import inspect
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.variables import Variable, VariableDescription, _VariableFactory, OverloadAction
 
@@ -12,13 +12,29 @@ class VariableNamespaceBase:
     """
 
     def __init__(self, item, tag, is_connector=False, _id=uuid.uuid1()):
+        self.items = [item.id]
         self.is_connector = is_connector
         self.item = item
+        self.set_variables = []
         self.id = str(_id)
+        #self.variable_scope = []
+        ## -1 outgoing
+        ## 0 no mapping
+        ## Currently only used in SetNamespace
+        self.mappings = []
         self.tag = tag
+        self.path = [tag]
         self.outgoing_mappings = 0
         self.associated_equations = {}
         self.variables = _DictWrapper(self.__dict__, Variable)
+        self.variable_scope = [self.variables]
+        self.registered = False
+        self.part_of_set = None
+        #print('creating ns with tag: ',tag)
+
+
+    def get_path_dot(self):
+        return ".".join(self.path)
 
     def __getitem__(self, y):
         return self.variables[y]
@@ -27,7 +43,9 @@ class VariableNamespaceBase:
         if isinstance(value, Variable):
 
             self.outgoing_mappings += 1
-
+            # curframe = inspect.currentframe()
+            # calframe = inspect.getouterframes(curframe, 2)
+            # print(name,' mapped to: ', value, ' by ',calframe[1][3])
             self[name].add_mapping(value)
         else:
             object.__setattr__(self, name, value)
@@ -79,7 +97,7 @@ class VariableNamespaceBase:
         else:
             return None
 
-    def register_variable(self, variable):
+    def register_variable(self, variable,tag_count=""):
         """
         Registering existing Variable in the namespace.
 
@@ -89,19 +107,26 @@ class VariableNamespaceBase:
             Variable to be registered.
 
         """
-        if variable.tag not in self.variables:
-            self.variables[variable.tag] = variable
+        if (variable.tag+tag_count) not in self.variables.keys():
+            self.variables[variable.tag+tag_count] = variable
 
             variable.path.extend_path(variable.id, self.id, self.tag)
             variable.path.extend_path(self.id, self.item.id, self.item.tag)
+
         else:
             logging.warning("Variable {0} is already in namespace {1} of item {2}".format(variable.tag,
                                                                                           self.tag, self.item.tag))
             # we overwrite constant < parameters < state
-            if self.variables[variable.tag].type < variable.type:
+            if self.variables[variable.tag].value < variable.value:
                 self.variables[variable.tag] = variable
                 variable.extend_path(self.tag)
                 variable.extend_path(self.item.tag)
+
+    def update_set_var(self):
+
+        pass
+
+
 
     def add_equations(self, list_of_equations, update_bindings=True):
         """
@@ -130,6 +155,53 @@ class VariableNamespaceBase:
 
 class VariableNamespace(VariableNamespaceBase):
     pass
+
+
+class SetNamespace(VariableNamespace):
+    def __init__(self, item, tag, item_indcs):
+        super().__init__(item, tag)
+        self.tag = tag
+        print(tag)
+        self.items = item_indcs
+        self.len_items = len(self.items)
+        self.set_variables = []
+        self.variable_scope = []
+
+
+    def update_set_var(self):
+        for v in self.variables:
+            set_var = f"{self.get_path_dot()}.{v.tag}"
+            if set_var not in self.set_variables:
+                self.set_variables.append(set_var)
+            v.update_set_var(set_var, self)
+
+
+    def add_item_to_set_namespace(self, ns, tag_count):
+        mapping = []
+        variables = []
+        item_ix = self.items.index(ns.item.id)
+        #print('ix: ',item_ix)
+        for variable in ns.variables:
+            self.register_variable(variable,str(tag_count))
+            if variable.mapping:
+                mapping.append(-1)
+            else:
+                mapping.append(0)
+
+
+            variable.set_var_ix = item_ix
+            variables.append(variable)
+
+            #set_var = f"{self.tag}.{variable.tag}"
+            #if set_var not in self.set_variables:
+            #    self.set_variables.append(set_var)
+            #variable.update_set_var(set_var, item_ix)
+
+        #self.variables += variables
+        self.variable_scope.append(variables)
+        self.mappings.append(mapping)
+        #self.items.append(item)
+
 
 
 class _BindingVariable(Variable):
