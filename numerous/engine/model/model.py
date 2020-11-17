@@ -290,7 +290,7 @@ class Model:
 
         # Process mappings add update the global graph
         self.eg = process_mappings(mappings, self.gg, self.eg, nodes_dep, self.scope_variables,
-                                                 self.scope_ids)
+                                   self.scope_ids)
         self.eg.build_node_edges()
 
         logging.info('Mappings processed')
@@ -357,10 +357,11 @@ class Model:
     def lower_model_codegen(self):
 
         logging.info('lowering model')
-        eq_gen = EquationGenerator(self.eg)
+        eq_gen = EquationGenerator(filename="kernel.py", equation_graph=self.eg,
+                                   scope_variables=self.scope_variables)
 
         self.compiled_compute, self.var_func, self.vars_ordered_values, self.vars_ordered, self.scope_vars_vars = \
-            eq_gen.generate_equations(self.equations_parsed, self.scoped_equations, self.scope_variables)
+            eq_gen.generate_equations(self.equations_parsed, self.scoped_equations)
 
         # values of all model variables in specific order: self.vars_ordered_values
         # full tags of all variables in the model in specific order: self.vars_ordered

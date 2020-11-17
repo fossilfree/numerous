@@ -1,9 +1,10 @@
+import logging
 
 import numpy as np
 
 from graphviz import Digraph
 
-from .lower_graph import multi_replace
+from .lower_graph import multi_replace, _Graph
 
 
 class TMP:
@@ -18,7 +19,7 @@ class TMP:
 tmp = TMP().tmp
 
 
-class Graph():
+class Graph:
 
     def __init__(self, preallocate_items=1000):
 
@@ -109,6 +110,7 @@ class Graph():
         self.nodes_attr['deleted'][node] = 1
 
     def clean(self):
+        logging.info('Cleaning eq graph')
         self.lower_graph = None
         self.node_edges = None
 
