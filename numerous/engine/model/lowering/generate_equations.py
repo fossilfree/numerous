@@ -91,11 +91,12 @@ class Vardef_llvm:
 class EquationGenerator:
     def __init__(self, equation_graph):
         self.equation_graph = equation_graph
+        self.states = []
 
     def generate_equations(self, equations, scoped_equations, scope_variables):
         logging.info('Generate kernel')
 
-        states = []
+
         deriv = []
         vars_node_id = {}
 
@@ -111,7 +112,7 @@ class EquationGenerator:
 
             if sv.type == VariableType.STATE:
 
-                states.append(vars_node_id[sv_id])
+                self.states.append(vars_node_id[sv_id])
             elif sv.type == VariableType.DERIVATIVE:
                 # print('deriv: ', sv.id)
                 deriv.append(vars_node_id[sv_id])
@@ -569,10 +570,18 @@ class EquationGenerator:
         contains_dot(all_targeted_dash)
         all_must_init = set(all_read_dash).difference(all_targeted_dash)
 
-        lenstates = len(states)
+        lenstates = len(self.states)
         lenderiv = len(deriv)
-        states_dash = [d_u(s) for s in states]
+
+
+
+
+
+        states_dash = [d_u(s) for s in self.states]
         vars_init = states_dash.copy()
+
+
+
 
         all_read_scalars_from_set_dash = list(set(all_read_scalars_from_set_dash).difference(vars_init))
 
@@ -589,12 +598,10 @@ class EquationGenerator:
 
         vars_update += [at for at in all_targeted_dash if at not in vars_update]
 
-        for s, d in zip(states, deriv):
+        for s, d in zip(self.states, deriv):
             if not d[:-4] == s:
                 # print(d, ' ', s)
                 raise IndexError('unsorted derivs')
-
-        indcs = (lenstates, leninit, lenderiv)
 
         variables = vars_init + all_read_scalars_from_set_dash + vars_update + all_targeted_scalars_from_set_dash
 
@@ -612,7 +619,7 @@ class EquationGenerator:
         non_unique_check('variables', variables)
 
         # Generate ast for defining local variables and export results
-        state_vars = [None] * len(states)
+        state_vars = [None] * len(self.states)
         body_init_set_var = []
         for rsv in all_read_set_vars:
 
@@ -648,9 +655,9 @@ class EquationGenerator:
                                                 )))
 
         body = body_init_set_var + [
-            ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=d_u(i)) for i in vars_init[len(states):]])],
+            ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=d_u(i)) for i in vars_init[len(self.states):]])],
                        value=ast.Subscript(
-                           slice=ast.Slice(lower=ast.Num(n=len(states)), upper=ast.Num(n=len(vars_init)), step=None),
+                           slice=ast.Slice(lower=ast.Num(n=len(self.states)), upper=ast.Num(n=len(vars_init)), step=None),
                            value=ast.Name(id='variables'))),
             # ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=d_u(s)) for s in states])], value=ast.Name(id='y')),
         ] + body_def + body
@@ -670,8 +677,8 @@ class EquationGenerator:
         # Add code for updating derivatives
         body.append(ast.Assign(value=ast.Tuple(elts=[
             ast.Subscript(value=ast.Name(id=d_u(svn_.set_var)), slice=ast.Index(ast.Num(n=svn_.set_var_ix))) if (
-                svn_ := scope_var_node[u]).set_var else ast.Name(id=d_u(u)) for u in states
-        ]), targets=[ast.Subscript(slice=ast.Slice(lower=ast.Num(n=0), upper=ast.Num(n=len(states)), step=None),
+                svn_ := scope_var_node[u]).set_var else ast.Name(id=d_u(u)) for u in self.states
+        ]), targets=[ast.Subscript(slice=ast.Slice(lower=ast.Num(n=0), upper=ast.Num(n=len(self.states)), step=None),
                                    value=ast.Name(id='variables'))]))
 
         body.append(ast.Return(
@@ -682,7 +689,6 @@ class EquationGenerator:
 
         skip_kernel = False
         if not skip_kernel:
-            # mod_body.append(wrap_function('kernel', body, decorators=["njit('float64[:](float64[:],float64[:])')"], args=kernel_args))
             mod_body.append(
                 wrap_function('kernel_nojit', body, decorators=[], args=kernel_args))
 
@@ -693,19 +699,15 @@ class EquationGenerator:
         print('Compile time: ', timeit.timeit(
             lambda: exec('from kernel import *', globals()), number=1))
 
-        # logging.info('generate program')
-
-        # logging.info('done program')
-        # mod_body+=lib_body
 
         # Assemblying sequence of LLVM statements
         llvm_sequence = []
         llvm_sequence += [{'func': 'load', 'ix': ix + lenstates, 'var': v, 'arg': 'variables'} for ix, v in
                           enumerate(vars_init[lenstates:])]
-        llvm_sequence += [{'func': 'load', 'ix': ix, 'var': s, 'arg': 'y'} for ix, s in enumerate(states)]
+        llvm_sequence += [{'func': 'load', 'ix': ix, 'var': s, 'arg': 'y'} for ix, s in enumerate(self.states)]
         llvm_end_seq = []
         llvm_end_seq += [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in
-                         zip(states, range(0, lenstates))]
+                         zip(self.states, range(0, lenstates))]
 
         llvm_sequence += llvm_program + llvm_end_seq
 

@@ -7,7 +7,6 @@ from numba.experimental import jitclass
 import pandas as pd
 
 from model.graph_representation import EquationGraph
-from numerous.engine.model.equation_parser import Equation_Parser
 from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
 from numerous.engine.system.connector import Connector
 from numerous.engine.scope import Scope, ScopeVariable
