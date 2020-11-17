@@ -1,4 +1,4 @@
-from model.lowering.utils import NodeTypes, recurse_Attribute, wrap_function, dot_dict, generate_code_file
+from model.lowering.utils import generate_code_file, Vardef, Vardef_llvm
 from model.graph_representation.parser_ast import function_from_graph_generic, \
     function_from_graph_generic_llvm  # , EquationNode, EquationEdge
 from numerous.engine.variables import VariableType
@@ -10,12 +10,9 @@ import numpy as np
 from string_utils import d_u
 
 
-
-
-
 class EquationGenerator:
     def __init__(self, filename, equation_graph, scope_variables):
-        self.filename  = filename
+        self.filename = filename
         self.scope_variables = scope_variables
 
         self.states = []
@@ -29,7 +26,7 @@ class EquationGenerator:
         self._parse_scope_variables()
 
         self.topo_sorted_nodes = equation_graph.topological_nodes()
-        self.equation_graph = self.equation_graph.clean()
+        self.equation_graph = equation_graph.clean()
 
     def _parse_scope_variables(self):
         for ix, (sv_id, sv) in enumerate(self.scope_variables.items()):
@@ -110,16 +107,17 @@ class EquationGenerator:
         body_def = []
         for n in self.topo_sorted_nodes:
             # Add the equation calls
-            if (nt :=  self.equation_graph.get(n, 'node_type')) == NodeTypes.EQUATION:
+            if (nt := self.equation_graph.get(n, 'node_type')) == NodeTypes.EQUATION:
 
-                eq_key = scoped_equations[ self.equation_graph.key_map[n]]
+                eq_key = scoped_equations[self.equation_graph.key_map[n]]
                 # print('generating for eq: ',eq_key)
                 eq = equations[eq_key]
 
                 vardef = eq_vardefs[eq_key]
 
                 # Find the arguments by looking for edges of arg type
-                a_indcs, a_edges = list(self.equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val='arg'))
+                a_indcs, a_edges = list(
+                    self.equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val='arg'))
                 # Determine the local arguments names
                 args_local = [self.equation_graph.key_map[ae[0]] for i, ae in zip(a_indcs, a_edges) if
                               not self.equation_graph.edges_attr['arg_local'][i] == 'local']
@@ -133,7 +131,8 @@ class EquationGenerator:
                     self.equation_graph.get_edges_for_node_filter(start_node=n, attr='e_type', val='target'))
                 targets_local = [self.equation_graph.key_map[te[1]] for i, te in zip(t_indcs, t_edges) if
                                  not self.equation_graph.edges_attr['arg_local'][i] == 'local']
-                targets_scope_var = [self.equation_graph.edges_attr['arg_local'][i] for i, ae in zip(t_indcs, t_edges) if
+                targets_scope_var = [self.equation_graph.edges_attr['arg_local'][i] for i, ae in zip(t_indcs, t_edges)
+                                     if
                                      not self.equation_graph.edges_attr['arg_local'][i] == 'local']
 
                 # Map of scope.?? vars and global-scope variable names
@@ -144,7 +143,7 @@ class EquationGenerator:
 
                 # Put the information of args and targets in the scope_var attr of the graph node for thos equation
                 self.equation_graph.nodes_attr['scope_var'][n] = {'args': [scope_vars[a] for a in vardef.args],
-                                                             'targets': [scope_vars[a] for a in vardef.targets]}
+                                                                  'targets': [scope_vars[a] for a in vardef.targets]}
 
                 # Record targeted and read variables
                 if self.equation_graph.get(n, 'vectorized'):
@@ -209,7 +208,8 @@ class EquationGenerator:
                         targets = [ast.Name(id=d_u(scope_vars[vardef.targets[0]]))]
 
                     body.append(ast.Assign(targets=targets, value=ast.Call(
-                        func=ast.Name(id=scoped_equations[self.equation_graph.key_map[n]].replace('.', '_')), args=args_ast,
+                        func=ast.Name(id=scoped_equations[self.equation_graph.key_map[n]].replace('.', '_')),
+                        args=args_ast,
                         keywords=[])))
 
                 # Generate llvm lines
@@ -354,7 +354,8 @@ class EquationGenerator:
                         all_targeted.append(self.equation_graph.key_map[t])
 
                     target_indcs_map = [[] for i in
-                                        range(len(self.set_variables[self.equation_graph.key_map[t]]))] if is_set_var else [
+                                        range(len(
+                                            self.set_variables[self.equation_graph.key_map[t]]))] if is_set_var else [
                         []]
 
                     for v, vi in zip(value_edges, v_indcs):
@@ -416,7 +417,6 @@ class EquationGenerator:
 
             else:
                 raise ValueError('Unused node: ', self.equation_graph.key_map[n])
-
 
         # Update maps between scope variables
         for sv_id, sv in self.scope_variables.items():

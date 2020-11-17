@@ -7,10 +7,9 @@ from numba.experimental import jitclass
 import pandas as pd
 
 from model.graph_representation import EquationGraph
-from numerous.engine.model.numba_model import numba_model_spec, NumbaModel
+from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
 from numerous.engine.scope import Scope, ScopeVariable
-# from numerous.engine.simulation.simulation_callbacks import _SimulationCallback, _Event
 
 from numerous.engine.system.subsystem import Subsystem
 from numerous.engine.variables import VariableType
@@ -24,7 +23,7 @@ from model.graph_representation.parser_ast import parse_eq
 from model.graph_representation.graph import Graph
 from model.graph_representation.parser_ast import process_mappings
 
-from model.lowering.generate_equations import EquationGenerator
+from model.lowering.equations_generator import EquationGenerator
 
 
 class LowerMethod(IntEnum):

@@ -1,9 +1,10 @@
 import inspect
-import ast  # , astor
+import ast
 from textwrap import dedent
 
 from numerous.engine.model.graph_representation import EquationGraph, Graph
-from model.graph_representation.utils import NodeTypes, recurse_Attribute, Vardef, dot_dict, wrap_function
+from model.graph_representation.utils import Vardef
+from numerous.engine.model.utils import NodeTypes, recurse_Attribute, dot_dict, wrap_function
 from numerous.engine.variables import VariableType
 from numerous.engine.scope import ScopeVariable
 from copy import deepcopy

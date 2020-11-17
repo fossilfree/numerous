@@ -3,8 +3,6 @@ from model.lowering.source_gen import SourceGeneratorNumerous
 
 import ast, astor
 
-dot_dict, wrap_function
-
 
 @unique
 class VarTypes(IntEnum):
