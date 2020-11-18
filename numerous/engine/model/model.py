@@ -6,7 +6,7 @@ import uuid
 from numba.experimental import jitclass
 import pandas as pd
 
-from model.graph_representation import EquationGraph
+from model.graph_representation.equation_graph import EquationGraph
 from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
 from numerous.engine.scope import Scope, ScopeVariable
@@ -19,7 +19,6 @@ import operator
 
 from enum import IntEnum
 from model.graph_representation.parser_ast import parse_eq
-# from numerous_graph.graph import Graph
 from model.graph_representation.graph import Graph
 from model.graph_representation.parser_ast import process_mappings
 

@@ -271,6 +271,7 @@ class Graph:
             # print(self.edges_attr.keys())
             dot = Digraph()
 
+
             # print('ndoses')
             for k, n in self.node_map.items():
                 #   print(k)
@@ -319,6 +320,7 @@ class Graph:
         return cg
 
     def topological_nodes(self):
+        logging.info('Starting topological sort')
         if not self.lower_graph:
             self.make_lower_graph()
 
@@ -326,7 +328,7 @@ class Graph:
 
         if self.lower_graph.cyclic_dependency >= 0:
             unsorted_nodes = set(self.lower_graph.nodes).difference(set(self.lower_graph.topological_sorted_nodes))
-            # print('Unsorted nodes: ', unsorted_nodes)
+            # # print('Unsorted nodes: ', unsorted_nodes)
 
             self.cyclic_path = self.lower_graph.cyclic_path
             # print(self.lower_graph.cyclic_path)

@@ -1,7 +1,7 @@
 from numba import carray
 from pytest import approx
 
-from model.lowering.llvm_builder import LLVMBuilder
+from numerous.engine.model.lowering.llvm_builder import LLVMBuilder
 import numpy as np
 import os
 

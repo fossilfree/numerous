@@ -1,9 +1,11 @@
+from llvm_builder import LLVMBuilder
+from model.utils import NodeTypes
 from model.lowering.utils import generate_code_file, Vardef, Vardef_llvm
 from model.graph_representation.parser_ast import function_from_graph_generic, \
     function_from_graph_generic_llvm  # , EquationNode, EquationEdge
 from numerous.engine.variables import VariableType
 import logging
-import ast
+import ast,astor
 from numba import objmode
 import numpy as np
 
@@ -18,6 +20,7 @@ class EquationGenerator:
         self.states = []
         self.set_variables = {}
         self.deriv = []
+        self.values_order = {}
 
         self.vars_node_id = {}
         self.scope_var_node = {}
@@ -30,6 +33,8 @@ class EquationGenerator:
 
     def _parse_scope_variables(self):
         for ix, (sv_id, sv) in enumerate(self.scope_variables.items()):
+
+            self.values_order[sv_id] = ix
             full_tag = d_u(sv.get_path_dot())
             if not sv_id in self.vars_node_id:
                 self.vars_node_id[sv_id] = full_tag
@@ -48,7 +53,6 @@ class EquationGenerator:
 
             # If a scopevariable is part of a set it should be referenced alone
             if sv.set_var:
-
                 if not sv.set_var in self.set_variables:
                     self.set_variables[sv.set_var] = [None] * sv.set_namespace.len_items
 
@@ -57,13 +61,16 @@ class EquationGenerator:
                 self.scalar_variables[sv.get_path_dot()] = sv
 
     def generate_equations(self, equations, scoped_equations):
-        logging.info('Generate kernel')
 
         # Sort the graph topologically to start generating code
 
-        # Initialize llvm program - will be a list of intermediate llvm instructions to be lowered in generate_llvm
 
-        # LLVMGenerator(variables, variable_values, n_deriv, n_var)
+        number_of_states = len(self.states)
+        number_of_derivatives = len(self.deriv)
+        # Initialize llvm builder - will be a list of intermediate llvm instructions to be lowered in generate
+        llvm_program = LLVMBuilder(
+            np.ascontiguousarray([x.value for x in self.scope_variables.values()], dtype=np.float64),
+            self.values_order, number_of_states, number_of_derivatives)
 
         llvm_funcs = {}
 
@@ -71,24 +78,17 @@ class EquationGenerator:
 
         # Create a kernel of assignments and calls
         body = []
-        all_targeted = []
-        all_read = []
-        all_targeted_set_vars = []
-        all_read_set_vars = []
 
         # Loop over equation functions and generate code
 
         eq_vardefs = {}
         logging.info('make equations for compilation')
         for eq_key, eq in equations.items():
-            # print(eq)
             vardef = Vardef()
-            # vardef__ = Vardef()
+
             vardef_llvm = Vardef_llvm()
             func, vardef_ = function_from_graph_generic(eq[2], eq_key.replace('.', '_'), var_def_=vardef,
                                                         decorators=["njit"])
-            # func__, vardef___ = function_from_graph_generic(eq[2], eq_key.replace('.', '_')+'_nojit', var_def_=vardef__,
-            #                                           decorators=[])
             eq[2].lower_graph = None
             func_llvm, vardef__, signature, fname, args, targets = function_from_graph_generic_llvm(eq[2],
                                                                                                     eq_key.replace('.',
@@ -99,10 +99,15 @@ class EquationGenerator:
             eq_vardefs[eq_key] = vardef
 
             mod_body.append(func)
-            # mod_body.append(func__)
-
             mod_body.append(func_llvm)
-        self.equation_graph = []
+
+        all_targeted = []
+        all_read = []
+        all_targeted_set_vars = []
+        all_read_set_vars = []
+
+        logging.info('Generate kernel')
+
         # Generate the ast for the python kernel
         body_def = []
         for n in self.topo_sorted_nodes:
@@ -111,7 +116,6 @@ class EquationGenerator:
 
                 eq_key = scoped_equations[self.equation_graph.key_map[n]]
                 # print('generating for eq: ',eq_key)
-                eq = equations[eq_key]
 
                 vardef = eq_vardefs[eq_key]
 

@@ -1,5 +1,3 @@
-import math
-
 from numba import int32, float64, boolean, int64, njit, types, typed
 import numpy as np
 
@@ -103,7 +101,8 @@ class CompiledModel:
         self.mapped_variables_array = mapped_variables_array
         self.is_external_data = is_external_data
         self.max_external_t = max_external_t
-        ##Function is genrated in model.py contains creation and initialization of all callback related variables
+
+        ##Function generated in model.py contains creation and initialization of all callback related variables
 
     def update_states(self, state_values):
         for i in range(self.number_of_states):
@@ -133,7 +132,6 @@ class CompiledModel:
         for i in range(self.number_of_states):
             result.append(
                 self.scope_vars_3d[self.state_idxs_3d[0][i]][self.state_idxs_3d[1][i]][self.state_idxs_3d[2][i]])
-
         return np.array(result, dtype=np.float64)
 
     def map_external_data(self, t):
@@ -221,50 +219,12 @@ class CompiledModel:
         g = y + _sum - af[order - 1] * dt * f
         return np.ascontiguousarray(g), np.ascontiguousarray(f)
 
-    def compute(self, only_propagate_mappings=False):
-        if self.sum_mapping:
-            sum_mappings(self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
-                         self.sum_slice_idxs, self.scope_vars_3d, self.sum_slice_idxs_len)
-
-        mapping_ = True
-        prev_scope_vars_3d = self.scope_vars_3d.copy()
-        itermax = 20
-        it = 0
-        while mapping_:
-            for i in range(self.number_of_mappings):
-                self.scope_vars_3d[self.differing_idxs_pos_3d[0][i]][self.differing_idxs_pos_3d[1][i]][
-                    self.differing_idxs_pos_3d[2][i]] = self.scope_vars_3d[
-                    self.differing_idxs_from_3d[0][i]][self.differing_idxs_from_3d[1][i]][
-                    self.differing_idxs_from_3d[2][i]]
-            if not only_propagate_mappings:
-                self.compute_eq(self.scope_vars_3d)
-
-            if self.sum_mapping:
-                sum_mappings(self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
-                             self.sum_slice_idxs, self.scope_vars_3d, self.sum_slice_idxs_len)
-
-            mapping_ = not np.all(np.abs(prev_scope_vars_3d - self.scope_vars_3d) < 1e-6)
-
-            it += 1
-            if it > itermax:
-                raise Exception("maximum number of iterations has been reached")
-            prev_scope_vars_3d = np.copy(self.scope_vars_3d)
 
     def func(self, _t, y):
-        # self.info["Number of Equation Calls"] += 1
-        self.update_states(y)
+        # self.update_states(y)
         self.global_vars[0] = _t
-        self.compute()
+        self.compute_eq(y)
         return self.get_derivatives()
 
 
-@njit
-def sum_mappings(sum_idxs_pos_3d, sum_idxs_sum_3d,
-                 sum_slice_idxs, scope_vars_3d, sum_slice_idxs_len):
-    idx_sum = 0
-    for i, len_ in enumerate(sum_slice_idxs_len):
-        sum_ = 0
-        for j in sum_slice_idxs[idx_sum:idx_sum + len_]:
-            sum_ += scope_vars_3d[sum_idxs_sum_3d[0][j]][sum_idxs_sum_3d[1][j]][sum_idxs_sum_3d[2][j]]
-        idx_sum += len_
-        scope_vars_3d[sum_idxs_pos_3d[0][i]][sum_idxs_pos_3d[1][i]][sum_idxs_pos_3d[2][i]] = sum_
+
