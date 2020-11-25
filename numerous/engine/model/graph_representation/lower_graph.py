@@ -19,12 +19,9 @@ def index(array, item):
 @njit('Tuple((i8, i8[:]))(i8,i8[:],i8[:,:])', cache=False)
 def depth_first_search(node, path, children):
     children_of_node = children[node, :]
-    # print('children: ', children_of_node)
-
     for i in range(children_of_node[0]):
 
         c = children_of_node[i + 1]
-        cycle = False
         if len(path) > 0:
             if index(path, c) >= 0:
                 return c, np.append(path, c)
@@ -32,7 +29,6 @@ def depth_first_search(node, path, children):
         path_ = np.append(path, c)
 
         cyclic_dependency, cyclic_path = depth_first_search(c, path_, children)
-        # cyclic_dependency = -1
         if cyclic_dependency >= 0:
             return cyclic_dependency, cyclic_path
 
@@ -151,8 +147,6 @@ def walk_children_(self_edges, n, edges, ix, visited_edges, n_visited, node_type
 
     return ix, n_visited
 
-
-# int64 = np.int
 
 spec = [
     ('n_children_max', int64),

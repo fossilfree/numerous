@@ -84,8 +84,8 @@ class Subsystem(ConnectorItem):
         if structure == ItemsStructure.LIST:
             any(self.register_item(item) for item in items)
         elif structure == ItemsStructure.SET:
-
             self.register_item(ItemSet(items, tag))
+            ## so items can be accessible like there is no set?
             self.register_items(items)
 
     def increase_level(self):
@@ -120,7 +120,7 @@ class Subsystem(ConnectorItem):
         for ns in item.registered_namespaces.values():
             ns.path = item.path + [ns.tag]
             for var in ns.variables.values():
-                var.path.extend_path(item.id, self.id, self.tag, registering=True)
+                var.path.extend_path(item.id, self.id, self.tag)
                 var.path_ = ns.path + [var.tag]
                 var.paths.append(var.path_)
         if isinstance(item, Subsystem):

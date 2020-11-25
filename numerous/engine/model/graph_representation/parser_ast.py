@@ -1,5 +1,5 @@
 import inspect
-import ast
+import ast, astor
 from textwrap import dedent
 
 from numerous.engine.model.graph_representation import EquationGraph, Graph
@@ -224,8 +224,25 @@ def function_from_graph_generic(g: Graph, name, var_def_, decorators=[
 
     func = wrap_function(name, body, decorators=decorators, args=args)
 
-    return func, var_def_.vars_inds_map
+    return func
 
+
+def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_):
+    func, signature,fname, r_args, r_targets = function_from_graph_generic_llvm(g, name, var_def_)
+    ##TODO imports should a parameter of a System or Model
+    body = [ast.ImportFrom(module="numba", names=[ast.alias(name="carray", asname=None)], level=0),
+            ast.Import(names=[ast.alias(name="numpy", asname="np")], level=0), func,
+            ast.Return(value=ast.Name(id=fname))]
+    func = wrap_function(fname + '1', body, decorators=[],
+                         args=ast.arguments(args=[], vararg=None, defaults=[], kwarg=None))
+    f1 = astor.to_source(func)
+    tree = ast.parse(f1, mode='exec')
+    code = compile(tree, filename='llvm_equations_storage', mode='exec')
+    namespace = {}
+    exec(code, namespace)
+    compiled_func = list(namespace.values())[1]()
+
+    return compiled_func, signature, r_args,  r_targets
 
 def function_from_graph_generic_llvm(g: Graph, name, var_def_):
     fname = name + '_llvm'
@@ -257,15 +274,12 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
                     ast_assign = ast.AugAssign(target=target_ast, value=value_ast, op=ast.Add())
                 body.append(ast_assign)
 
-    len_targs = len(var_def_.get_targets())
-
     args = dot_dict(args=var_def_.get_args() + var_def_.get_targets(), vararg=None, defaults=[], kwarg=None)
     signature = f'void({", ".join(["float64" for a in var_def_.get_args()])}, {", ".join(["CPointer(float64)" for a in var_def_.get_targets()])})'
     decorators = []
 
     func = wrap_function(fname, body, decorators=decorators, args=args)
-
-    return func, var_def_.vars_inds_map, signature, fname, var_def_.args, var_def_.targets
+    return func,  signature,fname, var_def_.args, var_def_.targets
 
 
 def postfix_from_branches(branches: dict):
@@ -584,8 +598,6 @@ def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_
                             nodes_dep[n_key].append(eq_name)
 
                         sv = g_qualified.get(n, 'scope_var')
-                        # print('n_key: ',n_key)
-                        # neq = equation_graph.add_node(key=n_key, node_type=NodeTypes.VAR, scope_var=sv, ignore_existing=True)
                         neq = equation_graph.add_node(key=n_key, node_type=NodeTypes.VAR, scope_var=sv,
                                                       ignore_existing=True, is_set_var=is_set)
 
@@ -613,7 +625,7 @@ def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_
 
                 if global_graph:
                     global_graph.update(g_qualified)
-                    # g_qualified.topological_nodes()
+
 
 
 def process_mappings(mappings, gg: Graph, equation_graph: Graph, nodes_dep, scope_vars, scope_map):

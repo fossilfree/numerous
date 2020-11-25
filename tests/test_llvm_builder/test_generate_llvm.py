@@ -81,7 +81,7 @@ def test_llvm_1_function():
     llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
     llvm_program.add_external_function(eval_llvm, eval_llvm_signature, 2, 2)
 
-    llvm_program.add_call(eval_llvm,
+    llvm_program.add_call(eval_llvm.__qualname__,
                           ["oscillator1.mechanics.x", "oscillator1.mechanics.y"],
                           ["oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot"])
 
@@ -95,7 +95,7 @@ def test_llvm_1_function_and_mapping():
     llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
     llvm_program.add_external_function(eval_llvm, eval_llvm_signature, 2, 2)
 
-    llvm_program.add_call(eval_llvm,
+    llvm_program.add_call(eval_llvm.__qualname__,
                           ["oscillator1.mechanics.x", "oscillator1.mechanics.y"],
                           ["oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"])
 
@@ -115,13 +115,13 @@ def test_llvm_1_function_and_mappings():
     llvm_program.add_mapping(args=["oscillator1.mechanics.x"],
                              targets=["oscillator1.mechanics.b"])
 
-    llvm_program.add_call(eval_llvm, ["oscillator1.mechanics.b", "oscillator1.mechanics.y"],
+    llvm_program.add_call(eval_llvm.__qualname__, ["oscillator1.mechanics.b", "oscillator1.mechanics.y"],
                           ["oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"])
 
     llvm_program.add_mapping(args=["oscillator1.mechanics.a"],
                              targets=["oscillator1.mechanics.b"])
 
-    llvm_program.add_call(eval_llvm, ["oscillator1.mechanics.b", "oscillator1.mechanics.y"],
+    llvm_program.add_call(eval_llvm.__qualname__, ["oscillator1.mechanics.b", "oscillator1.mechanics.y"],
                           ["oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"])
 
     diff, var_func, _ = llvm_program.generate(filename)
@@ -135,7 +135,7 @@ def test_llvm_2_function_and_mappings():
     llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
     llvm_program.add_external_function(eval_llvm, eval_llvm_signature, 2, 2)
 
-    llvm_program.add_call(eval_llvm, ["oscillator1.mechanics.b", "oscillator1.mechanics.y"],
+    llvm_program.add_call(eval_llvm.__qualname__, ["oscillator1.mechanics.b", "oscillator1.mechanics.y"],
                           ["oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"])
 
     diff, var_func, _ = llvm_program.generate(filename)
@@ -149,7 +149,7 @@ def test_llvm_loop():
     llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
     llvm_program.add_external_function(eval_llvm, eval_llvm_signature, 2, 2)
 
-    llvm_program.add_set_call(eval_llvm, [["oscillator1.mechanics.x", "oscillator1.mechanics.y"],
+    llvm_program.add_set_call(eval_llvm.__qualname__, [["oscillator1.mechanics.x", "oscillator1.mechanics.y"],
                                           ["oscillator1.mechanics.z", "oscillator1.mechanics.a"]],
                               [["oscillator1.mechanics.c", "oscillator1.mechanics.x_dot"],
                                ["oscillator1.mechanics.y_dot", "oscillator1.mechanics.z_dot"]])

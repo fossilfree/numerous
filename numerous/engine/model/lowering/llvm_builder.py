@@ -215,14 +215,14 @@ class LLVMBuilder:
         self.builder.store(self.builder.load(self.values[variable_name]), eptr)
         self.builder.position_at_end(_block)
 
-    def add_call(self, external_function, args, targets):
+    def add_call(self, external_function_name, args, targets):
         arg_pointers = self._load_args(args)
         for target in targets:
             if target not in self.values:
                 self._create_target_pointer(target)
         target_pointers = self._get_target_pointers(targets)
         self.builder.position_at_end(self.bb_loop)
-        self.builder.call(self.ext_funcs[external_function.__qualname__], arg_pointers + target_pointers)
+        self.builder.call(self.ext_funcs[external_function_name], arg_pointers + target_pointers)
 
     def _build_var_r(self):
         fnty_vars = ll.FunctionType(ll.DoubleType().as_pointer(), [ll.IntType(64)])
@@ -305,7 +305,7 @@ class LLVMBuilder:
         eptr = self.builder.gep(ptr, indices, name=t)
         self.values[t] = eptr
 
-    def add_set_call(self, external_function, variable_name_arg, variable_name_trg):
+    def add_set_call(self, external_function_name, variable_name_arg, variable_name_trg):
         ## TODO check allign
         self.builder.position_at_end(self.bb_loop)
         number_of_ix = len(variable_name_arg[0])
@@ -354,7 +354,7 @@ class LLVMBuilder:
             loaded_args.append(self.builder.load(eptr_arg, 'arg_' + str(self.loopcount) + "_" + str(i1)))
             loaded_trgs.append(eptr_trg)
 
-        self.builder.call(self.ext_funcs[external_function.__qualname__], loaded_args + loaded_trgs)
+        self.builder.call(self.ext_funcs[external_function_name], loaded_args + loaded_trgs)
 
         loop_inc = self.func.append_basic_block(name='for' + str(self.loopcount) + '.inc')
         self.builder.position_at_end(loop_inc)

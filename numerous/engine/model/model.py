@@ -44,7 +44,6 @@ class ModelNamespace:
         self.variables = {}
         self.set_variables = None
         self.mappings = []
-        # self.full_tag = item_tag + '_' + tag
         self.full_tag = item_tag + '.' + tag
         self.item_indcs = item_indcs
 
@@ -283,8 +282,6 @@ class Model:
                      self.equations_top, tag_vars_)
 
         logging.info('parsing equations completed')
-        # for n in gg.nodes:
-        #    print(n[0])
 
         # Process mappings add update the global graph
         self.eg = process_mappings(mappings, self.gg, self.eg, nodes_dep, self.scope_variables,
@@ -315,7 +312,6 @@ class Model:
         self.mapping_end_ix = self.deriv_end_ix + len(mapping)
 
         self.special_indcs = [self.states_end_ix, self.deriv_end_ix, self.mapping_end_ix]
-        # print('gg nodes: ', gg.nodes)
         self.vars_ordered_values = np.array([v.value for v in self.vars_ordered], dtype=np.float64)
 
         if self.gg:
@@ -355,11 +351,11 @@ class Model:
     def lower_model_codegen(self):
 
         logging.info('lowering model')
-        eq_gen = EquationGenerator(filename="kernel.py", equation_graph=self.eg,
-                                   scope_variables=self.scope_variables)
+        eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py", equation_graph=self.eg,
+                                   scope_variables=self.scope_variables,scoped_equations=self.scoped_equations)
 
         self.compiled_compute, self.var_func, self.vars_ordered_values, self.vars_ordered, self.scope_vars_vars = \
-            eq_gen.generate_equations(self.equations_parsed, self.scoped_equations)
+            eq_gen.generate_equations()
 
         # values of all model variables in specific order: self.vars_ordered_values
         # full tags of all variables in the model in specific order: self.vars_ordered
@@ -765,7 +761,6 @@ class Model:
     def create_model_namespaces(self, item):
         namespaces_list = []
         for namespace in item.registered_namespaces.values():
-            # print(namespace.part_of_set)
             model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag, namespace.items,
                                              namespace.path, namespace.part_of_set)
             model_namespace.mappings = namespace.mappings
@@ -781,17 +776,13 @@ class Model:
                     equations.append(equation)
                 for vardesc in eq.variables_descriptions:
                     variable = namespace.get_variable(vardesc.tag)
-                    # self.variables.update({variable.id: variable})
                     ids.append(variable.id)
                 equation_dict.update({eq.tag: equations})
                 eq_variables_ids.append(ids)
             model_namespace.equation_dict = equation_dict
-            # model_namespace.eq_variables_ids = [[ScopeVariable(v) for v in vs] for vs in namespace.variable_scope]
-            # model_namespace.variables = {v.id: ScopeVariable(v) for v in namespace.variables.shadow_dict.values()}
             model_namespace.variables = {v.id: ScopeVariable(v) for vs in namespace.variable_scope for v in vs}
             self.variables.update(model_namespace.variables)
             self.variables_set_var.update({v.id: v.set_var for vs in namespace.variable_scope for v in vs})
-            # model_namespace.variables = {v.id: sv for vs, evi in zip(namespace.variable_scope, model_namespace.eq_variables_ids) for v, sv in zip(evi, vs)}
             namespaces_list.append(model_namespace)
         return namespaces_list
 
