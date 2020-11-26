@@ -20,7 +20,6 @@ class ScopeVariable(MappedValue):
         self.value = base_variable.get_value()
         self.type = base_variable.type
         self.tag = base_variable.tag
-        self.path_ = base_variable.path_
         self.path = base_variable.path
         self.state_ix = None
         self.associated_state_scope = []
@@ -31,7 +30,7 @@ class ScopeVariable(MappedValue):
         self.set_var_ix = base_variable.set_var_ix
 
     def get_path_dot(self):
-        return ".".join(self.path_)
+        return ".".join(self.path)
 
     def update_ix(self, ix):
         self.state_ix = ix
@@ -44,7 +43,8 @@ class GlobalVariables:
 
     def __init__(self, time):
         self.time = time
-
+###TODO 2d scoep
+class SetScope():
 
 class Scope:
     """
@@ -77,7 +77,6 @@ class Scope:
                 Original variable associated with namespace.
 
             """
-        # scope_var.add_scope(self)
         self.variables.update({scope_var.tag: scope_var})
         self.variables_id.append(scope_var.id)
 

@@ -108,7 +108,7 @@ class EquationGenerator:
 
     def _process_equation_node(self, n):
 
-        eq_key = self.scoped_equations [self.equation_graph.key_map[n]]
+        eq_key = self.scoped_equations[self.equation_graph.key_map[n]]
 
         vardef = self.eq_vardefs[eq_key]
 
@@ -197,8 +197,6 @@ class EquationGenerator:
                 targets = [ast.Tuple(
                     elts=[ast.Name(id=d_u(scope_vars[t])) for t in
                           vardef.targets])]
-
-
             else:
                 targets = [ast.Name(id=d_u(scope_vars[vardef.targets[0]]))]
 

@@ -10,35 +10,32 @@ if __name__ == "__main__":
     from time import time
     from matplotlib import pyplot as plt
 
+
 class DampenedOscillator(EquationBase, Item):
     """
         Equation and item modelling a spring and dampener
     """
+
     def __init__(self, tag="tm", x0=1, k=1, c=1, a=1):
         super(DampenedOscillator, self).__init__(tag)
 
-        #define variables
+        # define variables
         self.add_constant('k', k)
         self.add_constant('c', c)
         self.add_constant('a', a)
         self.add_state('x', x0)
         self.add_state('v', 0)
-        #self.add_state('v2', 0)
 
-        #define namespace and add equation
+        # define namespace and add equation
         mechanics = self.create_namespace('mechanics')
         mechanics.add_equations([self])
 
     @Equation()
     def eval(self, scope):
-        #scope.c = -1 + 1
-        #z = 4 + 2
-        scope.a  =  -scope.k * scope.x - scope.c * scope.v
-        #scope.a = scope.c * scope.v
+        scope.a = -scope.k * scope.x - scope.c * scope.v
         scope.v_dot = scope.a
         scope.x_dot = scope.v
-        #a1 = 2 * scope.x_dot
-        #scope.v2_dot = scope.x_dot
+
 
 class Spring_Equation(EquationBase):
     def __init__(self, k=1, dx0=1):
@@ -52,17 +49,17 @@ class Spring_Equation(EquationBase):
         self.add_parameter('x1', 0)  # [m]         Liquid height in the tank 1 connected to the valve (top tank)
         self.add_parameter('x2', 0)  # [m]         Liquid height in the tank 2 connected to the valve (bottom tank)
 
-
-
     @Equation()
     def eval(self, scope):
         scope.c = scope.k
-        dx = scope.x1 - scope.x2
-        F = np.abs(dx)*scope.c
 
-        scope.F1 = -F if scope.x1 > scope.x2 else F # [kg/s]
+        dx = scope.x1 - scope.x2
+        F = np.abs(dx) * scope.c
+
+        scope.F1 = -F if scope.x1 > scope.x2 else F  # [kg/s]
 
         scope.F2 = -scope.F1
+
 
 class TestEq(EquationBase, Item):
     def __init__(self, k=2):
@@ -74,6 +71,7 @@ class TestEq(EquationBase, Item):
         mechanics.add_equations([self])
     # Define the valve as a connector item - connecting two tanks
 
+
 class SpringCoupling(ConnectorTwoWay):
     def __init__(self, tag="springcoup", k=1, dx0=0):
         super().__init__(tag, side1_name='side1', side2_name='side2')
@@ -81,7 +79,6 @@ class SpringCoupling(ConnectorTwoWay):
         # 1 Create a namespace for mass flow rate equation and add the valve equation
         mechanics = self.create_namespace('mechanics')
         mechanics.add_equations([Spring_Equation(k=k, dx0=dx0)])
-
 
         # 2 Create variables H and mdot in side 1 adn 2
         # (side 1 represents a connection with one tank, with related liquid height H_1)
@@ -92,28 +89,26 @@ class SpringCoupling(ConnectorTwoWay):
         self.side2.mechanics.create_variable(name='v_dot')
         self.side2.mechanics.create_variable(name='x')
 
-
         # Map variables between binding and internal variables for side 1 and 2
         # This is needed to update the values of the variables in the binding according to the equtions of the items
         mechanics.x1 = self.side1.mechanics.x
         mechanics.x2 = self.side2.mechanics.x
 
-        #self.side1.mechanics.v_dot += mechanics.F1
-        #self.side2.mechanics.v_dot += mechanics.F2
+
 
 class OscillatorSystem(Subsystem):
     def __init__(self, tag, c=1, k=1, x0=[10, 8], a=1, n=1):
         super().__init__(tag)
         oscillators = []
         for i in range(n):
-            #Create oscillator
-            oscillator = DampenedOscillator('oscillator'+str(i), k=k, c=c, x0=x0[i], a=a)
+            # Create oscillator
+            oscillator = DampenedOscillator('oscillator' + str(i), k=k, c=c, x0=x0[i], a=a)
             oscillators.append(oscillator)
 
         self.register_items(oscillators, tag="oscillators", structure=ItemsStructure.SET)
-        # 3. Valve_1 is one instance of valve class
 
-        if True:#len(oscillators)>1:
+        # 3. Valve_1 is one instance of valve class
+        if True:
             spc1 = SpringCoupling('spc1', k=0, dx0=4)
             spc1.bind(side1=oscillators[0], side2=oscillators[1])
             spc1.side1.mechanics.v_dot += spc1.mechanics.F1
@@ -124,7 +119,7 @@ class OscillatorSystem(Subsystem):
             spc2.side1.mechanics.v_dot += spc2.mechanics.F1
             spc2.side2.mechanics.v_dot += spc2.mechanics.F2
 
-            #Register the items to the subsystem to make it recognize them.
+            # Register the items to the subsystem to make it recognize them.
             self.register_items([spc1, spc2], tag="couplings", structure=ItemsStructure.SET)
 
             spc3 = SpringCoupling('spc3', k=0, dx0=4)
@@ -132,12 +127,10 @@ class OscillatorSystem(Subsystem):
             spc3.side1.mechanics.v_dot += spc3.mechanics.F1
             spc3.side2.mechanics.v_dot += spc3.mechanics.F2
 
-
             te = TestEq(k=0)
             spc3.mechanics.k = te.mechanics.k
             # Register the items to the subsystem to make it recognize them.
             self.register_items([spc3, te])
-            a=1
 
 
 if __name__ == "__main__":
@@ -145,31 +138,31 @@ if __name__ == "__main__":
     from time import time
     from matplotlib import pyplot as plt
 
+    subsystem = OscillatorSystem('system', k=0.01, c=0.001, a=0, n=2, x0=[1, 2, 3])
     # Define simulation
     s = simulation.Simulation(
-        model.Model(OscillatorSystem('system', k=0.01,  c=0.001, a=0, n=2, x0=[1,2,3])),
+        model.Model(subsystem),
         t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
     )
     # Solve and plot
     tic = time()
     s.solve()
     toc = time()
-    print('Execution time: ', toc-tic)
-    #print(s.model.historian_df)
-    #print(len(list(s.model.historian_df)))
-    #s.model.historian_df['oscillator0_mechanics_a'].plot()
-    #for i in range(10):
+    print('Execution time: ', toc - tic)
+    # print(s.model.historian_df)
+    # print(len(list(s.model.historian_df)))
+    # s.model.historian_df['oscillator0_mechanics_a'].plot()
+    # for i in range(10):
     #    for k, v in zip(list(s.model.historian_df),s.model.historian_df.loc[i,:]):
     #        print(k,': ',v)
 
-
-    #print(s.model.historian_df.describe())
+    # print(s.model.historian_df.describe())
     print(list(s.model.historian_df))
-    #for c in list(s.model.historian_df):
+    # for c in list(s.model.historian_df):
     #    if not c == 'time':
-            #print(s.model.historian_df[c].describe())
+    # print(s.model.historian_df[c].describe())
     print(list(s.model.historian_df))
     s.model.historian_df[['system.oscillator0.mechanics.x', 'system.oscillator1.mechanics.x']].plot()
-    #print()
+    # print()
     plt.show()
     plt.interactive(False)

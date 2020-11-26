@@ -128,6 +128,19 @@ class VariablePath:
             self.used_id_pairs.append(current_id + new_id)
 
 
+class SetOfVariables:
+    def __init__(self, tag):
+        self.tag = tag
+        self.id = uuid.uuid4()
+        self.variables = {}
+
+    def add_variable(self,variable):
+        self.variables.update({variable.id:variable})
+
+    def __iter__(self):
+        return  iter(self.variables.values())
+
+
 class Variable(MappedValue):
 
     def __init__(self, detailed_variable_description, base_variable=None):
@@ -138,7 +151,6 @@ class Variable(MappedValue):
         self.tag = detailed_variable_description.tag
         self.type = detailed_variable_description.type
         self.path = VariablePath([detailed_variable_description.tag], self.id)
-        self.path_ = None
         self.paths = []
         self.alias = None
         self.set_var = None
@@ -161,8 +173,7 @@ class Variable(MappedValue):
         self.top_item = None
 
     def get_path_dot(self):
-        return ".".join(self.path_)
-        #return self.path.path[self.top_item][0]#".".join(self.path.path[self.top_item])
+        return self.path.path[self.top_item][0]
 
     def update_value(self, value):
         self.value = value

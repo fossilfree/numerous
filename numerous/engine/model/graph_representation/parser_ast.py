@@ -466,7 +466,6 @@ def qualify_equation(prefix, g, tag_vars):
         return qualify(s, prefix)
 
     g_qual = g.clone()
-
     # update keys
     g_qual.node_map = {q(k): v for k, v in g_qual.node_map.items()}
     g_qual.key_map = {k: q(v) for k, v in g_qual.key_map.items()}
@@ -575,7 +574,6 @@ def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_
                 eq_name = ('EQ_' + eq_path).replace('.', '_')
 
                 scoped_equations[eq_name] = eq_key
-                a = model_namespace.item_indcs
 
                 is_set = len(model_namespace.item_indcs) > 1
 
@@ -628,23 +626,16 @@ def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_
 
 
 
-def process_mappings(mappings, gg: Graph, equation_graph: Graph, nodes_dep, scope_vars, scope_map):
-    mg = Graph(preallocate_items=100000)
+def process_mappings(mappings,equation_graph: Graph, nodes_dep, scope_vars):
     logging.info('process mappings')
     for m in mappings:
         target_var = scope_vars[m[0]]
-        prefix = scope_map[target_var.parent_scope_id]
-        # target_var_id = qualify(target_var.tag, prefix)
         target_var_id = target_var.set_var if target_var.set_var else target_var.get_path_dot()
-        # print('tvar id: ', target_var_id)
         if '-' in target_var_id:
             raise ValueError('argh')
 
         node_type = NodeTypes.VAR
 
-        if gg:
-            tg = gg.add_node(key=target_var_id, file='mapping', name=m, ln=0, id=target_var_id, label=target_var.tag,
-                             ast_type=ast.Attribute, node_type=node_type, scope_var=target_var, ignore_existing=False)
         t = equation_graph.add_node(key=target_var_id, file='mapping', name=m, ln=0, id=target_var_id,
                                     label=target_var.tag, ast_type=ast.Attribute, node_type=node_type,
                                     scope_var=target_var, ignore_existing=False)
@@ -652,27 +643,13 @@ def process_mappings(mappings, gg: Graph, equation_graph: Graph, nodes_dep, scop
         # ak = equation_graph.key_map[ae]
         if not target_var_id in nodes_dep:
             nodes_dep[target_var_id] = []
-        # if not ak in nodes_dep[target_var_id]:
-        #    nodes_dep[target_var_id].append(ak)
-
-        # if gg:
-        #    gg.add_edge(start=ag, end=tg, e_type='target')
-        # equation_graph.add_edge(start=ae, end=t, e_type='target')
 
         add = ast.Add()
-        # prev_e = None
-
-        # tn = mg.add_node(key=target_var.parent_scope_id, ignore_existing=True, label='f(x)')
 
         for i in m[1]:
             # print(scope_vars)
             ivar_var = scope_vars[i]
-            prefix = scope_map[ivar_var.parent_scope_id]
-            ivarn = mg.add_node(key=ivar_var.parent_scope_id, ignore_existing=True, label=ivar_var.parent_scope_id)
 
-            # mg.add_edge(start=ivarn, end=tn, e_type='mapping')
-
-            # ivar_id = qualify(ivar_var.tag, prefix)
             ivar_id = ivar_var.set_var if ivar_var.set_var else ivar_var.get_path_dot()
 
             if not ivar_id in nodes_dep:
@@ -684,10 +661,6 @@ def process_mappings(mappings, gg: Graph, equation_graph: Graph, nodes_dep, scop
                 raise ValueError('argh')
 
             scope_var = scope_vars[ivar_var.id]
-            if gg:
-                ivar_node_g = gg.add_node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id, label=ivar_var.tag,
-                                          ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=scope_var,
-                                          ignore_existing=False)
             ivar_node_e = equation_graph.add_node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id,
                                                   label=ivar_var.tag,
                                                   ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=scope_var,
@@ -697,40 +670,10 @@ def process_mappings(mappings, gg: Graph, equation_graph: Graph, nodes_dep, scop
             ix_ = equation_graph.has_edge_for_nodes(start_node=ivar_node_e, end_node=t)
             lix = len(ix_)
             if lix == 0:
-                if gg:
-                    e_mg = equation_graph.add_edge(ivar_node_g, tg, e_type='mapping')
-                # binop_g = gg.add_node(file='mapping', name=m, ln=0, label=get_op_sym(add), ast_type=ast.BinOp,
-                #                node_type=NodeTypes.OP, ast_op=add)
-
-                # gg.add_edge(prev_g, binop_g, e_type='left')
-                # gg.add_edge(ivar_node_g, binop_g, e_type='right')
-
-                # binop_e = equation_graph.add_node(file='mapping', name=m, ln=0, label=get_op_sym(add), ast_type=ast.BinOp,
-                #              node_type=NodeTypes.OP, ast_op=add)
-
                 e_m = equation_graph.add_edge(ivar_node_e, t, e_type='mapping',
                                               mappings=[(ivar_var.set_var_ix, target_var.set_var_ix)])
             else:
                 equation_graph.edges_attr['mappings'][ix_[0]].append((ivar_var.set_var_ix, target_var.set_var_ix))
-                # print('set_var_ix: ',target_var.set_var_ix)
-
-            # equation_graph.edges_attr
-            # equation_graph.add_edge(prev_e, binop_e, e_type='left')
-            # equation_graph.add_edge(ivar_node_e, binop_e, e_type='right')
-            # if gg:
-            #    prev_g = binop_g
-            # prev_e = binop_e
-            # else:
-            #    if gg:
-            #        prev_g = ivar_node_g
-            #    prev_e = ivar_node_e
-        # if gg:
-        #    gg.add_edge(prev_g, ag,e_type='value')
-        # equation_graph.add_edge(prev_e, ae, e_type='value')
-
-    # gg.as_graphviz('global', force=True)
-    # equation_graph.as_graphviz('eq_bf_sub', force=True)
-    aliases = {}
 
     if False:
         logging.info('making substituation graph')
@@ -806,11 +749,6 @@ def process_mappings(mappings, gg: Graph, equation_graph: Graph, nodes_dep, scop
 
     logging.info('clone eq graph')
     equation_graph = equation_graph.clean()
-
-    # equation_graph.as_graphviz('tt', force=True)
-    # equation_graph_simplified = equation_graph.clone()
-    # equation_graph_simplified = equation_graph_simplified.clean()
-    # equation_graph_simplified.as_graphviz('eqs', force=True)
 
     logging.info('remove dependencies')
 
