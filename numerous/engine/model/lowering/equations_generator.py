@@ -138,7 +138,7 @@ class EquationGenerator:
 
         # find the a
 
-        # Put the information of args and targets in the scope_var attr of the graph node for thos equation
+        # Put the information of args and targets in the scope_var attr of the graph node for those equation
         self.equation_graph.nodes_attr['scope_var'][n] = {'args': [scope_vars[a] for a in vardef.args],
                                                           'targets': [scope_vars[a] for a in vardef.targets]}
 

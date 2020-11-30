@@ -29,8 +29,8 @@ class VariableNamespaceBase:
         self.variables = _DictWrapper(self.__dict__, Variable)
         self.variable_scope = [self.variables]
         self.registered = False
+        self.part_of_set=False
         ## if it is part of set it will be ignored during assembly.
-        self.part_of_set = None
         # print('creating ns with tag: ',tag)
 
     def get_path_dot(self):

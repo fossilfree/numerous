@@ -56,7 +56,6 @@ def ass(a):
 
 
 # Parse a function
-
 def node_to_ast(n: int, g: EquationGraph, var_def, read=True):
     nk = g.key_map[n]
     try:
@@ -559,10 +558,7 @@ def parse_eq(model_namespace, global_graph: Graph, equation_graph: Graph, nodes_
 
                     eq_key = eq_key + '_' + postfix_from_branches(branches_values)
                     print('branched eq key: ', eq_key)
-                # print(parsed_eq.keys())
-                # print(parsed_eq.values())
-                # print(parsed_eq_branches.keys())
-                # eq_key_branch = eq_key + parsed_eq[eq_key] if len(parsed_eq[eq_key])>0 else eq_key
+
 
                 g = parsed_eq_branches[eq_key][2]
 
@@ -640,22 +636,20 @@ def process_mappings(mappings,equation_graph: Graph, nodes_dep, scope_vars):
                                     label=target_var.tag, ast_type=ast.Attribute, node_type=node_type,
                                     scope_var=target_var, ignore_existing=False)
 
-        # ak = equation_graph.key_map[ae]
+
         if not target_var_id in nodes_dep:
             nodes_dep[target_var_id] = []
 
         add = ast.Add()
 
         for i in m[1]:
-            # print(scope_vars)
+
             ivar_var = scope_vars[i]
 
             ivar_id = ivar_var.set_var if ivar_var.set_var else ivar_var.get_path_dot()
 
             if not ivar_id in nodes_dep:
                 nodes_dep[ivar_id] = []
-            # if not ae in nodes_dep[ivar_id]:
-            #    nodes_dep[ivar_id].append(ae)
 
             if '-' in ivar_id:
                 raise ValueError('argh')
@@ -666,7 +660,7 @@ def process_mappings(mappings,equation_graph: Graph, nodes_dep, scope_vars):
                                                   ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=scope_var,
                                                   ignore_existing=False)
 
-            # if prev_e:
+
             ix_ = equation_graph.has_edge_for_nodes(start_node=ivar_node_e, end_node=t)
             lix = len(ix_)
             if lix == 0:
@@ -674,78 +668,6 @@ def process_mappings(mappings,equation_graph: Graph, nodes_dep, scope_vars):
                                               mappings=[(ivar_var.set_var_ix, target_var.set_var_ix)])
             else:
                 equation_graph.edges_attr['mappings'][ix_[0]].append((ivar_var.set_var_ix, target_var.set_var_ix))
-
-    if False:
-        logging.info('making substituation graph')
-
-        # replace all mappings
-        substitutions = {}
-
-        # Loop over all nodes
-        eq_val_nodes = equation_graph.get_where_attr('node_type', NodeTypes.VAR)
-        s_nodes = []
-        s_edges = []
-
-        substitution_graph = Graph(preallocate_items=100000)
-        for n in eq_val_nodes:
-            # targeting_edges = equation_graph.edges_end(n, 'target')
-            ix, targeting_edges = equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val='target')
-
-            # If only targeted once we can remap this!
-            if len(
-                    targeting_edges) == 1:  # and (sv:= equation_graph.get(node=n, attr='scope_var')) and not sv.type == VariableType.DERIVATIVE:
-                # print(sv.id)
-                # print(sv.type)
-                op = targeting_edges[0][0]
-                if equation_graph.get(targeting_edges[0][0], 'node_type') == NodeTypes.ASSIGN:
-                    ix, values = equation_graph.get_edges_for_node_filter(end_node=op, attr='e_type',
-                                                                          val='value')  # edges_end(op, 'value')
-                    # add a map
-                    if len(values) == 1:
-                        # print(sv.id)
-                        val = values[0][0]
-
-                        if not equation_graph.get(val, 'ast_type') == ast.BinOp:
-                            if not n in substitutions:
-                                val_k = equation_graph.key_map[val]
-                                substitutions[n] = val_k
-                                nm = substitution_graph.add_node(key=equation_graph.key_map[n],
-                                                                 label=equation_graph.get(n, 'label'), node_type=0,
-                                                                 ignore_existing=True)
-                                # mapped_to = equation_graph.nodes_map[values[0][0]]
-                                nv = substitution_graph.add_node(key=val_k, label=val_k, node_type=0,
-                                                                 ignore_existing=True)
-
-                                substitution_graph.add_edge(nv, nm, e_type='value')
-                            else:
-                                raise ValueError(equation_graph.key_map[n] + ' already substituted???')
-
-                            equation_graph.remove_node(op)
-
-
-                    elif len(values) > 1:
-                        raise ValueError('arg')
-
-        equation_graph = equation_graph.clean()
-        # equation_graph.as_graphviz('subclean', force=False)
-        # substitution_graph.as_graphviz('subgraph', force=False)
-        logging.info('cleaning')
-
-        logging.info('define master vars')
-        master_variables = substitution_graph.zero_in_degree()
-
-        logging.info('process master vars')
-
-        for mv in master_variables:
-            dep_g = substitution_graph.get_dependants_graph(mv)
-
-            mk = substitution_graph.key_map[mv]
-            dep_g.node_map.pop(mk)
-            keys = dep_g.node_map.keys()
-
-            aliases.update({k: mk for k in keys})
-
-            equation_graph.replace_nodes_by_key(mk, keys)
 
     logging.info('clone eq graph')
     equation_graph = equation_graph.clean()

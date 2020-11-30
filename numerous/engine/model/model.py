@@ -9,7 +9,7 @@ import pandas as pd
 from model.graph_representation.equation_graph import EquationGraph
 from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
-from numerous.engine.scope import Scope, ScopeVariable
+from numerous.engine.scope import Scope, ScopeVariable, ScopeSet
 
 from numerous.engine.system.subsystem import Subsystem, ItemSet
 from numerous.engine.variables import VariableType
@@ -49,10 +49,7 @@ class ModelNamespace:
         self.item_indcs = item_indcs
 
         self.path = path
-        self.part_of_set = pos
-
-    def get_path_dot(self):
-        return ".".join(self.path)
+        self.is_set = pos
 
 
 class ModelAssembler:
@@ -60,7 +57,10 @@ class ModelAssembler:
     @staticmethod
     def __create_scope(eq_tag, eq_methods, eq_variables, namespace, tag, variables):
         scope_id = "{0}_{1}_{2}".format(eq_tag, namespace.tag, tag, str(uuid.uuid4()))
-        scope = Scope(scope_id, namespace.item_indcs)
+        if namespace.is_set:
+            scope = ScopeSet(scope_id, namespace.item_indcs)
+        else:
+            scope = Scope(scope_id, namespace.item_indcs)
         for variable in eq_variables:
             scope.add_variable(variable)
             variable.bound_equation_methods = eq_methods
@@ -249,7 +249,7 @@ class Model:
         for v in self.scope_variables.values():
             v.top_item = self.system.id
 
-        for ns in self.name_spaces.values():
+        for ns in model_namespaces:
             tag_vars = {v.tag: v for v in self.scope_variables.values()}
             tag_vars_ = {v.tag: v for k, v in ns[1][0].variables.items()}
             parse_eq(ns[1][0],self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations,
@@ -570,8 +570,9 @@ class Model:
     def create_model_namespaces(self, item):
         namespaces_list = []
         for namespace in item.registered_namespaces.values():
+            set_namespace = isinstance(namespace,SetNamespace)
             model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag, namespace.items,
-                                             namespace.path, namespace.part_of_set)
+                                             namespace.path, set_namespace)
             # model_namespace.mappings = namespace.mappings
             model_namespace.variable_scope = namespace.get_flat_variables()
             model_namespace.set_variables = namespace.set_variables
@@ -584,7 +585,7 @@ class Model:
                 for equation in eq.equations:
                     equations.append(equation)
                 for vardesc in eq.variables_descriptions:
-                    if isinstance(namespace,SetNamespace):
+                    if set_namespace:
                         for item in namespace.items:
                             variable = item.registered_namespaces[namespace.tag].get_variable(vardesc.tag)
                             ids.append(variable.id)

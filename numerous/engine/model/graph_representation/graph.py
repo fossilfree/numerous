@@ -72,8 +72,6 @@ class Graph:
 
                 self.nodes_attr[ak][node] = a
 
-
-
         else:
             if not skip_existing:
                 raise ValueError(f'Node with key already in graph <{key}>')

@@ -1,6 +1,6 @@
-
 from .variables import Variable, VariableType, MappedValue
 import numpy as np
+
 
 class ScopeVariable(MappedValue):
     """
@@ -43,8 +43,31 @@ class GlobalVariables:
 
     def __init__(self, time):
         self.time = time
-###TODO 2d scoep
-class SetScope():
+
+
+###TODO 2d scope
+# 1. add 2d scope
+# 2. go through eq parser
+
+class ScopeSet:
+    def __init__(self, scopeid, item_indcs):
+        self.variables = [{}]
+        self.variables_id = []
+        self.id = scopeid
+        self.globals = GlobalVariables(0)
+        self.item_indcs = item_indcs
+
+    def set_time(self, time):
+        self.globals.time = time
+
+    def add_variable(self, scope_var):
+        if scope_var.set_var_ix >= len(self.variables):
+            self.variables.append({})
+            self.add_variable(scope_var)
+        else:
+            self.variables[scope_var.set_var_ix].update({scope_var.tag: scope_var})
+            self.variables_id.append(scope_var.id)
+
 
 class Scope:
     """
@@ -61,8 +84,8 @@ class Scope:
         self.variables = {}
         self.variables_id = []
         self.id = scopeid
-        self.globals = GlobalVariables(0)
         self.item_indcs = item_indcs
+        self.globals = GlobalVariables(0)
 
     def set_time(self, time):
         self.globals.time = time
@@ -109,6 +132,7 @@ class Scope:
         for var in self.variables_dict.values():
             var.allow_update = is_true
 
+
 class TemporaryScopeWrapper3d:
     def __init__(self, scope_vars_3d, state_idxs_3d, deriv_idxs_3d):
         self.scope_vars_3d = scope_vars_3d
@@ -127,5 +151,3 @@ class TemporaryScopeWrapper3d:
     # return all derivatives
     def get_derivatives(self):
         return self.scope_vars_3d[self.deriv_idxs_3d]
-
-
