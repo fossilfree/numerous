@@ -250,11 +250,17 @@ class Model:
             v.top_item = self.system.id
 
         for ns in model_namespaces:
-            tag_vars = {v.tag: v for v in self.scope_variables.values()}
-            tag_vars_ = {v.tag: v for k, v in ns[1][0].variables.items()}
-            parse_eq(ns[1][0],self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations,
-                     self.equations_top, tag_vars_)
 
+            ## Key : scope.tag Value: Variable or VariableSet
+            if ns[1][0].is_set:
+                tag_vars = ns[1][0].set_variables
+            else:
+                tag_vars = {v.tag: v for k, v in ns[1][0].variables.items()}
+
+            parse_eq(ns[1][0],self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations,
+                     self.equations_top)
+
+        self.eg.as_graphviz("test",force =True)
         logging.info('parsing equations completed')
 
         # Process mappings add update the global graph

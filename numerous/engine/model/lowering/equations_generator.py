@@ -421,15 +421,6 @@ class EquationGenerator:
 
 
 
-
-
-
-
-
-
-
-
-
         # Update maps between scope variables
         for sv_id, sv in self.scope_variables.items():
             full_tag = d_u(sv.get_path_dot())

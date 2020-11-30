@@ -133,9 +133,15 @@ class SetOfVariables:
         self.tag = tag
         self.id = uuid.uuid4()
         self.variables = {}
+        self.mapping = []
+        self.sum_mapping = []
 
     def add_variable(self,variable):
         self.variables.update({variable.id:variable})
+        if variable.sum_mapping:
+            self.sum_mapping.append(variable.sum_mapping)
+        if variable.mapping:
+            self.mapping.append(variable.mapping)
 
     def __iter__(self):
         return  iter(self.variables.values())
