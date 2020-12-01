@@ -174,9 +174,7 @@ class EquationGenerator:
                 targets = [ast.Name(id=d_u(scope_vars[vardef.targets[0]]))]
 
             self.body.append(
-
                 # For loop over items in set
-
                 ast.For(
                     body=[ast.Assign(targets=targets, value=ast.Call(
                         func=ast.Name(id=self.scoped_equations [self.equation_graph.key_map[n]].replace('.', '_')),

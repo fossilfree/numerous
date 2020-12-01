@@ -1,28 +1,26 @@
 from numerous.engine.model.utils import NodeTypes
-from numerous import VariableType
+from numerous import VariableType, SetOfVariables
 from string_utils import d_u
 
 from .graph import Graph
 
 
-
 class TemporaryVar():
-    tmp_var_counter = 0
 
-    def __init__(self, svi, tmp_label):
-        TemporaryVar.tmp_var_counter += 1
-        self.id = 'tmp_var_' + str(TemporaryVar.tmp_var_counter) if svi.set_var else d_u(tmp_label)
-        self.tag = svi.tag + '_' + self.id if svi.set_var else tmp_label
+    def __init__(self, id, svi, tag, set_var, set_var_ix):
+        self.id = id
+        self.tag = tag
         self.set_namespace = svi.set_namespace
         self.parent_scope_id = svi.parent_scope_id
-        self.set_var = tmp_label if svi.set_var else None
-        self.set_var_ix = svi.set_var_ix if svi.set_var else None
+        self.set_var = set_var
+        self.set_var_ix = set_var_ix
         self.value = svi.value
         self.type = VariableType.PARAMETER
         self.path = svi.path
 
     def get_path_dot(self):
         return self.tag
+
 
 class SumCount:
     def __init__(self):
@@ -74,7 +72,6 @@ class EquationGraph(Graph):
     def create_assignments(self, scope_variables):
         from tqdm import tqdm
 
-        ## generator ii  n i e for node
         for ii, n in tqdm(enumerate(self.get_where_attr('node_type', NodeTypes.EQUATION))):
 
             for i, e in self.get_edges_for_node(start_node=n):
@@ -82,19 +79,22 @@ class EquationGraph(Graph):
                 if va in self.vars_assignments and len(self.vars_assignments[va]) > 1:
 
                     # Make new temp var
-                    tmp_label = self.key_map[va] + '_tmp'
                     sv = self.get(e[1], 'scope_var')
+                    tmp_label = sv.tag + str(self.key_map[va]) + '_tmp'
 
                     # Create fake scope variables for tmp setvar
                     fake_sv = {}
                     svf = None
-                    for i_, svi in tqdm(enumerate(scope_variables.values())):
-                        if sv.set_var and svi.set_var == sv.set_var:
-                            svf = TemporaryVar(svi, tmp_label)
-                            fake_sv[d_u(svf.get_path_dot())] = svf
 
-                    if not sv.set_var:
-                        svf = TemporaryVar(sv, tmp_label)
+                    if isinstance(sv, SetOfVariables):
+                        tmp_var_counter = 0
+                        for svi in sv.variables.values():
+                            tmp_var_counter += 1
+                            svf = TemporaryVar('tmp_var_' + str(tmp_var_counter), svi,
+                                               svi.tag + '_' + self.id, tmp_label, svi.set_var_ix)
+                            fake_sv[d_u(svf.get_path_dot())] = svf
+                    else:
+                        svf = TemporaryVar(d_u(tmp_label), sv, tmp_label, None, None)
                         fake_sv[d_u(svf.get_path_dot())] = svf
 
                     scope_variables.update(fake_sv)

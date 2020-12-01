@@ -1,6 +1,8 @@
 import ast
 from enum import unique, IntEnum
 
+
+# TODO add setVAR/GridVar?
 @unique
 class NodeTypes(IntEnum):
     OP = 0

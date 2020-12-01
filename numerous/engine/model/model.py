@@ -36,7 +36,7 @@ lower_method = LowerMethod.Codegen
 
 class ModelNamespace:
 
-    def __init__(self, tag, outgoing_mappings, item_tag, item_indcs, path, pos):
+    def __init__(self, tag, outgoing_mappings, item_tag, item_indcs, path, pos,item_path):
         self.tag = tag
         self.item_tag = item_tag
         self.outgoing_mappings = outgoing_mappings
@@ -45,7 +45,7 @@ class ModelNamespace:
         self.variables = {}
         self.set_variables = None
         self.mappings = []
-        self.full_tag = item_tag + '.' + tag
+        self.full_tag = item_path + '.' + tag
         self.item_indcs = item_indcs
 
         self.path = path
@@ -260,7 +260,7 @@ class Model:
             parse_eq(ns[1][0],self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations,
                      self.equations_top)
 
-        self.eg.as_graphviz("test",force =True)
+        # self.eg.as_graphviz("test",force =True)
         logging.info('parsing equations completed')
 
         # Process mappings add update the global graph
@@ -294,18 +294,6 @@ class Model:
         self.special_indcs = [self.states_end_ix, self.deriv_end_ix, self.mapping_end_ix]
         self.vars_ordered_values = np.array([v.value for v in self.vars_ordered], dtype=np.float64)
 
-        if self.gg:
-            vars_node_id = {self.gg.get(v, 'scope_var').id: k for k, v in self.gg.node_map.items() if
-                            self.gg.get(v, 'scope_var')}
-
-            self.vars_ordered_map = []
-
-            for v in self.vars_ordered:
-                if v.id in vars_node_id:
-                    self.vars_ordered_map.append(vars_node_id[v.id])
-                else:
-                    self.vars_ordered_map.append(v.id.replace('-', '_'))
-
         logging.info('variables sorted')
 
         self.eg = EquationGraph.from_graph(self.eg)
@@ -313,12 +301,8 @@ class Model:
         self.eg.create_assignments(self.scope_variables)
         self.eg.add_mappings()
 
-        if lower_method == LowerMethod.Codegen:
-            self.lower_model_codegen()
-            self.generate_numba_model = self.generate_numba_model_code_gen
-        elif lower_method == LowerMethod.Tensor:
-            self.lower_model_tensor()
-            self.generate_numba_model = self.generate_numba_model_tensor
+        self.lower_model_codegen()
+        self.generate_numba_model = self.generate_numba_model_code_gen
 
         assemble_finish = time.time()
         print("Assemble time: ", assemble_finish - assemble_start)
@@ -578,7 +562,7 @@ class Model:
         for namespace in item.registered_namespaces.values():
             set_namespace = isinstance(namespace,SetNamespace)
             model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag, namespace.items,
-                                             namespace.path, set_namespace)
+                                             namespace.path, set_namespace,'.'.join(item.path))
             # model_namespace.mappings = namespace.mappings
             model_namespace.variable_scope = namespace.get_flat_variables()
             model_namespace.set_variables = namespace.set_variables

@@ -586,7 +586,7 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
                         nodes_dep[n_key].append(eq_name)
 
                     sv = g_qualified.get(n, 'scope_var')
-                    neq = equation_graph.add_node(key=n_key, node_type=NodeTypes.VAR, scope_var=sv,
+                    neq = equation_graph.add_node(key=sv.id, node_type=NodeTypes.VAR, scope_var=sv,
                                                   ignore_existing=True, is_set_var=is_set)
 
                     targeted = False
@@ -605,7 +605,6 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
                         start_edges = g_qualified.get_edges_for_node(start_node=n)
                         try:
                             next(start_edges)
-                            read = True
                             equation_graph.add_edge(neq, eq_n, e_type='arg', arg_local=sv.tag if (
                                 sv := g_qualified.get(n, 'scope_var')) else 'local')
                         except StopIteration:
@@ -616,15 +615,14 @@ def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
     logging.info('process mappings')
     for m in mappings:
         target_var = scope_vars[m[0]]
-        target_var_id = target_var.set_var if target_var.set_var else target_var.get_path_dot()
-        if '-' in target_var_id:
-            raise ValueError('argh')
+        target_var_id = target_var.id
+
 
         node_type = NodeTypes.VAR
 
         t = equation_graph.add_node(key=target_var_id, file='mapping', name=m, ln=0, id=target_var_id,
                                     label=target_var.tag, ast_type=ast.Attribute, node_type=node_type,
-                                    scope_var=target_var, ignore_existing=False)
+                                    scope_var=target_var, ignore_existing=False,set_var_ix = target_var.set_var_ix)
 
         if not target_var_id in nodes_dep:
             nodes_dep[target_var_id] = []
@@ -635,13 +633,11 @@ def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
 
             ivar_var = scope_vars[i]
 
-            ivar_id = ivar_var.set_var if ivar_var.set_var else ivar_var.get_path_dot()
+            ivar_id = ivar_var.id
 
             if not ivar_id in nodes_dep:
                 nodes_dep[ivar_id] = []
 
-            if '-' in ivar_id:
-                raise ValueError('argh')
 
             scope_var = scope_vars[ivar_var.id]
             ivar_node_e = equation_graph.add_node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id,

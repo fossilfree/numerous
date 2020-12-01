@@ -138,13 +138,14 @@ class SetOfVariables:
 
     def add_variable(self,variable):
         self.variables.update({variable.id:variable})
+        variable.set_var = self
         if variable.sum_mapping:
             self.sum_mapping.append(variable.sum_mapping)
         if variable.mapping:
             self.mapping.append(variable.mapping)
 
     def __iter__(self):
-        return  iter(self.variables.values())
+        return iter(self.variables.values())
 
 
 class Variable(MappedValue):
