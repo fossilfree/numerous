@@ -84,9 +84,8 @@ class Subsystem(ConnectorItem):
         if structure == ItemsStructure.LIST:
             any(self.register_item(item) for item in items)
         elif structure == ItemsStructure.SET:
-            self.register_item(ItemSet(items, tag))
-            ## so items can be accessible like there is no set?
-            # self.register_items(items)
+            itemset = ItemSet(items, tag)
+            self.register_item(itemset)
 
     def increase_level(self):
         super().increase_level()
@@ -106,15 +105,30 @@ class Subsystem(ConnectorItem):
                 DG.add_edge(self.tag, item.tag)
         return DG
 
-    def update_variables_path(self, item):
+
+    def update_variables_path(self, item, tail=[]):
+        """
+        Create variable path hierarchy.
+
+        Parameters
+        ----------
+        item : :class:`numerous.engine.system.Item`
+            Item to update variable path.
+        tail:  list of :class:`numerous.engine.system.Item`
+            In case of nested subsystems we store them to correctly update the path.
+
+        """
         item.path = self.path + [item.tag]
         for ns in item.registered_namespaces.values():
             for var in ns.variables.values():
                 var.path.extend_path(item.id, self.id, self.tag)
+                if len(tail) == 1:
+                    var.path.extend_path(self.id, tail[0].id, tail[0].tag)
+                for t1, t2 in zip(tail[0::2][::-1], tail[1::2][::-1]):
+                    var.path.extend_path(t2.id, t1.id, t1.tag)
         if isinstance(item, Subsystem):
             for item_ in item.registered_items.values():
-                item.update_variables_path(item_)
-
+                item.update_variables_path(item_, tail + [self])
 
     def register_item(self, item):
         """
@@ -134,7 +148,8 @@ class Subsystem(ConnectorItem):
 class ItemSet(Subsystem, EquationBase):
 
     def __init__(self, set_structure, tag):
-        tag = "SET_"+tag
+
+        tag = "SET_" + tag
         super().__init__(tag)
         self.items = []
         set_structure_flat = set_structure
@@ -144,7 +159,7 @@ class ItemSet(Subsystem, EquationBase):
         self.item_type = None
 
         for item in set_structure_flat:
-            item.part_of_set=True
+            item.part_of_set = True
             if not self.item_type:
                 self.item_type = type(item)
 
@@ -167,12 +182,13 @@ class ItemSet(Subsystem, EquationBase):
                 tag_ = ns.tag
                 if not (tag_ in self.registered_namespaces.keys()):
                     sns = SetNamespace(self, tag_, self.item_ids)
-                    sns.add_equations(list(ns.associated_equations.values()), False, create_variables = False, set_equation=True)
-                    sns.add_item(item,ns)
+                    sns.add_equations(list(ns.associated_equations.values()), False, create_variables=False,
+                                      set_equation=True)
+                    sns.add_item(item, ns)
                     ns.clear_equations()
                     self.register_namespace(sns)
                 else:
-                    self.registered_namespaces[tag_].add_item(item,ns)
+                    self.registered_namespaces[tag_].add_item(item, ns)
                 if not ns.part_of_set:
                     ns.part_of_set = sns
                 else:

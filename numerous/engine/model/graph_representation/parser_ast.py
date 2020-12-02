@@ -479,7 +479,7 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
              parsed_eq_branches, scoped_equations, parsed_eq):
     for m in model_namespace.equation_dict.values():
         for eq in m:
-            eq_key = eq.id
+            eq_key = eq.id +model_namespace.full_tag
 
             if not eq_key in parsed_eq:
                 dsource = eq.lines
@@ -587,7 +587,7 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
 
                     sv = g_qualified.get(n, 'scope_var')
                     neq = equation_graph.add_node(key=sv.id, node_type=NodeTypes.VAR, scope_var=sv,
-                                                  ignore_existing=True, is_set_var=is_set, label=sv.tag)
+                                                  ignore_existing=True, is_set_var=is_set, label=sv.get_path_dot())
 
                     targeted = False
                     read = False

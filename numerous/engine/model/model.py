@@ -218,6 +218,9 @@ class Model:
 
         mappings = []
 
+        for variable in self.scope_variables.values():
+            variable.top_item = self.system.id
+
         def __get_mapping__variable(variable):
             if variable.mapping:
                 return __get_mapping__variable(variable.mapping)
@@ -257,7 +260,7 @@ class Model:
             parse_eq(ns[1][0],self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations,
                      self.equations_top)
 
-        self.eg.as_graphviz("test",force =True)
+
         logging.info('parsing equations completed')
 
         # Process mappings add update the global graph
@@ -297,7 +300,7 @@ class Model:
         self.eg.remove_chains()
         self.eg.create_assignments(self.scope_variables)
         self.eg.add_mappings()
-
+        self.eg.as_graphviz("test", force=True)
         self.lower_model_codegen()
         self.generate_numba_model = self.generate_numba_model_code_gen
 

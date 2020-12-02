@@ -129,14 +129,20 @@ class VariablePath:
 
 
 class SetOfVariables:
-    def __init__(self, tag):
+    def __init__(self, tag, item_tag):
         self.tag = tag
         self.id = str(uuid.uuid4())
         self.variables = {}
         self.mapping = []
         self.sum_mapping = []
+        self.item_tag = item_tag
 
-    def add_variable(self,variable):
+    def get_path_dot(self):
+        result = list(self.variables.values())[0].get_path_dot()
+
+        return result[:result.find(self.item_tag)]+self.item_tag+"."+self.tag
+
+    def add_variable(self, variable):
         self.variables.update({variable.id:variable})
         variable.set_var = self
         if variable.sum_mapping:

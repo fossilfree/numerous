@@ -94,7 +94,42 @@ class SpringCoupling(ConnectorTwoWay):
         mechanics.x1 = self.side1.mechanics.x
         mechanics.x2 = self.side2.mechanics.x
 
+class OscillatorSystem2(Subsystem):
+    def __init__(self, tag, c=1, k=1, x0=[10, 8], a=1, n=1):
+        super().__init__(tag)
+        oscillators = []
 
+        for i in range(n):
+            # Create oscillator
+            oscillator = DampenedOscillator('oscillator' + str(i), k=k, c=c, x0=x0[i], a=a)
+            oscillators.append(oscillator)
+
+        self.register_items(oscillators, tag="oscillators", structure=ItemsStructure.SET)
+
+        # 3. Valve_1 is one instance of valve class
+        if True:
+            spc1 = SpringCoupling('spc1', k=0, dx0=4)
+            spc1.bind(side1=oscillators[0], side2=oscillators[1])
+            spc1.side1.mechanics.v_dot += spc1.mechanics.F1
+            spc1.side2.mechanics.v_dot += spc1.mechanics.F2
+
+            spc2 = SpringCoupling('spc2', k=0, dx0=4)
+            spc2.bind(side1=oscillators[0], side2=oscillators[1])
+            spc2.side1.mechanics.v_dot += spc2.mechanics.F1
+            spc2.side2.mechanics.v_dot += spc2.mechanics.F2
+
+            # Register the items to the subsystem to make it recognize them.
+            self.register_items([spc1, spc2], tag="couplings", structure=ItemsStructure.SET)
+
+            spc3 = SpringCoupling('spc3', k=0, dx0=4)
+            spc3.bind(side1=oscillators[0], side2=oscillators[1])
+            spc3.side1.mechanics.v_dot += spc3.mechanics.F1
+            spc3.side2.mechanics.v_dot += spc3.mechanics.F2
+
+            te = TestEq(k=0)
+            spc3.mechanics.k = te.mechanics.k
+            # Register the items to the subsystem to make it recognize them.
+            self.register_items([spc3, te])
 
 class OscillatorSystem(Subsystem):
     def __init__(self, tag, c=1, k=1, x0=[10, 8], a=1, n=1):

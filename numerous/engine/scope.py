@@ -28,9 +28,8 @@ class ScopeVariable(MappedValue):
         self.position = None
         self.set_var = base_variable.set_var
         self.set_var_ix = base_variable.set_var_ix
+        self.get_path_dot = base_variable.get_path_dot
 
-    def get_path_dot(self):
-        return ".".join(self.path)
 
     def update_ix(self, ix):
         self.state_ix = ix
