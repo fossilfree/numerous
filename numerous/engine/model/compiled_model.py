@@ -134,6 +134,21 @@ class CompiledModel:
                 self.scope_vars_3d[self.state_idxs_3d[0][i]][self.state_idxs_3d[1][i]][self.state_idxs_3d[2][i]])
         return np.array(result, dtype=np.float64)
 
+    def vectorizedfulljacobian(self, t, y, dt):
+        h = 1e-8
+        y_perm = y + h * np.diag(np.ones(len(y)))
+
+        f = self.func(t, y)
+        f_h = np.zeros_like(y_perm)
+        for i in range(y_perm.shape[0]):
+            y_i = y_perm[i, :]
+            f_h[i, :] = self.func(t, y_i)
+
+        diff = f_h - f
+        diff /= h
+        jac = diff.T
+        return np.ascontiguousarray(jac)
+
     def map_external_data(self, t):
         for i in range(self.number_of_external_mappings):
             df_indx = self.external_df_idx[i][0]
@@ -196,20 +211,7 @@ class CompiledModel:
     def get_derivatives_idx(self, idx_3d):
         return self.scope_vars_3d[idx_3d]
 
-    def vectorizedfulljacobian(self, t, y, dt):
-        h = 1e-8
-        y_perm = y + h * np.diag(np.ones(len(y)))
 
-        f = self.func(t, y)
-        f_h = np.zeros_like(y_perm)
-        for i in range(y_perm.shape[0]):
-            y_i = y_perm[i, :]
-            f_h[i, :] = self.func(t, y_i)
-
-        diff = f_h - f
-        diff /= h
-        jac = diff.T
-        return np.ascontiguousarray(jac)
 
     def get_g(self, t, yold, y, dt, order, a, af):
         f = self.func(t, y)

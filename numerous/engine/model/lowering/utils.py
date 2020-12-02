@@ -1,5 +1,5 @@
 from enum import IntEnum, unique
-from model.lowering.source_gen import SourceGeneratorNumerous
+from numerous.engine.model.lowering.source_gen import SourceGeneratorNumerous
 
 import ast, astor
 

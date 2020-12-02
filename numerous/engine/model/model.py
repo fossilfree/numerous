@@ -6,7 +6,7 @@ import uuid
 from numba.experimental import jitclass
 import pandas as pd
 
-from model.graph_representation.equation_graph import EquationGraph
+from numerous.engine.model.graph_representation.equation_graph import EquationGraph
 from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
 from numerous.engine.scope import Scope, ScopeVariable, ScopeSet
@@ -15,14 +15,12 @@ from numerous.engine.system.subsystem import Subsystem, ItemSet
 from numerous.engine.variables import VariableType
 from numerous.utils.numba_callback import NumbaCallbackBase
 
-import operator
-
 from enum import IntEnum
-from model.graph_representation.parser_ast import parse_eq
-from model.graph_representation.graph import Graph
-from model.graph_representation.parser_ast import process_mappings
+from numerous.engine.model.graph_representation.parser_ast import parse_eq
+from numerous.engine.model.graph_representation.graph import Graph
+from numerous.engine.model.graph_representation.parser_ast import process_mappings
 
-from model.lowering.equations_generator import EquationGenerator
+from numerous.engine.model.lowering.equations_generator import EquationGenerator
 from numerous.engine.system import SetNamespace
 
 
@@ -85,7 +83,6 @@ class ModelAssembler:
                 scope_select.update({scope.id: scope})
                 equation_dict.update({scope.id: (eq_methods, namespace.outgoing_mappings)})
             variables_.update({v.id: v for vs in namespace.variable_scope for v in vs})
-
         return variables_, scope_select, equation_dict
 
 
@@ -260,7 +257,7 @@ class Model:
             parse_eq(ns[1][0],self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations,
                      self.equations_top)
 
-        # self.eg.as_graphviz("test",force =True)
+        self.eg.as_graphviz("test",force =True)
         logging.info('parsing equations completed')
 
         # Process mappings add update the global graph

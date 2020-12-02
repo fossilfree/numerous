@@ -1,2 +1,2 @@
 def d_u(str_):
-    return str_.replace('.', '_')
+    return str(str_).replace('.', '_').replace('-', '_')

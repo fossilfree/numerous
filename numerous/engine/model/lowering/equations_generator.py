@@ -63,31 +63,26 @@ class EquationGenerator:
     def _parse_scope_variables(self):
         for ix, (sv_id, sv) in enumerate(self.scope_variables.items()):
 
-            self.values_order[sv.get_path_dot()] = ix
-            full_tag = d_u(sv.get_path_dot())
+            full_tag = d_u(sv.id)
+            self.values_order[full_tag] = ix
+
             if not sv_id in self.vars_node_id:
-                self.vars_node_id[sv_id] = full_tag
+                self.vars_node_id[full_tag] = full_tag
 
             if full_tag not in self.scope_var_node:
                 self.scope_var_node[full_tag] = sv
 
             if sv.type == VariableType.STATE:
-
-                self.states.append(self.vars_node_id[sv_id])
+                self.states.append(self.vars_node_id[full_tag])
             elif sv.type == VariableType.DERIVATIVE:
-                self.deriv.append(self.vars_node_id[sv_id])
-
-            # Create a dictionary of all set and scalar variables
-            sv_tuple = (sv_id, sv, ix)
+                self.deriv.append(self.vars_node_id[full_tag])
 
             # If a scopevariable is part of a set it should be referenced alone
             if sv.set_var:
                 if not sv.set_var in self.set_variables:
-                    self.set_variables[sv.set_var] = [None] * sv.set_namespace.len_items
-
-                self.set_variables[sv.set_var][sv.set_var_ix] = sv_tuple
+                    self.set_variables[sv.set_var.id] = sv.set_var
             else:
-                self.scalar_variables[sv.get_path_dot()] = sv
+                self.scalar_variables[full_tag] = sv
 
     def _parse_equations(self, equations):
         logging.info('make equations for compilation')

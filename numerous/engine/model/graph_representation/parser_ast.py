@@ -3,7 +3,7 @@ import ast, astor
 from textwrap import dedent
 
 from numerous.engine.model.graph_representation import EquationGraph, Graph
-from model.graph_representation.utils import Vardef
+from numerous.engine.model.graph_representation.utils import Vardef
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute, dot_dict, wrap_function
 from numerous.engine.variables import VariableType
 from numerous.engine.scope import ScopeVariable
@@ -587,7 +587,7 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
 
                     sv = g_qualified.get(n, 'scope_var')
                     neq = equation_graph.add_node(key=sv.id, node_type=NodeTypes.VAR, scope_var=sv,
-                                                  ignore_existing=True, is_set_var=is_set)
+                                                  ignore_existing=True, is_set_var=is_set, label=sv.tag)
 
                     targeted = False
                     read = False
@@ -596,7 +596,7 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
 
                     try:
                         next(end_edges)
-                        equation_graph.add_edge(eq_n, neq, e_type='target', arg_local=sv.tag if sv else 'local')
+                        equation_graph.add_edge(eq_n, neq, e_type='target', arg_local=sv.id if sv else 'local')
                         targeted = True
                     except StopIteration:
                         pass
@@ -605,7 +605,7 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
                         start_edges = g_qualified.get_edges_for_node(start_node=n)
                         try:
                             next(start_edges)
-                            equation_graph.add_edge(neq, eq_n, e_type='arg', arg_local=sv.tag if (
+                            equation_graph.add_edge(neq, eq_n, e_type='arg', arg_local=sv.id if (
                                 sv := g_qualified.get(n, 'scope_var')) else 'local')
                         except StopIteration:
                             pass

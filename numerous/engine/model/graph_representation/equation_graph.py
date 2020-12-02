@@ -91,7 +91,7 @@ class EquationGraph(Graph):
                         for svi in sv.variables.values():
                             tmp_var_counter += 1
                             svf = TemporaryVar('tmp_var_' + str(tmp_var_counter), svi,
-                                               svi.tag + '_' + self.id, tmp_label, svi.set_var_ix)
+                                               svi.tag + '_' + str(sv.id), tmp_label, svi.set_var_ix)
                             fake_sv[d_u(svf.get_path_dot())] = svf
                     else:
                         svf = TemporaryVar(d_u(tmp_label), sv, tmp_label, None, None)
