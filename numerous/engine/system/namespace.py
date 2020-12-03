@@ -175,7 +175,7 @@ class SetNamespace(VariableNamespace):
         item_ix = self.items_id.index(ns.item.id)
         for variable in ns.variables:
             if variable.tag not in self.set_variables.keys():
-                self.set_variables[variable.tag] = SetOfVariables(variable.tag,self.item.tag)
+                self.set_variables[variable.tag] = SetOfVariables(variable.tag, self.item.tag, ns.tag)
             self.set_variables[variable.tag].add_variable(variable)
             variable.set_var_ix = item_ix
 

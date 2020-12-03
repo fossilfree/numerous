@@ -6,7 +6,7 @@ from numerous.engine.model.external_mappings import ExternalMappingElement
 from numerous.utils.data_loader import LocalDataLoader, InMemoryDataLoader
 from pytest import approx
 
-from model.external_mappings.interpolation_type import InterpolationType
+from numerous.engine.model.external_mappings.interpolation_type import InterpolationType
 from numerous.utils.callback_decorators import CallbackMethodType, NumbaCallback
 from numerous.utils.numba_callback import NumbaCallbackBase
 from numerous.engine.model import Model

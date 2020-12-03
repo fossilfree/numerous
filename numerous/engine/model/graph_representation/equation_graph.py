@@ -77,15 +77,12 @@ class EquationGraph(Graph):
             for i, e in self.get_edges_for_node(start_node=n):
                 va = e[1].copy()
                 if va in self.vars_assignments and len(self.vars_assignments[va]) > 1:
-
                     # Make new temp var
                     sv = self.get(e[1], 'scope_var')
                     tmp_label = sv.tag + str(self.key_map[va]) + '_tmp'
-
                     # Create fake scope variables for tmp setvar
                     fake_sv = {}
                     svf = None
-
                     if isinstance(sv, SetOfVariables):
                         tmp_var_counter = 0
                         for svi in sv.variables.values():

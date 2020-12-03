@@ -300,7 +300,7 @@ class Model:
         self.eg.remove_chains()
         self.eg.create_assignments(self.scope_variables)
         self.eg.add_mappings()
-        self.eg.as_graphviz("test", force=True)
+        # self.eg.as_graphviz("test", force=True)
         self.lower_model_codegen()
         self.generate_numba_model = self.generate_numba_model_code_gen
 
@@ -327,24 +327,8 @@ class Model:
         # dict with scope variable id as key and scope variable itself as value
 
         # Create aliases for all paths in each scope variable
-        self.aliases = {}
-        self.path_variables_aliases = {}
-        for sv in self.scope_variables.values():
-
-            if self.system.id in sv.path.path:
-                aliases__ = [a for p in sv.path.path.values() for a in p]
-
-                self.path_variables_aliases[sv.get_path_dot()] = aliases__
-
-        for k, v in self.path_variables_aliases.items():
-            for a in v:
-                self.aliases[a] = k
 
         self.info.update({"Solver": {}})
-
-    def lower_model_tensor(self):
-        pass
-
 
     def get_states(self):
         """
