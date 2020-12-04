@@ -300,7 +300,6 @@ class Model:
         self.eg.remove_chains()
         tmp_vars = self.eg.create_assignments()
         self.eg.add_mappings()
-        # self.eg.as_graphviz("test", force=True)
         self.lower_model_codegen(tmp_vars)
         self.generate_numba_model = self.generate_numba_model_code_gen
 

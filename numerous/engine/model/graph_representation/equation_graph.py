@@ -57,7 +57,7 @@ class EquationGraph(Graph):
                 if not target in self.vars_assignments:
                     self.vars_assignments[target] = []
                     self.vars_assignments_mappings[target] = []
-
+                ##if mapping edge
                 if self.edges_attr['e_type'][edge_ix] == 'mapping':
                     self.vars_mappings[target] = (edge[0], self.edges_attr['mappings'][edge_ix])
                     self.remove_edge(edge_ix)
@@ -65,14 +65,17 @@ class EquationGraph(Graph):
                 self.vars_assignments[target].append(edge[0])
                 self.vars_assignments_mappings[target].append(self.edges_attr['mappings'][edge_ix])
 
+        for target in self.variables():
+            target_edges_indcs, target_edges = self.get_edges_for_node_filter(end_node=target, attr='e_type',
+                                                                              val=['target', 'mapping'])
             if target in self.vars_assignments and len(self.vars_assignments[target]) > 1:
                 for edge_ix in target_edges_indcs:
                     self.remove_edge(edge_ix)
 
+
     def create_assignments(self):
         from tqdm import tqdm
         temp_variables = {}
-
         for ii, n in tqdm(enumerate(self.get_where_attr('node_type', NodeTypes.EQUATION))):
             for i, e in self.get_edges_for_node(start_node=n):
                 va = e[1].copy()

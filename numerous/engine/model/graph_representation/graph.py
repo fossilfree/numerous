@@ -271,13 +271,13 @@ class Graph:
                 dot.node(k, label=self.nodes_attr['label'][n])
 
             for i, e in enumerate(self.edges[:self.edge_counter]):
-
-                try:
-                    if e[0] >= 0 and e[1] >= 0:
-                        dot.edge(self.key_map[e[0]], self.key_map[e[1]], label=self.edges_attr['e_type'][i])
-                except:
-                    print(e)
-                    raise
+                if self.edges_attr['deleted'][i]==0:
+                    try:
+                        if e[0] >= 0 and e[1] >= 0:
+                            dot.edge(self.key_map[e[0]], self.key_map[e[1]], label=self.edges_attr['e_type'][i])
+                    except:
+                        print(e)
+                        raise
 
             dot.render(file, view=True, format='pdf')
 
