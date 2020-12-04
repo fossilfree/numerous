@@ -265,14 +265,8 @@ class Graph:
     def as_graphviz(self, file, force=False):
         # if True:
         if False or force:
-            # print(self.key_map)
-            # print(self.edges_attr.keys())
             dot = Digraph()
-
-
-            # print('ndoses')
             for k, n in self.node_map.items():
-                #   print(k)
 
                 dot.node(k, label=self.nodes_attr['label'][n])
 
@@ -292,18 +286,11 @@ class Graph:
         return [n for n in self.node_map.values() if len(list(self.get_edges_for_node(end_node=n))) == 0]
 
     def make_lower_graph(self, top_sort=False):
-
-        # print('!!')
-        # lower_edges = self.lower_edges()
-        # print('!')
-        # print(self.nodes_attr['node_type'])
-        # print(self.nodes_attr['node_type'][:self.node_counter])
         self.lower_graph = _Graph(self.node_counter,
                                   np.array(self.edges[:self.edge_counter], np.int64),
                                   np.array(self.nodes_attr['node_type'][:self.node_counter], np.int64))
 
         if top_sort:
-            # print('sorting topo')
             self.lower_graph.topological_sort()
 
     def graph_from_path(self, path):
@@ -326,15 +313,12 @@ class Graph:
 
         if self.lower_graph.cyclic_dependency >= 0:
             unsorted_nodes = set(self.lower_graph.nodes).difference(set(self.lower_graph.topological_sorted_nodes))
-            # # print('Unsorted nodes: ', unsorted_nodes)
-
             self.cyclic_path = self.lower_graph.cyclic_path
-            # print(self.lower_graph.cyclic_path)
             cg = self.graph_from_path(self.cyclic_path)
             cg.as_graphviz('cyclic', force=True)
             for n in self.cyclic_path:
                 print(" ".join([str(self.key_map[n]), '          ' + str(
-                    self.get(n, 'file'))]))  # , 'line: '+ str(n[1].lineno), 'col: '+str(n[1].col_offset)]))
+                    self.get(n, 'file'))]))
 
             self.cyclic_dependency = self.lower_graph.cyclic_dependency
             raise ValueError('Cyclic path detected: ', self.cyclic_path)

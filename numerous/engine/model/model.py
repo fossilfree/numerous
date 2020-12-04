@@ -34,7 +34,7 @@ lower_method = LowerMethod.Codegen
 
 class ModelNamespace:
 
-    def __init__(self, tag, outgoing_mappings, item_tag, item_indcs, path, pos,item_path):
+    def __init__(self, tag, outgoing_mappings, item_tag, item_indcs, path, pos, item_path):
         self.tag = tag
         self.item_tag = item_tag
         self.outgoing_mappings = outgoing_mappings
@@ -257,14 +257,14 @@ class Model:
             else:
                 tag_vars = {v.tag: v for k, v in ns[1][0].variables.items()}
 
-            parse_eq(ns[1][0],self.eg, nodes_dep, tag_vars, self.equations_parsed, self.scoped_equations,
-                     self.equations_top)
-
+            parse_eq(model_namespace=ns[1][0], equation_graph=self.eg, nodes_dep=nodes_dep,
+                     scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
+                     scoped_equations=self.scoped_equations, parsed_eq=self.equations_top)
 
         logging.info('parsing equations completed')
 
         # Process mappings add update the global graph
-        self.eg = process_mappings(mappings,  self.eg, nodes_dep, self.scope_variables)
+        self.eg = process_mappings(mappings, self.eg, nodes_dep, self.scope_variables)
         self.eg.build_node_edges()
 
         logging.info('Mappings processed')
@@ -298,10 +298,10 @@ class Model:
 
         self.eg = EquationGraph.from_graph(self.eg)
         self.eg.remove_chains()
-        self.eg.create_assignments(self.scope_variables)
+        tmp_vars = self.eg.create_assignments()
         self.eg.add_mappings()
         # self.eg.as_graphviz("test", force=True)
-        self.lower_model_codegen()
+        self.lower_model_codegen(tmp_vars)
         self.generate_numba_model = self.generate_numba_model_code_gen
 
         assemble_finish = time.time()
@@ -313,11 +313,12 @@ class Model:
         self.info.update({"Number of equations": len(self.compiled_eq)})
         self.info.update({"Solver": {}})
 
-    def lower_model_codegen(self):
+    def lower_model_codegen(self, tmp_vars):
 
         logging.info('lowering model')
         eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py", equation_graph=self.eg,
-                                   scope_variables=self.scope_variables,scoped_equations=self.scoped_equations)
+                                   scope_variables=self.scope_variables, scoped_equations=self.scoped_equations,
+                                   temporary_variables=tmp_vars)
 
         self.compiled_compute, self.var_func, self.vars_ordered_values, self.vars_ordered, self.scope_vars_vars = \
             eq_gen.generate_equations()
@@ -544,9 +545,9 @@ class Model:
     def create_model_namespaces(self, item):
         namespaces_list = []
         for namespace in item.registered_namespaces.values():
-            set_namespace = isinstance(namespace,SetNamespace)
+            set_namespace = isinstance(namespace, SetNamespace)
             model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag, namespace.items,
-                                             namespace.path, set_namespace,'.'.join(item.path))
+                                             namespace.path, set_namespace, '.'.join(item.path))
             # model_namespace.mappings = namespace.mappings
             model_namespace.variable_scope = namespace.get_flat_variables()
             model_namespace.set_variables = namespace.set_variables

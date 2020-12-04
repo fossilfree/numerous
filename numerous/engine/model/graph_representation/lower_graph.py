@@ -88,8 +88,6 @@ def walk_children(parent_edges, children_edges, self_edges, n, edges, ix, visite
 
         if index(visited_edges[:n_visited], e[2]) < 0:
 
-            # if e[0] == n:
-
             visited_edges[n_visited] = e[2]
             n_visited += 1
 
@@ -156,7 +154,6 @@ spec = [
     ('node_types', int64[:]),
     ('edges', int64[:, :]),
     ('children', int64[:, :]),
-    #  ('parents', int64[:, :]),
     ('parent_edges', int64[:, :]),
     ('children_edges', int64[:, :]),
     ('ancestors', int64[:, :]),
@@ -186,7 +183,6 @@ class _Graph:
 
         self.children = np.zeros((self.n_nodes, self.n_children_max), np.int64)
 
-        # self.parents = np.zeros((self.n_nodes, self.n_children_max), int64)
 
         self.parent_edges = np.zeros((self.n_nodes, self.n_children_max), np.int64)
 
@@ -216,11 +212,6 @@ class _Graph:
                 raise ValueError('More children than allowed!')
             row[row[0]] = e[1]
 
-            # row_p = self.parents[e[1], :]
-            # row_p[0] += 1
-            # if row_p[0] > self.n_children_max - 1:
-            #    raise ValueError('More parents than allowed!')
-            # row_p[row_p[0]] = e[0]
 
             row_pe = self.parent_edges[e[1], :]
             row_pe[0] += 1
@@ -290,19 +281,16 @@ class _Graph:
                     zero_indegree[n_zero_indegree] = child
                     n_zero_indegree += 1
 
-        # print('n sorted out: ', n_sorted)
-        # print('n nodes: ', self.n_nodes)
         if n_sorted < self.n_nodes:
-            # print('!')
+
             cd, self.cyclic_path = self.detect_cyclic_graph()
-            # print(cd)
+
             self.cyclic_dependency = cd
         else:
             self.cyclic_dependency = -1
 
-        # print(sorted_nodes)
         self.topological_sorted_nodes = sorted_nodes
-        # return sorted_nodes
+
 
     def get_ancestor_graph(self, n):
         edges = np.zeros_like(self.edges)
@@ -342,7 +330,6 @@ class _Graph:
         edges = edges[:ix, :]
         edges[:ix, 3] = 2
 
-        # nodes = np.zeros((0,1),int64)
         nodes = np.zeros(2 * len(edges), dtype=int64)
 
         for i, e in enumerate(edges):
@@ -357,7 +344,6 @@ class _Graph:
 
     def get_dependants_graph_subgraph(self, nodes, subedges):
 
-        # parent_edges, children_edges = self.make_edges_map(subedges, nodes)
 
         edges = np.zeros_like(subedges)
 
@@ -371,14 +357,12 @@ class _Graph:
         edges = edges[:ix, :]
         edges[:ix, 3] = 2
 
-        # nodes = np.zeros((0,1),int64)
         nodes = np.zeros(2 * len(edges), dtype=int64)
 
         for i, e in enumerate(edges):
             nodes[2 * i] = e[0]
             nodes[2 * i + 1] = e[1]
 
-        # nodes = nodes[:i * 2+1+1]
 
         nodes = np.unique(nodes)
 
@@ -386,9 +370,7 @@ class _Graph:
 
     def get_anc_dep_graph(self, n):
         anc_nodes, anc_edges, deriv_dependencies = self.get_ancestor_graph(n)
-        # print(anc_nodes)
         state_nodes = np.array([ancn for ancn in anc_nodes if self.node_types[ancn] >= 3], np.int64)
-        # print('states: ', state_nodes)
         if len(state_nodes) > 0:
             nodes, edges = self.get_dependants_graph_subgraph(state_nodes, anc_edges)
 
@@ -407,7 +389,6 @@ class _Graph:
             if cyclic_dependency >= 0:
                 print('cyclic dependency: ', cyclic_dependency)
                 print('cyclic path: ', cyclic_path)
-                # raise ValueError('cyclic dependency')
                 return cyclic_dependency, cyclic_path
 
         return int64(-1), np.zeros((0,), dtype=int64)

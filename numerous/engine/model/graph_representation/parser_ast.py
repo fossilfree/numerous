@@ -479,7 +479,7 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
              parsed_eq_branches, scoped_equations, parsed_eq):
     for m in model_namespace.equation_dict.values():
         for eq in m:
-            eq_key = eq.id +model_namespace.full_tag
+            eq_key ="EQ_"+ (eq.id + model_namespace.full_tag).replace(".", "_").replace("-", "_")
 
             if not eq_key in parsed_eq:
                 dsource = eq.lines
@@ -615,18 +615,17 @@ def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
     logging.info('process mappings')
     for m in mappings:
         target_var = scope_vars[m[0]]
-        target_set_var_ix=-1
+        target_set_var_ix = -1
         if target_var.set_var:
             target_set_var_ix = target_var.set_var_ix
-            target_var=target_var.set_var
+            target_var = target_var.set_var
         target_var_id = target_var.id
-
 
         node_type = NodeTypes.VAR
 
         t = equation_graph.add_node(key=target_var_id, file='mapping', name=m, ln=0, id=target_var_id,
                                     label=target_var.get_path_dot(), ast_type=ast.Attribute, node_type=node_type,
-                                    scope_var=target_var, ignore_existing=False,set_var_ix = target_set_var_ix)
+                                    scope_var=target_var, ignore_existing=False, set_var_ix=target_set_var_ix)
 
         if not target_var_id in nodes_dep:
             nodes_dep[target_var_id] = []
@@ -636,7 +635,7 @@ def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
         for i in m[1]:
 
             ivar_var = scope_vars[i]
-            ivar_set_var_ix= -1
+            ivar_set_var_ix = -1
 
             if ivar_var.set_var:
                 ivar_set_var_ix = ivar_var.set_var_ix
@@ -647,12 +646,10 @@ def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
             if not ivar_id in nodes_dep:
                 nodes_dep[ivar_id] = []
 
-
-
             ivar_node_e = equation_graph.add_node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id,
                                                   label=ivar_var.get_path_dot(),
                                                   ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=ivar_var,
-                                                  ignore_existing=False,set_var_ix = ivar_set_var_ix)
+                                                  ignore_existing=False, set_var_ix=ivar_set_var_ix)
 
             ix_ = equation_graph.has_edge_for_nodes(start_node=ivar_node_e, end_node=t)
             lix = len(ix_)

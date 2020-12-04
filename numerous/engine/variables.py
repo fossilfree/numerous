@@ -131,7 +131,7 @@ class VariablePath:
 class SetOfVariables:
     def __init__(self, tag, item_tag,ns_tag):
         self.tag = tag
-        self.id = str(uuid.uuid4())
+        self.id = "SET"+str(uuid.uuid4()).replace("-", "_")
         self.variables = {}
         self.mapping = []
         self.sum_mapping = []

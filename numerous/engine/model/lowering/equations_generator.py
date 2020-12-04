@@ -17,10 +17,11 @@ from string_utils import d_u
 
 
 class EquationGenerator:
-    def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations):
+    def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations, temporary_variables):
         self.filename = filename
         self.scope_variables = scope_variables
         self.scoped_equations = scoped_equations
+        self.temporary_variables = temporary_variables
 
         self.states = []
         self.set_variables = {}
@@ -31,7 +32,7 @@ class EquationGenerator:
         self.scope_var_node = {}
         self.scalar_variables = {}
 
-        self._parse_scope_variables()
+        self._parse_variables()
 
         # Sort the graph topologically to start generating code
         self.topo_sorted_nodes = equation_graph.topological_nodes()
@@ -48,53 +49,55 @@ class EquationGenerator:
         self.mod_body = []
         # Create a kernel of assignments and calls
         self.body = []
-        # Loop over equation functions and generate code
+
         self.eq_vardefs = {}
-
+        # Loop over equation functions and generate code for each equation.
         self._parse_equations(equations)
-
 
         self.all_targeted = []
         self.all_read = []
         self.all_targeted_set_vars = []
         self.all_read_set_vars = []
 
+    def _parse_variable(self, full_tag, sv, sv_id):
+        if not sv_id in self.vars_node_id:
+            self.vars_node_id[full_tag] = full_tag
 
-    def _parse_scope_variables(self):
+        if full_tag not in self.scope_var_node:
+            self.scope_var_node[full_tag] = sv
+
+        if sv.type == VariableType.STATE:
+            self.states.append(self.vars_node_id[full_tag])
+        elif sv.type == VariableType.DERIVATIVE:
+            self.deriv.append(self.vars_node_id[full_tag])
+
+        # If a scope_variable is part of a set it should be referenced alone
+        if sv.set_var:
+            if not sv.set_var.id in self.set_variables:
+                self.set_variables[sv.set_var.id] = sv.set_var
+        else:
+            self.scalar_variables[full_tag] = sv
+
+    def _parse_variables(self):
         for ix, (sv_id, sv) in enumerate(self.scope_variables.items()):
-
             full_tag = d_u(sv.id)
             self.values_order[full_tag] = ix
-
-            if not sv_id in self.vars_node_id:
-                self.vars_node_id[full_tag] = full_tag
-
-            if full_tag not in self.scope_var_node:
-                self.scope_var_node[full_tag] = sv
-
-            if sv.type == VariableType.STATE:
-                self.states.append(self.vars_node_id[full_tag])
-            elif sv.type == VariableType.DERIVATIVE:
-                self.deriv.append(self.vars_node_id[full_tag])
-
-            # If a scopevariable is part of a set it should be referenced alone
-            if sv.set_var:
-                if not sv.set_var in self.set_variables:
-                    self.set_variables[sv.set_var.id] = sv.set_var
-            else:
-                self.scalar_variables[full_tag] = sv
+            self._parse_variable(full_tag, sv, sv_id)
+        for ix, (sv_id, sv) in enumerate(self.temporary_variables.items()):
+            full_tag = d_u(sv.id)
+            self._parse_variable(full_tag, sv, sv_id)
 
     def _parse_equations(self, equations):
         logging.info('make equations for compilation')
         for eq_key, eq in equations.items():
             vardef = Vardef()
 
-            func = function_from_graph_generic(eq[2], eq_key.replace('.', '_'), var_def_=vardef, decorators=["njit"])
+            func = function_from_graph_generic(eq[2], eq_key, var_def_=vardef, decorators=["njit"])
 
             eq[2].lower_graph = None
 
             func_llvm, signature, args, targets = compiled_function_from_graph_generic_llvm(eq[2],
-                                                                                            eq_key.replace('.', '_'),
+                                                                                            eq_key,
                                                                                             var_def_=Vardef_llvm())
             self.llvm_program.add_external_function(func_llvm, signature, len(args), len(targets))
             self.eq_vardefs[eq_key] = vardef
@@ -127,18 +130,16 @@ class EquationGenerator:
                              if
                              not self.equation_graph.edges_attr['arg_local'][i] == 'local']
 
-        # Map of scope.?? vars and global-scope variable names
-        scope_vars = {'scope.' + k: v for k, v in
-                      zip(args_scope_var + targets_scope_var, args_local + targets_local)}
-
-        # find the a
-
-        # Put the information of args and targets in the scope_var attr of the graph node for those equation
-        self.equation_graph.nodes_attr['scope_var'][n] = {'args': [scope_vars[a] for a in vardef.args],
-                                                          'targets': [scope_vars[a] for a in vardef.targets]}
-
         # Record targeted and read variables
         if self.equation_graph.get(n, 'vectorized'):
+
+            # Map of scope.?? vars and global-scope variable names
+            scope_vars = {'scope.' + self.scope_variables[k].tag: v for k, v in
+                          zip(args_scope_var + targets_scope_var, args_local + targets_local)}
+
+            # Put the information of args and targets in the scope_var attr of the graph node for those equation
+            self.equation_graph.nodes_attr['scope_var'][n] = {'args': [scope_vars[a] for a in vardef.args],
+                                                              'targets': [scope_vars[a] for a in vardef.targets]}
             # Record all targeted varables
             for t in vardef.targets:
                 self.all_targeted_set_vars.append(scope_vars[t])
@@ -146,6 +147,14 @@ class EquationGenerator:
             for a in vardef.args:
                 self.all_read_set_vars.append(scope_vars[a])
         else:
+            # Map of scope.?? vars and global-scope variable names
+            scope_vars = {'scope.' + self.scope_variables[k].tag: v for k, v in
+                          zip(args_scope_var + targets_scope_var, args_local + targets_local)}
+
+            # Put the information of args and targets in the scope_var attr of the graph node for those equation
+            self.equation_graph.nodes_attr['scope_var'][n] = {'args': [scope_vars[a] for a in vardef.args],
+                                                              'targets': [scope_vars[a] for a in vardef.targets]}
+
             for a in vardef.args:
                 if (sva := scope_vars[a]) in self.set_variables:
                     self.all_read_set_vars.append(sva)
@@ -153,7 +162,7 @@ class EquationGenerator:
                     self.all_read.append(sva)
 
             self.all_targeted += [scope_vars[t] for t in
-                             vardef.targets]
+                                  vardef.targets]
 
         # Generate ast for this equation call
         args_ast = [ast.Name(id=d_u(scope_vars[a])) for a in vardef.args]
@@ -172,7 +181,7 @@ class EquationGenerator:
                 # For loop over items in set
                 ast.For(
                     body=[ast.Assign(targets=targets, value=ast.Call(
-                        func=ast.Name(id=self.scoped_equations [self.equation_graph.key_map[n]].replace('.', '_')),
+                        func=ast.Name(id=self.scoped_equations[self.equation_graph.key_map[n]].replace('.', '_')),
                         args=[ast.Subscript(value=ast.Name(id=a), slice=ast.Index(value=ast.Name(id='i'))) for a
                               in
                               args_ast], keywords=[]))],
@@ -194,15 +203,15 @@ class EquationGenerator:
                 targets = [ast.Name(id=d_u(scope_vars[vardef.targets[0]]))]
 
             self.body.append(ast.Assign(targets=targets, value=ast.Call(
-                func=ast.Name(id=self.scoped_equations [self.equation_graph.key_map[n]].replace('.', '_')),
+                func=ast.Name(id=self.scoped_equations[self.equation_graph.key_map[n]].replace('.', '_')),
                 args=args_ast,
                 keywords=[])))
 
         # Generate llvm lines
-        args = [scope_vars[a] for a in vardef.args]
+        args = [d_u(scope_vars[a]) for a in vardef.args]
 
         # Generate targets
-        targets = [scope_vars[t] for t
+        targets = [d_u(scope_vars[t]) for t
                    in
                    vardef.targets]
 
@@ -211,7 +220,7 @@ class EquationGenerator:
 
         # Add this eq to the llvm_program
 
-        self.llvm_program.add_call(ext_func+'_llvm1.<locals>.'+ext_func+'_llvm', args, targets)
+        self.llvm_program.add_call(ext_func + '_llvm1.<locals>.' + ext_func + '_llvm', args, targets)
 
     def generate_equations(self):
         logging.info('Generate kernel')
@@ -411,8 +420,6 @@ class EquationGenerator:
             #
             # else:
             #     raise ValueError('Unused node: ', self.equation_graph.key_map[n])
-
-
 
         # Update maps between scope variables
         for sv_id, sv in self.scope_variables.items():

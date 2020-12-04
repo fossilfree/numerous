@@ -9,7 +9,7 @@ class TemporaryVar():
 
     def __init__(self, id, svi, tag, set_var, set_var_ix):
         self.id = id
-        self.tag = tag
+        self.tag = tag+id
         self.set_namespace = svi.set_namespace
         self.parent_scope_id = svi.parent_scope_id
         self.set_var = set_var
@@ -69,11 +69,11 @@ class EquationGraph(Graph):
                 for edge_ix in target_edges_indcs:
                     self.remove_edge(edge_ix)
 
-    def create_assignments(self, scope_variables):
+    def create_assignments(self):
         from tqdm import tqdm
+        temp_variables = {}
 
         for ii, n in tqdm(enumerate(self.get_where_attr('node_type', NodeTypes.EQUATION))):
-
             for i, e in self.get_edges_for_node(start_node=n):
                 va = e[1].copy()
                 if va in self.vars_assignments and len(self.vars_assignments[va]) > 1:
@@ -88,13 +88,13 @@ class EquationGraph(Graph):
                         for svi in sv.variables.values():
                             tmp_var_counter += 1
                             svf = TemporaryVar('tmp_var_' + str(tmp_var_counter), svi,
-                                               svi.tag + '_' + str(sv.id), tmp_label, svi.set_var_ix)
+                                               svi.tag + '_' + str(sv.id), svi.set_var, svi.set_var_ix)
                             fake_sv[d_u(svf.get_path_dot())] = svf
                     else:
                         svf = TemporaryVar(d_u(tmp_label), sv, tmp_label, None, None)
                         fake_sv[d_u(svf.get_path_dot())] = svf
 
-                    scope_variables.update(fake_sv)
+                    temp_variables.update(fake_sv)
 
                     tmp = self.add_node(key=tmp_label, node_type=NodeTypes.TMP, name=tmp_label, ast=None,
                                         file='sum', label=tmp_label, ln=0,
@@ -106,6 +106,7 @@ class EquationGraph(Graph):
 
                     self.vars_assignments_mappings[va][(nix := self.vars_assignments[va].index(n))] = ':'
                     self.vars_assignments[va][nix] = tmp
+        return temp_variables
 
     def add_mappings(self):
         for a, vals in self.vars_assignments.items():
