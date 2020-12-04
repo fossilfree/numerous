@@ -22,6 +22,17 @@ class TemporaryVar():
         return self.tag
 
 
+class TemporarySetVar:
+
+    def __init__(self, id,set_var):
+        self.id = id
+        self.tmp_vars = []
+        self.type = VariableType.PARAMETER_SET
+        self.set_var = set_var
+
+    def get_size(self):
+        return len(self.tmp_vars)
+
 class SumCount:
     def __init__(self):
         self.count = -1
@@ -88,11 +99,13 @@ class EquationGraph(Graph):
                     svf = None
                     if isinstance(sv, SetOfVariables):
                         tmp_var_counter = 0
+                        tsv = TemporarySetVar(tmp_label,sv)
                         for svi in sv.variables.values():
                             tmp_var_counter += 1
                             svf = TemporaryVar('tmp_var_' + str(tmp_var_counter), svi,
                                                svi.tag + '_' + str(sv.id), svi.set_var, svi.set_var_ix)
-                            fake_sv[d_u(svf.get_path_dot())] = svf
+                            tsv.tmp_vars.append(svf)
+                        fake_sv[tsv.id] = tsv
                     else:
                         svf = TemporaryVar(d_u(tmp_label), sv, tmp_label, None, None)
                         fake_sv[d_u(svf.get_path_dot())] = svf

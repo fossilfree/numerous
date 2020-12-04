@@ -16,6 +16,7 @@ class VariableType(Enum):
     PARAMETER = 1
     STATE = 2
     DERIVATIVE = 3
+    PARAMETER_SET = 4
 
 
 class OverloadAction(Enum):
@@ -45,7 +46,7 @@ class DetailedVariableDescription(VariableDescription):
 
 class MappedValue(object):
     def __init__(self, id):
-        self.id = id
+        self.id = str(id).replace("-","_")
         self.mapping = None
         self.sum_mapping = []
         self.special_mapping = False
@@ -56,8 +57,8 @@ class MappedValue(object):
         if not self.special_mapping:
             if variable.id == self.id:
                 raise RecursionError("Variable {0} cannot be mapped to itself", self.id)
-            #location_context =
-            #self.mapping = (variable, location_context)
+            # location_context =
+            # self.mapping = (variable, location_context)
             self.mapping = variable
         self.special_mapping = False
 
@@ -70,11 +71,11 @@ class MappedValue(object):
                 raise ValueError('It is not possible to add a summation to {0}. Variable already have mapping'
                                  ''.format(self.tag))
             else:
-                #import inspect
-                #curframe = inspect.currentframe()
-                #calframe = inspect.getouterframes(curframe, 2)
-                #print(calframe)
-                #print(self.tag, ' mapped to: ', other.tag, ' by ', calframe[1][3])
+                # import inspect
+                # curframe = inspect.currentframe()
+                # calframe = inspect.getouterframes(curframe, 2)
+                # print(calframe)
+                # print(self.tag, ' mapped to: ', other.tag, ' by ', calframe[1][3])
 
                 self.add_sum_mapping(other)
                 self.special_mapping = True
@@ -129,27 +130,35 @@ class VariablePath:
 
 
 class SetOfVariables:
-    def __init__(self, tag, item_tag,ns_tag):
+    def __init__(self, tag, item_tag, ns_tag):
         self.tag = tag
-        self.id = "SET"+str(uuid.uuid4()).replace("-", "_")
+        self.id = "SET" + str(uuid.uuid4()).replace("-", "_")
         self.variables = {}
         self.mapping = []
         self.sum_mapping = []
         self.item_tag = item_tag
-        self.ns_tag=ns_tag
+        self.ns_tag = ns_tag
+        self.size = 0
+
+    def get_size(self):
+        return self.size
 
     def get_path_dot(self):
         result = list(self.variables.values())[0].get_path_dot()
 
-        return result[:result.find(self.item_tag)]+self.item_tag+"."+self.ns_tag+"."+self.tag
+        return result[:result.find(self.item_tag)] + self.item_tag + "." + self.ns_tag + "." + self.tag
 
     def add_variable(self, variable):
-        self.variables.update({variable.id:variable})
+        self.variables.update({variable.id: variable})
         variable.set_var = self
         if variable.sum_mapping:
             self.sum_mapping.append(variable.sum_mapping)
         if variable.mapping:
             self.mapping.append(variable.mapping)
+        self.size += 1
+
+    def get_var_by_idx(self, i):
+        return next(var for var in self.variables.values() if var.set_var_ix == i)
 
     def __iter__(self):
         return iter(self.variables.values())

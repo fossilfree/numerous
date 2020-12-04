@@ -59,6 +59,12 @@ class EquationGenerator:
         self.all_targeted_set_vars = []
         self.all_read_set_vars = []
 
+        for k, var in temporary_variables.items():
+            if var.type == VariableType.PARAMETER_SET:
+                self.set_variables.update({k: var})
+            if var.type == VariableType.PARAMETER:
+                self.scope_variables.update({k: var})
+
     def _parse_variable(self, full_tag, sv, sv_id):
         if not sv_id in self.vars_node_id:
             self.vars_node_id[full_tag] = full_tag
@@ -87,8 +93,8 @@ class EquationGenerator:
             full_tag = d_u(sv.id)
             self._parse_variable(full_tag, sv, sv_id)
 
-    def _llvm_func_name(self,ext_func):
-        ext_func + '_llvm1.<locals>.' + ext_func + '_llvm'
+    def _llvm_func_name(self, ext_func):
+        return ext_func + '_llvm1.<locals>.' + ext_func + '_llvm'
 
     def _parse_equations(self, equations):
         logging.info('make equations for compilation')
@@ -135,7 +141,7 @@ class EquationGenerator:
         targets_scope_var = [self.equation_graph.edges_attr['arg_local'][i] for i, ae in zip(t_indcs, t_edges)
                              if
                              not self.equation_graph.edges_attr['arg_local'][i] == 'local']
-
+        set_size = 0
         # Record targeted and read variables
         if self.equation_graph.get(n, 'vectorized'):
 
@@ -149,6 +155,8 @@ class EquationGenerator:
             # Record all targeted variables
             for t in vardef.targets:
                 self.all_targeted_set_vars.append(scope_vars[t])
+                ##TODO check that they all the same size
+                set_size = self.set_variables[scope_vars[t]].get_size()
             # Record all read variables
             for a in vardef.args:
                 self.all_read_set_vars.append(scope_vars[a])
@@ -191,16 +199,31 @@ class EquationGenerator:
                               args_ast], keywords=[]))],
                     orelse=[],
                     iter=ast.Call(func=ast.Name(id='range'),
-                                  args=[ast.Num(n=len(self.set_variables[scope_vars[t]]))],
+                                  args=[ast.Num(n=set_size)],
                                   keywords=[], target=ast.Name(id='i')),
                     target=ast.Name(id='i')
                 )
             )
 
-            self.llvm_program.add_set_call(self._llvm_func_name(ext_func), [["oscillator1.mechanics.x", "oscillator1.mechanics.y"],
-                                                               ["oscillator1.mechanics.z", "oscillator1.mechanics.a"]],
-                                      [["oscillator1.mechanics.c", "oscillator1.mechanics.x_dot"],
-                                       ["oscillator1.mechanics.y_dot", "oscillator1.mechanics.z_dot"]])
+            llvm_targets = []
+            for t in vardef.targets:
+                llvm_targets_ = []
+                set_var = self.set_variables[scope_vars[t]]
+                for i in range(set_var.get_size()):
+                    llvm_targets_.append(set_var.get_var_by_idx(i).id)
+                llvm_targets.append(llvm_targets_)
+
+            llvm_args = []
+            for t in vardef.args:
+                llvm_args_ = []
+                set_var = self.set_variables[scope_vars[t]]
+                for i in range(set_var.get_size()):
+                    llvm_args_.append(set_var.get_var_by_idx(i).id)
+                llvm_args.append(llvm_args_)
+            ##reshape to correct llvm format
+            llvm_targets = [list(x) for x in zip(*llvm_targets)]
+            llvm_args = [list(x) for x in zip(*llvm_args)]
+            self.llvm_program.add_set_call(self._llvm_func_name(ext_func), llvm_args, llvm_targets)
 
 
         else:
@@ -227,190 +250,188 @@ class EquationGenerator:
             # Add this eq to the llvm_program
             self.llvm_program.add_call(self._llvm_func_name(ext_func), args, targets)
 
+    def _process_sum_node(self, n):
+        t_indcs, target_edges = list(
+            self.equation_graph.get_edges_for_node_filter(start_node=n, attr='e_type', val='target'))
+        v_indcs, value_edges = list(
+            self.equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val='value'))
 
-    def _process_sum_node(self,n):
-            t_indcs, target_edges = list(
-                self.equation_graph.get_edges_for_node_filter(start_node=n, attr='e_type', val='target'))
-            v_indcs, value_edges = list(
-                self.equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val='value'))
+        # assume single target
+        if lte := len(target_edges) != 1:
+            raise ValueError(f'Wrong length of target edges - must be 1 but is {lte}')
+        t = target_edges[0][1]
 
-            # assume single target
-            if lte := len(target_edges) != 1:
-                raise ValueError(f'Wrong length of target edges - must be 1 but is {lte}')
-            t = target_edges[0][1]
+        # If the target is a set variable
+        if (t_sv := self.equation_graph.get(t, 'scope_var')).set_var:
 
-            # If the target is a set variable
-            if (t_sv := self.equation_graph.get(t, 'scope_var')).set_var:
+            self.all_targeted_set_vars.append(self.equation_graph.key_map[t])
 
-                self.all_targeted_set_vars.append(self.equation_graph.key_map[t])
+            l_mapping = len(self.set_variables[t_sv.set_var])
+            mappings = {':': [], 'ix': []}
 
-                l_mapping = len(self.set_variables[t_sv.set_var])
-                mappings = {':': [], 'ix': []}
+            # make a list of assignments to each index in t
+            for v_ix, v in zip(v_indcs, value_edges):
+                if (nt := self.equation_graph.get(v[0], 'node_type')) == NodeTypes.VAR or nt == NodeTypes.TMP:
 
-                # make a list of assignments to each index in t
-                for v_ix, v in zip(v_indcs, value_edges):
-                    if (nt := self.equation_graph.get(v[0], 'node_type')) == NodeTypes.VAR or nt == NodeTypes.TMP:
+                    if (mix := self.equation_graph.edges_attr['mappings'][v_ix]) == ':':
+                        mappings[':'].append(self.equation_graph.key_map[v[0]])
 
-                        if (mix := self.equation_graph.edges_attr['mappings'][v_ix]) == ':':
-                            mappings[':'].append(self.equation_graph.key_map[v[0]])
-
-                        elif isinstance(mix, list):
-                            sums = {}
-                            for m in mix:
-                                if not m[1] in sums:
-                                    sums[m[1]] = []
-                                sums[m[1]].append(m[0])
-                            mappings['ix'].append((self.equation_graph.key_map[v[0]], sums))
-
-                        else:
-                            raise ValueError(
-                                f'mapping indices not specified!{self.equation_graph.edges_attr["mappings"][v_ix]}, {self.equation_graph.key_map[t]} <- {self.equation_graph.key_map[v[0]]}')
+                    elif isinstance(mix, list):
+                        sums = {}
+                        for m in mix:
+                            if not m[1] in sums:
+                                sums[m[1]] = []
+                            sums[m[1]].append(m[0])
+                        mappings['ix'].append((self.equation_graph.key_map[v[0]], sums))
 
                     else:
-                        raise ValueError(f'this must be a mistake {self.equation_graph.key_map[v[0]]}')
+                        raise ValueError(
+                            f'mapping indices not specified!{self.equation_graph.edges_attr["mappings"][v_ix]}, {self.equation_graph.key_map[t]} <- {self.equation_graph.key_map[v[0]]}')
 
-                mappings_ast_pairs = [
-                                         []] * l_mapping  # To be list of tuples of var and target for each indix in target
+                else:
+                    raise ValueError(f'this must be a mistake {self.equation_graph.key_map[v[0]]}')
 
-                # process specific index mappings
-                for m_ix in mappings['ix']:
+            mappings_ast_pairs = [
+                                     []] * l_mapping  # To be list of tuples of var and target for each indix in target
 
-                    # m_ix[0] is a variable mapped to the current set variable
-                    # m_ix[1] is a dict:
-                    # Keys which are indices to this set variable.
-                    # Values which are indices to the variable mapped to this set variable
-                    from_ = m_ix[0]
-                    # m_ix1_keys = list(m_ix[1].keys())
+            # process specific index mappings
+            for m_ix in mappings['ix']:
 
-                    # loop over all indices in target
-                    for target_ix, value_ix in m_ix[1].items():
-                        mappings_ast_pairs[target_ix].append((from_, value_ix))
+                # m_ix[0] is a variable mapped to the current set variable
+                # m_ix[1] is a dict:
+                # Keys which are indices to this set variable.
+                # Values which are indices to the variable mapped to this set variable
+                from_ = m_ix[0]
+                # m_ix1_keys = list(m_ix[1].keys())
 
-                # Generate ast for the mappings
+                # loop over all indices in target
+                for target_ix, value_ix in m_ix[1].items():
+                    mappings_ast_pairs[target_ix].append((from_, value_ix))
 
-                # Utility function to make a ..+..+.. type ast from list of elts
-                def add_ast_gen(elts_to_sum, op=ast.Add()):
-                    prev = None
-                    for ets in elts_to_sum:
-                        if prev:
-                            prev = ast.BinOp(op=op, left=prev, right=ets)
-                        else:
-                            prev = ets
-                    return prev
+            # Generate ast for the mappings
 
-                map_targets = []
-                map_values = []
-
-                for t_ix, map_ in enumerate(mappings_ast_pairs):
-                    map_targets.append(ast.Subscript(
-                        slice=ast.Index(value=ast.Num(n=t_ix)), value=ast.Name(id=d_u(t_sv.set_var))))
-                    if len(map_) > 0:
-                        map_val_list = [ast.Subscript(
-                            slice=ast.Index(value=ast.Num(n=v_ix)),
-                            value=ast.Name(id=d_u(v_target))) if not v_ix is None else ast.Name(id=d_u(v_target))
-                                        for
-                                        v_target, v_indcs in map_ for v_ix in v_indcs]
+            # Utility function to make a ..+..+.. type ast from list of elts
+            def add_ast_gen(elts_to_sum, op=ast.Add()):
+                prev = None
+                for ets in elts_to_sum:
+                    if prev:
+                        prev = ast.BinOp(op=op, left=prev, right=ets)
                     else:
-                        map_val_list = [ast.Num(n=0)]
+                        prev = ets
+                return prev
 
-                    map_values.append(map_val_list)
+            map_targets = []
+            map_values = []
 
-                self.body.append(ast.Assign(targets=[ast.Tuple(elts=map_targets)],
-                                            value=ast.Tuple(elts=[add_ast_gen(mv) for mv in map_values])))
+            for t_ix, map_ in enumerate(mappings_ast_pairs):
+                map_targets.append(ast.Subscript(
+                    slice=ast.Index(value=ast.Num(n=t_ix)), value=ast.Name(id=d_u(t_sv.set_var))))
+                if len(map_) > 0:
+                    map_val_list = [ast.Subscript(
+                        slice=ast.Index(value=ast.Num(n=v_ix)),
+                        value=ast.Name(id=d_u(v_target))) if not v_ix is None else ast.Name(id=d_u(v_target))
+                                    for
+                                    v_target, v_indcs in map_ for v_ix in v_indcs]
+                else:
+                    map_val_list = [ast.Num(n=0)]
 
-                if len(mappings[':']) > 0:
-                    # Mappings of full set vars to the target
-                    prev = None
+                map_values.append(map_val_list)
 
-                    for mcolon in mappings[':']:
+            self.body.append(ast.Assign(targets=[ast.Tuple(elts=map_targets)],
+                                        value=ast.Tuple(elts=[add_ast_gen(mv) for mv in map_values])))
 
-                        if prev:
-                            # print('prev: ',prev)
-                            prev = ast.BinOp(left=prev, right=ast.Name(id=d_u(mcolon)), op=ast.Add())
-                        else:
-                            prev = ast.Name(id=d_u(mcolon))
-                    if len(mappings['ix']) > 0:
-                        self.body.append(
-                            ast.AugAssign(target=ast.Name(id=d_u(t_sv.set_var)), value=prev, op=ast.Add()))
+            if len(mappings[':']) > 0:
+                # Mappings of full set vars to the target
+                prev = None
+
+                for mcolon in mappings[':']:
+
+                    if prev:
+                        # print('prev: ',prev)
+                        prev = ast.BinOp(left=prev, right=ast.Name(id=d_u(mcolon)), op=ast.Add())
                     else:
-                        self.body.append(ast.Assign(targets=[ast.Name(id=d_u(t_sv.set_var))], value=prev))
+                        prev = ast.Name(id=d_u(mcolon))
+                if len(mappings['ix']) > 0:
+                    self.body.append(
+                        ast.AugAssign(target=ast.Name(id=d_u(t_sv.set_var)), value=prev, op=ast.Add()))
+                else:
+                    self.body.append(ast.Assign(targets=[ast.Name(id=d_u(t_sv.set_var))], value=prev))
 
-                    # For LLVM
-                    # TODO: Make llvm generator compatible with this...
-
-                # Generate llvm
-
+                # For LLVM
                 # TODO: Make llvm generator compatible with this...
-                self.llvm_program.append({'func': 'sum', 'target': t_sv.set_var, 'args': mappings_ast_pairs})
-                self.llvm_program.append({'func': 'sum', 'target': t_sv.set_var, 'args': mappings[':']})
 
+            # Generate llvm
+
+            # TODO: Make llvm generator compatible with this...
+            self.llvm_program.append({'func': 'sum', 'target': t_sv.set_var, 'args': mappings_ast_pairs})
+            self.llvm_program.append({'func': 'sum', 'target': t_sv.set_var, 'args': mappings[':']})
+
+        else:
+
+            # Register targeted variables
+            if is_set_var := self.equation_graph.get(t, attr='is_set_var'):
+                self.all_targeted_set_vars.append(self.equation_graph.key_map[t])
             else:
 
-                # Register targeted variables
-                if is_set_var := self.equation_graph.get(t, attr='is_set_var'):
-                    self.all_targeted_set_vars.append(self.equation_graph.key_map[t])
+                self.all_targeted.append(self.equation_graph.key_map[t])
+
+            target_indcs_map = [[] for i in
+                                range(len(
+                                    self.set_variables[self.equation_graph.key_map[t]]))] if is_set_var else [
+                []]
+
+            for v, vi in zip(value_edges, v_indcs):
+                if self.equation_graph.get(v[0], 'is_set_var'):
+                    self.all_read_set_vars.append(self.equation_graph.key_map[v[0]])
+
                 else:
+                    self.all_read.append(self.equation_graph.key_map[v[0]])
 
-                    self.all_targeted.append(self.equation_graph.key_map[t])
+                maps = self.equation_graph.edges_attr['mappings'][vi]
 
-                target_indcs_map = [[] for i in
-                                    range(len(
-                                        self.set_variables[self.equation_graph.key_map[t]]))] if is_set_var else [
-                    []]
-
-                for v, vi in zip(value_edges, v_indcs):
-                    if self.equation_graph.get(v[0], 'is_set_var'):
-                        self.all_read_set_vars.append(self.equation_graph.key_map[v[0]])
-
+                if maps == ':':
+                    if self.equation_graph.key_map[t] in self.set_variables:
+                        for mi in range(len(self.set_variables[self.equation_graph.key_map[t]])):
+                            target_indcs_map[mi].append((v[0], mi))
                     else:
-                        self.all_read.append(self.equation_graph.key_map[v[0]])
-
-                    maps = self.equation_graph.edges_attr['mappings'][vi]
-
-                    if maps == ':':
-                        if self.equation_graph.key_map[t] in self.set_variables:
-                            for mi in range(len(self.set_variables[self.equation_graph.key_map[t]])):
-                                target_indcs_map[mi].append((v[0], mi))
-                        else:
-                            target_indcs_map[0].append((v[0], None))
-                    else:
-                        for mi in maps:
-                            target_indcs_map[mi[1] if mi[1] else 0].append((v[0], mi[0]))
-
-                target_var = self.equation_graph.key_map[t]
-
-                # Generate ast
-                if self.equation_graph.get(t, 'is_set_var'):
-                    map_targs = ast.Tuple(
-                        elts=[ast.Subscript(value=ast.Name(id=d_u(target_var)), slice=ast.Index(value=ast.Num(n=i)))
-                              for
-                              i, _ in enumerate(target_indcs_map) if len(_) > 0])
+                        target_indcs_map[0].append((v[0], None))
                 else:
-                    map_targs = ast.Name(id=d_u(target_var))
+                    for mi in maps:
+                        target_indcs_map[mi[1] if mi[1] else 0].append((v[0], mi[0]))
 
-                map_values = []
-                for values in target_indcs_map:
+            target_var = self.equation_graph.key_map[t]
 
-                    prev = None
-                    for v in values:
-                        v_ = ast.Name(id=d_u(self.equation_graph.key_map[v[0]])) if v[1] is None else ast.Subscript(
-                            value=ast.Name(id=d_u(self.equation_graph.key_map[v[0]])),
-                            slice=ast.Index(value=ast.Num(n=v[1])))
-                        if prev:
-                            prev = ast.BinOp(op=ast.Add(), left=v_, right=prev)
-                        else:
-                            prev = v_
+            # Generate ast
+            if self.equation_graph.get(t, 'is_set_var'):
+                map_targs = ast.Tuple(
+                    elts=[ast.Subscript(value=ast.Name(id=d_u(target_var)), slice=ast.Index(value=ast.Num(n=i)))
+                          for
+                          i, _ in enumerate(target_indcs_map) if len(_) > 0])
+            else:
+                map_targs = ast.Name(id=d_u(target_var))
 
-                    map_values.append(prev)
+            map_values = []
+            for values in target_indcs_map:
 
-                assign = ast.Assign(targets=[map_targs],
-                                    value=ast.Tuple(elts=map_values) if len(map_values) > 1 else map_values[0])
-                self.body.append(assign)
+                prev = None
+                for v in values:
+                    v_ = ast.Name(id=d_u(self.equation_graph.key_map[v[0]])) if v[1] is None else ast.Subscript(
+                        value=ast.Name(id=d_u(self.equation_graph.key_map[v[0]])),
+                        slice=ast.Index(value=ast.Num(n=v[1])))
+                    if prev:
+                        prev = ast.BinOp(op=ast.Add(), left=v_, right=prev)
+                    else:
+                        prev = v_
 
-                # Generate llvm
+                map_values.append(prev)
 
-                self.llvm_program.append({'func': 'sum', 'target': target_var, 'args': target_indcs_map})
+            assign = ast.Assign(targets=[map_targs],
+                                value=ast.Tuple(elts=map_values) if len(map_values) > 1 else map_values[0])
+            self.body.append(assign)
 
+            # Generate llvm
+
+            self.llvm_program.append({'func': 'sum', 'target': target_var, 'args': target_indcs_map})
 
     def generate_equations(self):
         logging.info('Generate kernel')
@@ -422,12 +443,13 @@ class EquationGenerator:
 
             # # Add the sum statements
             elif nt == NodeTypes.SUM:
-                self._process_sum_node(n)
+                pass
+                # self._process_sum_node(n)
 
             elif nt == NodeTypes.VAR or nt == NodeTypes.TMP:
-                 pass
+                pass
             else:
-                 raise ValueError('Unused node: ', self.equation_graph.key_map[n])
+                raise ValueError('Unused node: ', self.equation_graph.key_map[n])
 
         # Update maps between scope variables
         for sv_id, sv in self.scope_variables.items():
@@ -616,8 +638,10 @@ class EquationGenerator:
 
         from numba import njit
         logging.info('generate llvm')
-        diff_llvm, var_func, var_func_set, max_deriv = self.llvm_program.generate_llvm(llvm_sequence, llvm_funcs.values(), variables,
-                                                                     variables_values, leninit, lenderiv)
+        diff_llvm, var_func, var_func_set, max_deriv = self.llvm_program.generate_llvm(llvm_sequence,
+                                                                                       llvm_funcs.values(), variables,
+                                                                                       variables_values, leninit,
+                                                                                       lenderiv)
 
         ###TESTS####
         y = variables_values[:self.number_of_derivatives].astype(np.float64)
