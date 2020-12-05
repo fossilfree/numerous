@@ -9,7 +9,7 @@ class TemporaryVar():
 
     def __init__(self, id, svi, tag, set_var, set_var_ix):
         self.id = id
-        self.tag = tag+id
+        self.tag = tag + id
         self.set_namespace = svi.set_namespace
         self.parent_scope_id = svi.parent_scope_id
         self.set_var = set_var
@@ -22,9 +22,10 @@ class TemporaryVar():
         return self.tag
 
 
+##should be inherited from SetOfVariables
 class TemporarySetVar:
 
-    def __init__(self, id,set_var):
+    def __init__(self, id, set_var):
         self.id = id
         self.tmp_vars = []
         self.type = VariableType.PARAMETER_SET
@@ -32,6 +33,10 @@ class TemporarySetVar:
 
     def get_size(self):
         return len(self.tmp_vars)
+
+    def get_var_by_idx(self, i):
+        return next(var for var in self.tmp_vars if var.set_var_ix == i)
+
 
 class SumCount:
     def __init__(self):
@@ -83,7 +88,6 @@ class EquationGraph(Graph):
                 for edge_ix in target_edges_indcs:
                     self.remove_edge(edge_ix)
 
-
     def create_assignments(self):
         from tqdm import tqdm
         temp_variables = {}
@@ -99,7 +103,7 @@ class EquationGraph(Graph):
                     svf = None
                     if isinstance(sv, SetOfVariables):
                         tmp_var_counter = 0
-                        tsv = TemporarySetVar(tmp_label,sv)
+                        tsv = TemporarySetVar(tmp_label, sv)
                         for svi in sv.variables.values():
                             tmp_var_counter += 1
                             svf = TemporaryVar('tmp_var_' + str(tmp_var_counter), svi,

@@ -308,7 +308,8 @@ class LLVMBuilder:
     def add_set_call(self, external_function_name, variable_name_arg, variable_name_trg):
         ## TODO check allign
         self.builder.position_at_end(self.bb_loop)
-        number_of_ix = len(variable_name_arg[0])
+        number_of_ix_arg = len(variable_name_arg[0])
+        number_of_ix_trg = len(variable_name_trg[0])
         size = len(variable_name_arg)
 
         index_arg = (ll.IntType(64)(self.variable_names[variable_name_arg[0][0]] - 1))
@@ -335,25 +336,24 @@ class LLVMBuilder:
 
         loaded_args = []
         loaded_trgs = []
-        for i1 in range(number_of_ix):
+        for i1 in range(number_of_ix_arg):
             index_arg = self.builder.load(index_arg_ptr)
-            index_trg = self.builder.load(index_trg_ptr)
-
             index_arg = self.builder.add(index_arg, ll.IntType(64)(1), name="index_arg")
-            index_trg = self.builder.add(index_trg, ll.IntType(64)(1), name="index_trg")
-
             self.builder.store(index_arg, index_arg_ptr)
-            self.builder.store(index_trg, index_trg_ptr)
 
-            indices_trg = [self.index0, index_trg]
             indices_arg = [self.index0, index_arg]
-
             eptr_arg = self.builder.gep(self.var_global, indices_arg, name="loop_" + str(self.loopcount) + " _arg_")
-            eptr_trg = self.builder.gep(self.var_global, indices_trg, name="loop_" + str(self.loopcount) + " _trg_")
 
             loaded_args.append(self.builder.load(eptr_arg, 'arg_' + str(self.loopcount) + "_" + str(i1)))
-            loaded_trgs.append(eptr_trg)
 
+        for i1 in range(number_of_ix_trg):
+            index_trg = self.builder.load(index_trg_ptr)
+            index_trg = self.builder.add(index_trg, ll.IntType(64)(1), name="index_trg")
+            self.builder.store(index_trg, index_trg_ptr)
+            indices_trg = [self.index0, index_trg]
+            eptr_trg = self.builder.gep(self.var_global, indices_trg, name="loop_" + str(self.loopcount) + " _trg_")
+            loaded_trgs.append(eptr_trg)
+        # EQ_system_SET_oscillators_mechanics_llvm
         self.builder.call(self.ext_funcs[external_function_name], loaded_args + loaded_trgs)
 
         loop_inc = self.func.append_basic_block(name='for' + str(self.loopcount) + '.inc')

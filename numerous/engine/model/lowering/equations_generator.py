@@ -450,7 +450,7 @@ class EquationGenerator:
                 pass
             else:
                 raise ValueError('Unused node: ', self.equation_graph.key_map[n])
-
+        self.llvm_program.generate("test_listing.txt")
         # Update maps between scope variables
         for sv_id, sv in self.scope_variables.items():
             full_tag = d_u(sv.get_path_dot())
