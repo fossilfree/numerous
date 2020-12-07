@@ -49,6 +49,20 @@ class ModelNamespace:
         self.path = path
         self.is_set = pos
 
+    def ordered_variables(self):
+        """
+        return variables ordered for sequential llvm addressing
+        """
+        variables__ = []
+        for vs in self.variable_scope:
+            variables___ = []
+            for v in vs:
+                variables___.append(v)
+            variables__.append(variables___)
+        variables__ = [list(x) for x in zip(*variables__)]
+        variables__ = list(itertools.chain(*variables__))
+        return variables__
+
 
 class ModelAssembler:
 
@@ -76,13 +90,18 @@ class ModelAssembler:
         tag, namespaces = input_namespace
         variables_ = {}
         for namespace in namespaces:
+
             for i, (eq_tag, eq_methods) in enumerate(namespace.equation_dict.items()):
                 scope = ModelAssembler.__create_scope(eq_tag, eq_methods,
                                                       [v for i_ in namespace.variable_scope for v in i_],
                                                       namespace, tag, variables)
                 scope_select.update({scope.id: scope})
                 equation_dict.update({scope.id: (eq_methods, namespace.outgoing_mappings)})
-            variables_.update({v.id: v for vs in namespace.variable_scope for v in vs})
+
+            ##
+            for v in namespace.ordered_variables():
+                variables_.update({v.id: v})
+
         return variables_, scope_select, equation_dict
 
 

@@ -1,4 +1,6 @@
 from __future__ import print_function
+
+import itertools
 from ctypes import CFUNCTYPE, POINTER, c_double, c_void_p, c_int64
 from numba import carray, cfunc, njit
 from numerous import config
@@ -304,21 +306,26 @@ class LLVMBuilder:
         indices = [self.index0, index]
         eptr = self.builder.gep(ptr, indices, name=t)
         self.values[t] = eptr
+    ##Should be moved to utils
+    def _is_range_and_ordered(self,a_list):
+        e = len(a_list)
+        i = a_list[0]
+        return all(ele >= i and ele < i+e for ele in a_list) and all(a_list[i] <= a_list[i+1] for i in range(e-1))
 
-    def add_set_call(self, external_function_name, variable_name_arg, variable_name_trg):
+    def add_set_call(self, external_function_name, variable_name_arg_and_trg, targets_ids):
         ## TODO check allign
         self.builder.position_at_end(self.bb_loop)
-        number_of_ix_arg = len(variable_name_arg[0])
-        number_of_ix_trg = len(variable_name_trg[0])
-        size = len(variable_name_arg)
+        number_of_ix_arg = len(variable_name_arg_and_trg[0])
+        number_of_ix_trg = len(targets_ids)
+        size = len(variable_name_arg_and_trg)
+        # order_arg = [self.variable_names[x] for x in list(itertools.chain(*variable_name_arg))]
+        # order_trg = [self.variable_names[x] for x in list(itertools.chain(*variable_name_trg))]
+        # if not ((self._is_range_and_ordered(order_arg)) and (self._is_range_and_ordered(order_trg))):
+        #     raise ValueError("llvm set call arguments are not align.")
 
-        index_arg = (ll.IntType(64)(self.variable_names[variable_name_arg[0][0]] - 1))
+        index_arg = (ll.IntType(64)(self.variable_names[variable_name_arg_and_trg[0][0]] - 1))
         index_arg_ptr = self.builder.alloca(ll.IntType(64))
         self.builder.store(index_arg, index_arg_ptr)
-
-        index_trg = (ll.IntType(64)(self.variable_names[variable_name_trg[0][0]] - 1))
-        index_trg_ptr = self.builder.alloca(ll.IntType(64))
-        self.builder.store(index_trg, index_trg_ptr)
 
         ##crete new block
 
@@ -343,18 +350,13 @@ class LLVMBuilder:
 
             indices_arg = [self.index0, index_arg]
             eptr_arg = self.builder.gep(self.var_global, indices_arg, name="loop_" + str(self.loopcount) + " _arg_")
+            if i1 in targets_ids:
+                loaded_args.append(eptr_arg)
+            else:
+                loaded_args.append(self.builder.load(eptr_arg, 'arg_' + str(self.loopcount) + "_" + str(i1)))
 
-            loaded_args.append(self.builder.load(eptr_arg, 'arg_' + str(self.loopcount) + "_" + str(i1)))
-
-        for i1 in range(number_of_ix_trg):
-            index_trg = self.builder.load(index_trg_ptr)
-            index_trg = self.builder.add(index_trg, ll.IntType(64)(1), name="index_trg")
-            self.builder.store(index_trg, index_trg_ptr)
-            indices_trg = [self.index0, index_trg]
-            eptr_trg = self.builder.gep(self.var_global, indices_trg, name="loop_" + str(self.loopcount) + " _trg_")
-            loaded_trgs.append(eptr_trg)
         # EQ_system_SET_oscillators_mechanics_llvm
-        self.builder.call(self.ext_funcs[external_function_name], loaded_args + loaded_trgs)
+        self.builder.call(self.ext_funcs[external_function_name], loaded_args)
 
         loop_inc = self.func.append_basic_block(name='for' + str(self.loopcount) + '.inc')
         self.builder.position_at_end(loop_inc)

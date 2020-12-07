@@ -149,10 +149,8 @@ def test_llvm_loop():
     llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
     llvm_program.add_external_function(eval_llvm, eval_llvm_signature, 2, 2)
 
-    llvm_program.add_set_call(eval_llvm.__qualname__, [["oscillator1.mechanics.x", "oscillator1.mechanics.y"],
-                                          ["oscillator1.mechanics.z", "oscillator1.mechanics.a"]],
-                              [["oscillator1.mechanics.c", "oscillator1.mechanics.x_dot"],
-                               ["oscillator1.mechanics.y_dot", "oscillator1.mechanics.z_dot"]])
+    llvm_program.add_set_call(eval_llvm.__qualname__, [["oscillator1.mechanics.x", "oscillator1.mechanics.y","oscillator1.mechanics.z", "oscillator1.mechanics.a"]],
+                              targets_ids=[2, 3])
 
     diff, var_func, _ = llvm_program.generate(filename)
 
