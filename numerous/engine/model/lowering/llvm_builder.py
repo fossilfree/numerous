@@ -85,7 +85,7 @@ class LLVMBuilder:
         self.builder.position_at_end(self.bb_entry)
         self.builder.branch(self.bb_loop)
 
-    def add_external_function(self, function, signature, args_count, targets_count):
+    def add_external_function(self, function, signature, number_of_args, target_ids):
         """
         Wrap the function and make it available in the LLVM module
         """
@@ -94,8 +94,10 @@ class LLVMBuilder:
         name = function.__qualname__
 
         f_c_sym = llvm.add_symbol(name, f_c.address)
-        llvm_signature = np.tile(ll.DoubleType(), args_count).tolist() + np.tile(ll.DoubleType().as_pointer(),
-                                                                                 targets_count).tolist()
+        llvm_signature = np.tile(ll.DoubleType(), number_of_args).tolist()
+        for i in target_ids:
+            llvm_signature[i] = ll.DoubleType().as_pointer()
+
         fnty_c_func = ll.FunctionType(ll.VoidType(),
                                       llvm_signature)
         fnty_c_func.as_pointer(f_c_sym)
