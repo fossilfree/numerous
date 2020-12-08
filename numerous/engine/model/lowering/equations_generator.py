@@ -488,8 +488,8 @@ class EquationGenerator:
             else:
                 raise ValueError('Unused node: ', self.equation_graph.key_map[n])
         logging.info('generate llvm')
-        diff, var_func, var_write = self.llvm_program.generate("test_listing.txt")
-        return diff, var_func,var_write, self.values_order
+        diff, var_func, var_write = self.llvm_program.generate("test_listing.txt",save_opt=True)
+        return diff, var_func,var_write, self.values_order,self.scope_variables
 
         #
         # # Update maps between scope variables

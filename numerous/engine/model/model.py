@@ -339,9 +339,10 @@ class Model:
                                    scope_variables=self.scope_variables, scoped_equations=self.scoped_equations,
                                    temporary_variables=tmp_vars)
 
-        self.compiled_compute, self.var_func, self.vars_ordered_values, self.vars_ordered, self.scope_vars_vars = \
+        self.compiled_compute, self.var_func,self.var_write, self.vars_ordered_values,self.scope_variables = \
             eq_gen.generate_equations()
-
+        for k,v in self.vars_ordered_values.items():
+            self.var_write(self.scope_variables[k].value,v)
         # values of all model variables in specific order: self.vars_ordered_values
         # full tags of all variables in the model in specific order: self.vars_ordered
         # dict with scope variable id as key and scope variable itself as value
@@ -594,51 +595,6 @@ class Model:
             namespaces_list.append(model_namespace)
         return namespaces_list
 
-    # Method that generates numba_model
-    def generate_numba_model_code_gen(self, start_time, number_of_timesteps):
-        from numba import float64, int64
-        compute = self.compiled_compute
-        var_func = self.var_func
-        spec = [
-            ('variables', float64[:]),
-            ('historian_data', float64[:, :]),
-            ('historian_ix', int64),
-
-        ]
-
-        @jitclass(spec)
-        class CompiledModel:
-            def __init__(self, variables_init):
-                self.variables = variables_init
-                self.historian_data = np.zeros((number_of_timesteps, len(self.variables) + 1), dtype=np.float64)
-                # self.historian_data = np.zeros((2,2), dtype=np.float64)
-                self.historian_ix = 0
-
-            def func(self, _t, y):
-                # print('diff: ', _t)
-                d = compute(y)
-                # for d_ in d:
-                #     print(d_)
-                # raise ValueError('')
-                return d
-
-            def historian_update(self, t):
-                # print('hist update')
-
-                self.variables[:] = var_func(np.int64(0))
-
-                self.historian_data[self.historian_ix][0] = t
-                self.historian_data[self.historian_ix][1:] = self.variables[:]
-
-                self.historian_ix += 1
-
-        self.numba_model = CompiledModel(self.vars_ordered_values)
-
-        self.numba_model.func(0, self.vars_ordered_values[0:self.states_end_ix])
-
-        logging.info('completed numba model')
-
-        return self.numba_model
 
     def generate_numba_model_tensor(self, start_time, number_of_timesteps):
 
