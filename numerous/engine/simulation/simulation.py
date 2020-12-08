@@ -70,7 +70,7 @@ class Simulation:
 
         print("Generating Numba Model")
         generation_start = time.time()
-        numba_model = model.generate_numba_model(t_start, len(self.time))
+        numba_model = model.generate_compiled_model(t_start, len(self.time))
 
         generation_finish = time.time()
         print("Generation time: ", generation_finish - generation_start)

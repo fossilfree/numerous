@@ -6,6 +6,7 @@ import uuid
 from numba.experimental import jitclass
 import pandas as pd
 
+from historian import InMemoryHistorian
 from numerous.engine.model.graph_representation.equation_graph import EquationGraph
 from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
@@ -46,6 +47,7 @@ class ModelNamespace:
         self.mappings = []
         self.full_tag = item_path + '.' + tag
         self.item_indcs = item_indcs
+
 
         self.path = path
         self.is_set = pos
@@ -139,6 +141,7 @@ class Model:
         self.flat_scope_idx = None
         self.flat_scope_idx_from = None
         self.historian_df = None
+        self.historian = InMemoryHistorian()
 
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
@@ -321,7 +324,6 @@ class Model:
         tmp_vars = self.eg.create_assignments()
         self.eg.add_mappings()
         self.lower_model_codegen(tmp_vars)
-        self.generate_numba_model = self.generate_numba_model_code_gen
 
         assemble_finish = time.time()
         print("Assemble time: ", assemble_finish - assemble_start)
@@ -339,10 +341,27 @@ class Model:
                                    scope_variables=self.scope_variables, scoped_equations=self.scoped_equations,
                                    temporary_variables=tmp_vars)
 
-        self.compiled_compute, self.var_func,self.var_write, self.vars_ordered_values,self.scope_variables = \
+        compiled_compute, var_func, var_write, self.vars_ordered_values, self.scope_variables,\
+        self.state_idx,self.derivatives_idx = \
             eq_gen.generate_equations()
-        for k,v in self.vars_ordered_values.items():
-            self.var_write(self.scope_variables[k].value,v)
+
+        def c1():
+            return compiled_compute
+
+        def c2():
+            return var_func
+
+        def c3():
+            return var_write
+
+        setattr(CompiledModel, "compiled_compute", c1())
+        setattr(CompiledModel,"read_variables",c2())
+        setattr(CompiledModel,"write_variables",c3())
+        self.compiled_compute, self.var_func, self.var_write = compiled_compute, var_func, var_write
+        self.init_values = np.ascontiguousarray([self.scope_variables[k].value for k in self.vars_ordered_values.keys()],
+                                                dtype=np.float64)
+        for k, v in self.vars_ordered_values.items():
+            self.var_write(None,self.scope_variables[k].value, v)
         # values of all model variables in specific order: self.vars_ordered_values
         # full tags of all variables in the model in specific order: self.vars_ordered
         # dict with scope variable id as key and scope variable itself as value
@@ -448,7 +467,7 @@ class Model:
 
         """
         # return self.scope_vars_3d[self.state_idxs_3d]
-        return self.vars_ordered_values[0:self.states_end_ix]
+        return self.var_func(None)[self.state_idx]
 
     def get_variable_path(self, id, item):
         for (variable, namespace) in item.get_variables():
@@ -595,119 +614,93 @@ class Model:
             namespaces_list.append(model_namespace)
         return namespaces_list
 
-
-    def generate_numba_model_tensor(self, start_time, number_of_timesteps):
-
+    # Method that generates numba_model
+    def generate_compiled_model(self, start_time, number_of_timesteps):
         for spec_dict in self.numba_callbacks_variables:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
 
-        def create_eq_call(eq_method_name: str, i: np.int64):
-            return "      self." \
-                   "" + eq_method_name + "(array_3d[" + str(i) + \
-                   ", :self.num_uses_per_eq[" + str(i) + "]])\n"
 
-        Equation_Parser.create_numba_iterations(NumbaModel, self.compiled_eq, "compute_eq", "func"
-                                                , create_eq_call, "array_3d", map_sorting=self.eq_outgoing_mappings)
 
         ##Adding callbacks_varaibles to numba specs
-        def create_cbi_call(_method_name: str, i: np.int64):
-            return "      self." \
-                   "" + _method_name + "(time, self.path_variables)\n"
+        # def create_cbi_call(_method_name: str, i: int):
+        #     return "      self." \
+        #            "" + _method_name + "(time, self.path_variables)\n"
+        #
+        # Equation_Parser.create_numba_iterations(CompiledModel, self.numba_callbacks, "run_callbacks",
+        #                                         "callback_func"
+        #                                         , create_cbi_call, ",time")
+        #
+        # def create_cbi2_call(_method_name: str, i: int):
+        #     return "      self." \
+        #            "" + _method_name + "(self.number_of_variables,self.number_of_timesteps)\n"
+        #
+        # Equation_Parser.create_numba_iterations(CompiledModel, self.numba_callbacks_init, "init_callbacks",
+        #                                         "callback_func_init_", create_cbi2_call, "")
 
-        Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks, "run_callbacks", "callback_func"
-                                                , create_cbi_call, "time")
-
-        def create_cbi2_call(_method_name: str, i: np.int64):
-            return "      self." \
-                   "" + _method_name + "(self.number_of_variables,self.number_of_timesteps)\n"
-
-        Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init, "init_callbacks",
-                                                "callback_func_init_", create_cbi2_call, "")
-
-        def create_cbiu_call(_method_name: str, i: np.int64):
-            return "      self." \
-                   "" + _method_name + "(time, self.path_variables)\n"
-
-        Equation_Parser.create_numba_iterations(NumbaModel, self.numba_callbacks_init_run, "run_init_callbacks",
-                                                "callback_func_init_pre_update", create_cbiu_call, "time")
+        # def create_cbiu_call(_method_name: str, i: int):
+        #     return "      self." \
+        #            "" + _method_name + "(time, self.path_variables)\n"
+        #
+        # Equation_Parser.create_numba_iterations(CompiledModel, self.numba_callbacks_init_run, "run_init_callbacks",
+        #                                         "callback_func_init_pre_update", create_cbiu_call, ",time")
 
         @jitclass(numba_model_spec)
-        class NumbaModel_instance(NumbaModel):
+        class CompiledModel_instance(CompiledModel):
             pass
 
-        NM_instance = NumbaModel_instance(self.var_idxs_pos_3d, self.var_idxs_pos_3d_helper,
-                                          np.int64(len(self.compiled_eq)), self.state_idxs_3d[0].shape[0],
-                                          self.differing_idxs_pos_3d[0].shape[0], self.scope_vars_3d,
-                                          self.state_idxs_3d,
-                                          self.deriv_idxs_3d, self.differing_idxs_pos_3d, self.differing_idxs_from_3d,
-                                          np.int64(self.num_uses_per_eq), self.sum_idxs_pos_3d, self.sum_idxs_sum_3d,
-                                          self.sum_slice_idxs, self.sum_mapped_idxs_len, self.sum_mapping,
-                                          self.global_vars, number_of_timesteps, len(self.path_variables), start_time,
-                                          self.mapped_variables_array)
+        NM_instance = CompiledModel_instance(self.init_values,self.derivatives_idx,self.state_idx,
+                                             self.global_vars, number_of_timesteps, start_time,
+                                             self.historian.get_historian_max_size(number_of_timesteps),
+                                             self.historian.need_to_correct())
 
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value
             NM_instance.path_keys.append(key)
-        NM_instance.run_init_callbacks(start_time)
+        # NM_instance.run_init_callbacks(start_time)
+        # NM_instance.map_external_data(start_time)
 
-        NM_instance.historian_update(start_time)
+        # NM_instance.historian_update(start_time)
         self.numba_model = NM_instance
-
         return self.numba_model
 
     def create_historian_df(self):
-        # _time = self.numba_model.historian_data[0]
-        # data = {'time': _time}
-        #
-        # for i, var in enumerate(self.path_variables):
-        #     data.update({var: self.numba_model.historian_data[i + 1]})
-        #
-        # self.historian_df = pd.DataFrame(data)
-        # self.historian_df = self.historian_df.dropna(subset=['time'])
-        # self.historian_df = self.historian_df.set_index('time')
-        # self.historian_df.index = pd.to_timedelta(self.historian_df.index, unit='s')
+        self.historian_df = self._generate_history_df(self.numba_model.historian_data, rename_columns=False)
+        self.historian.store(self.historian_df)
 
-        if lower_method == LowerMethod.Codegen:
-            time = self.numba_model.historian_data[:, 0]
-            data = {'time': time}
+    def _generate_history_df(self, historian_data, rename_columns=True):
+        time = historian_data[0]
+        data = {'time': time}
 
-            for i, var in enumerate(self.vars_ordered):
-                # data.update({".".join(self.variables[var.id].path.path[self.system.id]): self.numba_model.historian_data[:,i+1]})
-                # print(var)
-                data.update({
-                    var: self.numba_model.historian_data[:, i + 1]})
-
-            self.historian_df = AliasedDataFrame(data, aliases=self.aliases)
-
-        if lower_method == LowerMethod.Tensor:
-            time = self.numba_model.historian_data[0]
-            data = {'time': time}
-
-            for i, var in enumerate(self.path_variables):
-                data.update({var: self.numba_model.historian_data[i + 1]})
-
-            self.historian_df = pd.DataFrame(data)
-        # self.df.set_index('time')
+        for i, var in enumerate(self.historian_paths):
+            data.update({var: historian_data[i + 1]})
+        ## solve for 1 to n
+        return AliasedDataFrame(data, aliases=self.aliases, rename_columns=rename_columns)
 
 
 class AliasedDataFrame(pd.DataFrame):
     _metadata = ['aliases']
 
-    def __init__(self, data, aliases={}):
-        # df['system.alias.T']
-
-        self.aliases = aliases
-        # print(data.keys())
-
+    def __init__(self, data, aliases={}, rename_columns=False):
         super().__init__(data)
+        self.aliases = aliases
+        self.rename_columns = rename_columns
+        if self.rename_columns:
+            aliases_reversed = {v: k for k, v in self.aliases.items()}
+            tmp = copy(list(data.keys()))
+            for key in tmp:
+                if key in aliases_reversed.keys():
+                    data[aliases_reversed[key]] = data.pop(key)
+            super().__init__(data)
 
     def __getitem__(self, item):
-        if not isinstance(item, list):
-            col = self.aliases[item] if item in self.aliases else item
-            return super().__getitem__(col)
+        if not self.rename_columns:
+            if not isinstance(item, list):
+                col = self.aliases[item] if item in self.aliases else item
+                return super().__getitem__(col)
 
-        cols = [self.aliases[i] if i in self.aliases else i for i in item]
-        # print('cols: ',cols)
+            cols = [self.aliases[i] if i in self.aliases else i for i in item]
 
-        return super().__getitem__(cols)
+            return super().__getitem__(cols)
+        else:
+            return super().__getitem__(item)

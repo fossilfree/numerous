@@ -489,7 +489,14 @@ class EquationGenerator:
                 raise ValueError('Unused node: ', self.equation_graph.key_map[n])
         logging.info('generate llvm')
         diff, var_func, var_write = self.llvm_program.generate("test_listing.txt",save_opt=True)
-        return diff, var_func,var_write, self.values_order,self.scope_variables
+        deriv_idx = []
+        state_idx = []
+        for k,v in self.values_order.items():
+            if k in self.deriv:
+                deriv_idx.append(v)
+            if k in self.states:
+                state_idx.append(v)
+        return diff, var_func,var_write, self.values_order,self.scope_variables,np.array(state_idx,dtype=np.int64),np.array(deriv_idx,dtype=np.int64)
 
         #
         # # Update maps between scope variables
