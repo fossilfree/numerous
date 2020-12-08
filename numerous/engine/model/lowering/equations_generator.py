@@ -6,7 +6,7 @@ from numerous.engine.model.lowering.utils import generate_code_file, Vardef, Var
     are_all_scalars, non_unique_check, are_all_set_variables
 
 from numerous.engine.model.graph_representation.parser_ast import function_from_graph_generic, \
-    function_from_graph_generic_llvm, compiled_function_from_graph_generic_llvm
+     compiled_function_from_graph_generic_llvm
 
 from numerous.engine.variables import VariableType
 import logging
@@ -70,7 +70,7 @@ class EquationGenerator:
         # Initialize llvm builder - will be a list of intermediate llvm instructions to be lowered in generate
         self.llvm_program = LLVMBuilder(
             np.ascontiguousarray([x.value for x in self.scope_variables.values()], dtype=np.float64),
-            self.values_order, self.number_of_states, self.number_of_derivatives)
+            self.values_order, self.states, self.deriv)
 
         self.mod_body = []
         # Create a kernel of assignments and calls
@@ -280,11 +280,11 @@ class EquationGenerator:
         t = target_edges[0][1]
 
         # If the target is a set variable
-        if (t_sv := self.equation_graph.get(t, 'scope_var')).set_var:
+        if (t_sv := self.equation_graph.get(t, 'scope_var')).size>0:
 
             self.all_targeted_set_vars.append(self.equation_graph.key_map[t])
 
-            l_mapping = len(self.set_variables[t_sv.set_var])
+            l_mapping = t_sv.size
             mappings = {':': [], 'ix': []}
 
             # make a list of assignments to each index in t
@@ -343,7 +343,7 @@ class EquationGenerator:
 
             for t_ix, map_ in enumerate(mappings_ast_pairs):
                 map_targets.append(ast.Subscript(
-                    slice=ast.Index(value=ast.Num(n=t_ix)), value=ast.Name(id=d_u(t_sv.set_var))))
+                    slice=ast.Index(value=ast.Num(n=t_ix)), value=ast.Name(id=d_u(t_sv.id))))
                 if len(map_) > 0:
                     map_val_list = [ast.Subscript(
                         slice=ast.Index(value=ast.Num(n=v_ix)),
@@ -371,18 +371,28 @@ class EquationGenerator:
                         prev = ast.Name(id=d_u(mcolon))
                 if len(mappings['ix']) > 0:
                     self.body.append(
-                        ast.AugAssign(target=ast.Name(id=d_u(t_sv.set_var)), value=prev, op=ast.Add()))
+                        ast.AugAssign(target=ast.Name(id=d_u(t_sv.id)), value=prev, op=ast.Add()))
                 else:
-                    self.body.append(ast.Assign(targets=[ast.Name(id=d_u(t_sv.set_var))], value=prev))
-
-                # For LLVM
-                # TODO: Make llvm generator compatible with this...
+                    self.body.append(ast.Assign(targets=[ast.Name(id=d_u(t_sv.id))], value=prev))
 
             # Generate llvm
+            mappings_llvm = {}
+            for m_ix in mappings['ix']:
+                for k, v in m_ix[1].items():
+                    target_var_name = self.set_variables[t_sv.id].get_var_by_idx(k).id
+                    if target_var_name not in mappings_llvm.keys():
+                        mappings_llvm[target_var_name] = []
+                    for el in v:
+                        if m_ix[0] in self.set_variables:
+                            mappings_llvm[target_var_name].append(self.set_variables[m_ix[0]].get_var_by_idx(el).id)
+                        else:
+                            if m_ix[0] in self.scope_variables:
+                                mappings_llvm[target_var_name].append(self.scope_variables[m_ix[0]].id)
+                            else:
+                                raise ValueError(f'Variable  {m_ix[0]} mapping not found')
+            for k, v in mappings_llvm.items():
+                self.llvm_program.add_mapping([k],v)
 
-            # TODO: Make llvm generator compatible with this...
-            self.llvm_program.append({'func': 'sum', 'target': t_sv.set_var, 'args': mappings_ast_pairs})
-            self.llvm_program.append({'func': 'sum', 'target': t_sv.set_var, 'args': mappings[':']})
 
         else:
 
@@ -448,8 +458,18 @@ class EquationGenerator:
             self.body.append(assign)
 
             # Generate llvm
+            for values in target_indcs_map:
+                for v in values:
+                    var_name = d_u(self.equation_graph.key_map[v[0]])
+                    if var_name in self.scope_variables:
+                        self.llvm_program.add_mapping([target_var],[var_name])
+                    else:
+                        if var_name in self.set_variables:
 
-            self.llvm_program.append({'func': 'sum', 'target': target_var, 'args': target_indcs_map})
+                            self.llvm_program.add_mapping([target_var],
+                                                          [self.set_variables[var_name].get_var_by_idx(v[1]).id])
+                        else:
+                            raise ValueError(f'Variable  {var_name} mapping not found')
 
     def generate_equations(self):
         logging.info('Generate kernel')
@@ -461,372 +481,353 @@ class EquationGenerator:
 
             # # Add the sum statements
             elif nt == NodeTypes.SUM:
-                pass
-                # self._process_sum_node(n)
+                self._process_sum_node(n)
 
             elif nt == NodeTypes.VAR or nt == NodeTypes.TMP:
                 pass
             else:
                 raise ValueError('Unused node: ', self.equation_graph.key_map[n])
-        self.llvm_program.generate("test_listing.txt")
-        # Update maps between scope variables
-        for sv_id, sv in self.scope_variables.items():
-            full_tag = d_u(sv.get_path_dot())
-            if not sv_id in self.vars_node_id:
-                self.vars_node_id[sv_id] = full_tag
-            if full_tag not in self.scope_var_node:
-                self.scope_var_node[full_tag] = sv
-
-        # Check that its only set variables in the lists for that purpose
-        are_all_set_variables(self.all_read_set_vars)
-        are_all_set_variables(self.all_targeted_set_vars)
-
-        # Only variables that are not targeted should be in read
-        all_read_set_vars = set(self.all_read_set_vars).difference(self.all_targeted_set_vars)
-
-        # Unroll all scalar variables from set variables
-        all_read_scalars_from_set = []
-        for arsv in all_read_set_vars:
-            a = self.set_variables[arsv]
-            all_read_scalars_from_set += [v[1].get_path_dot() for v in a]
-
-        all_read_scalars_from_set = set(all_read_scalars_from_set)
-        all_read_scalars_from_set_dash = [d_u(ar) for ar in all_read_scalars_from_set]
-
-        all_read = set(self.all_read)
-
-        are_all_scalars(all_read)
-
-        # Check for overlap of read and read in set - not allowed!
-        r_setvar_r_overlap = all_read_scalars_from_set.intersection(all_read)
-        if len(r_setvar_r_overlap) > 0:
-            raise ValueError(f"Overlap between read vars and read vars in set {r_setvar_r_overlap}")
-
-        all_read_dash = [d_u(ar) for ar in all_read]
-        contains_dot(all_read_dash)
-
-        all_targeted_scalars_from_set = []
-        for arsv in self.all_targeted_set_vars:
-            a = self.set_variables[arsv]
-            all_targeted_scalars_from_set += [v[1].get_path_dot() for v in a]
-
-        all_targeted_scalars_from_set = set(all_targeted_scalars_from_set)
-        all_targeted_scalars_from_set_dash = [d_u(ar) for ar in all_targeted_scalars_from_set]
-
-        all_targeted = set(self.all_targeted)
-
-        are_all_scalars(all_targeted)
-
-        all_targeted_dash = [d_u(ar) for ar in all_targeted]
-
-        contains_dot(all_targeted_dash)
-        all_must_init = set(all_read_dash).difference(all_targeted_dash)
-
-        states_dash = [d_u(s) for s in self.states]
-        vars_init = states_dash.copy()
-
-        all_read_scalars_from_set_dash = list(set(all_read_scalars_from_set_dash).difference(vars_init))
-
-        vars_init += list(all_must_init.difference(vars_init))
-
-        leninit = len(vars_init + all_read_scalars_from_set_dash)
-
-        non_unique_check('deriv: ', self.deriv)
-        non_unique_check('all targeted: ', all_targeted_dash)
-
-        vars_update = [d_u(d) for d in self.deriv.copy()]
-
-        all_targeted_scalars_from_set_dash = list(set(all_targeted_scalars_from_set_dash).difference(vars_update))
-
-        vars_update += [at for at in all_targeted_dash if at not in vars_update]
-
-        for s, d in zip(self.states, self.deriv):
-            if not d[:-4] == s:
-                # print(d, ' ', s)
-                raise IndexError('unsorted derivs')
-
-        variables = vars_init + all_read_scalars_from_set_dash + vars_update + all_targeted_scalars_from_set_dash
-
-        variables += set([d_u(sv.get_path_dot()) for sv in self.scope_variables.values()]).difference(variables)
-
-        variables_dot = [self.scope_var_node[v].get_path_dot() for v in variables]
-
-        variables_values = np.array([self.scope_var_node[v].value for v in variables], dtype=np.float64)
-
-        non_unique_check('initialized vars', vars_init)
-        len_vars_init_ = len(vars_init + all_read_scalars_from_set_dash)
-        vars_init += self.deriv
-        non_unique_check('updated vars', vars_update)
-
-        non_unique_check('variables', variables)
-
-        # Generate ast for defining local variables and export results
-        state_vars = [None] * self.number_of_states
-        body_init_set_var = []
-        for rsv in all_read_set_vars:
-
-            # Find indices in variables
-            read_scalars = [d_u(v[1].get_path_dot()) for v in self.set_variables[rsv]]
-            read_scalars_var_ix = [variables.index(r) for r in read_scalars]
-
-            body_init_set_var.append(ast.Assign(targets=[ast.Name(id=d_u(rsv))],
-                                                value=ast.Subscript(value=ast.Name(id='variables'), slice=ast.Index(
-                                                    value=ast.List(
-                                                        elts=[ast.Num(n=ix) for ix in read_scalars_var_ix])))))
-
-            state_vars_ = [(v, states_dash.index(v)) for v in read_scalars if v in states_dash]
-
-            for v, ix in state_vars_:
-                state_vars[ix] = ast.Subscript(value=ast.Name(id=d_u(rsv)),
-                                               slice=ast.Index(value=ast.Num(n=read_scalars.index(v))))
-                # body_init_set_var.append(ast.Assign(targets=[ast.Subscript(value=ast.Name(id=d_u(rsv)),slice=ast.Index(value=ast.Num(n=read_scalars.index(v))))], value=ast.Subscript(value=ast.Name(id='y'),slice=ast.Index(value=ast.Num(n=ix)))))
-
-        for i, s in enumerate(states_dash):
-            if state_vars[i] is None:
-                state_vars[i] = ast.Name(id=s)
-
-        body_init_set_var.append(ast.Assign(value=ast.Name(id='y'), targets=[ast.Tuple(elts=state_vars)]))
-
-        # indices_read_scalars =
-
-        for tsv in self.all_targeted_set_vars:
-            body_init_set_var.append(ast.Assign(targets=[ast.Name(id=d_u(tsv))],
-                                                value=ast.Call(
-                                                    func=ast.Attribute(attr='empty', value=ast.Name(id='np')),
-                                                    args=[ast.Num(n=len(self.set_variables[tsv]))], keywords=[]
-                                                )))
-
-        self.body = body_init_set_var + [
-            ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=d_u(i)) for i in vars_init[self.number_of_states:]])],
-                       value=ast.Subscript(
-                           slice=ast.Slice(lower=ast.Num(n=self.number_of_states), upper=ast.Num(n=len(vars_init)),
-                                           step=None),
-                           value=ast.Name(id='variables'))),
-            # ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=d_u(s)) for s in states])], value=ast.Name(id='y')),
-        ] + self.body
-
-        # Add code for updating variables
-
-        elts_vu = [
-            (ast.Subscript(value=ast.Name(id=d_u(svn_.set_var)), slice=ast.Index(ast.Num(n=svn_.set_var_ix))) if (
-                svn_ := self.scope_var_node[u]).set_var else ast.Name(id=d_u(u))) for i, u in enumerate(vars_update)]
-
-        self.body.append(ast.Assign(targets=[ast.Subscript(
-            slice=ast.Slice(lower=ast.Num(n=len_vars_init_), upper=ast.Num(n=len_vars_init_ + len(vars_update)),
-                            step=None),
-            value=ast.Name(id='variables'))],
-            value=ast.Tuple(elts=elts_vu)))
-
-        # Add code for updating derivatives
-        self.body.append(ast.Assign(value=ast.Tuple(elts=[
-            ast.Subscript(value=ast.Name(id=d_u(svn_.set_var)), slice=ast.Index(ast.Num(n=svn_.set_var_ix))) if (
-                svn_ := self.scope_var_node[u]).set_var else ast.Name(id=d_u(u)) for u in self.states
-        ]), targets=[
-            ast.Subscript(slice=ast.Slice(lower=ast.Num(n=0), upper=ast.Num(n=self.number_of_states), step=None),
-                          value=ast.Name(id='variables'))]))
-
-        self.body.append(ast.Return(
-            value=ast.Subscript(
-                slice=ast.Slice(lower=ast.Num(n=leninit), upper=ast.Num(n=leninit + number_of_derivatives), step=None),
-                value=ast.Name(id='variables'))))
-        kernel_args = dot_dict(args=[ast.Name(id='variables'), ast.Name(id='y')], vararg=None, defaults=[], kwarg=None)
-
-        skip_kernel = False
-        if not skip_kernel:
-            self.mod_body.append(
-                wrap_function('kernel_nojit', self.body, decorators=[], args=kernel_args))
-
-        generate_code_file(self.mod_body, self.filename)
-        logging.info('compiling...')
-
-        import timeit
-        print('Compile time: ', timeit.timeit(
-            lambda: exec('from kernel import *', globals()), number=1))
-
-        # Assemblying sequence of LLVM statements
-        llvm_sequence = []
-        llvm_sequence += [{'func': 'load', 'ix': ix + self.number_of_states, 'var': v, 'arg': 'variables'} for ix, v in
-                          enumerate(vars_init[self.number_of_states:])]
-        llvm_sequence += [{'func': 'load', 'ix': ix, 'var': s, 'arg': 'y'} for ix, s in enumerate(self.states)]
-        llvm_end_seq = []
-        llvm_end_seq += [{'func': 'store', 'arg': 'variables', 'ix': ix, 'var': u} for u, ix in
-                         zip(self.states, range(0, self.number_of_states))]
-
-        llvm_sequence += llvm_program + llvm_end_seq
-
-        from numba import njit
         logging.info('generate llvm')
-        diff_llvm, var_func, var_func_set, max_deriv = self.llvm_program.generate_llvm(llvm_sequence,
-                                                                                       llvm_funcs.values(), variables,
-                                                                                       variables_values, leninit,
-                                                                                       lenderiv)
+        diff, var_func, var_write = self.llvm_program.generate("test_listing.txt")
+        return diff, var_func,var_write, self.values_order
 
-        ###TESTS####
-        y = variables_values[:self.number_of_derivatives].astype(np.float64)
-
-        from time import time
-        N = 10000
-
-        # TODO: Use this code to define a benchmark of llvm
-        # @njit('float64[:](float64[:], int64)')
-        # def diff_bench_llvm(y, N):
-
-        #    for i in range(N):
-        #        derivatives = diff_llvm(y)
-
-        #    return derivatives
-
-        # tic = time()
-        # derivs_llvm = diff_bench_llvm(y, N)
-        # toc = time()
-        # llvm_vars = var_func(0)
-        # print('llvm derivs: ', list(zip(deriv, derivs_llvm)))
-        # print('llvm vars: ', list(zip(variables, var_func(0))))
-        # print(f'Exe time llvm - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
-
-        N = 5
-        if not skip_kernel:
-            def test_kernel_nojit(variables, y):
-                for i in range(N):
-                    deriv = kernel_nojit(variables, y)
-                    # print(deriv)
-                return deriv
-
-            # print(y)
-            tic = time()
-            deriv_no_jot = test_kernel_nojit(variables_values, y)
-            toc = time()
-
-            class AssemlbedModel():
-                def __init__(self, vars, vals):
-                    self.variables = vars
-                    self.init_vals = vals
-
-                    @njit
-                    def diff(y):
-                        with objmode(derivs='float64[:]'):  # annotate return type
-                            # this region is executed by object-mode.'
-                            # print(y)
-                            derivs = self.diff__(y)
-                            # print(derivs)
-                        return derivs.copy()
-
-                    self.diff = diff
-
-                    @njit
-                    def var_func(i):
-                        with objmode(vrs='float64[:]'):  # annotate return type
-                            # this region is executed by object-mode.
-                            vrs = self.vars__()
-                            # print(vrs)
-                        return vrs.copy()
-
-                    self.var_func = var_func
-
-                def diff__(self, y):
-                    return kernel_nojit(self.init_vals, y)
-
-                def vars__(self):
-                    # for v, vv in zip(self.variables, self.init_vals):
-                    #    print(v,': ',vv)
-                    return self.init_vals
-
-            am = AssemlbedModel(variables, variables_values)
-            diff_ = am.diff
-            var_func_ = am.var_func
-
-            # print(deriv_no_jot)
-            print(f'Exe time flat no jit - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
-
-            print('no jit derivs: ', list(zip(self.deriv, deriv_no_jot)))
-            print('no jit vars: ', list(zip(variables, am.var_func(0))))
-
-            # TODO: This code can be moved to a test to check if results of llvm and regular kernel is the same
-            # print('var diff')
-            # for k, v_n, v_llvm in zip(variables, am.var_func(0), var_func(0)):
-            #    print(k,': ',v_n,' ',v_llvm,' diff: ', v_n-v_llvm)
-
-            # print('deriv diff')
-            # for k, v_n, v_llvm in zip(deriv, deriv_no_jot, derivs_llvm):
-            #    if abs(v_n) >1e-20:
-            ##        rel_diff = (v_n - v_llvm) / v_n
-            #    else:
-            #        rel_diff = 0
-
-            #    print(k,': ',v_n,' ',v_llvm,' rel diff: ', rel_diff)
-            #    if rel_diff>0.001:
-            #        raise ValueError(f'Arg {k}, {v_n}, {v_llvm}, {rel_diff}')
-
-            # print('Exe time kernel nojit timeit: ', timeit.timeit(
-            #    lambda: kernel_nojit(variables_values, y), number=N) / N)
-
-            N = 10000
-
-            # @njit('void(float64[:], float64[:])')
-            # def test_kernel(variables, y):
-            #    for i in range(N):
-            #        kernel(variables, y)
-
-            print('First kernel call results: ')
-            # print(kernel(variables_values, y))
-
-            tic = time()
-            # test_kernel(variables_values, y)
-            toc = time()
-
-            print(f'Exe time flat - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
-            # print('Exe time kernel timeit: ', timeit.timeit(
-            #    lambda: kernel(variables_values, y), number=N) / N)
-        count = 0
-        # for v, v_llvm, v_kernel in zip(variables, llvm_vars, variables_values):
-        #    err = abs(v_llvm - v_kernel)/abs(v_llvm + v_kernel)*2
-        #    if err>1e-3:
-        #        print(v,': ',v_llvm,' ',v_kernel, ' ', err)
-        # count+=1
-        # print(count)
-
-        # sdfsdf=sdfsdf
-        ###TEST PROGRAM
-        # spec = [
-        #    ('program', int64[:, :]),
-        #    ('indices', int64[:]),
-
-        # ]
-        N = 10000
-        """
-        from numba.experimental import jitclass
-        @jitclass(spec)
-        class DiffProgram:
-            def __init__(self, program, indices):
-                self.program = program
-                self.indices = indices
-    
-            def diff(self, variables, y):
-                return diff(variables, y, self.program, self.indices)
-    
-            def test(self, variables, y):
-                for i in range(N):
-                    self.diff(variables, y)
-    
-        #dp = DiffProgram(np.array(program, np.int64), np.array(indices, np.int64))
-        """
-
-        print('First prgram call results: ')
-        # print(dp.diff(variables_values, y))
-
-        # tic = time()
-        # dp.test(variables_values, y)
-        # toc = time()
-
-        # print(f'Exe time program - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
-
-        # print('Exe time program timeit: ', timeit.timeit(
-        #        lambda: dp.diff(variables_values, y), number=N)/N)
-        for v, vv in zip(variables, variables_values):
-            print(v, ': ', vv)
-
-        llvm_ = False
-        if llvm_:
-            return diff_llvm, var_func, variables_values, variables_dot, self.scope_var_node
-        else:
-            return diff_, var_func_, variables_values, variables_dot, self.scope_var_node
+        #
+        # # Update maps between scope variables
+        # for sv_id, sv in self.scope_variables.items():
+        #     full_tag = d_u(sv.get_path_dot())
+        #     if not sv_id in self.vars_node_id:
+        #         self.vars_node_id[sv_id] = full_tag
+        #     if full_tag not in self.scope_var_node:
+        #         self.scope_var_node[full_tag] = sv
+        #
+        #
+        # # Only variables that are not targeted should be in read
+        # all_read_set_vars = set(self.all_read_set_vars).difference(self.all_targeted_set_vars)
+        #
+        # # Unroll all scalar variables from set variables
+        # all_read_scalars_from_set = []
+        # for arsv in all_read_set_vars:
+        #     a = self.set_variables[arsv]
+        #     all_read_scalars_from_set += [v[1].get_path_dot() for v in a]
+        #
+        # all_read_scalars_from_set = set(all_read_scalars_from_set)
+        # all_read_scalars_from_set_dash = [d_u(ar) for ar in all_read_scalars_from_set]
+        #
+        # all_read = set(self.all_read)
+        #
+        # are_all_scalars(all_read)
+        #
+        # # Check for overlap of read and read in set - not allowed!
+        # r_setvar_r_overlap = all_read_scalars_from_set.intersection(all_read)
+        # if len(r_setvar_r_overlap) > 0:
+        #     raise ValueError(f"Overlap between read vars and read vars in set {r_setvar_r_overlap}")
+        #
+        # all_read_dash = [d_u(ar) for ar in all_read]
+        # contains_dot(all_read_dash)
+        #
+        # all_targeted_scalars_from_set = []
+        # for arsv in self.all_targeted_set_vars:
+        #     a = self.set_variables[arsv]
+        #     all_targeted_scalars_from_set += [v[1].get_path_dot() for v in a]
+        #
+        # all_targeted_scalars_from_set = set(all_targeted_scalars_from_set)
+        # all_targeted_scalars_from_set_dash = [d_u(ar) for ar in all_targeted_scalars_from_set]
+        #
+        # all_targeted = set(self.all_targeted)
+        #
+        # all_targeted_dash = [d_u(ar) for ar in all_targeted]
+        #
+        # contains_dot(all_targeted_dash)
+        # all_must_init = set(all_read_dash).difference(all_targeted_dash)
+        #
+        # states_dash = [d_u(s) for s in self.states]
+        # vars_init = states_dash.copy()
+        #
+        # all_read_scalars_from_set_dash = list(set(all_read_scalars_from_set_dash).difference(vars_init))
+        #
+        # vars_init += list(all_must_init.difference(vars_init))
+        #
+        # leninit = len(vars_init + all_read_scalars_from_set_dash)
+        #
+        # non_unique_check('deriv: ', self.deriv)
+        # non_unique_check('all targeted: ', all_targeted_dash)
+        #
+        # vars_update = [d_u(d) for d in self.deriv.copy()]
+        #
+        # all_targeted_scalars_from_set_dash = list(set(all_targeted_scalars_from_set_dash).difference(vars_update))
+        #
+        # vars_update += [at for at in all_targeted_dash if at not in vars_update]
+        #
+        # for s, d in zip(self.states, self.deriv):
+        #     if not d[:-4] == s:
+        #         # print(d, ' ', s)
+        #         raise IndexError('unsorted derivs')
+        #
+        # variables = vars_init + all_read_scalars_from_set_dash + vars_update + all_targeted_scalars_from_set_dash
+        #
+        # variables += set([d_u(sv.get_path_dot()) for sv in self.scope_variables.values()]).difference(variables)
+        #
+        # variables_dot = [self.scope_var_node[v].get_path_dot() for v in variables]
+        #
+        # variables_values = np.array([self.scope_var_node[v].value for v in variables], dtype=np.float64)
+        #
+        # non_unique_check('initialized vars', vars_init)
+        # len_vars_init_ = len(vars_init + all_read_scalars_from_set_dash)
+        # vars_init += self.deriv
+        # non_unique_check('updated vars', vars_update)
+        #
+        # non_unique_check('variables', variables)
+        #
+        # # Generate ast for defining local variables and export results
+        # state_vars = [None] * self.number_of_states
+        # body_init_set_var = []
+        # for rsv in all_read_set_vars:
+        #
+        #     # Find indices in variables
+        #     read_scalars = [d_u(v[1].get_path_dot()) for v in self.set_variables[rsv]]
+        #     read_scalars_var_ix = [variables.index(r) for r in read_scalars]
+        #
+        #     body_init_set_var.append(ast.Assign(targets=[ast.Name(id=d_u(rsv))],
+        #                                         value=ast.Subscript(value=ast.Name(id='variables'), slice=ast.Index(
+        #                                             value=ast.List(
+        #                                                 elts=[ast.Num(n=ix) for ix in read_scalars_var_ix])))))
+        #
+        #     state_vars_ = [(v, states_dash.index(v)) for v in read_scalars if v in states_dash]
+        #
+        #     for v, ix in state_vars_:
+        #         state_vars[ix] = ast.Subscript(value=ast.Name(id=d_u(rsv)),
+        #                                        slice=ast.Index(value=ast.Num(n=read_scalars.index(v))))
+        #
+        # for i, s in enumerate(states_dash):
+        #     if state_vars[i] is None:
+        #         state_vars[i] = ast.Name(id=s)
+        #
+        # body_init_set_var.append(ast.Assign(value=ast.Name(id='y'), targets=[ast.Tuple(elts=state_vars)]))
+        #
+        #
+        # for tsv in self.all_targeted_set_vars:
+        #     body_init_set_var.append(ast.Assign(targets=[ast.Name(id=d_u(tsv))],
+        #                                         value=ast.Call(
+        #                                             func=ast.Attribute(attr='empty', value=ast.Name(id='np')),
+        #                                             args=[ast.Num(n=len(self.set_variables[tsv]))], keywords=[]
+        #                                         )))
+        #
+        # self.body = body_init_set_var + [
+        #     ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=d_u(i)) for i in vars_init[self.number_of_states:]])],
+        #                value=ast.Subscript(
+        #                    slice=ast.Slice(lower=ast.Num(n=self.number_of_states), upper=ast.Num(n=len(vars_init)),
+        #                                    step=None),
+        #                    value=ast.Name(id='variables'))),
+        #     # ast.Assign(targets=[ast.Tuple(elts=[ast.Name(id=d_u(s)) for s in states])], value=ast.Name(id='y')),
+        # ] + self.body
+        #
+        # # Add code for updating variables
+        #
+        # elts_vu = [
+        #     (ast.Subscript(value=ast.Name(id=d_u(svn_.set_var)), slice=ast.Index(ast.Num(n=svn_.set_var_ix))) if (
+        #         svn_ := self.scope_var_node[u]).set_var else ast.Name(id=d_u(u))) for i, u in enumerate(vars_update)]
+        #
+        # self.body.append(ast.Assign(targets=[ast.Subscript(
+        #     slice=ast.Slice(lower=ast.Num(n=len_vars_init_), upper=ast.Num(n=len_vars_init_ + len(vars_update)),
+        #                     step=None),
+        #     value=ast.Name(id='variables'))],
+        #     value=ast.Tuple(elts=elts_vu)))
+        #
+        # # Add code for updating derivatives
+        # self.body.append(ast.Assign(value=ast.Tuple(elts=[
+        #     ast.Subscript(value=ast.Name(id=d_u(svn_.set_var)), slice=ast.Index(ast.Num(n=svn_.set_var_ix))) if (
+        #         svn_ := self.scope_var_node[u]).set_var else ast.Name(id=d_u(u)) for u in self.states
+        # ]), targets=[
+        #     ast.Subscript(slice=ast.Slice(lower=ast.Num(n=0), upper=ast.Num(n=self.number_of_states), step=None),
+        #                   value=ast.Name(id='variables'))]))
+        #
+        # self.body.append(ast.Return(
+        #     value=ast.Subscript(
+        #         slice=ast.Slice(lower=ast.Num(n=leninit), upper=ast.Num(n=leninit + self.number_of_derivatives), step=None),
+        #         value=ast.Name(id='variables'))))
+        # kernel_args = dot_dict(args=[ast.Name(id='variables'), ast.Name(id='y')], vararg=None, defaults=[], kwarg=None)
+        #
+        # skip_kernel = False
+        # if not skip_kernel:
+        #     self.mod_body.append(
+        #         wrap_function('kernel_nojit', self.body, decorators=[], args=kernel_args))
+        #
+        # generate_code_file(self.mod_body, self.filename)
+        # logging.info('compiling...')
+        #
+        # import timeit
+        # print('Compile time: ', timeit.timeit(
+        #     lambda: exec('from kernel import *', globals()), number=1))
+        #
+        #
+        # from numba import njit
+        #
+        # ###TESTS####
+        # y = variables_values[:self.number_of_derivatives].astype(np.float64)
+        #
+        # from time import time
+        # N = 10000
+        #
+        # # TODO: Use this code to define a benchmark of llvm
+        # # @njit('float64[:](float64[:], int64)')
+        # # def diff_bench_llvm(y, N):
+        #
+        # #    for i in range(N):
+        # #        derivatives = diff_llvm(y)
+        #
+        # #    return derivatives
+        #
+        # # tic = time()
+        # # derivs_llvm = diff_bench_llvm(y, N)
+        # # toc = time()
+        # # llvm_vars = var_func(0)
+        # # print('llvm derivs: ', list(zip(deriv, derivs_llvm)))
+        # # print('llvm vars: ', list(zip(variables, var_func(0))))
+        # # print(f'Exe time llvm - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
+        #
+        # N = 5
+        # if not skip_kernel:
+        #     def test_kernel_nojit(variables, y):
+        #         for i in range(N):
+        #             deriv = kernel_nojit(variables, y)
+        #             # print(deriv)
+        #         return deriv
+        #
+        #     # print(y)
+        #     tic = time()
+        #     deriv_no_jot = test_kernel_nojit(variables_values, y)
+        #     toc = time()
+        #
+        #     class AssemlbedModel():
+        #         def __init__(self, vars, vals):
+        #             self.variables = vars
+        #             self.init_vals = vals
+        #
+        #             @njit
+        #             def diff(y):
+        #                 with objmode(derivs='float64[:]'):  # annotate return type
+        #                     # this region is executed by object-mode.'
+        #                     # print(y)
+        #                     derivs = self.diff__(y)
+        #                     # print(derivs)
+        #                 return derivs.copy()
+        #
+        #             self.diff = diff
+        #
+        #             @njit
+        #             def var_func(i):
+        #                 with objmode(vrs='float64[:]'):  # annotate return type
+        #                     # this region is executed by object-mode.
+        #                     vrs = self.vars__()
+        #                     # print(vrs)
+        #                 return vrs.copy()
+        #
+        #             self.var_func = var_func
+        #
+        #         def diff__(self, y):
+        #             return kernel_nojit(self.init_vals, y)
+        #
+        #         def vars__(self):
+        #             # for v, vv in zip(self.variables, self.init_vals):
+        #             #    print(v,': ',vv)
+        #             return self.init_vals
+        #
+        #     am = AssemlbedModel(variables, variables_values)
+        #     diff_ = am.diff
+        #     var_func_ = am.var_func
+        #
+        #     # print(deriv_no_jot)
+        #     print(f'Exe time flat no jit - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
+        #
+        #     print('no jit derivs: ', list(zip(self.deriv, deriv_no_jot)))
+        #     print('no jit vars: ', list(zip(variables, am.var_func(0))))
+        #
+        #     # TODO: This code can be moved to a test to check if results of llvm and regular kernel is the same
+        #     # print('var diff')
+        #     # for k, v_n, v_llvm in zip(variables, am.var_func(0), var_func(0)):
+        #     #    print(k,': ',v_n,' ',v_llvm,' diff: ', v_n-v_llvm)
+        #
+        #     # print('deriv diff')
+        #     # for k, v_n, v_llvm in zip(deriv, deriv_no_jot, derivs_llvm):
+        #     #    if abs(v_n) >1e-20:
+        #     ##        rel_diff = (v_n - v_llvm) / v_n
+        #     #    else:
+        #     #        rel_diff = 0
+        #
+        #     #    print(k,': ',v_n,' ',v_llvm,' rel diff: ', rel_diff)
+        #     #    if rel_diff>0.001:
+        #     #        raise ValueError(f'Arg {k}, {v_n}, {v_llvm}, {rel_diff}')
+        #
+        #     # print('Exe time kernel nojit timeit: ', timeit.timeit(
+        #     #    lambda: kernel_nojit(variables_values, y), number=N) / N)
+        #
+        #     N = 10000
+        #
+        #     # @njit('void(float64[:], float64[:])')
+        #     # def test_kernel(variables, y):
+        #     #    for i in range(N):
+        #     #        kernel(variables, y)
+        #
+        #     print('First kernel call results: ')
+        #     # print(kernel(variables_values, y))
+        #
+        #     tic = time()
+        #     # test_kernel(variables_values, y)
+        #     toc = time()
+        #
+        #     print(f'Exe time flat - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
+        #     # print('Exe time kernel timeit: ', timeit.timeit(
+        #     #    lambda: kernel(variables_values, y), number=N) / N)
+        # count = 0
+        # # for v, v_llvm, v_kernel in zip(variables, llvm_vars, variables_values):
+        # #    err = abs(v_llvm - v_kernel)/abs(v_llvm + v_kernel)*2
+        # #    if err>1e-3:
+        # #        print(v,': ',v_llvm,' ',v_kernel, ' ', err)
+        # # count+=1
+        # # print(count)
+        #
+        # # sdfsdf=sdfsdf
+        # ###TEST PROGRAM
+        # # spec = [
+        # #    ('program', int64[:, :]),
+        # #    ('indices', int64[:]),
+        #
+        # # ]
+        # N = 10000
+        # """
+        # from numba.experimental import jitclass
+        # @jitclass(spec)
+        # class DiffProgram:
+        #     def __init__(self, program, indices):
+        #         self.program = program
+        #         self.indices = indices
+        #
+        #     def diff(self, variables, y):
+        #         return diff(variables, y, self.program, self.indices)
+        #
+        #     def test(self, variables, y):
+        #         for i in range(N):
+        #             self.diff(variables, y)
+        #
+        # #dp = DiffProgram(np.array(program, np.int64), np.array(indices, np.int64))
+        # """
+        #
+        # print('First prgram call results: ')
+        # # print(dp.diff(variables_values, y))
+        #
+        # # tic = time()
+        # # dp.test(variables_values, y)
+        # # toc = time()
+        #
+        # # print(f'Exe time program - {N} runs: ', toc - tic, ' average: ', (toc - tic) / N)
+        #
+        # # print('Exe time program timeit: ', timeit.timeit(
+        # #        lambda: dp.diff(variables_values, y), number=N)/N)
+        # for v, vv in zip(variables, variables_values):
+        #     print(v, ': ', vv)
+        #
+        # llvm_ = False
+        # if llvm_:
+        #     return diff_llvm, var_func, variables_values, variables_dot, self.scope_var_node
+        # else:
+        #     return diff_, var_func_, variables_values, variables_dot, self.scope_var_node

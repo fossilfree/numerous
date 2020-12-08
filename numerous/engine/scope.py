@@ -29,6 +29,8 @@ class ScopeVariable(MappedValue):
         self.set_var = base_variable.set_var
         self.set_var_ix = base_variable.set_var_ix
         self.get_path_dot = base_variable.get_path_dot
+        ##Should have system similar to setVar
+        self.size = 0
 
 
     def update_ix(self, ix):

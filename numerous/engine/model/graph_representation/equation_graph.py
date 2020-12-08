@@ -31,6 +31,7 @@ class TemporarySetVar:
         self.tmp_vars = []
         self.type = VariableType.PARAMETER_SET
         self.set_var = set_var
+        self.size=set_var.size
 
     def get_size(self):
         return len(self.tmp_vars)
