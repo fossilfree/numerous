@@ -24,13 +24,13 @@ class LLVMBuilder:
     Building an LLVM module.
     """
 
-    def __init__(self, initial_values, variable_names, number_of_states, number_of_derivatives):
+    def __init__(self, initial_values, variable_names, states, derivatives):
         """
         initial_values - initial values of global variables array. Array should be ordered in  such way
          that all the derivatives are located in the tail.
         variable_names - dictionary
-        number_of_states - number of states
-        number_of_derivatives -  number of derivatives
+        states - states
+        derivatives -  derivatives
         """
 
         self.loopcount = 0
@@ -38,7 +38,9 @@ class LLVMBuilder:
         self.detailed_print('target triple: ', target_machine.triple)
         self.module = ll.Module()
         self.ext_funcs = {}
-
+        self.states = states
+        self.derivatives = derivatives
+        self.n_deriv = len(derivatives)
         # Define the overall function
         self.fnty = ll.FunctionType(ll.DoubleType().as_pointer(), [
             ll.DoubleType().as_pointer()
@@ -51,16 +53,18 @@ class LLVMBuilder:
         for k, v in variable_names.items():
             self.variable_names[k] = v
             self.variable_names[v] = k
-        self.number_of_states = number_of_states
 
-        self.n_deriv = number_of_derivatives
+
 
         self.max_var = initial_values.shape[0]
-        self.ix_d = self.max_var - number_of_derivatives
 
         self.var_global = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), self.max_var), 'global_var')
         self.var_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), self.max_var),
                                                   [float(v) for v in initial_values])
+
+        self.deriv_global = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), self.n_deriv), 'derivatives')
+        self.deriv_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), self.n_deriv),
+                                                  [float(0) for _ in range(self.n_deriv)])
 
         # Creatinf the fixed structure of the kernel
         self.func = ll.Function(self.module, self.fnty, name="kernel")
@@ -75,12 +79,12 @@ class LLVMBuilder:
         self.values = {}
 
         # go through  all states to put them in load block
-        for i in range(self.number_of_states):
-            self.load_state_variable(self.variable_names[i])
+        for state in self.states:
+            self.load_state_variable(state)
 
         # go through all states to put them in store block
-        for i in range(self.number_of_states):
-            self.store_variable(self.variable_names[i])
+        for state in self.states:
+            self.store_variable(state)
 
         self.builder.position_at_end(self.bb_entry)
         self.builder.branch(self.bb_loop)
@@ -116,11 +120,15 @@ class LLVMBuilder:
 
         self.builder.position_at_end(self.bb_exit)
 
-        indexd = ll.IntType(64)(self.ix_d)
+        for i, deriv in enumerate(self.derivatives):
+            if deriv not in self.values:
+                self._create_target_pointer(deriv)
+            pointer = self._get_target_pointers([deriv])
+            dg_ptr = self.builder.gep(self.deriv_global, [ll.IntType(64)(0), ll.IntType(64)(i)])
+            self.builder.store(self.builder.load(*pointer), dg_ptr)
 
-        dg_ptr = self.builder.gep(self.var_global, [self.index0, indexd])
+        self.builder.ret(self.builder.gep(self.deriv_global, [self.index0, self.index0]))
 
-        self.builder.ret(dg_ptr)
 
         # build vars read function
         self._build_var_r()
@@ -219,14 +227,17 @@ class LLVMBuilder:
         self.builder.store(self.builder.load(self.values[variable_name]), eptr)
         self.builder.position_at_end(_block)
 
-    def add_call(self, external_function_name, args, targets):
-        arg_pointers = self._load_args(args)
-        for target in targets:
-            if target not in self.values:
-                self._create_target_pointer(target)
-        target_pointers = self._get_target_pointers(targets)
+    def add_call(self, external_function_name, args, target_ids):
+        arg_pointers = []
+        for i1, arg in enumerate(args):
+            if i1 in target_ids:
+                if arg not in self.values:
+                    self._create_target_pointer(arg)
+                arg_pointers.append(*self._get_target_pointers([arg]))
+            else:
+                arg_pointers.append(*self._load_args([arg]))
         self.builder.position_at_end(self.bb_loop)
-        self.builder.call(self.ext_funcs[external_function_name], arg_pointers + target_pointers)
+        self.builder.call(self.ext_funcs[external_function_name], arg_pointers)
 
     def _build_var_r(self):
         fnty_vars = ll.FunctionType(ll.DoubleType().as_pointer(), [ll.IntType(64)])
@@ -308,11 +319,12 @@ class LLVMBuilder:
         indices = [self.index0, index]
         eptr = self.builder.gep(ptr, indices, name=t)
         self.values[t] = eptr
+
     ##Should be moved to utils
-    def _is_range_and_ordered(self,a_list):
+    def _is_range_and_ordered(self, a_list):
         e = len(a_list)
         i = a_list[0]
-        return all(ele >= i and ele < i+e for ele in a_list) and all(a_list[i] <= a_list[i+1] for i in range(e-1))
+        return all(ele >= i and ele < i + e for ele in a_list) and all(a_list[i] <= a_list[i + 1] for i in range(e - 1))
 
     def add_set_call(self, external_function_name, variable_name_arg_and_trg, targets_ids):
         ## TODO check allign

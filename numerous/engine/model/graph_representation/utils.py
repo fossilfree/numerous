@@ -1,4 +1,6 @@
 import ast
+from enum import IntEnum, unique
+
 
 class Vardef:
     def __init__(self):
@@ -10,3 +12,32 @@ class Vardef:
         ix = self.vars_inds_map.index(var)
 
         return ast.Subscript(slice=ast.Index(value=ast.Num(n=ix)), value=ast.Name(id='l'))
+
+
+@unique
+class EdgeType(IntEnum):
+    TARGET=0
+    ARGUMENT=1
+    MAPPING=2
+    UNDEFINED=3
+    OPERAND=4
+    TMP=5
+    VALUE=6
+    LEFT=7
+    RIGHT=8
+    BODY = 9
+    ORELSE =10
+    TEST=11
+    COMP=12
+
+def str_to_edgetype(a):
+    if a == "left":
+        return EdgeType.LEFT
+    if a == "right":
+        return EdgeType.RIGHT
+    if a =='body':
+        return EdgeType.BODY
+    if a == 'orelse':
+        return EdgeType.ORELSE
+    if a == 'test':
+        return EdgeType.TEST

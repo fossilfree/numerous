@@ -2,8 +2,8 @@ import inspect
 import ast, astor
 from textwrap import dedent
 
-from numerous.engine.model.graph_representation import EquationGraph, Graph
-from numerous.engine.model.graph_representation.utils import Vardef
+from numerous.engine.model.graph_representation import EquationGraph, Graph, EdgeType
+from numerous.engine.model.graph_representation.utils import Vardef, str_to_edgetype
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute, dot_dict, wrap_function
 from numerous.engine.variables import VariableType
 from numerous.engine.scope import ScopeVariable
@@ -71,12 +71,12 @@ def node_to_ast(n: int, g: EquationGraph, var_def, read=True):
         elif na == ast.BinOp:
 
             # left_node = g.nodes_map[g.edges_end(n, label='left',max=1)[0][0]]
-            left_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val='left')[1][0][0]
+            left_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=[EdgeType.LEFT])[1][0][0]
 
             left_ast = node_to_ast(left_node, g, var_def)
 
             # right_node = g.nodes_map[g.edges_end(n, label='right',max=1)[0][0]]
-            right_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val='right')[1][0][0]
+            right_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=[EdgeType.RIGHT])[1][0][0]
 
             right_ast = node_to_ast(right_node, g, var_def)
 
@@ -85,7 +85,7 @@ def node_to_ast(n: int, g: EquationGraph, var_def, read=True):
 
         elif na == ast.UnaryOp:
             # operand = g.nodes_map[g.edges_end(n, label='operand',max=1)[0][0]]
-            operand = g.get_edges_for_node_filter(end_node=n, attr='e_type', val='operand')[1][0][0]
+            operand = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.OPERAND)[1][0][0]
 
             operand_ast = node_to_ast(operand, g, var_def)
 
@@ -94,7 +94,7 @@ def node_to_ast(n: int, g: EquationGraph, var_def, read=True):
 
         elif na == ast.Call:
 
-            args = [ii[0] for ii in g.get_edges_for_node_filter(end_node=n, attr='e_type', val='args')[1]]
+            args = [ii[0] for ii in g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.ARGUMENT)[1]]
             args_ast = []
             for a in args:
                 a_ast = node_to_ast(a, g, var_def)
@@ -106,13 +106,13 @@ def node_to_ast(n: int, g: EquationGraph, var_def, read=True):
 
         elif na == ast.IfExp:
 
-            body = g.get_edges_for_node_filter(end_node=n, attr='e_type', val='body')[1][0][0]
+            body = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.BODY)[1][0][0]
             body_ast = node_to_ast(body, g, var_def)
 
-            orelse = g.get_edges_for_node_filter(end_node=n, attr='e_type', val='orelse')[1][0][0]
+            orelse = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.ORELSE)[1][0][0]
             orelse_ast = node_to_ast(orelse, g, var_def)
 
-            test = g.get_edges_for_node_filter(end_node=n, attr='e_type', val='test')[1][0][0]
+            test = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.TEST)[1][0][0]
             test_ast = node_to_ast(test, g, var_def)
 
             ast_ifexp = ast.IfExp(body=body_ast, orelse=orelse_ast, test=test_ast)
@@ -120,14 +120,14 @@ def node_to_ast(n: int, g: EquationGraph, var_def, read=True):
             return ast_ifexp
 
         elif na == ast.Compare:
-            comp = [ii[0] for ii in g.get_edges_for_node_filter(end_node=n, attr='e_type', val='comp')[1]]
+            comp = [ii[0] for ii in g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.COMP)[1]]
             comp_ast = []
             for a in comp:
                 a_ast = node_to_ast(a, g, var_def)
                 comp_ast.append(a_ast)
 
             # left = g.nodes_map[g.edges_end(n, label='left',max=1)[0][0]]
-            left = g.get_edges_for_node_filter(end_node=n, attr='e_type', val='left')[1][0][0]
+            left = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.LEFT)[1][0][0]
 
             left_ast = node_to_ast(left, g, var_def)
 
@@ -195,12 +195,12 @@ def function_from_graph_generic(g: Graph, name, var_def_, decorators=[
             # n[1].id = n[0]
             # value_node = g.nodes_map[g.edges_end(n, label='value',max=1)[0][0]]
 
-            value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val='value')[1][0][0]
+            value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE)[1][0][0]
 
             value_ast = node_to_ast(value_node, g, var_def)
 
             # target_node = g.nodes_map[g.edges_start(n, label='target0',max=1)[0][1]]
-            target_node = g.get_edges_for_node_filter(start_node=n, attr='e_type', val='target')[1][0][1]
+            target_node = g.get_edges_for_node_filter(start_node=n, attr='e_type', val=EdgeType.TARGET)[1][0][1]
             target_ast = node_to_ast(target_node, g, var_def, read=False)
 
             if value_ast and target_ast:
@@ -260,10 +260,10 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
 
         if (na := g.get(n, 'ast_type')) == ast.Assign or na == ast.AugAssign:
             # n[1].id = n[0]
-            value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val='value')[1][0][0]
+            value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE)[1][0][0]
             value_ast = node_to_ast(value_node, g, var_def)
 
-            target_node = g.get_edges_for_node_filter(start_node=n, attr='e_type', val='target')[1][0][1]
+            target_node = g.get_edges_for_node_filter(start_node=n, attr='e_type', val=EdgeType.TARGET)[1][0][1]
             target_ast = node_to_ast(target_node, g, var_def, read=False)
 
             if value_ast and target_ast:
@@ -274,12 +274,23 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
                     ast_assign = ast.AugAssign(target=target_ast, value=value_ast, op=ast.Add())
                 body.append(ast_assign)
 
-    args = dot_dict(args=var_def_.get_args() + var_def_.get_targets(), vararg=None, defaults=[], kwarg=None)
-    signature = f'void({", ".join(["float64" for a in var_def_.get_args()])}, {", ".join(["CPointer(float64)" for a in var_def_.get_targets()])})'
+    var_def_.order_variables(g.arg_metadata)
+    args = dot_dict(args=var_def_.get_order_args(), vararg=None, defaults=[], kwarg=None)
+    signature =[f'void(']
+    target_ids = []
+    for i,arg in enumerate(var_def_.args_order):
+        if arg in var_def_.targets:
+            signature.append("CPointer(float64), ")
+            target_ids.append(i)
+        else:
+            signature.append("float64, ")
+    signature[-1]=signature[-1][:-2]
+    signature.append(")")
+    signature =''.join(signature)
     decorators = []
 
     func = wrap_function(fname, body, decorators=decorators, args=args)
-    return func, signature, fname, var_def_.args, var_def_.targets
+    return func, signature, fname, var_def_.args_order, target_ids
 
 
 def postfix_from_branches(branches: dict):
@@ -326,12 +337,12 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
         en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
                         ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
                         ast_op=ast.Add() if mapped else None)
-        target_edge = g.add_edge(start=en, end=end, e_type='target', branches=branches.copy())
+        target_edge = g.add_edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy())
         if isinstance(start, list):
             for s in start:
-                value_edge = g.add_edge(start=s[0], end=en, e_type='value', branches=s[1])
+                value_edge = g.add_edge(start=s[0], end=en, e_type=EdgeType.VALUE, branches=s[1])
         else:
-            value_edge = g.add_edge(start=start, end=en, e_type='value', branches=branches.copy())
+            value_edge = g.add_edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy())
         # g.set_edge(target_edge, start=en)
         # g.set_edge(value_edge, end=en)
 
@@ -381,7 +392,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
         en = g.add_node(label=op_sym, ast_type=ast.UnaryOp, node_type=NodeTypes.OP, ast_op=ao.op, ignore_existing=True)
 
         m, start = parse_(ao.operand, name, file, ln, g, tag_vars, prefix, branches=branches)
-        operand_edge = g.add_edge(start=start, e_type='operand', end=en, branches=branches.copy())
+        operand_edge = g.add_edge(start=start, e_type=EdgeType.OPERAND, end=en, branches=branches.copy())
 
     elif isinstance(ao, ast.Call):
 
@@ -392,7 +403,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
 
         for i, sa in enumerate(ao.args):
             m, start = parse_(ao.args[i], name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
-            g.add_edge(start=start, end=en, e_type='args', branches=branches.copy())
+            g.add_edge(start=start, end=en, e_type=EdgeType.ARGUMENT, branches=branches.copy())
 
 
     elif isinstance(ao, ast.BinOp):
@@ -403,7 +414,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
 
         for a in ['left', 'right']:
             m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix, branches=branches)
-            operand_edge = g.add_edge(start=start, end=en, e_type=a, branches=branches.copy())
+            operand_edge = g.add_edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches.copy())
 
     elif isinstance(ao, ast.Compare):
         ops_sym = [get_op_sym(o) for o in ao.ops]
@@ -413,11 +424,11 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
 
         m, start = parse_(ao.left, name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
 
-        edge_l = g.add_edge(start=start, end=en, label=f'left', e_type='left', branches=branches)
+        edge_l = g.add_edge(start=start, end=en, label=f'left', e_type=EdgeType.LEFT, branches=branches)
 
         for i, sa in enumerate(ao.comparators):
             m, start = parse_(sa, name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
-            edge_i = g.add_edge(start=start, end=en, label=f'comp{i}', e_type='comp', branches=branches)
+            edge_i = g.add_edge(start=start, end=en, label=f'comp{i}', e_type=EdgeType.COMP, branches=branches)
 
     elif isinstance(ao, ast.IfExp):
         new_branch = None
@@ -449,7 +460,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
             #    branches[new_branch] = True if a=='body' else False
             m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix, branches=branches)
 
-            operand_edge = g.add_edge(start=start, end=en, e_type=a, branches=branches)
+            operand_edge = g.add_edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches)
 
     else:
         raise TypeError('Cannot parse <' + str(type(ao)) + '>')
@@ -596,7 +607,7 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
 
                     try:
                         next(end_edges)
-                        equation_graph.add_edge(eq_n, neq, e_type='target', arg_local=sv.id if sv else 'local')
+                        equation_graph.add_edge(eq_n, neq, e_type=EdgeType.TARGET, arg_local=sv.id if sv else 'local')
                         targeted = True
                     except StopIteration:
                         pass
@@ -605,10 +616,12 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
                         start_edges = g_qualified.get_edges_for_node(start_node=n)
                         try:
                             next(start_edges)
-                            equation_graph.add_edge(neq, eq_n, e_type='arg', arg_local=sv.id if (
+                            equation_graph.add_edge(neq, eq_n, e_type=EdgeType.ARGUMENT, arg_local=sv.id if (
                                 sv := g_qualified.get(n, 'scope_var')) else 'local')
                         except StopIteration:
                             pass
+            for sv in scope_variables:
+                g.arg_metadata.append(sv)
 
 
 def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
@@ -654,7 +667,7 @@ def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
             ix_ = equation_graph.has_edge_for_nodes(start_node=ivar_node_e, end_node=t)
             lix = len(ix_)
             if lix == 0:
-                e_m = equation_graph.add_edge(ivar_node_e, t, e_type='mapping',
+                e_m = equation_graph.add_edge(ivar_node_e, t, e_type=EdgeType.MAPPING,
                                               mappings=[(ivar_set_var_ix, target_set_var_ix)])
             else:
                 equation_graph.edges_attr['mappings'][ix_[0]].append((ivar_set_var_ix, target_set_var_ix))

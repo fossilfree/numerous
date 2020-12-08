@@ -4,6 +4,7 @@ import numpy as np
 
 from graphviz import Digraph
 
+from .utils import EdgeType
 from .lower_graph import multi_replace, _Graph
 
 
@@ -31,11 +32,13 @@ class Graph:
         self.node_map = {}
         self.key_map = {}
         self.nodes_attr = {'deleted': [0] * preallocate_items}
-        self.edges_attr = {'deleted': [0] * preallocate_items}
+        self.edges_attr = {'deleted': [0] * preallocate_items, "e_type":[EdgeType.UNDEFINED] * self.preallocate_items}
         self.edges = np.ones((self.preallocate_items, 2), dtype=np.int32) * -1
         self.lower_graph = None
 
         self.node_edges = None
+        ##For equation arguments order.
+        self.arg_metadata = []
 
     def build_node_edges(self):
         self.node_edges = [([], []) for n in range(self.node_counter)]
@@ -79,7 +82,7 @@ class Graph:
                 return self.node_map[key]
         return node
 
-    def add_edge(self, start=-1, end=-1, **attrs):
+    def add_edge(self, start=-1, end=-1,e_type=EdgeType.UNDEFINED, **attrs):
         edge = self.edge_counter
         self.edges[edge, :] = [start, end]
 
@@ -93,7 +96,9 @@ class Graph:
                 self.edges_attr[ak] = [None] * self.preallocate_items
 
             self.edges_attr[ak][edge] = a
-
+        self.edges_attr["e_type"][edge] = e_type
+        if e_type == EdgeType.TARGET:
+            pass
         return edge
 
     def set_edge(self, edge, start=None, end=None):

@@ -1,3 +1,4 @@
+from numerous.engine.model.graph_representation.utils import EdgeType
 from numerous.engine.model.utils import NodeTypes
 from numerous import VariableType, SetOfVariables
 from string_utils import d_u
@@ -67,14 +68,14 @@ class EquationGraph(Graph):
         for target in self.variables():
             # Get target
             target_edges_indcs, target_edges = self.get_edges_for_node_filter(end_node=target, attr='e_type',
-                                                                              val=['target', 'mapping'])
+                                                                              val=[EdgeType.TARGET, EdgeType.MAPPING])
             for edge, edge_ix in zip(target_edges, target_edges_indcs):
 
                 if not target in self.vars_assignments:
                     self.vars_assignments[target] = []
                     self.vars_assignments_mappings[target] = []
                 ##if mapping edge
-                if self.edges_attr['e_type'][edge_ix] == 'mapping':
+                if self.edges_attr['e_type'][edge_ix] == EdgeType.MAPPING:
                     self.vars_mappings[target] = (edge[0], self.edges_attr['mappings'][edge_ix])
                     self.remove_edge(edge_ix)
 
@@ -83,7 +84,7 @@ class EquationGraph(Graph):
 
         for target in self.variables():
             target_edges_indcs, target_edges = self.get_edges_for_node_filter(end_node=target, attr='e_type',
-                                                                              val=['target', 'mapping'])
+                                                                              val=[EdgeType.TARGET, EdgeType.MAPPING])
             if target in self.vars_assignments and len(self.vars_assignments[target]) > 1:
                 for edge_ix in target_edges_indcs:
                     self.remove_edge(edge_ix)
@@ -121,7 +122,7 @@ class EquationGraph(Graph):
                                         ast_type=None, scope_var=svf, ignore_existing=False)
                     # Add temp var to Equation target
 
-                    self.add_edge(n, tmp, e_type='target', arg_local=self.edges_attr['arg_local'][i[0]])
+                    self.add_edge(n, tmp, e_type=EdgeType.TARGET, arg_local=self.edges_attr['arg_local'][i[0]])
                     # Add temp var in var assignments
 
                     self.vars_assignments_mappings[va][(nix := self.vars_assignments[va].index(n))] = ':'
@@ -135,18 +136,18 @@ class EquationGraph(Graph):
                 nsn = self.add_node(key=ns, node_type=NodeTypes.SUM, name=ns, ast=None, file='sum',
                                     label=ns,
                                     ln=0, ast_type=None)
-                self.add_edge(nsn, a, e_type='target')
+                self.add_edge(nsn, a, e_type=EdgeType.TARGET)
                 for v, mappings in zip(vals, self.vars_assignments_mappings[a]):
-                    self.add_edge(v, nsn, e_type='value', mappings=mappings)
+                    self.add_edge(v, nsn, e_type=EdgeType.VALUE, mappings=mappings)
 
             elif a in self.vars_mappings:
                 ns = new_sum()
                 nsn = self.add_node(key=ns, node_type=NodeTypes.SUM, name=ns, ast=None, file='sum',
                                     label=ns,
                                     ln=0, ast_type=None)
-                self.add_edge(nsn, a, e_type='target')
+                self.add_edge(nsn, a,e_type=EdgeType.TARGET)
 
-                self.add_edge(self.vars_mappings[a][0], nsn, e_type='value', mappings=self.vars_mappings[a][1])
+                self.add_edge(self.vars_mappings[a][0], nsn,  e_type=EdgeType.VALUE, mappings=self.vars_mappings[a][1])
 
     @classmethod
     def from_graph(cls, eg):

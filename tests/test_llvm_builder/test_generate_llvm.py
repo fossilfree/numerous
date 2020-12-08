@@ -1,3 +1,4 @@
+import pytest
 from numba import carray
 from pytest import approx
 
@@ -8,8 +9,13 @@ import os
 initial_values = np.arange(1, 10)
 filename = 'llvm_IR_code.txt'
 
-if os.path.exists(filename):
-    os.remove(filename)
+
+@pytest.fixture(autouse=True)
+def run_around_tests():
+    yield
+    if os.path.exists(filename):
+        os.remove(filename)
+
 
 eval_llvm_signature = 'void(float64, float64, CPointer(float64), CPointer(float64))'
 
@@ -41,10 +47,12 @@ variable_names = {
     "oscillator1.mechanics.y_dot": 7,
     "oscillator1.mechanics.z_dot": 8,
 }
+DERIVATIVES = ["oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot", "oscillator1.mechanics.z_dot"]
+STATES = ["oscillator1.mechanics.x", "oscillator1.mechanics.y", "oscillator1.mechanics.z"]
 
 
 def test_llvm_1_to_1_mapping_state():
-    llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
+    llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
 
     llvm_program.add_mapping(["oscillator1.mechanics.x"], ["oscillator1.mechanics.x_dot"])
 
@@ -54,7 +62,7 @@ def test_llvm_1_to_1_mapping_state():
 
 
 def test_llvm_1_to_1_mapping_parameter():
-    llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
+    llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
 
     llvm_program.add_mapping(["oscillator1.mechanics.b"], ["oscillator1.mechanics.x_dot"])
 
@@ -64,7 +72,7 @@ def test_llvm_1_to_1_mapping_parameter():
 
 
 def test_llvm_n_to_1_sum_mapping():
-    llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
+    llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
 
     llvm_program.add_mapping(["oscillator1.mechanics.x", "oscillator1.mechanics.y", "oscillator1.mechanics.b"],
                              ["oscillator1.mechanics.x_dot"])
@@ -75,7 +83,7 @@ def test_llvm_n_to_1_sum_mapping():
 
 
 def test_llvm_1_to_n_mapping():
-    llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
+    llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
 
     llvm_program.add_mapping(["oscillator1.mechanics.x"],
                              ["oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot"])
@@ -86,12 +94,13 @@ def test_llvm_1_to_n_mapping():
 
 
 def test_llvm_1_function():
-    llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
+    llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
     llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
 
     llvm_program.add_call(eval_llvm.__qualname__,
-                          ["oscillator1.mechanics.x", "oscillator1.mechanics.y"],
-                          ["oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot"])
+                          ["oscillator1.mechanics.x", "oscillator1.mechanics.y", "oscillator1.mechanics.x_dot",
+                           "oscillator1.mechanics.y_dot"],
+                          target_ids=[2, 3])
 
     diff, var_func, _ = llvm_program.generate(filename)
 
@@ -100,12 +109,12 @@ def test_llvm_1_function():
 
 
 def test_llvm_1_function_and_mapping():
-    llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
+    llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
     llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
 
     llvm_program.add_call(eval_llvm.__qualname__,
-                          ["oscillator1.mechanics.x", "oscillator1.mechanics.y"],
-                          ["oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"])
+                          ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
+                           "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"], target_ids=[2, 3])
 
     llvm_program.add_mapping(args=["oscillator1.mechanics.a"],
                              targets=["oscillator1.mechanics.x_dot"])
@@ -117,20 +126,22 @@ def test_llvm_1_function_and_mapping():
 
 
 def test_llvm_1_function_and_mappings():
-    llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
+    llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
     llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
 
     llvm_program.add_mapping(args=["oscillator1.mechanics.x"],
                              targets=["oscillator1.mechanics.b"])
 
-    llvm_program.add_call(eval_llvm.__qualname__, ["oscillator1.mechanics.b", "oscillator1.mechanics.y"],
-                          ["oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"])
+    llvm_program.add_call(eval_llvm.__qualname__, ["oscillator1.mechanics.b", "oscillator1.mechanics.y",
+                                                   "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"],
+                          target_ids=[2, 3])
 
     llvm_program.add_mapping(args=["oscillator1.mechanics.a"],
                              targets=["oscillator1.mechanics.b"])
 
-    llvm_program.add_call(eval_llvm.__qualname__, ["oscillator1.mechanics.b", "oscillator1.mechanics.y"],
-                          ["oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"])
+    llvm_program.add_call(eval_llvm.__qualname__, ["oscillator1.mechanics.b", "oscillator1.mechanics.y",
+                                                   "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"],
+                          target_ids=[2, 3])
 
     diff, var_func, _ = llvm_program.generate(filename)
 
@@ -140,11 +151,12 @@ def test_llvm_1_function_and_mappings():
 
 
 def test_llvm_2_function_and_mappings():
-    llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
+    llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
     llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
 
-    llvm_program.add_call(eval_llvm.__qualname__, ["oscillator1.mechanics.b", "oscillator1.mechanics.y"],
-                          ["oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"])
+    llvm_program.add_call(eval_llvm.__qualname__, ["oscillator1.mechanics.b", "oscillator1.mechanics.y",
+                                                   "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"],
+                          target_ids=[2, 3])
 
     diff, var_func, _ = llvm_program.generate(filename)
 
@@ -154,7 +166,7 @@ def test_llvm_2_function_and_mappings():
 
 
 def test_llvm_loop_seq():
-    llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
+    llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
     llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
 
     llvm_program.add_set_call(eval_llvm.__qualname__, [
@@ -171,7 +183,7 @@ def test_llvm_loop_seq():
 
 
 def test_llvm_loop_mix():
-    llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
+    llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
     llvm_program.add_external_function(eval_llvm_mix, eval_llvm_mix_signature, number_of_args=4, target_ids=[1, 3])
 
     llvm_program.add_set_call(eval_llvm_mix.__qualname__, [
@@ -188,7 +200,7 @@ def test_llvm_loop_mix():
 
 
 def test_llvm_idx_write():
-    llvm_program = LLVMBuilder(initial_values, variable_names, number_of_states, number_of_derivatives)
+    llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
     llvm_program.add_mapping(["oscillator1.mechanics.b"],
                              ["oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot"])
     diff, var_func, var_write = llvm_program.generate(filename)

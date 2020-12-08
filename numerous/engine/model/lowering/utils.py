@@ -14,6 +14,7 @@ class VarTypes(IntEnum):
     TMP=5
 
 
+
 def wrap_module(body):
     mod = ast.Module()
     mod.body = body
@@ -66,6 +67,8 @@ class Vardef:
         self.vars_inds_map = []
         self.targets = []
         self.args = []
+        self.args_order = []
+        self.llvm_target_ids=[]
 
     def format(self, var):
         return ast.Name(id=var.replace('scope.', 's_'))
@@ -101,6 +104,7 @@ class Vardef_llvm:
         self.vars_inds_map = []
         self.targets = []
         self.args = []
+        self.args_order = []
 
     def format(self, var):
         return ast.Name(id=var.replace('scope.', 's_'))
@@ -109,6 +113,9 @@ class Vardef_llvm:
         return ast.Subscript(slice=ast.Index(value=ast.Num(n=0)), value=ast.Call(
             args=[ast.Name(id=var.replace('scope.', 's_')), ast.Tuple(elts=[ast.Num(n=1)])], func=ast.Name(id='carray'),
             keywords=[]))
+    def order_variables(self,order_data):
+        for var in order_data:
+            self.args_order.append("scope."+var)
 
     def var_def(self, var, read=True):
         if not var in self.vars_inds_map:
@@ -125,6 +132,12 @@ class Vardef_llvm:
             return self.format_target(var)
         else:
             return self.format(var)
+
+    def get_order_args(self, form=True):
+        if form:
+            return [self.format(a) for a in self.args_order]
+        else:
+            return self.args
 
     def get_args(self, form=True):
         if form:

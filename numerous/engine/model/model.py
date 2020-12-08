@@ -40,6 +40,7 @@ class ModelNamespace:
         self.outgoing_mappings = outgoing_mappings
         self.equation_dict = {}
         self.eq_variables_ids = []
+        ##Ordered dictionary.
         self.variables = {}
         self.set_variables = None
         self.mappings = []

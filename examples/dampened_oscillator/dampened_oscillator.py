@@ -43,7 +43,7 @@ class Spring_Equation(EquationBase):
 
         self.add_parameter('k', k)  #
         self.add_parameter('c', 0)  #
-        self.add_parameter('dx0', dx0)  #
+        # self.add_parameter('dx0', dx0)  #not used in EQ
         self.add_parameter('F1', 0)  # [kg/s]      Mass flow rate in one side of the valve
         self.add_parameter('F2', 0)  # [kg/s]      Mass flow rate in the other side of the valve
         self.add_parameter('x1', 0)  # [m]         Liquid height in the tank 1 connected to the valve (top tank)
