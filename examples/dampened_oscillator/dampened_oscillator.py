@@ -198,7 +198,7 @@ if __name__ == "__main__":
     # print(s.model.historian_df[c].describe())
     # print(list(s.model.historian_df))
 
-    s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.v', 'system.SET_oscillators.oscillator1.mechanics.v']].plot()
+    s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.x', 'system.SET_oscillators.oscillator1.mechanics.x']].plot()
     # print()
     plt.show()
     plt.interactive(False)

@@ -1,7 +1,7 @@
 from numerous.engine.model.graph_representation.utils import EdgeType
 from numerous.engine.model.utils import NodeTypes
 from numerous import VariableType, SetOfVariables
-from string_utils import d_u
+from numerous.utils.string_utils import d_u
 
 from .graph import Graph
 
@@ -82,6 +82,7 @@ class EquationGraph(Graph):
                     self.remove_edge(edge_ix)
 
                 self.vars_assignments[target].append(edge[0])
+
                 if "mappings" in self.edges_attr:
                     self.vars_assignments_mappings[target].append(self.edges_attr['mappings'][edge_ix])
 
