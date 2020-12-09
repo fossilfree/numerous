@@ -230,6 +230,7 @@ def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_):
     func, signature, fname, r_args, r_targets = function_from_graph_generic_llvm(g, name, var_def_)
     ##TODO imports should a parameter of a System or Model
     body = [ast.ImportFrom(module="numba", names=[ast.alias(name="carray", asname=None)], level=0),
+            ast.ImportFrom(module="numba", names=[ast.alias(name="float64", asname=None)], level=0),
             ast.Import(names=[ast.alias(name="numpy", asname="np")], level=0), func,
             ast.Return(value=ast.Name(id=fname))]
     func = wrap_function(fname + '1', body, decorators=[],
