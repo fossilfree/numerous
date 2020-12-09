@@ -82,7 +82,8 @@ class EquationGraph(Graph):
                     self.remove_edge(edge_ix)
 
                 self.vars_assignments[target].append(edge[0])
-                self.vars_assignments_mappings[target].append(self.edges_attr['mappings'][edge_ix])
+                if "mappings" in self.edges_attr:
+                    self.vars_assignments_mappings[target].append(self.edges_attr['mappings'][edge_ix])
 
         for target in self.variables():
             target_edges_indcs, target_edges = self.get_edges_for_node_filter(end_node=target, attr='e_type',

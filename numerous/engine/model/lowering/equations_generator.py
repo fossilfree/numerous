@@ -389,9 +389,9 @@ class EquationGenerator:
                             else:
                                 raise ValueError(f'Variable  {m_ix[0]} mapping not found')
             for k, v in mappings_llvm.items():
-                for v1 in v:
-                    print(f"Mapping  {self.scope_variables[v1].path.primary_path}"
-                          f" to {self.scope_variables[k].path.primary_path} ")
+                # for v1 in v:
+                    # print(f"Mapping  {self.scope_variables[v1].path.primary_path}"
+                    #       f" to {self.scope_variables[k].path.primary_path} ")
                 self.llvm_program.add_mapping(v,[k])
 
 
@@ -463,13 +463,13 @@ class EquationGenerator:
                 for v in values:
                     var_name = d_u(self.equation_graph.key_map[v[0]])
                     if var_name in self.scope_variables:
-                        print(f"Mapping  {self.scope_variables[var_name].path.primary_path}"
-                              f" to {self.scope_variables[target_var].path.primary_path} ")
+                        # print(f"Mapping  {self.scope_variables[var_name].path.primary_path}"
+                        #       f" to {self.scope_variables[target_var].path.primary_path} ")
                         self.llvm_program.add_mapping([var_name],[target_var])
                     else:
                         if var_name in self.set_variables:
-                            print(f"Mapping  {self.set_variables[var_name].get_var_by_idx(v[1]).path.primary_path} "
-                                  f"to {self.scope_variables[target_var].path.primary_path} ")
+                            # print(f"Mapping  {self.set_variables[var_name].get_var_by_idx(v[1]).path.primary_path} "
+                            #       f"to {self.scope_variables[target_var].path.primary_path} ")
                             self.llvm_program.add_mapping(
                                                           [self.set_variables[var_name].get_var_by_idx(v[1]).id],[target_var])
                         else:
