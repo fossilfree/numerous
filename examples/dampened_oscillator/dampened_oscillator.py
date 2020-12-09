@@ -177,7 +177,7 @@ if __name__ == "__main__":
     # Define simulation
     s = simulation.Simulation(
         model.Model(subsystem),
-        t_start=0, t_stop=20.0, num=20, num_inner=100, max_step=1
+        t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
     )
     # Solve and plot
     tic = time()

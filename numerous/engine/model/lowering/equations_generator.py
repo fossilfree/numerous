@@ -23,7 +23,7 @@ class EquationGenerator:
         self.scope_variables = scope_variables
         self.set_variables = {}
         for k, var in temporary_variables.items():
-            if var.type == VariableType.PARAMETER_SET:
+            if var.type == VariableType.TMP_PARAMETER_SET:
                 self.set_variables.update({k: var})
                 new_sv = {}
                 tail = {}
@@ -34,7 +34,7 @@ class EquationGenerator:
                     else:
                         new_sv.update({k:v})
                 self.scope_variables = dict(new_sv, **tail)
-            if var.type == VariableType.PARAMETER:
+            if var.type == VariableType.TMP_PARAMETER:
                 new_sv = {}
                 tail = {}
                 for k, v in self.scope_variables.items():
@@ -359,7 +359,6 @@ class EquationGenerator:
                 for mcolon in mappings[':']:
 
                     if prev:
-                        # print('prev: ',prev)
                         prev = ast.BinOp(left=prev, right=ast.Name(id=d_u(mcolon)), op=ast.Add())
                     else:
                         prev = ast.Name(id=d_u(mcolon))
@@ -371,6 +370,11 @@ class EquationGenerator:
 
             # Generate llvm
             mappings_llvm = {}
+            if len(mappings[':']) > 0:
+                for set_variable in mappings[':']:
+                    for k in range(self.set_variables[set_variable].size):
+                        target_var_name = self.set_variables[t_sv.id].get_var_by_idx(k).id
+                        mappings_llvm[target_var_name] = [self.set_variables[set_variable].get_var_by_idx(k).id]
             for m_ix in mappings['ix']:
                 for k, v in m_ix[1].items():
                     target_var_name = self.set_variables[t_sv.id].get_var_by_idx(k).id
@@ -385,6 +389,9 @@ class EquationGenerator:
                             else:
                                 raise ValueError(f'Variable  {m_ix[0]} mapping not found')
             for k, v in mappings_llvm.items():
+                for v1 in v:
+                    print(f"Mapping  {self.scope_variables[v1].path.primary_path}"
+                          f" to {self.scope_variables[k].path.primary_path} ")
                 self.llvm_program.add_mapping(v,[k])
 
 
@@ -461,7 +468,8 @@ class EquationGenerator:
                         self.llvm_program.add_mapping([var_name],[target_var])
                     else:
                         if var_name in self.set_variables:
-                            print(f"Mapping  {self.set_variables[var_name].get_var_by_idx(v[1]).id} to {target_var} ")
+                            print(f"Mapping  {self.set_variables[var_name].get_var_by_idx(v[1]).path.primary_path} "
+                                  f"to {self.scope_variables[target_var].path.primary_path} ")
                             self.llvm_program.add_mapping(
                                                           [self.set_variables[var_name].get_var_by_idx(v[1]).id],[target_var])
                         else:

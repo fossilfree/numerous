@@ -48,13 +48,10 @@ class IVP_solver(BaseSolver):
         step_not_finished = True
         current_timestamp = t
         event_steps = 0
-
-
         stop_condition = False
 
         while step_not_finished:
             t_eval = np.linspace(current_timestamp, t + self.delta_t, self.num_inner + 1)
-            print(self.numba_model.read_variables())
             self.sol = solve_ivp(self.diff_function, (current_timestamp, t + self.delta_t), y0=self.y0, t_eval=t_eval,
                             dense_output=False,
                             **self.options)
@@ -75,9 +72,7 @@ class IVP_solver(BaseSolver):
                 if event_steps > self.max_event_steps:
                     stop_condition = True
                 current_timestamp = self.sol.t_events[event_id][0]
-
                 step_not_finished = True
-
                 self.__end_step(self, self.sol(current_timestamp), current_timestamp, event_id=event_id)
             else:
                 if self.sol.success:

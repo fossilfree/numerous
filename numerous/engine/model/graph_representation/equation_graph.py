@@ -16,7 +16,7 @@ class TemporaryVar():
         self.set_var = set_var
         self.set_var_ix = set_var_ix
         self.value = svi.value
-        self.type = VariableType.PARAMETER
+        self.type = VariableType.TMP_PARAMETER
         self.path = svi.path
 
     def get_path_dot(self):
@@ -29,7 +29,7 @@ class TemporarySetVar:
     def __init__(self, id, set_var):
         self.id = id
         self.tmp_vars = []
-        self.type = VariableType.PARAMETER_SET
+        self.type = VariableType.TMP_PARAMETER_SET
         self.set_var = set_var
         self.size=set_var.size
 

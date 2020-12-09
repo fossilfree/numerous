@@ -328,6 +328,7 @@ class Model:
         self.eg.remove_chains()
         tmp_vars = self.eg.create_assignments()
         self.eg.add_mappings()
+        self.eg.as_graphviz("test9",force=True)
         self.lower_model_codegen(tmp_vars)
 
         for i, variable in enumerate(self.variables.values()):
@@ -396,7 +397,7 @@ class Model:
         states : list of states
             list of all states.
         """
-        return self.scope_variables[self.states_idx]
+        return self.scope_variables[self.state_idx]
 
     def synchornize_variables(self):
         '''

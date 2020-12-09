@@ -279,7 +279,7 @@ class Graph:
                 if self.edges_attr['deleted'][i]==0:
                     try:
                         if e[0] >= 0 and e[1] >= 0:
-                            dot.edge(self.key_map[e[0]], self.key_map[e[1]], label=self.edges_attr['e_type'][i])
+                            dot.edge(self.key_map[e[0]], self.key_map[e[1]], label=str(self.edges_attr['e_type'][i]))
                     except:
                         print(e)
                         raise

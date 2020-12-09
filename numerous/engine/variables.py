@@ -17,6 +17,8 @@ class VariableType(Enum):
     STATE = 2
     DERIVATIVE = 3
     PARAMETER_SET = 4
+    TMP_PARAMETER = 5
+    TMP_PARAMETER_SET = 6
 
 
 class OverloadAction(Enum):
