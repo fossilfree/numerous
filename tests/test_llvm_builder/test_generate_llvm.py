@@ -47,6 +47,18 @@ variable_names = {
     "oscillator1.mechanics.y_dot": 7,
     "oscillator1.mechanics.z_dot": 8,
 }
+
+variable_distributed = {
+    "oscillator1.mechanics.a": 0,
+    "oscillator1.mechanics.x_dot": 1,
+    "oscillator1.mechanics.y_dot": 2,
+    "oscillator1.mechanics.z_dot": 3,
+    "oscillator1.mechanics.x": 4,
+    "oscillator1.mechanics.b": 5,
+    "oscillator1.mechanics.c": 6,
+    "oscillator1.mechanics.y": 7,
+    "oscillator1.mechanics.z": 8,
+}
 DERIVATIVES = ["oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot", "oscillator1.mechanics.z_dot"]
 STATES = ["oscillator1.mechanics.x", "oscillator1.mechanics.y", "oscillator1.mechanics.z"]
 
@@ -123,6 +135,29 @@ def test_llvm_1_function_and_mapping():
 
     assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([50, -50, 9.])
     assert approx(diff(np.array([2.3, 2.2, 2.1]))) == np.array([-100, 100, 9.])
+
+def test_llvm_unordered_vars():
+    llvm_program = LLVMBuilder(initial_values, variable_distributed, STATES, DERIVATIVES)
+    llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
+    diff, var_func, _ = llvm_program.generate(filename)
+    assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([2., 3., 4.])
+    assert approx(var_func()) == np.array([1., 2., 3., 4., 2.1, 6., 7., 2.2, 2.3])
+
+
+def test_llvm_1_function_and_mapping_unordered_vars():
+    llvm_program = LLVMBuilder(initial_values, variable_distributed, STATES, DERIVATIVES)
+    llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
+
+    llvm_program.add_call(eval_llvm.__qualname__,
+                          ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
+                           "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"], target_ids=[2, 3])
+
+    llvm_program.add_mapping(args=["oscillator1.mechanics.a"],
+                             targets=["oscillator1.mechanics.x_dot"])
+
+    diff, var_func, _ = llvm_program.generate(filename)
+    assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([50., -50., 4.])
+    assert approx(diff(np.array([2.3, 2.2, 2.1]))) == np.array([-100, 100, 4.])
 
 
 def test_llvm_1_function_and_mappings():

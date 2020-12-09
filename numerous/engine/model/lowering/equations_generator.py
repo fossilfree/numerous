@@ -239,12 +239,6 @@ class EquationGenerator:
                 llvm_args.append(llvm_args_)
             ##reshape to correct llvm format
             llvm_args = [list(x) for x in zip(*llvm_args)]
-            # llvm_program.add_set_call(eval_llvm_mix.__qualname__, [
-            #     ["oscillator1.mechanics.y", "oscillator1.mechanics.z", "oscillator1.mechanics.a",
-            #      "oscillator1.mechanics.b"],
-            #     ["oscillator1.mechanics.c", "oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot",
-            #      "oscillator1.mechanics.z_dot"]],
-            #                           targets_ids=[1, 3])
             self.llvm_program.add_set_call(self._llvm_func_name(ext_func), llvm_args, vardef.llvm_target_ids)
 
 
@@ -391,7 +385,7 @@ class EquationGenerator:
                             else:
                                 raise ValueError(f'Variable  {m_ix[0]} mapping not found')
             for k, v in mappings_llvm.items():
-                self.llvm_program.add_mapping([k],v)
+                self.llvm_program.add_mapping(v,[k])
 
 
         else:
@@ -462,12 +456,14 @@ class EquationGenerator:
                 for v in values:
                     var_name = d_u(self.equation_graph.key_map[v[0]])
                     if var_name in self.scope_variables:
-                        self.llvm_program.add_mapping([target_var],[var_name])
+                        print(f"Mapping  {self.scope_variables[var_name].path.primary_path}"
+                              f" to {self.scope_variables[target_var].path.primary_path} ")
+                        self.llvm_program.add_mapping([var_name],[target_var])
                     else:
                         if var_name in self.set_variables:
-
-                            self.llvm_program.add_mapping([target_var],
-                                                          [self.set_variables[var_name].get_var_by_idx(v[1]).id])
+                            print(f"Mapping  {self.set_variables[var_name].get_var_by_idx(v[1]).id} to {target_var} ")
+                            self.llvm_program.add_mapping(
+                                                          [self.set_variables[var_name].get_var_by_idx(v[1]).id],[target_var])
                         else:
                             raise ValueError(f'Variable  {var_name} mapping not found')
 

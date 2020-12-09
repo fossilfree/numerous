@@ -79,8 +79,8 @@ class LLVMBuilder:
         self.values = {}
 
         # go through  all states to put them in load block
-        for state in self.states:
-            self.load_state_variable(state)
+        for idx,state in enumerate(self.states):
+            self.load_state_variable(idx, state)
 
         # go through all states to put them in store block
         for state in self.states:
@@ -93,6 +93,7 @@ class LLVMBuilder:
         """
         Wrap the function and make it available in the LLVM module
         """
+        print(signature)
         f_c = cfunc(sig=signature)(function)
 
         name = function.__qualname__
@@ -206,14 +207,15 @@ class LLVMBuilder:
         eptr = self.builder.gep(ptr, indices, name="variable_" + variable_name)
         self.values[variable_name] = eptr
 
-    def load_state_variable(self, state_name):
-        index = ll.IntType(64)(self.variable_names[state_name])
+    def load_state_variable(self,idx, state_name):
+        index_args = ll.IntType(64)(idx)
         ptr = self.func.args[0]
-        indices = [index]
+        indices = [index_args]
         eptr = self.builder.gep(ptr, indices, name="state_" + state_name)
         self.values[state_name] = eptr
         ptr = self.var_global
-        indices = [self.index0, index]
+        index_global = ll.IntType(64)(self.variable_names[state_name])
+        indices = [self.index0, index_global]
         eptr = self.builder.gep(ptr, indices)
         self.builder.store(self.builder.load(self.values[state_name]), eptr)
 

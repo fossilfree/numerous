@@ -373,8 +373,8 @@ class Model:
             return var_write(value,idx)
 
         setattr(CompiledModel, "compiled_compute", c1)
-        setattr(CompiledModel,"read_variables",c2)
-        setattr(CompiledModel,"write_variables",c3)
+        setattr(CompiledModel, "read_variables", c2)
+        setattr(CompiledModel, "write_variables", c3)
         self.compiled_compute, self.var_func, self.var_write = compiled_compute, var_func, var_write
         self.init_values = np.ascontiguousarray([self.scope_variables[k].value for k in self.vars_ordered_values.keys()],
                                                 dtype=np.float64)
