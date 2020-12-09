@@ -32,16 +32,16 @@ class Simple(EquationBase, Item):
     @Equation()
     def eval(self, scope):
 
-        scope.x_dot = scope.k + 1*scope.x
+        scope.x_dot = scope.k + 0*scope.x
 
 
 class SimpleSystem(Subsystem):
-    def __init__(self, tag, k=1, n=1, x0=[10, 8]):
+    def __init__(self, tag, k=.1, n=1, x0=[0]):
         super().__init__(tag)
         simples = []
         for i in range(n):
             # Create oscillator
-            simple = Simple('simple' + str(i), k=k, x0=x0[i])
+            simple = Simple('simple' + str(i), k=k*(i+1), x0=x0[i])
             simples.append(simple)
 
         self.register_items(simples, tag="simples", structure=ItemsStructure.SET)
@@ -53,11 +53,11 @@ if __name__ == "__main__":
     from time import time
     from matplotlib import pyplot as plt
 
-    subsystem = SimpleSystem('system', k=0.01, n=2, x0=[1, 2, 3])
+    subsystem = SimpleSystem('system', k=.1, n=2, x0=[0, 0])
     # Define simulation
     s = simulation.Simulation(
         model.Model(subsystem),
-        t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
+        t_start=0, t_stop=1, num=100, num_inner=100, max_step=1
     )
     # Solve and plot
     tic = time()
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     # print(s.model.historian_df[c].describe())
     # print(list(s.model.historian_df))
 
-    s.model.historian_df[['system.SET_simples.simple0.mechanics.x', 'system.SET_simples.simple1.mechanics.x']].plot()
+    s.model.historian_df.plot()
     # print()
     plt.show()
     plt.interactive(False)
