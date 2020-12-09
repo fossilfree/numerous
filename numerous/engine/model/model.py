@@ -5,6 +5,7 @@ import uuid
 
 from numba.experimental import jitclass
 import pandas as pd
+from numerous.utils.logger_levels import LoggerLevel
 
 from historian import InMemoryHistorian
 from numerous.engine.model.graph_representation.equation_graph import EquationGraph
@@ -123,8 +124,11 @@ class Model:
      so they can be accessed as variable values there.
     """
 
-    def __init__(self, system=None, historian_filter=None, assemble=True, validate=False):
-
+    def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False):
+        if logger_level == None:
+            self.logger_level = LoggerLevel.ALL
+        else:
+            self.logger_level = logger_level
         self.numba_callbacks_init = []
         self.numba_callbacks_variables = []
         self.numba_callbacks = []
@@ -141,6 +145,7 @@ class Model:
         self.flat_scope_idx = None
         self.flat_scope_idx_from = None
         self.historian_df = None
+        self.aliases = {}
         self.historian = InMemoryHistorian()
 
         self.global_variables_tags = ['time']
@@ -148,7 +153,7 @@ class Model:
 
         # LNT: need to map each var id to set variable
         self.variables_set_var = {}
-
+        self.historian_paths = {}
         self.equation_dict = {}
         self.scope_variables = {}
         self.name_spaces = {}
@@ -325,6 +330,19 @@ class Model:
         self.eg.add_mappings()
         self.lower_model_codegen(tmp_vars)
 
+        for i, variable in enumerate(self.variables.values()):
+            # if variable.logger_level.value >= self.logger_level.value:
+            self.historian_paths.update({variable.id: variable.value})
+            for path in variable.path.path[self.system.id]:
+                    self.aliases.update({path: variable.id})
+            if variable.alias is not None:
+                    self.aliases.update({variable.alias: variable.id})
+
+            for path in variable.path.path[self.system.id]:
+                self.path_variables.update({path: variable.value})  # is this used at all?
+
+
+
         assemble_finish = time.time()
         print("Assemble time: ", assemble_finish - assemble_start)
         self.info.update({"Assemble time": assemble_finish - assemble_start})
@@ -345,23 +363,23 @@ class Model:
         self.state_idx,self.derivatives_idx = \
             eq_gen.generate_equations()
 
-        def c1():
-            return compiled_compute
+        def c1(self,array_):
+            return compiled_compute(array_)
 
-        def c2():
-            return var_func
+        def c2(self):
+            return var_func()
 
-        def c3():
-            return var_write
+        def c3(self,value,idx):
+            return var_write(value,idx)
 
-        setattr(CompiledModel, "compiled_compute", c1())
-        setattr(CompiledModel,"read_variables",c2())
-        setattr(CompiledModel,"write_variables",c3())
+        setattr(CompiledModel, "compiled_compute", c1)
+        setattr(CompiledModel,"read_variables",c2)
+        setattr(CompiledModel,"write_variables",c3)
         self.compiled_compute, self.var_func, self.var_write = compiled_compute, var_func, var_write
         self.init_values = np.ascontiguousarray([self.scope_variables[k].value for k in self.vars_ordered_values.keys()],
                                                 dtype=np.float64)
         for k, v in self.vars_ordered_values.items():
-            self.var_write(None,self.scope_variables[k].value, v)
+            self.var_write(self.scope_variables[k].value, v)
         # values of all model variables in specific order: self.vars_ordered_values
         # full tags of all variables in the model in specific order: self.vars_ordered
         # dict with scope variable id as key and scope variable itself as value
@@ -467,7 +485,7 @@ class Model:
 
         """
         # return self.scope_vars_3d[self.state_idxs_3d]
-        return self.var_func(None)[self.state_idx]
+        return self.var_func()[self.state_idx]
 
     def get_variable_path(self, id, item):
         for (variable, namespace) in item.get_variables():
@@ -645,7 +663,7 @@ class Model:
         # Equation_Parser.create_numba_iterations(CompiledModel, self.numba_callbacks_init_run, "run_init_callbacks",
         #                                         "callback_func_init_pre_update", create_cbiu_call, ",time")
 
-        @jitclass(numba_model_spec)
+        # @jitclass(numba_model_spec)
         class CompiledModel_instance(CompiledModel):
             pass
 

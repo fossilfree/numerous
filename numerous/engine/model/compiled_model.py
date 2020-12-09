@@ -81,7 +81,7 @@ class CompiledModel:
     #     return False
 
     def get_states(self):
-        self.read_variables()[self.state_idx]
+        return self.read_variables()[self.state_idx]
 
     def is_store_required(self):
         if self.historian_ix >= self.historian_max_size:
@@ -96,7 +96,7 @@ class CompiledModel:
     def historian_update(self, time: np.float64) -> None:
         ix = self.historian_ix
         self.historian_data[0][ix] = time
-        self.historian_data[1:][ix]= self.read_variables()
+        self.historian_data[1:,1]= self.read_variables()
         self.historian_ix += 1
 
     # def run_callbacks_with_updates(self, time: int) -> None:
@@ -130,7 +130,7 @@ class CompiledModel:
 
     def func(self, _t, y):
         self.global_vars[0] = _t
-        deriv = self.compute_eq(y)
+        deriv = self.compiled_compute(y)
         return deriv
 
 

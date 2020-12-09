@@ -177,7 +177,7 @@ if __name__ == "__main__":
     # Define simulation
     s = simulation.Simulation(
         model.Model(subsystem),
-        t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
+        t_start=0, t_stop=20.0, num=20, num_inner=100, max_step=1
     )
     # Solve and plot
     tic = time()
@@ -192,12 +192,13 @@ if __name__ == "__main__":
     #        print(k,': ',v)
 
     # print(s.model.historian_df.describe())
-    print(list(s.model.historian_df))
+    # print(list(s.model.historian_df))
     # for c in list(s.model.historian_df):
     #    if not c == 'time':
     # print(s.model.historian_df[c].describe())
-    print(list(s.model.historian_df))
-    s.model.historian_df[['system.oscillator0.mechanics.x', 'system.oscillator1.mechanics.x']].plot()
+    # print(list(s.model.historian_df))
+
+    s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.x', 'system.SET_oscillators.oscillator1.mechanics.x']].plot()
     # print()
     plt.show()
     plt.interactive(False)

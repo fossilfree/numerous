@@ -54,8 +54,8 @@ class IVP_solver(BaseSolver):
 
         while step_not_finished:
             t_eval = np.linspace(current_timestamp, t + self.delta_t, self.num_inner + 1)
-
-            self.sol = solve_ivp(self.diff_function, (current_timestamp, t + self.delta_t), y0=self.y0, t_eval=t_eval,
+            print(self.numba_model.read_variables())
+            self.sol = solve_ivp(self.diff_function, (current_timestamp, t + self.delta_t), y0=self.y0,
                             dense_output=False,
                             **self.options)
             step_not_finished = False

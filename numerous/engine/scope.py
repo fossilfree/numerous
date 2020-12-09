@@ -26,6 +26,7 @@ class ScopeVariable(MappedValue):
         self.bound_equation_methods = None
         self.parent_scope_id = None
         self.position = None
+        self.alias=base_variable.alias
         self.set_var = base_variable.set_var
         self.set_var_ix = base_variable.set_var_ix
         self.get_path_dot = base_variable.get_path_dot

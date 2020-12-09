@@ -170,22 +170,22 @@ class LLVMBuilder:
 
         n_deriv = self.n_deriv
 
-        @njit()
-        def diff(_,y):
+        @njit('float64[:](float64[:])')
+        def diff(y):
             deriv_pointer = diff_(y.ctypes)
             return carray(deriv_pointer, (n_deriv,)).copy()
 
         max_var = self.max_var
 
-        @njit()
-        def read_variables(_):
+        @njit('float64[:]()')
+        def read_variables():
             variables_pointer = vars_r(0)
             variables_array = carray(variables_pointer, (max_var,))
 
             return variables_array.copy()
 
-        @njit()
-        def write_variables(_,var, idx):
+        @njit('void(float64,int64)')
+        def write_variables(var, idx):
             vars_w(var, idx)
 
         return diff, read_variables, write_variables
