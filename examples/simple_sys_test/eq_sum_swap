@@ -1,0 +1,57 @@
+digraph {
+	EQ_system_oscillators_mechanics_DampenedOscillator_eval [label=EQ_system_oscillators_mechanics_DampenedOscillator_eval]
+	"system.oscillators.mechanics.k"
+	"system.oscillators.mechanics.x"
+	"system.oscillators.mechanics.c"
+	"system.oscillators.mechanics.v"
+	"system.oscillators.mechanics.a"
+	"system.oscillators.mechanics.v_dot"
+	"system.oscillators.mechanics.x_dot"
+	EQ_system_couplings_mechanics_Spring_Equation_eval [label=EQ_system_couplings_mechanics_Spring_Equation_eval]
+	"system.couplings.mechanics.k"
+	"system.couplings.mechanics.c"
+	"system.couplings.mechanics.x1"
+	"system.couplings.mechanics.x2"
+	"system.couplings.mechanics.F1"
+	"system.couplings.mechanics.F2"
+	EQ_system_spc3_mechanics_Spring_Equation_eval [label=EQ_system_spc3_mechanics_Spring_Equation_eval]
+	"system.spc3.mechanics.k"
+	"system.spc3.mechanics.c"
+	"system.spc3.mechanics.x1"
+	"system.spc3.mechanics.x2"
+	"system.spc3.mechanics.F1"
+	"system.spc3.mechanics.F2"
+	"system.spring_equation.mechanics.k" [label=k]
+	"system.oscillators.mechanics.v_dot_tmp" [label="system.oscillators.mechanics.v_dot_tmp"]
+	sum_0 [label=sum_0]
+	"system.oscillators.mechanics.k" -> EQ_system_oscillators_mechanics_DampenedOscillator_eval [label=arg]
+	"system.oscillators.mechanics.x" -> EQ_system_oscillators_mechanics_DampenedOscillator_eval [label=arg]
+	"system.oscillators.mechanics.c" -> EQ_system_oscillators_mechanics_DampenedOscillator_eval [label=arg]
+	"system.oscillators.mechanics.v" -> EQ_system_oscillators_mechanics_DampenedOscillator_eval [label=arg]
+	EQ_system_oscillators_mechanics_DampenedOscillator_eval -> "system.oscillators.mechanics.a" [label=target]
+	EQ_system_oscillators_mechanics_DampenedOscillator_eval -> "system.oscillators.mechanics.x_dot" [label=target]
+	"system.couplings.mechanics.k" -> EQ_system_couplings_mechanics_Spring_Equation_eval [label=arg]
+	EQ_system_couplings_mechanics_Spring_Equation_eval -> "system.couplings.mechanics.c" [label=target]
+	"system.couplings.mechanics.x1" -> EQ_system_couplings_mechanics_Spring_Equation_eval [label=arg]
+	"system.couplings.mechanics.x2" -> EQ_system_couplings_mechanics_Spring_Equation_eval [label=arg]
+	EQ_system_couplings_mechanics_Spring_Equation_eval -> "system.couplings.mechanics.F1" [label=target]
+	EQ_system_couplings_mechanics_Spring_Equation_eval -> "system.couplings.mechanics.F2" [label=target]
+	"system.spc3.mechanics.k" -> EQ_system_spc3_mechanics_Spring_Equation_eval [label=arg]
+	EQ_system_spc3_mechanics_Spring_Equation_eval -> "system.spc3.mechanics.c" [label=target]
+	"system.spc3.mechanics.x1" -> EQ_system_spc3_mechanics_Spring_Equation_eval [label=arg]
+	"system.spc3.mechanics.x2" -> EQ_system_spc3_mechanics_Spring_Equation_eval [label=arg]
+	EQ_system_spc3_mechanics_Spring_Equation_eval -> "system.spc3.mechanics.F1" [label=target]
+	EQ_system_spc3_mechanics_Spring_Equation_eval -> "system.spc3.mechanics.F2" [label=target]
+	"system.oscillators.mechanics.x" -> "system.couplings.mechanics.x2" [label=mapping]
+	"system.oscillators.mechanics.x" -> "system.couplings.mechanics.x1" [label=mapping]
+	"system.oscillators.mechanics.x" -> "system.spc3.mechanics.x2" [label=mapping]
+	"system.oscillators.mechanics.x" -> "system.spc3.mechanics.x1" [label=mapping]
+	"system.spring_equation.mechanics.k" -> "system.spc3.mechanics.k" [label=mapping]
+	EQ_system_oscillators_mechanics_DampenedOscillator_eval -> "system.oscillators.mechanics.v_dot_tmp" [label=target]
+	sum_0 -> "system.oscillators.mechanics.v_dot" [label=target]
+	"system.oscillators.mechanics.v_dot_tmp" -> sum_0 [label=value]
+	"system.couplings.mechanics.F1" -> sum_0 [label=value]
+	"system.spc3.mechanics.F1" -> sum_0 [label=value]
+	"system.couplings.mechanics.F2" -> sum_0 [label=value]
+	"system.spc3.mechanics.F2" -> sum_0 [label=value]
+}

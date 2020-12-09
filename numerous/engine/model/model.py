@@ -7,7 +7,7 @@ from numba.experimental import jitclass
 import pandas as pd
 from numerous.utils.logger_levels import LoggerLevel
 
-from historian import InMemoryHistorian
+from numerous.utils.historian import InMemoryHistorian
 from numerous.engine.model.graph_representation.equation_graph import EquationGraph
 from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector

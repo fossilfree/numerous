@@ -1,0 +1,107 @@
+; ModuleID = '<string>'
+source_filename = "<string>"
+target triple = "unknown-unknown-unknown"
+
+@global_var = global [35 x double] [double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 1.000000e+00, double 0.000000e+00, double 1.000000e-03, double 1.000000e-02, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 2.000000e+00, double 0.000000e+00, double 1.000000e-03, double 1.000000e-02, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double 0.000000e+00]
+@derivatives = global [4 x double] zeroinitializer
+
+define double* @kernel(double* nocapture readonly %.1) local_unnamed_addr {
+for1.body:
+  %.4 = load double, double* %.1, align 8
+  store double %.4, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 1), align 8
+  %state_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84 = getelementptr double, double* %.1, i64 1
+  %.7 = load double, double* %state_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84, align 8
+  store double %.7, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 3), align 8
+  %state_oscillator1_mechanics_v_ebda2aab_757d_45f4_afb0_cd5256b78262 = getelementptr double, double* %.1, i64 2
+  %.10 = load double, double* %state_oscillator1_mechanics_v_ebda2aab_757d_45f4_afb0_cd5256b78262, align 8
+  store double %.10, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 8), align 16
+  %state_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10 = getelementptr double, double* %.1, i64 3
+  %.13 = load double, double* %state_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10, align 8
+  store double %.13, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 10), align 16
+  %arg_te0_mechanics_k_a7a5e002_383e_4bde_9788_c1d19d0723d0 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 32), align 16
+  store double %arg_te0_mechanics_k_a7a5e002_383e_4bde_9788_c1d19d0723d0, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 31), align 8
+  %arg_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10 = load double, double* %state_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10, align 8
+  store double %arg_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 26), align 16
+  %arg_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84 = load double, double* %state_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84, align 8
+  store double %arg_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 27), align 8
+  tail call void @"EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_spc3_mechanics_llvm1.<locals>.EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_spc3_mechanics_llvm"(double %arg_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10, double %arg_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 28), double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 29), double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 30), double %arg_te0_mechanics_k_a7a5e002_383e_4bde_9788_c1d19d0723d0)
+  %arg_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10.1 = load double, double* %state_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10, align 8
+  store double %arg_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10.1, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 14), align 16
+  %arg_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10.2 = load double, double* %state_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10, align 8
+  store double %arg_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10.2, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 20), align 16
+  %arg_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84.1 = load double, double* %state_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84, align 8
+  store double %arg_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84.1, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 15), align 8
+  %arg_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84.2 = load double, double* %state_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84, align 8
+  store double %arg_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84.2, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 21), align 8
+  %arg_0_0 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 14), align 16
+  %arg_0_5 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 19), align 8
+  tail call void @"EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_SET_couplings_mechanics_llvm1.<locals>.EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_SET_couplings_mechanics_llvm"(double %arg_0_0, double %arg_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84.1, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 16), double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 17), double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 18), double %arg_0_5)
+  %arg_0_0.1 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 20), align 16
+  %arg_0_1.1 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 21), align 8
+  %arg_0_5.1 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 25), align 8
+  tail call void @"EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_SET_couplings_mechanics_llvm1.<locals>.EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_SET_couplings_mechanics_llvm"(double %arg_0_0.1, double %arg_0_1.1, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 22), double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 23), double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 24), double %arg_0_5.1)
+  %arg_1_1 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 1), align 8
+  %arg_1_3 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 3), align 8
+  %arg_1_5 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 5), align 8
+  %arg_1_6 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 6), align 16
+  tail call void @"EQ_56b8feb0_3a49_11eb_92a2_5c80b6733b64system_SET_oscillators_mechanics_llvm1.<locals>.EQ_56b8feb0_3a49_11eb_92a2_5c80b6733b64system_SET_oscillators_mechanics_llvm"(double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 0), double %arg_1_1, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 2), double %arg_1_3, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 4), double %arg_1_5, double %arg_1_6)
+  %arg_1_1.1 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 8), align 16
+  %arg_1_3.1 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 10), align 16
+  %arg_1_5.1 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 12), align 16
+  %arg_1_6.1 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 13), align 8
+  tail call void @"EQ_56b8feb0_3a49_11eb_92a2_5c80b6733b64system_SET_oscillators_mechanics_llvm1.<locals>.EQ_56b8feb0_3a49_11eb_92a2_5c80b6733b64system_SET_oscillators_mechanics_llvm"(double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 7), double %arg_1_1.1, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 9), double %arg_1_3.1, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 11), double %arg_1_5.1, double %arg_1_6.1)
+  %arg_tmp_var_1 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 0), align 16
+  %arg_spc1_mechanics_F1_e2e1b7f2_451c_4800_84eb_2e29803eda15 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 17), align 8
+  %arg_spc2_mechanics_F1_4bb9fba2_062c_4039_9e62_04e552c378fd = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 23), align 8
+  %arg_spc3_mechanics_F1_764d4eab_692d_45e8_8257_d99a7dfedb6f = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 29), align 8
+  %.76 = fadd double %arg_tmp_var_1, %arg_spc1_mechanics_F1_e2e1b7f2_451c_4800_84eb_2e29803eda15
+  %.77 = fadd double %.76, %arg_spc2_mechanics_F1_4bb9fba2_062c_4039_9e62_04e552c378fd
+  %.78 = fadd double %.77, %arg_spc3_mechanics_F1_764d4eab_692d_45e8_8257_d99a7dfedb6f
+  store double %.78, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 33), align 8
+  %arg_tmp_var_2 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 7), align 8
+  %arg_spc1_mechanics_F2_39951a1a_14bd_4055_a01d_9e5f41f17db1 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 16), align 16
+  %arg_spc2_mechanics_F2_fc09de87_4a42_436a_80a4_9023c36e51c9 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 22), align 16
+  %arg_spc3_mechanics_F2_e05c0e48_1a2c_4b1b_b56e_0fd345a704b8 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 28), align 16
+  %.80 = fadd double %arg_tmp_var_2, %arg_spc1_mechanics_F2_39951a1a_14bd_4055_a01d_9e5f41f17db1
+  %.81 = fadd double %.80, %arg_spc2_mechanics_F2_fc09de87_4a42_436a_80a4_9023c36e51c9
+  %.82 = fadd double %.81, %arg_spc3_mechanics_F2_e05c0e48_1a2c_4b1b_b56e_0fd345a704b8
+  store double %.82, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 34), align 16
+  %.16 = load double, double* %.1, align 8
+  store double %.16, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 1), align 8
+  %.19 = load double, double* %state_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84, align 8
+  store double %.19, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 3), align 8
+  %.22 = load double, double* %state_oscillator1_mechanics_v_ebda2aab_757d_45f4_afb0_cd5256b78262, align 8
+  store double %.22, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 8), align 16
+  %.25 = load double, double* %state_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10, align 8
+  store double %.25, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 10), align 16
+  %.87 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 2), align 16
+  store double %.87, double* getelementptr inbounds ([4 x double], [4 x double]* @derivatives, i64 0, i64 0), align 16
+  %.90 = load double, double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 9), align 8
+  store double %.90, double* getelementptr inbounds ([4 x double], [4 x double]* @derivatives, i64 0, i64 1), align 8
+  store double %.78, double* getelementptr inbounds ([4 x double], [4 x double]* @derivatives, i64 0, i64 2), align 16
+  store double %.82, double* getelementptr inbounds ([4 x double], [4 x double]* @derivatives, i64 0, i64 3), align 8
+  ret double* getelementptr inbounds ([4 x double], [4 x double]* @derivatives, i64 0, i64 0)
+}
+
+declare void @"EQ_56b8feb0_3a49_11eb_92a2_5c80b6733b64system_SET_oscillators_mechanics_llvm1.<locals>.EQ_56b8feb0_3a49_11eb_92a2_5c80b6733b64system_SET_oscillators_mechanics_llvm"(double*, double, double*, double, double*, double, double) local_unnamed_addr
+
+declare void @"EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_SET_couplings_mechanics_llvm1.<locals>.EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_SET_couplings_mechanics_llvm"(double, double, double*, double*, double*, double) local_unnamed_addr
+
+declare void @"EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_spc3_mechanics_llvm1.<locals>.EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_spc3_mechanics_llvm"(double, double, double*, double*, double*, double) local_unnamed_addr
+
+; Function Attrs: norecurse nounwind readnone
+define double* @vars_r(i64 %.1) local_unnamed_addr #0 {
+.3:
+  ret double* getelementptr inbounds ([35 x double], [35 x double]* @global_var, i64 0, i64 0)
+}
+
+; Function Attrs: nofree norecurse nounwind writeonly
+define void @vars_w(double %.1, i64 %.2) local_unnamed_addr #1 {
+.4:
+  %.7 = getelementptr [35 x double], [35 x double]* @global_var, i64 0, i64 %.2
+  store double %.1, double* %.7, align 8
+  ret void
+}
+
+attributes #0 = { norecurse nounwind readnone }
+attributes #1 = { nofree norecurse nounwind writeonly }

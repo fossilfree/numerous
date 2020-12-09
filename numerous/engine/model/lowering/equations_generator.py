@@ -1,5 +1,5 @@
-from graph_representation import EdgeType
-from llvm_builder import LLVMBuilder
+from numerous.engine.model.graph_representation import EdgeType
+from numerous.engine.model.lowering.llvm_builder import LLVMBuilder
 from numerous.engine.model.utils import NodeTypes, wrap_function, dot_dict, recurse_Attribute
 
 from numerous.engine.model.lowering.utils import generate_code_file, Vardef, Vardef_llvm, contains_dot, \
@@ -14,7 +14,7 @@ import ast
 from numba import objmode
 import numpy as np
 
-from string_utils import d_u
+from numerous.utils.string_utils import d_u
 
 
 class EquationGenerator:

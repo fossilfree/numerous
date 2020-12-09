@@ -1,7 +1,7 @@
 from numerous.engine.model.graph_representation.utils import EdgeType
 from numerous.engine.model.utils import NodeTypes
 from numerous import VariableType, SetOfVariables
-from string_utils import d_u
+from numerous.utils.string_utils import d_u
 
 from .graph import Graph
 

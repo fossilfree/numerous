@@ -21,7 +21,7 @@ import math
 import sys
 
 from astor.op_util import get_op_symbol, get_op_precedence, Precedence
-from string_repr import pretty_string
+from numerous.utils.string_repr import pretty_string
 from astor.code_gen import set_precedence
 import astor.code_gen
 

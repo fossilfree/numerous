@@ -1,0 +1,225 @@
+; ModuleID = ""
+target triple = "unknown-unknown-unknown"
+target datalayout = ""
+
+@"global_var" = global [35 x double] [double              0x0, double              0x0, double              0x0, double 0x3ff0000000000000, double              0x0, double 0x3f50624dd2f1a9fc, double 0x3f847ae147ae147b, double              0x0, double              0x0, double              0x0, double 0x4000000000000000, double              0x0, double 0x3f50624dd2f1a9fc, double 0x3f847ae147ae147b, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0, double              0x0]
+@"derivatives" = global [4 x double] [double              0x0, double              0x0, double              0x0, double              0x0]
+define double* @"kernel"(double* %".1") 
+{
+entry:
+  %"state_oscillator0_mechanics_v_dea0eb0d_46b1_40a7_b484_457d333fce96" = getelementptr double, double* %".1", i64 0
+  %".3" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 1
+  %".4" = load double, double* %"state_oscillator0_mechanics_v_dea0eb0d_46b1_40a7_b484_457d333fce96"
+  store double %".4", double* %".3"
+  %"state_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84" = getelementptr double, double* %".1", i64 1
+  %".6" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 3
+  %".7" = load double, double* %"state_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84"
+  store double %".7", double* %".6"
+  %"state_oscillator1_mechanics_v_ebda2aab_757d_45f4_afb0_cd5256b78262" = getelementptr double, double* %".1", i64 2
+  %".9" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 8
+  %".10" = load double, double* %"state_oscillator1_mechanics_v_ebda2aab_757d_45f4_afb0_cd5256b78262"
+  store double %".10", double* %".9"
+  %"state_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10" = getelementptr double, double* %".1", i64 3
+  %".12" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 10
+  %".13" = load double, double* %"state_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10"
+  store double %".13", double* %".12"
+  br label %"main"
+main:
+  %"variable_te0_mechanics_k_a7a5e002_383e_4bde_9788_c1d19d0723d0" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 32
+  %"arg_te0_mechanics_k_a7a5e002_383e_4bde_9788_c1d19d0723d0" = load double, double* %"variable_te0_mechanics_k_a7a5e002_383e_4bde_9788_c1d19d0723d0"
+  %"spc3_mechanics_k_388e9af5_b6a1_473a_b590_e9a467eb647b" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 31
+  store double %"arg_te0_mechanics_k_a7a5e002_383e_4bde_9788_c1d19d0723d0", double* %"spc3_mechanics_k_388e9af5_b6a1_473a_b590_e9a467eb647b"
+  %"arg_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10" = load double, double* %"state_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10"
+  %"spc3_mechanics_x2_6699a5d4_d35d_4144_950b_3cd93178859d" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 26
+  store double %"arg_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10", double* %"spc3_mechanics_x2_6699a5d4_d35d_4144_950b_3cd93178859d"
+  %"arg_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84" = load double, double* %"state_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84"
+  %"spc3_mechanics_x1_67f790a8_050e_41ac_beb1_e604bc9923ea" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 27
+  store double %"arg_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84", double* %"spc3_mechanics_x1_67f790a8_050e_41ac_beb1_e604bc9923ea"
+  %"arg_spc3_mechanics_x2_6699a5d4_d35d_4144_950b_3cd93178859d" = load double, double* %"spc3_mechanics_x2_6699a5d4_d35d_4144_950b_3cd93178859d"
+  %"arg_spc3_mechanics_x1_67f790a8_050e_41ac_beb1_e604bc9923ea" = load double, double* %"spc3_mechanics_x1_67f790a8_050e_41ac_beb1_e604bc9923ea"
+  %"spc3_mechanics_F2_e05c0e48_1a2c_4b1b_b56e_0fd345a704b8" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 28
+  %"spc3_mechanics_F1_764d4eab_692d_45e8_8257_d99a7dfedb6f" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 29
+  %"spc3_mechanics_c_0f0e5393_ca02_4b43_ae41_65e6bf8e5917" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 30
+  %"arg_spc3_mechanics_k_388e9af5_b6a1_473a_b590_e9a467eb647b" = load double, double* %"spc3_mechanics_k_388e9af5_b6a1_473a_b590_e9a467eb647b"
+  call void @"EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_spc3_mechanics_llvm1.<locals>.EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_spc3_mechanics_llvm"(double %"arg_spc3_mechanics_x2_6699a5d4_d35d_4144_950b_3cd93178859d", double %"arg_spc3_mechanics_x1_67f790a8_050e_41ac_beb1_e604bc9923ea", double* %"spc3_mechanics_F2_e05c0e48_1a2c_4b1b_b56e_0fd345a704b8", double* %"spc3_mechanics_F1_764d4eab_692d_45e8_8257_d99a7dfedb6f", double* %"spc3_mechanics_c_0f0e5393_ca02_4b43_ae41_65e6bf8e5917", double %"arg_spc3_mechanics_k_388e9af5_b6a1_473a_b590_e9a467eb647b")
+  %"arg_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10.1" = load double, double* %"state_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10"
+  %"spc1_mechanics_x2_da63bf2c_b631_456b_91ec_96c5a6adf83e" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 14
+  store double %"arg_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10.1", double* %"spc1_mechanics_x2_da63bf2c_b631_456b_91ec_96c5a6adf83e"
+  %"arg_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10.2" = load double, double* %"state_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10"
+  %"spc2_mechanics_x2_8c125f2b_b1ec_499f_927b_d44851ef1862" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 20
+  store double %"arg_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10.2", double* %"spc2_mechanics_x2_8c125f2b_b1ec_499f_927b_d44851ef1862"
+  %"arg_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84.1" = load double, double* %"state_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84"
+  %"spc1_mechanics_x1_02efd168_6541_4a3a_acd1_02d8b28aacde" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 15
+  store double %"arg_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84.1", double* %"spc1_mechanics_x1_02efd168_6541_4a3a_acd1_02d8b28aacde"
+  %"arg_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84.2" = load double, double* %"state_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84"
+  %"spc2_mechanics_x1_fc60a68f_d3c6_419b_9dda_271a528ff822" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 21
+  store double %"arg_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84.2", double* %"spc2_mechanics_x1_fc60a68f_d3c6_419b_9dda_271a528ff822"
+  %".36" = alloca i64
+  store i64 13, i64* %".36"
+  br label %"for0.cond"
+store:
+  %".15" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 1
+  %".16" = load double, double* %"state_oscillator0_mechanics_v_dea0eb0d_46b1_40a7_b484_457d333fce96"
+  store double %".16", double* %".15"
+  %".18" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 3
+  %".19" = load double, double* %"state_oscillator0_mechanics_x_dfaf241e_bc13_4454_aec1_7633f85fba84"
+  store double %".19", double* %".18"
+  %".21" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 8
+  %".22" = load double, double* %"state_oscillator1_mechanics_v_ebda2aab_757d_45f4_afb0_cd5256b78262"
+  store double %".22", double* %".21"
+  %".24" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 10
+  %".25" = load double, double* %"state_oscillator1_mechanics_x_b1bd31b5_c2f8_4e37_8235_5dc844505e10"
+  store double %".25", double* %".24"
+  br label %"exit"
+exit:
+  %"oscillator0_mechanics_x_dot_c63038eb_9e7b_4f0e_b5b7_d59501588866" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 2
+  %".86" = getelementptr [4 x double], [4 x double]* @"derivatives", i64 0, i64 0
+  %".87" = load double, double* %"oscillator0_mechanics_x_dot_c63038eb_9e7b_4f0e_b5b7_d59501588866"
+  store double %".87", double* %".86"
+  %"oscillator1_mechanics_x_dot_05bb6e23_8f09_43c2_a016_8cd0462410bc" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 9
+  %".89" = getelementptr [4 x double], [4 x double]* @"derivatives", i64 0, i64 1
+  %".90" = load double, double* %"oscillator1_mechanics_x_dot_05bb6e23_8f09_43c2_a016_8cd0462410bc"
+  store double %".90", double* %".89"
+  %".92" = getelementptr [4 x double], [4 x double]* @"derivatives", i64 0, i64 2
+  %".93" = load double, double* %"oscillator0_mechanics_v_dot_5d8e4265_dcfb_48e7_ab0e_b5769d4391ad"
+  store double %".93", double* %".92"
+  %".95" = getelementptr [4 x double], [4 x double]* @"derivatives", i64 0, i64 3
+  %".96" = load double, double* %"oscillator1_mechanics_v_dot_7929f99f_ada2_4488_bad5_bf2d59bb4b66"
+  store double %".96", double* %".95"
+  %".98" = getelementptr [4 x double], [4 x double]* @"derivatives", i64 0, i64 0
+  ret double* %".98"
+for0.cond:
+  %"loop0.ix" = phi i64 [0, %"main"], [%"res", %"for0.inc"]
+  %"cmp" = icmp ult i64 %"loop0.ix", 2
+  br i1 %"cmp", label %"for0.body", label %"main0"
+for0.body:
+  %".39" = load i64, i64* %".36"
+  %"index_arg" = add i64 %".39", 1
+  store i64 %"index_arg", i64* %".36"
+  %"loop_0 _arg_" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 %"index_arg"
+  %"arg_0_0" = load double, double* %"loop_0 _arg_"
+  %".41" = load i64, i64* %".36"
+  %"index_arg.1" = add i64 %".41", 1
+  store i64 %"index_arg.1", i64* %".36"
+  %"loop_0 _arg_.1" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 %"index_arg.1"
+  %"arg_0_1" = load double, double* %"loop_0 _arg_.1"
+  %".43" = load i64, i64* %".36"
+  %"index_arg.2" = add i64 %".43", 1
+  store i64 %"index_arg.2", i64* %".36"
+  %"loop_0 _arg_.2" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 %"index_arg.2"
+  %".45" = load i64, i64* %".36"
+  %"index_arg.3" = add i64 %".45", 1
+  store i64 %"index_arg.3", i64* %".36"
+  %"loop_0 _arg_.3" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 %"index_arg.3"
+  %".47" = load i64, i64* %".36"
+  %"index_arg.4" = add i64 %".47", 1
+  store i64 %"index_arg.4", i64* %".36"
+  %"loop_0 _arg_.4" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 %"index_arg.4"
+  %".49" = load i64, i64* %".36"
+  %"index_arg.5" = add i64 %".49", 1
+  store i64 %"index_arg.5", i64* %".36"
+  %"loop_0 _arg_.5" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 %"index_arg.5"
+  %"arg_0_5" = load double, double* %"loop_0 _arg_.5"
+  call void @"EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_SET_couplings_mechanics_llvm1.<locals>.EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_SET_couplings_mechanics_llvm"(double %"arg_0_0", double %"arg_0_1", double* %"loop_0 _arg_.2", double* %"loop_0 _arg_.3", double* %"loop_0 _arg_.4", double %"arg_0_5")
+  br label %"for0.inc"
+for0.inc:
+  %"res" = add i64 %"loop0.ix", 1
+  br label %"for0.cond"
+main0:
+  %".55" = alloca i64
+  store i64 -1, i64* %".55"
+  br label %"for1.cond"
+for1.cond:
+  %"loop1.ix" = phi i64 [0, %"main0"], [%"res.1", %"for1.inc"]
+  %"cmp.1" = icmp ult i64 %"loop1.ix", 2
+  br i1 %"cmp.1", label %"for1.body", label %"main1"
+for1.body:
+  %".58" = load i64, i64* %".55"
+  %"index_arg.6" = add i64 %".58", 1
+  store i64 %"index_arg.6", i64* %".55"
+  %"loop_1 _arg_" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 %"index_arg.6"
+  %".60" = load i64, i64* %".55"
+  %"index_arg.7" = add i64 %".60", 1
+  store i64 %"index_arg.7", i64* %".55"
+  %"loop_1 _arg_.1" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 %"index_arg.7"
+  %"arg_1_1" = load double, double* %"loop_1 _arg_.1"
+  %".62" = load i64, i64* %".55"
+  %"index_arg.8" = add i64 %".62", 1
+  store i64 %"index_arg.8", i64* %".55"
+  %"loop_1 _arg_.2" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 %"index_arg.8"
+  %".64" = load i64, i64* %".55"
+  %"index_arg.9" = add i64 %".64", 1
+  store i64 %"index_arg.9", i64* %".55"
+  %"loop_1 _arg_.3" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 %"index_arg.9"
+  %"arg_1_3" = load double, double* %"loop_1 _arg_.3"
+  %".66" = load i64, i64* %".55"
+  %"index_arg.10" = add i64 %".66", 1
+  store i64 %"index_arg.10", i64* %".55"
+  %"loop_1 _arg_.4" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 %"index_arg.10"
+  %".68" = load i64, i64* %".55"
+  %"index_arg.11" = add i64 %".68", 1
+  store i64 %"index_arg.11", i64* %".55"
+  %"loop_1 _arg_.5" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 %"index_arg.11"
+  %"arg_1_5" = load double, double* %"loop_1 _arg_.5"
+  %".70" = load i64, i64* %".55"
+  %"index_arg.12" = add i64 %".70", 1
+  store i64 %"index_arg.12", i64* %".55"
+  %"loop_1 _arg_.6" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 %"index_arg.12"
+  %"arg_1_6" = load double, double* %"loop_1 _arg_.6"
+  call void @"EQ_56b8feb0_3a49_11eb_92a2_5c80b6733b64system_SET_oscillators_mechanics_llvm1.<locals>.EQ_56b8feb0_3a49_11eb_92a2_5c80b6733b64system_SET_oscillators_mechanics_llvm"(double* %"loop_1 _arg_", double %"arg_1_1", double* %"loop_1 _arg_.2", double %"arg_1_3", double* %"loop_1 _arg_.4", double %"arg_1_5", double %"arg_1_6")
+  br label %"for1.inc"
+for1.inc:
+  %"res.1" = add i64 %"loop1.ix", 1
+  br label %"for1.cond"
+main1:
+  %"variable_tmp_var_1" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 0
+  %"arg_tmp_var_1" = load double, double* %"variable_tmp_var_1"
+  %"variable_spc1_mechanics_F1_e2e1b7f2_451c_4800_84eb_2e29803eda15" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 17
+  %"arg_spc1_mechanics_F1_e2e1b7f2_451c_4800_84eb_2e29803eda15" = load double, double* %"variable_spc1_mechanics_F1_e2e1b7f2_451c_4800_84eb_2e29803eda15"
+  %"variable_spc2_mechanics_F1_4bb9fba2_062c_4039_9e62_04e552c378fd" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 23
+  %"arg_spc2_mechanics_F1_4bb9fba2_062c_4039_9e62_04e552c378fd" = load double, double* %"variable_spc2_mechanics_F1_4bb9fba2_062c_4039_9e62_04e552c378fd"
+  %"arg_spc3_mechanics_F1_764d4eab_692d_45e8_8257_d99a7dfedb6f" = load double, double* %"spc3_mechanics_F1_764d4eab_692d_45e8_8257_d99a7dfedb6f"
+  %".76" = fadd double %"arg_tmp_var_1", %"arg_spc1_mechanics_F1_e2e1b7f2_451c_4800_84eb_2e29803eda15"
+  %".77" = fadd double %".76", %"arg_spc2_mechanics_F1_4bb9fba2_062c_4039_9e62_04e552c378fd"
+  %".78" = fadd double %".77", %"arg_spc3_mechanics_F1_764d4eab_692d_45e8_8257_d99a7dfedb6f"
+  %"oscillator0_mechanics_v_dot_5d8e4265_dcfb_48e7_ab0e_b5769d4391ad" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 33
+  store double %".78", double* %"oscillator0_mechanics_v_dot_5d8e4265_dcfb_48e7_ab0e_b5769d4391ad"
+  %"variable_tmp_var_2" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 7
+  %"arg_tmp_var_2" = load double, double* %"variable_tmp_var_2"
+  %"variable_spc1_mechanics_F2_39951a1a_14bd_4055_a01d_9e5f41f17db1" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 16
+  %"arg_spc1_mechanics_F2_39951a1a_14bd_4055_a01d_9e5f41f17db1" = load double, double* %"variable_spc1_mechanics_F2_39951a1a_14bd_4055_a01d_9e5f41f17db1"
+  %"variable_spc2_mechanics_F2_fc09de87_4a42_436a_80a4_9023c36e51c9" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 22
+  %"arg_spc2_mechanics_F2_fc09de87_4a42_436a_80a4_9023c36e51c9" = load double, double* %"variable_spc2_mechanics_F2_fc09de87_4a42_436a_80a4_9023c36e51c9"
+  %"arg_spc3_mechanics_F2_e05c0e48_1a2c_4b1b_b56e_0fd345a704b8" = load double, double* %"spc3_mechanics_F2_e05c0e48_1a2c_4b1b_b56e_0fd345a704b8"
+  %".80" = fadd double %"arg_tmp_var_2", %"arg_spc1_mechanics_F2_39951a1a_14bd_4055_a01d_9e5f41f17db1"
+  %".81" = fadd double %".80", %"arg_spc2_mechanics_F2_fc09de87_4a42_436a_80a4_9023c36e51c9"
+  %".82" = fadd double %".81", %"arg_spc3_mechanics_F2_e05c0e48_1a2c_4b1b_b56e_0fd345a704b8"
+  %"oscillator1_mechanics_v_dot_7929f99f_ada2_4488_bad5_bf2d59bb4b66" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 34
+  store double %".82", double* %"oscillator1_mechanics_v_dot_7929f99f_ada2_4488_bad5_bf2d59bb4b66"
+  br label %"store"
+}
+
+declare void @"EQ_56b8feb0_3a49_11eb_92a2_5c80b6733b64system_SET_oscillators_mechanics_llvm1.<locals>.EQ_56b8feb0_3a49_11eb_92a2_5c80b6733b64system_SET_oscillators_mechanics_llvm"(double* %".1", double %".2", double* %".3", double %".4", double* %".5", double %".6", double %".7") 
+
+declare void @"EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_SET_couplings_mechanics_llvm1.<locals>.EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_SET_couplings_mechanics_llvm"(double %".1", double %".2", double* %".3", double* %".4", double* %".5", double %".6") 
+
+declare void @"EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_spc3_mechanics_llvm1.<locals>.EQ_56baa5b1_3a49_11eb_a19a_5c80b6733b64system_spc3_mechanics_llvm"(double %".1", double %".2", double* %".3", double* %".4", double* %".5", double %".6") 
+
+define double* @"vars_r"(i64 %".1") 
+{
+.3:
+  br label %".4"
+.4:
+  %".6" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 0
+  ret double* %".6"
+}
+
+define void @"vars_w"(double %".1", i64 %".2") 
+{
+.4:
+  br label %".5"
+.5:
+  %".7" = getelementptr [35 x double], [35 x double]* @"global_var", i64 0, i64 %".2"
+  store double %".1", double* %".7"
+  ret void
+}
