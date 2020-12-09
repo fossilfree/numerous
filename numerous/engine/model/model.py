@@ -278,16 +278,16 @@ class Model:
             v.top_item = self.system.id
 
         for ns in model_namespaces:
+            if ns[1]:
+                ## Key : scope.tag Value: Variable or VariableSet
+                if ns[1][0].is_set:
+                    tag_vars = ns[1][0].set_variables
+                else:
+                    tag_vars = {v.tag: v for k, v in ns[1][0].variables.items()}
 
-            ## Key : scope.tag Value: Variable or VariableSet
-            if ns[1][0].is_set:
-                tag_vars = ns[1][0].set_variables
-            else:
-                tag_vars = {v.tag: v for k, v in ns[1][0].variables.items()}
-
-            parse_eq(model_namespace=ns[1][0], equation_graph=self.eg, nodes_dep=nodes_dep,
-                     scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
-                     scoped_equations=self.scoped_equations, parsed_eq=self.equations_top)
+                parse_eq(model_namespace=ns[1][0], equation_graph=self.eg, nodes_dep=nodes_dep,
+                         scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
+                         scoped_equations=self.scoped_equations, parsed_eq=self.equations_top)
 
         logging.info('parsing equations completed')
 
