@@ -32,7 +32,7 @@ class Simple(EquationBase, Item):
     @Equation()
     def eval(self, scope):
 
-        scope.x_dot = scope.k + 0*scope.x
+        scope.x_dot = scope.k + 1*scope.x
 
 
 class SimpleSystem(Subsystem):
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     # print(s.model.historian_df[c].describe())
     # print(list(s.model.historian_df))
 
-    s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.x', 'system.SET_oscillators.oscillator1.mechanics.x']].plot()
+    s.model.historian_df[['system.SET_simples.simple0.mechanics.x', 'system.SET_simples.simple1.mechanics.x']].plot()
     # print()
     plt.show()
     plt.interactive(False)
