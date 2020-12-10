@@ -1,4 +1,6 @@
 import itertools
+from copy import copy
+
 import numpy as np
 import time
 import uuid
@@ -153,7 +155,6 @@ class Model:
 
         # LNT: need to map each var id to set variable
         self.variables_set_var = {}
-        self.historian_paths = {}
         self.equation_dict = {}
         self.scope_variables = {}
         self.name_spaces = {}
@@ -328,12 +329,11 @@ class Model:
         self.eg.remove_chains()
         tmp_vars = self.eg.create_assignments()
         self.eg.add_mappings()
-        self.eg.as_graphviz("test9",force=True)
+        # self.eg.as_graphviz("test9",force=True)
         self.lower_model_codegen(tmp_vars)
 
         for i, variable in enumerate(self.variables.values()):
             # if variable.logger_level.value >= self.logger_level.value:
-            self.historian_paths.update({variable.id: variable.value})
             for path in variable.path.path[self.system.id]:
                     self.aliases.update({path: variable.id})
             if variable.alias is not None:
@@ -691,8 +691,8 @@ class Model:
         time = historian_data[0]
         data = {'time': time}
 
-        for i, var in enumerate(self.historian_paths):
-            data.update({var: historian_data[i + 1]})
+        for i, var in enumerate(self.vars_ordered_values):
+            data.update({self.scope_variables[var].path.primary_path: historian_data[i + 1]})
         ## solve for 1 to n
         return AliasedDataFrame(data, aliases=self.aliases, rename_columns=rename_columns)
 
@@ -704,22 +704,22 @@ class AliasedDataFrame(pd.DataFrame):
         super().__init__(data)
         self.aliases = aliases
         self.rename_columns = rename_columns
-        if self.rename_columns:
-            aliases_reversed = {v: k for k, v in self.aliases.items()}
-            tmp = copy(list(data.keys()))
-            for key in tmp:
-                if key in aliases_reversed.keys():
-                    data[aliases_reversed[key]] = data.pop(key)
-            super().__init__(data)
+        # if self.rename_columns:
+        #     aliases_reversed = {v: k for k, v in self.aliases.items()}
+        #     tmp = copy(list(data.keys()))
+        #     for key in tmp:
+        #         if key in aliases_reversed.keys():
+        #             data[aliases_reversed[key]] = data.pop(key)
+        #     super().__init__(data)
 
-    def __getitem__(self, item):
-        if not self.rename_columns:
-            if not isinstance(item, list):
-                col = self.aliases[item] if item in self.aliases else item
-                return super().__getitem__(col)
-
-            cols = [self.aliases[i] if i in self.aliases else i for i in item]
-
-            return super().__getitem__(cols)
-        else:
-            return super().__getitem__(item)
+    # def __getitem__(self, item):
+    #     if not self.rename_columns:
+    #         if not isinstance(item, list):
+    #             col = self.aliases[item] if item in self.aliases else item
+    #             return super().__getitem__(col)
+    #
+    #         cols = [self.aliases[i] if i in self.aliases else i for i in item]
+    #
+    #         return super().__getitem__(cols)
+    #     else:
+    #         return super().__getitem__(item)

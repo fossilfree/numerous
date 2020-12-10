@@ -91,7 +91,7 @@ class Simulation:
 
         print("Compiling Numba equations and initializing historian")
         compilation_start = time.time()
-        # numba_model.func(t_start, numba_model.get_states())
+        numba_model.func(t_start, numba_model.get_states())
         numba_model.historian_update(t_start)
         compilation_finished = time.time()
         print("Compilation time: ", compilation_finished - compilation_start)

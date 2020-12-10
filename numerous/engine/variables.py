@@ -118,10 +118,10 @@ class VariablePath:
         if not (current_id + new_id in self.used_id_pairs):
             if new_id in self.path:
                 self.path[new_id].extend([new_tag + '.' + x for x in self.path[current_id]])
-                self.primary_path = [new_tag + '.' + x for x in self.path[current_id]]
+                self.primary_path = new_tag + '.' + self.path[current_id][-1]
             else:
                 self.path.update({new_id: [new_tag + '.' + x for x in self.path[current_id]]})
-                self.primary_path = [new_tag + '.' + x for x in self.path[current_id]]
+                self.primary_path = new_tag + '.' + self.path[current_id][-1]
             self.used_id_pairs.append(current_id + new_id)
 
 
