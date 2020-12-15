@@ -103,7 +103,7 @@ class ThermalSystem(Subsystem):
                 thermalconductors.append(tc)
 
         # Register the items to the subsystem to make it recognize them.
-        #self.register_items(thermalconductors, tag="conductors", structure=ItemsStructure.SET)
+        self.register_items(thermalconductors, tag="conductors", structure=ItemsStructure.SET)
 
 
 if __name__ == "__main__":

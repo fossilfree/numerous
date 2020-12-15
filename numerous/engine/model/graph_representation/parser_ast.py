@@ -577,7 +577,7 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
 
             scoped_equations[eq_name] = eq_key
 
-            is_set = len(model_namespace.item_indcs) > 1
+            is_set = model_namespace.is_set
 
             eq_n = equation_graph.add_node(key=eq_name,
                                            node_type=NodeTypes.EQUATION, ast=None,
