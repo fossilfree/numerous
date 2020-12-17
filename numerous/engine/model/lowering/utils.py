@@ -25,7 +25,8 @@ def generate_code_file(mod_body, file,preamble="from numba import njit, carray, 
     mod = wrap_module(mod_body)
     print('Generating Source')
 
-    source = preamble + astor.to_source(mod, indent_with=' ' * 4, add_line_information=False, source_generator_class=SourceGeneratorNumerous)
+    source = preamble + astor.to_source(mod, indent_with=' ' * 4, add_line_information=False,
+                                        source_generator_class=SourceGeneratorNumerous)
 
     with open(file, 'w') as f:
         f.write(source)
@@ -61,58 +62,24 @@ def are_all_set_variables(str_list,set_variables):
             raise ValueError(f'Not a set variable: {s}')
 
 
-
 class Vardef:
-    def __init__(self):
+    def __init__(self,llvm=True):
         self.vars_inds_map = []
         self.targets = []
         self.args = []
-        self.args_order = []
-        self.llvm_target_ids=[]
-
-    def format(self, var):
-        return ast.Name(id=var.replace('scope.', 's_'))
-
-    def var_def(self, var, read=True):
-        if not var in self.vars_inds_map:
-            self.vars_inds_map.append(var)
-        if read and 'scope.' in var:
-            if var not in self.targets and var not in self.args:
-                self.args.append(var)
-        elif 'scope.' in var:
-
-            if var not in self.targets:
-                self.targets.append(var)
-
-        return self.format(var)
-
-    def get_args(self, form=True):
-        if form:
-            return [self.format(a) for a in self.args]
-        else:
-            return self.args
-
-    def get_targets(self, form=True):
-        if form:
-            return [self.format(a) for a in self.targets]
-        else:
-            return self.targets
-
-
-class Vardef_llvm:
-    def __init__(self):
-        self.vars_inds_map = []
-        self.targets = []
-        self.args = []
+        self.llvm =llvm
         self.args_order = []
 
     def format(self, var):
         return ast.Name(id=var.replace('scope.', 's_'))
 
     def format_target(self, var):
-        return ast.Subscript(slice=ast.Index(value=ast.Num(n=0)), value=ast.Call(
-            args=[ast.Name(id=var.replace('scope.', 's_')), ast.Tuple(elts=[ast.Num(n=1)])], func=ast.Name(id='carray'),
-            keywords=[]))
+        if self.llvm:
+            return ast.Subscript(slice=ast.Index(value=ast.Num(n=0)), value=ast.Call(
+                args=[ast.Name(id=var.replace('scope.', 's_')), ast.Tuple(elts=[ast.Num(n=1)])], func=ast.Name(id='carray'),
+                keywords=[]))
+        else:
+            return ast.Name(id=var.replace('scope.', 's_'))
     def order_variables(self,order_data):
         for var in order_data:
             self.args_order.append("scope."+var)

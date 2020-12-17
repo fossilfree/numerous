@@ -178,10 +178,9 @@ def function_from_graph(g: Graph, name, decorators=[
     return func, var_def_.vars_inds_map
 
 
-def function_from_graph_generic(g: Graph, name, var_def_, decorators=[
-    ast.Call(func=ast.Name(id='njit'), args=[ast.Str(s='void(float64[:])')], keywords={})]):
+def function_from_graph_generic(g: Graph, name, var_def_):
     lineno_count = 1
-
+    decorators = []
     top_nodes = g.topological_nodes()
 
     var_def = var_def_.var_def
@@ -210,7 +209,7 @@ def function_from_graph_generic(g: Graph, name, var_def_, decorators=[
                 else:
                     ast_assign = ast.AugAssign(target=target_ast, value=value_ast, op=ast.Add())
                 body.append(ast_assign)
-
+    var_def_.order_variables(g.arg_metadata)
     if (l := len(var_def_.get_targets())) > 1:
         return_ = ast.Return(value=ast.Tuple(elts=var_def_.get_targets()))
     elif l == 1:
@@ -223,11 +222,18 @@ def function_from_graph_generic(g: Graph, name, var_def_, decorators=[
 
     func = wrap_function(name, body, decorators=decorators, args=args)
 
-    return func
+    target_ids = []
+    for i, arg in enumerate(var_def_.args_order):
+        if arg in var_def_.targets:
+            target_ids.append(i)
+
+    return func, var_def_.args_order, target_ids
 
 
-def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_):
+def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_,compiled_function=False):
     func, signature, fname, r_args, r_targets = function_from_graph_generic_llvm(g, name, var_def_)
+    if not compiled_function:
+        return func, signature, r_args, r_targets
     ##TODO imports should a parameter of a System or Model
     body = [ast.ImportFrom(module="numba", names=[ast.alias(name="carray", asname=None)], level=0),
             ast.ImportFrom(module="numba", names=[ast.alias(name="float64", asname=None)], level=0),
@@ -277,17 +283,17 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
 
     var_def_.order_variables(g.arg_metadata)
     args = dot_dict(args=var_def_.get_order_args(), vararg=None, defaults=[], kwarg=None)
-    signature =[f'void(']
+    signature = [f'void(']
     target_ids = []
-    for i,arg in enumerate(var_def_.args_order):
+    for i, arg in enumerate(var_def_.args_order):
         if arg in var_def_.targets:
             signature.append("CPointer(float64), ")
             target_ids.append(i)
         else:
             signature.append("float64, ")
-    signature[-1]=signature[-1][:-2]
+    signature[-1] = signature[-1][:-2]
     signature.append(")")
-    signature =''.join(signature)
+    signature = ''.join(signature)
     decorators = []
 
     func = wrap_function(fname, body, decorators=decorators, args=args)
@@ -491,7 +497,7 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
              parsed_eq_branches, scoped_equations, parsed_eq):
     for m in model_namespace.equation_dict.values():
         for eq in m:
-            eq_key ="EQ_"+ (eq.id + model_namespace.full_tag).replace(".", "_").replace("-", "_")
+            eq_key = "EQ_" + (eq.id + model_namespace.full_tag).replace(".", "_").replace("-", "_")
 
             if not eq_key in parsed_eq:
                 dsource = eq.lines

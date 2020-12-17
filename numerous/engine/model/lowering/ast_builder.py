@@ -3,11 +3,17 @@ from __future__ import print_function
 import itertools
 from ctypes import CFUNCTYPE, POINTER, c_double, c_void_p, c_int64
 from numba import carray, cfunc, njit
+
+from numerous.engine.model.utils import wrap_function
 from numerous import config
 import faulthandler
 import numpy as np
 import logging
 import ast
+
+from numerous.engine.model.lowering.utils import generate_code_file
+
+GLOBAL_ARRAY = ast.Name(id="variables")
 
 class ASTBuilder:
     """
@@ -22,36 +28,82 @@ class ASTBuilder:
         states - states
         derivatives -  derivatives
         """
-        pass
+        self.body_init_set_var = [ast.Assign(targets=[GLOBAL_ARRAY],
+                                             value=ast.Call(func=ast.Name(id='np.array',
+                                                                          ctx=ast.Load()),
+                                                            args=[ast.List(
+                                                                elts=[ast.Constant(value=v) for v in initial_values],
+                                                                ctx=ast.Load())],
+                                                            keywords=[]))]
+
+        self.kernel_function = []
+        self.variable_names = variable_names
+        self.states = states
+        self.derivatives = derivatives
+        self.functions = []
+        self.defined_functions = []
+        self.body=[]
+
+        self.read_args_section = [ast.Expr(value=ast.Call(func=ast.Name(id='np.put'),
+                                          args=[GLOBAL_ARRAY,
+                                                ast.List(
+                                                    elts=[ast.Constant(value=v) for v in
+                                                          [self.variable_names[x] for x in self.states]],
+                                                    ctx=ast.Load()),
+                                                ast.Name(id='states', ctx=ast.Store())
+                                                ],
+                                          keywords=[]))]
+
+        self.return_section = [ast.Return(
+            value=ast.Call(func=ast.Name(id='np.take'),args=[GLOBAL_ARRAY,
+                                                ast.List(
+                                                    elts=[ast.Constant(value=v) for v in
+                                                          [self.variable_names[x] for x in self.derivatives]],
+                                                    ctx=ast.Load())
+                                                ],
+                                          keywords=[]))]
+
 
     def add_external_function(self, function, signature, number_of_args, target_ids):
-        """
-        Wrap the function and make it available in the LLVM module
-        """
-        pass
+        self.functions.append(function)
+        self.defined_functions.append(function.name)
 
     def generate(self, filename=None, save_opt=False):
-        pass
+        kernel = wrap_function('kernel', self.read_args_section +self.body+ self.return_section, decorators=[],
+                               args=ast.arguments(args=[ast.arg(arg="states",
+                                                                annotation=None)], vararg=None, defaults=[], kwarg=None))
+
+        generate_code_file([x for x in self.functions]+self.body_init_set_var+[kernel], "kernel.py")
+
     def detailed_print(self, *args, sep=' ', end='\n', file=None):
         if config.PRINT_LLVM:
             print(*args, sep, end, file)
 
-    def save_module(self, filename):
-        pass
-
-    def load_global_variable(self, variable_name):
-        pass
-    def load_state_variable(self,idx, state_name):
-        pass
 
     def store_variable(self, variable_name):
         pass
 
     def add_call(self, external_function_name, args, target_ids):
+        self.generate(filename="kernel.py")
+        arg_idxs=[]
+        for arg in args:
+            arg_idxs.append(self.variable_names[arg])
+        f_call = ast.Call
         pass
 
-    def add_mapping(self, args, targets):
-        pass
+    def add_mapping(self, args, target):
+        if len(target) > 1:
+            raise ValueError("Only mapping to single target is supported")
+        arg_idxs = []
+        for arg in args:
+            arg_idxs.append(self.variable_names[arg])
+        target_idx = self.variable_names[target[0]]
+        print(target_idx)
+        self.body.append(ast.Assign( targets=[ast.Subscript(value=GLOBAL_ARRAY,
+                                                            slice=ast.Index(value=ast.Constant(value=target_idx,kind=None)))],
+                                     value=ast.Subscript(value = GLOBAL_ARRAY,
+                                                          slice = ast.Index(value=ast.Constant(value=arg_idxs[0],kind=None)))))
+
 
     def add_set_call(self, external_function_name, variable_name_arg_and_trg, targets_ids):
         pass

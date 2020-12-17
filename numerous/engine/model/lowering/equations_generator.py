@@ -1,12 +1,13 @@
+from ast_builder import ASTBuilder
 from numerous.engine.model.graph_representation import EdgeType
 from numerous.engine.model.lowering.llvm_builder import LLVMBuilder
 from numerous.engine.model.utils import NodeTypes, wrap_function, dot_dict, recurse_Attribute
 
-from numerous.engine.model.lowering.utils import generate_code_file, Vardef, Vardef_llvm, contains_dot, \
-    are_all_scalars, non_unique_check, are_all_set_variables
+from numerous.engine.model.lowering.utils import generate_code_file, Vardef, contains_dot, \
+    non_unique_check
 
 from numerous.engine.model.graph_representation.parser_ast import function_from_graph_generic, \
-     compiled_function_from_graph_generic_llvm
+    compiled_function_from_graph_generic_llvm
 
 from numerous.engine.variables import VariableType
 import logging
@@ -29,22 +30,21 @@ class EquationGenerator:
                 tail = {}
                 for k, v in self.scope_variables.items():
                     if k in var.set_var.variables:
-                        tail.update({k:v})
+                        tail.update({k: v})
                         new_sv.update({var.tmp_vars[v.set_var_ix].id: var.tmp_vars[v.set_var_ix]})
                     else:
-                        new_sv.update({k:v})
+                        new_sv.update({k: v})
                 self.scope_variables = dict(new_sv, **tail)
             if var.type == VariableType.TMP_PARAMETER:
                 new_sv = {}
                 tail = {}
                 for k, v in self.scope_variables.items():
                     if k == var.variable.id:
-                        tail.update({k:v})
+                        tail.update({k: v})
                         new_sv.update({var.id: var})
                     else:
-                        new_sv.update({k:v})
+                        new_sv.update({k: v})
                 self.scope_variables = dict(new_sv, **tail)
-
 
         self.scoped_equations = scoped_equations
         self.temporary_variables = temporary_variables
@@ -68,9 +68,15 @@ class EquationGenerator:
         self.number_of_derivatives = len(self.deriv)
 
         # Initialize llvm builder - will be a list of intermediate llvm instructions to be lowered in generate
-        self.llvm_program = LLVMBuilder(
-            np.ascontiguousarray([x.value for x in self.scope_variables.values()], dtype=np.float64),
-            self.values_order, self.states, self.deriv)
+        self.llvm = False
+        if self.llvm:
+            self.generated_program = LLVMBuilder(
+                np.ascontiguousarray([x.value for x in self.scope_variables.values()], dtype=np.float64),
+                self.values_order, self.states, self.deriv)
+        else:
+            self.generated_program = ASTBuilder(
+                np.ascontiguousarray([x.value for x in self.scope_variables.values()], dtype=np.float64),
+                self.values_order, self.states, self.deriv)
 
         self.mod_body = []
         # Create a kernel of assignments and calls
@@ -84,8 +90,6 @@ class EquationGenerator:
         self.all_read = []
         self.all_targeted_set_vars = []
         self.all_read_set_vars = []
-
-
 
     def _parse_variable(self, full_tag, sv, sv_id):
         if not sv_id in self.vars_node_id:
@@ -121,21 +125,22 @@ class EquationGenerator:
     def _parse_equations(self, equations):
         logging.info('make equations for compilation')
         for eq_key, eq in equations.items():
-            vardef = Vardef()
+            vardef = Vardef(llvm = self.llvm)
 
-            func = function_from_graph_generic(eq[2], eq_key, var_def_=vardef, decorators=["njit"])
+            func, args, target_ids = function_from_graph_generic(eq[2], eq_key, var_def_=vardef)
 
             eq[2].lower_graph = None
+            if self.llvm:
+                func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(eq[2],
+                                                                                                   eq_key,
+                                                                                                   var_def_=Vardef_llvm())
+                self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
+            else:
+                self.generated_program.add_external_function(func, None, len(args), target_ids)
 
-            func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(eq[2],
-                                                                                            eq_key,
-                                                                                            var_def_=Vardef_llvm())
-            self.llvm_program.add_external_function(func_llvm, signature, len(args),target_ids)
-            vardef.llvm_target_ids=target_ids
-            vardef.args_order= args
+            vardef.llvm_target_ids = target_ids
+            vardef.args_order = args
             self.eq_vardefs[eq_key] = vardef
-
-            self.mod_body.append(func)
 
     def _process_equation_node(self, n):
 
@@ -229,7 +234,6 @@ class EquationGenerator:
                 )
             )
 
-
             llvm_args = []
             for t in vardef.args_order:
                 llvm_args_ = []
@@ -237,9 +241,9 @@ class EquationGenerator:
                 for i in range(set_var.get_size()):
                     llvm_args_.append(set_var.get_var_by_idx(i).id)
                 llvm_args.append(llvm_args_)
-            ##reshape to correct llvm format
+            ##reshape to correct format
             llvm_args = [list(x) for x in zip(*llvm_args)]
-            self.llvm_program.add_set_call(self._llvm_func_name(ext_func), llvm_args, vardef.llvm_target_ids)
+            self.generated_program.add_set_call(self._llvm_func_name(ext_func), llvm_args, vardef.llvm_target_ids)
 
 
         else:
@@ -260,7 +264,7 @@ class EquationGenerator:
             args = [d_u(scope_vars[a]) for a in vardef.args_order]
 
             # Add this eq to the llvm_program
-            self.llvm_program.add_call(self._llvm_func_name(ext_func), args, vardef.llvm_target_ids)
+            self.generated_program.add_call(self._llvm_func_name(ext_func), args, vardef.llvm_target_ids)
 
     def _process_sum_node(self, n):
         t_indcs, target_edges = list(
@@ -274,7 +278,7 @@ class EquationGenerator:
         t = target_edges[0][1]
 
         # If the target is a set variable
-        if (t_sv := self.equation_graph.get(t, 'scope_var')).size>0:
+        if (t_sv := self.equation_graph.get(t, 'scope_var')).size > 0:
 
             self.all_targeted_set_vars.append(self.equation_graph.key_map[t])
 
@@ -392,7 +396,7 @@ class EquationGenerator:
                 for v1 in v:
                     print(f"Mapping  {self.scope_variables[v1].path.primary_path}"
                           f" to {self.scope_variables[k].path.primary_path} ")
-                self.llvm_program.add_mapping(v,[k])
+                self.generated_program.add_mapping(v, [k])
 
 
         else:
@@ -465,17 +469,17 @@ class EquationGenerator:
                     if var_name in self.scope_variables:
                         print(f"Mapping  {self.scope_variables[var_name].path.primary_path}"
                               f" to {self.scope_variables[target_var].path.primary_path} ")
-                        self.llvm_program.add_mapping([var_name],[target_var])
+                        self.generated_program.add_mapping([var_name], [target_var])
                     else:
                         if var_name in self.set_variables:
                             print(f"Mapping  {self.set_variables[var_name].get_var_by_idx(v[1]).path.primary_path} "
                                   f"to {self.scope_variables[target_var].path.primary_path} ")
-                            self.llvm_program.add_mapping(
-                                                          [self.set_variables[var_name].get_var_by_idx(v[1]).id],[target_var])
+                            self.generated_program.add_mapping(
+                                [self.set_variables[var_name].get_var_by_idx(v[1]).id], [target_var])
                         else:
                             raise ValueError(f'Variable  {var_name} mapping not found')
 
-    def generate_equations(self,use_llvm=True):
+    def generate_equations(self, use_llvm=True):
         logging.info('Generate kernel')
         # Generate the ast for the python kernel
         for n in self.topo_sorted_nodes:
@@ -501,9 +505,11 @@ class EquationGenerator:
 
         if use_llvm:
             logging.info('generating llvm')
-            diff, var_func, var_write = self.llvm_program.generate("test_listing.txt", save_opt=True)
+            diff, var_func, var_write = self.generated_program.generate("test_listing.txt", save_opt=True)
 
-            return diff, var_func,var_write, self.values_order,self.scope_variables,np.array(state_idx,dtype=np.int64),np.array(deriv_idx,dtype=np.int64)
+            return diff, var_func, var_write, self.values_order, self.scope_variables, np.array(state_idx,
+                                                                                                dtype=np.int64), np.array(
+                deriv_idx, dtype=np.int64)
 
         #
         # Update maps between scope variables
@@ -528,7 +534,6 @@ class EquationGenerator:
         all_read_scalars_from_set_dash = [d_u(ar) for ar in all_read_scalars_from_set]
 
         all_read = set(self.all_read)
-
 
         # Check for overlap of read and read in set - not allowed!
         r_setvar_r_overlap = all_read_scalars_from_set.intersection(all_read)
@@ -617,7 +622,6 @@ class EquationGenerator:
 
         body_init_set_var.append(ast.Assign(value=ast.Name(id='y'), targets=[ast.Tuple(elts=state_vars)]))
 
-
         for tsv in self.all_targeted_set_vars:
             body_init_set_var.append(ast.Assign(targets=[ast.Name(id=d_u(tsv))],
                                                 value=ast.Call(
@@ -655,14 +659,13 @@ class EquationGenerator:
 
         self.body.append(ast.Return(
             value=ast.Subscript(
-                slice=ast.Slice(lower=ast.Num(n=leninit), upper=ast.Num(n=leninit + self.number_of_derivatives), step=None),
+                slice=ast.Slice(lower=ast.Num(n=leninit), upper=ast.Num(n=leninit + self.number_of_derivatives),
+                                step=None),
                 value=ast.Name(id='variables'))))
         kernel_args = dot_dict(args=[ast.Name(id='variables'), ast.Name(id='y')], vararg=None, defaults=[], kwarg=None)
 
-        skip_kernel = False
-        if not skip_kernel:
-            self.mod_body.append(
-                wrap_function('kernel_nojit', self.body, decorators=[], args=kernel_args))
+
+        self.mod_body.append(wrap_function('kernel_nojit', self.body, decorators=[], args=kernel_args))
 
         generate_code_file(self.mod_body, self.filename)
         logging.info('compiling...')
@@ -670,7 +673,6 @@ class EquationGenerator:
         import timeit
         print('Compile time: ', timeit.timeit(
             lambda: exec('from kernel import *', globals()), number=1))
-
 
         from numba import njit
 
