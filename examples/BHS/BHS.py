@@ -81,8 +81,11 @@ class ThermalConductivity(ConnectorTwoWay):
         thermal.T1 = self.side1.thermal.T
         thermal.T2 = self.side2.thermal.T
 
+        self.side1.thermal.P += thermal.P1
+        self.side2.thermal.P += thermal.P2
+
 class ThermalSystem(Subsystem):
-    def __init__(self, tag, T0=[1, 1], n=1):
+    def __init__(self, tag, T0=[50, 150], n=1):
         super().__init__(tag)
         thermalmasses = []
         thermalconductors = []
@@ -98,8 +101,7 @@ class ThermalSystem(Subsystem):
             if i>0:
                 tc = ThermalConductivity('tc'+str(i))
                 tc.bind(side1=thermalmasses[i-1], side2=thermalmasses[i])
-                tc.side1.thermal.P += tc.thermal.P1
-                tc.side2.thermal.P += tc.thermal.P2
+
                 thermalconductors.append(tc)
 
         # Register the items to the subsystem to make it recognize them.
@@ -110,12 +112,12 @@ if __name__ == "__main__":
     from numerous.engine import model, simulation
     from time import time
     from matplotlib import pyplot as plt
-
-    subsystem = ThermalSystem('system', n=2, T0=[1, 0])
+    n=2
+    subsystem = ThermalSystem('system', n=n, T0=[150, 50])
     # Define simulation
     s = simulation.Simulation(
         model.Model(subsystem),
-        t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
+        t_start=0, t_stop=500.0, num=100, num_inner=10, max_step=10
     )
     # Solve and plot
     tic = time()
@@ -124,7 +126,7 @@ if __name__ == "__main__":
     print('Execution time: ', toc - tic)
 
 
-    s.model.historian_df.plot()
+    s.model.historian_df[[f'system.SET_thermalmasses.thermalmass{str(i)}.thermal.T' for i in range(n)]].plot()
     # print()
     plt.show()
     plt.interactive(False)
