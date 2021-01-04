@@ -68,7 +68,7 @@ class EquationGenerator:
         self.number_of_derivatives = len(self.deriv)
 
         # Initialize llvm builder - will be a list of intermediate llvm instructions to be lowered in generate
-        self.llvm = False
+        self.llvm = True
         if self.llvm:
             self.generated_program = LLVMBuilder(
                 np.ascontiguousarray([x.value for x in self.scope_variables.values()], dtype=np.float64),
@@ -119,6 +119,10 @@ class EquationGenerator:
             full_tag = d_u(sv.id)
             self._parse_variable(full_tag, sv, sv_id)
 
+    def get_external_function_name(self,ext_func):
+        if self.llvm:
+            return self._llvm_func_name(ext_func)
+        return ext_func
     def _llvm_func_name(self, ext_func):
         return ext_func + '_llvm1.<locals>.' + ext_func + '_llvm'
 
@@ -133,7 +137,7 @@ class EquationGenerator:
             if self.llvm:
                 func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(eq[2],
                                                                                                    eq_key,
-                                                                                                   var_def_=Vardef_llvm())
+                                                                                                   var_def_=Vardef(llvm=self.llvm))
                 self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
             else:
                 self.generated_program.add_external_function(func, None, len(args), target_ids)
@@ -243,7 +247,7 @@ class EquationGenerator:
                 llvm_args.append(llvm_args_)
             ##reshape to correct format
             llvm_args = [list(x) for x in zip(*llvm_args)]
-            self.generated_program.add_set_call(self._llvm_func_name(ext_func), llvm_args, vardef.llvm_target_ids)
+            self.generated_program.add_set_call(self.get_external_function_name(ext_func), llvm_args, vardef.llvm_target_ids)
 
 
         else:
@@ -264,7 +268,7 @@ class EquationGenerator:
             args = [d_u(scope_vars[a]) for a in vardef.args_order]
 
             # Add this eq to the llvm_program
-            self.generated_program.add_call(self._llvm_func_name(ext_func), args, vardef.llvm_target_ids)
+            self.generated_program.add_call(self.get_external_function_name(ext_func), args, vardef.llvm_target_ids)
 
     def _process_sum_node(self, n):
         t_indcs, target_edges = list(
@@ -393,9 +397,9 @@ class EquationGenerator:
                             else:
                                 raise ValueError(f'Variable  {m_ix[0]} mapping not found')
             for k, v in mappings_llvm.items():
-                for v1 in v:
-                    print(f"Mapping  {self.scope_variables[v1].path.primary_path}"
-                          f" to {self.scope_variables[k].path.primary_path} ")
+                # for v1 in v:
+                #     print(f"Mapping  {self.scope_variables[v1].path.primary_path}"
+                #           f" to {self.scope_variables[k].path.primary_path} ")
                 self.generated_program.add_mapping(v, [k])
 
 
@@ -502,7 +506,7 @@ class EquationGenerator:
                 deriv_idx.append(v)
             if k in self.states:
                 state_idx.append(v)
-
+        # self.generated_program.generate()
         if use_llvm:
             logging.info('generating llvm')
             diff, var_func, var_write = self.generated_program.generate("test_listing.txt", save_opt=True)

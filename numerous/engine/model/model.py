@@ -329,7 +329,7 @@ class Model:
         self.eg.remove_chains()
         tmp_vars = self.eg.create_assignments()
         self.eg.add_mappings()
-        # self.eg.as_graphviz("test9",force=True)
+        self.eg.as_graphviz("test9",force=True)
         self.lower_model_codegen(tmp_vars)
 
         for i, variable in enumerate(self.variables.values()):
@@ -338,7 +338,6 @@ class Model:
                     self.aliases.update({path: variable.id})
             if variable.alias is not None:
                     self.aliases.update({variable.alias: variable.id})
-
             for path in variable.path.path[self.system.id]:
                 self.path_variables.update({path: variable.value})  # is this used at all?
 
