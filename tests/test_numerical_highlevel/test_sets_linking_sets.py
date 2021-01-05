@@ -1,3 +1,4 @@
+import pytest
 from numerous.multiphysics.equation_decorators import Equation
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
@@ -81,6 +82,7 @@ class ThermalConductivity(ConnectorTwoWay):
         thermal.T1 = self.side1.thermal.T
         thermal.T2 = self.side2.thermal.T
 
+        #TODO: Test is failing because these mappings are missed by the engine
         self.side1.thermal.P += thermal.P1
         self.side2.thermal.P += thermal.P2
 
@@ -101,19 +103,23 @@ class ThermalSystem(Subsystem):
             if i>0:
                 tc = ThermalConductivity('tc'+str(i))
                 tc.bind(side1=thermalmasses[i-1], side2=thermalmasses[i])
-
+                #tc.side1.thermal.P += tc.thermal.P1
+                #tc.side2.thermal.P += tc.thermal.P2
                 thermalconductors.append(tc)
 
         # Register the items to the subsystem to make it recognize them.
         self.register_items(thermalconductors, tag="conductors", structure=ItemsStructure.SET)
 
 
-if __name__ == "__main__":
+def test_mapping():
+#if __name__ == '__main__':
+
     from numerous.engine import model, simulation
     from time import time
-    from matplotlib import pyplot as plt
+    import numpy as np
     n=2
-    subsystem = ThermalSystem('system', n=n, T0=[150, 50])
+    T0=[150, 50]
+    subsystem = ThermalSystem('system', n=n, T0=T0)
     # Define simulation
     s = simulation.Simulation(
         model.Model(subsystem),
@@ -123,10 +129,12 @@ if __name__ == "__main__":
     tic = time()
     s.solve()
     toc = time()
-    print('Execution time: ', toc - tic)
 
 
-    s.model.historian_df[[f'system.SET_thermalmasses.thermalmass{str(i)}.thermal.T' for i in range(n)]].plot()
-    # print()
-    plt.show()
-    plt.interactive(False)
+    T_end = s.model.historian_df[[f'system.SET_thermalmasses.thermalmass{str(i)}.thermal.T' for i in range(n)]].tail(1).values
+    T0_mean = np.mean(T0)
+
+    assert np.all([T < T0_mean*1.01 for T in T_end]), "Final T should be less than 101% of T0"
+    assert np.all([T > T0_mean * .99 for T in T_end]), "Final T should be greater than 99% of T0"
+
+
