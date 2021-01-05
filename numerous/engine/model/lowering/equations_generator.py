@@ -137,7 +137,8 @@ class EquationGenerator:
             if self.llvm:
                 func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(eq[2],
                                                                                                    eq_key,
-                                                                                                   var_def_=Vardef(llvm=self.llvm))
+                                                                                                   var_def_=Vardef(llvm=self.llvm),
+                                                                                                   compiled_function=True)
                 self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
             else:
                 self.generated_program.add_external_function(func, None, len(args), target_ids)
