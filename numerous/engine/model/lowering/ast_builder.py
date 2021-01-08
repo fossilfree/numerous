@@ -88,17 +88,18 @@ class ASTBuilder:
     def add_call(self, external_function_name, args, target_ids):
 
         arg_ids = np.arange(len(args))
+        start_idx = self.variable_names[args[0]]
         mask = np.ones(len(args), dtype=bool)
         mask[target_ids] = False
         arg_ids = arg_ids[mask, ...]
         targets = []
         args = []
         for target_id in target_ids:
-            targets.append(ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=target_id)),
+            targets.append(ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=target_id+start_idx)),
                                          ctx=ast.Store()))
         for arg_id in arg_ids:
             args.append(
-                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=arg_id)), ctx=ast.Load))
+                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=arg_id+start_idx)), ctx=ast.Load))
         self.body.append(ast.Assign(targets=[ast.Tuple(elts=targets)],
                                     value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
                                                    args=args, keywords=[])))
@@ -141,7 +142,45 @@ class ASTBuilder:
             return ast.Constant(value=0, kind=None)
 
     def add_set_call(self, external_function_name, variable_name_arg_and_trg, targets_ids):
-        pass
+        # Module(body=[For(target=Name(id='x', ctx=Store()),
+        #                  iter=Call(func=Name(id='range', ctx=Load()), args=[Constant(value=10, kind=None)],
+        #                            keywords=[]), body=[Expr(value=Constant(value=Ellipsis, kind=None))],
+        #                  orelse=[Expr(value=Constant(value=Ellipsis, kind=None))], type_comment=None)], type_ignores=[])
+        #
+        # pass
+        self.body.append(ast.For(target=ast.Name(id='i', ctx=ast.Store()),
+                                 iter=ast.Call(func=ast.Name(id='range',ctx=ast.Load()),args=
+                                               [ast.Constant(value=len(variable_name_arg_and_trg))], keywords=[]),
+                                 body = [self._generate_set_call_body(external_function_name,
+                                                                     len(variable_name_arg_and_trg[0]),
+                                                                     self.variable_names[variable_name_arg_and_trg[0][0]],
+                                                                     targets_ids)],
+                                 orelse = []))
+    def _generate_set_call_body(self,external_function_name,arg_length,strart_idx,target_ids):
+        arg_ids = np.arange(arg_length)
+        mask = np.ones(arg_length, dtype=bool)
+        mask[target_ids] = False
+        arg_ids = arg_ids[mask, ...]
+        targets = []
+        args = []
+
+
+        for target_id in target_ids:
+            targets.append(ast.Subscript(value=GLOBAL_ARRAY,
+                                         slice=ast.Index(
+                                             value=ast.BinOp(
+                                                 left=ast.Constant(value=target_id+strart_idx),
+                                                 op=ast.Add(),
+                                                 right=ast.BinOp(left=ast.Constant(value=arg_length, kind=None),
+                                                                 op=ast.Mult(),
+                                                                 right=ast.Name(id='i', ctx=ast.Load())))),
+                                         ctx=ast.Store()))
+        for arg_id in arg_ids:
+            args.append(
+                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=arg_id+strart_idx)), ctx=ast.Load))
+        return ast.Assign(targets=[ast.Tuple(elts=targets)],
+                                    value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
+                                                   args=args, keywords=[]))
 
     def add_set_mapping(self, args2d, targets2d):
         pass
