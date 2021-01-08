@@ -19,7 +19,7 @@ from numerous.utils.string_utils import d_u
 
 
 class EquationGenerator:
-    def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations, temporary_variables):
+    def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations, temporary_variables,use_llvm=True):
         self.filename = filename
         self.scope_variables = scope_variables
         self.set_variables = {}
@@ -68,7 +68,7 @@ class EquationGenerator:
         self.number_of_derivatives = len(self.deriv)
 
         # Initialize llvm builder - will be a list of intermediate llvm instructions to be lowered in generate
-        self.llvm = True
+        self.llvm = use_llvm
         if self.llvm:
             self.generated_program = LLVMBuilder(
                 np.ascontiguousarray([x.value for x in self.scope_variables.values()], dtype=np.float64),
@@ -484,7 +484,7 @@ class EquationGenerator:
                         else:
                             raise ValueError(f'Variable  {var_name} mapping not found')
 
-    def generate_equations(self, use_llvm=True):
+    def generate_equations(self):
         logging.info('Generate kernel')
         # Generate the ast for the python kernel
         for n in self.topo_sorted_nodes:
@@ -507,8 +507,8 @@ class EquationGenerator:
                 deriv_idx.append(v)
             if k in self.states:
                 state_idx.append(v)
-        # self.generated_program.generate()
-        if use_llvm:
+        self.generated_program.generate()
+        if self.llvm:
             logging.info('generating llvm')
             diff, var_func, var_write = self.generated_program.generate("test_listing.txt", save_opt=True)
 
