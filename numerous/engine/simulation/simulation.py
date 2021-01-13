@@ -96,6 +96,7 @@ class Simulation:
         compilation_finished = time.time()
         print("Compilation time: ", compilation_finished - compilation_start)
 
+        self.compiled_model = numba_model
         # self.solver.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
         # self.callbacks = [x.callbacks for x in sorted(model.callbacks,
         #                                               key=lambda callback: callback.priority,
@@ -103,6 +104,8 @@ class Simulation:
 
     def solve(self):
         self.__init_step()
+        self.model.numba_model.historian_reinit()
+        self.solver.y0 = self.model.numba_model.get_states()
         result_status = "not finished"
         try:
             sol, result_status = self.solver.solve()

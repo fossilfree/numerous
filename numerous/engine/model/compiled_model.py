@@ -89,7 +89,8 @@ class CompiledModel:
         return False
 
     def historian_reinit(self):
-        self.historian_data = np.empty((len(self.var_idxs_historian) + 1, self.historian_max_size), dtype=np.float64)
+        self.historian_data = np.empty(
+            (len(self.init_vars) + 1, self.historian_max_size - self.in_memory_history_correction), dtype=np.float64)
         self.historian_data.fill(np.nan)
         self.historian_ix = 0
 
@@ -98,6 +99,8 @@ class CompiledModel:
         self.historian_data[0][ix] = time
         self.historian_data[1:,ix]= self.read_variables()
         self.historian_ix += 1
+
+
 
     # def run_callbacks_with_updates(self, time: int) -> None:
     #     '''
