@@ -343,7 +343,6 @@ class Model:
                 self.path_variables.update({path: variable.value})  # is this used at all?
 
         self.inverse_aliases = {v: k for k, v in self.aliases.items()}
-        print(self.inverse_aliases)
 
         assemble_finish = time.time()
         print("Assemble time: ", assemble_finish - assemble_start)
