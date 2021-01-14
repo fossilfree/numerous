@@ -121,20 +121,30 @@ if __name__ == '__main__':
     T0=[150, 50]
     subsystem = ThermalSystem('system', n=n, T0=T0)
     # Define simulation
+    n=100
     s = simulation.Simulation(
         model.Model(subsystem),
-        t_start=0, t_stop=500.0, num=100, num_inner=10, max_step=10
+        t_start=0, t_stop=500.0, num=n, num_inner=1, max_step=1000
     )
     # Solve and plot
+
+    time_ = np.logspace(0,4,n)
+    s.reset()
+
+    t_last = 0
     tic = time()
-    s.solve()
+    for t_ in time_:
+        #print('time: ',t_)
+        stop = s.step(t_-t_last)
+        if stop:
+            break
+        t_last=t_
     toc = time()
+    s.complete()
+    print('solve time: ', toc-tic)
+    print(s.model.historian_df['time'])
 
 
-    T_end = s.model.historian_df[[f'system.SET_thermalmasses.thermalmass{str(i)}.thermal.T' for i in range(n)]].tail(1).values
-    T0_mean = np.mean(T0)
 
-    assert np.all([T < T0_mean*1.01 for T in T_end]), "Final T should be less than 101% of T0"
-    assert np.all([T > T0_mean * .99 for T in T_end]), "Final T should be greater than 99% of T0"
 
 
