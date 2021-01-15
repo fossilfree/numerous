@@ -41,4 +41,4 @@ while not finished:
 sim.model.create_historian_df()
 
 df=sim.model.historian_df
-print(df['time'], df['sys.simplestepping.t1.x'])
+print(df['time'].values, df['sys.simplestepping.t1.x'].values)
