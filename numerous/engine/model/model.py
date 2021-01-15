@@ -5,9 +5,9 @@ import pandas as pd
 import time
 import uuid
 import numpy as np
-from numba import jitclass
+from numba.experimental import jitclass
 
-from historian import InMemoryHistorian
+from numerous.utils.historian import InMemoryHistorian
 from numerous.engine.model.external_mappings.external_mappings import ExternalMapping, EmptyMapping
 from numerous.utils.logger_levels import LoggerLevel
 

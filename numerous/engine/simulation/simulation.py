@@ -116,6 +116,17 @@ class Simulation:
             self.model.create_historian_df()
         return sol
 
+    def step_solve(self, step_size):
+        try:
+            t, results_status = self.solver.step_solve(step_size)
+
+            return t, results_status
+        except Exception as e:
+            raise e
+
+
+
+
     def __init_step(self):
         pass
         # [x.initialize(simulation=self) for x in self.model.callbacks]
