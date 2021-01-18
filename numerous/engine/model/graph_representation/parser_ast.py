@@ -218,7 +218,7 @@ def function_from_graph_generic(g: Graph, name, var_def_):
         g.as_graphviz('noret', force=True)
         raise IndexError(f'Function {name} should have return, no?')
     body.append(return_)
-    args = dot_dict(args=var_def_.get_args(), vararg=None, defaults=[], kwarg=None)
+    args = dot_dict(args=var_def_.get_order_args(), vararg=None, defaults=[], kwarg=None)
 
     func = wrap_function(name, body, decorators=decorators, args=args)
 

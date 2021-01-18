@@ -13,7 +13,7 @@ import ast
 
 from numerous.engine.model.lowering.utils import generate_code_file
 
-GLOBAL_ARRAY = ast.Name(id="variables")
+GLOBAL_ARRAY = ast.Name(id="kernel_variables")
 
 
 class ASTBuilder:
@@ -71,7 +71,7 @@ class ASTBuilder:
         self.defined_functions.append(function.name)
 
     def generate(self, filename=None, save_opt=False):
-        kernel = wrap_function('kernel', self.read_args_section + self.body + self.return_section, decorators=[],
+        kernel = wrap_function('global_kernel', self.read_args_section + self.body + self.return_section, decorators=[],
                                args=ast.arguments(args=[ast.arg(arg="states",
                                                                 annotation=None)], vararg=None, defaults=[],
                                                   kwarg=None))
@@ -89,22 +89,21 @@ class ASTBuilder:
 
         arg_ids = np.arange(len(args))
         start_idx = self.variable_names[args[0]]
-        mask = np.ones(len(args), dtype=bool)
-        mask[target_ids] = False
-        arg_ids = arg_ids[mask, ...]
         targets = []
         args = []
         for target_id in target_ids:
-            targets.append(ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=target_id+start_idx)),
-                                         ctx=ast.Store()))
+            targets.append(
+                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=target_id + start_idx)),
+                              ctx=ast.Store()))
         for arg_id in arg_ids:
             args.append(
-                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=arg_id+start_idx)), ctx=ast.Load))
+                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=arg_id + start_idx)),
+                              ctx=ast.Load))
         self.body.append(ast.Assign(targets=[ast.Tuple(elts=targets)],
                                     value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
                                                    args=args, keywords=[])))
 
-    ##TODO add sum mapping
+
     def add_mapping(self, args, target):
         if len(target) > 1:
             raise ValueError("Only mapping to single target is supported")
@@ -149,38 +148,48 @@ class ASTBuilder:
         #
         # pass
         self.body.append(ast.For(target=ast.Name(id='i', ctx=ast.Store()),
-                                 iter=ast.Call(func=ast.Name(id='range',ctx=ast.Load()),args=
-                                               [ast.Constant(value=len(variable_name_arg_and_trg))], keywords=[]),
-                                 body = [self._generate_set_call_body(external_function_name,
-                                                                     len(variable_name_arg_and_trg[0]),
-                                                                     self.variable_names[variable_name_arg_and_trg[0][0]],
-                                                                     targets_ids)],
-                                 orelse = []))
-    def _generate_set_call_body(self,external_function_name,arg_length,strart_idx,target_ids):
+                                 iter=ast.Call(func=ast.Name(id='range', ctx=ast.Load()), args=
+                                 [ast.Constant(value=len(variable_name_arg_and_trg))], keywords=[]),
+                                 body=[self._generate_set_call_body(external_function_name,
+                                                                    len(variable_name_arg_and_trg[0]),
+                                                                    self.variable_names[
+                                                                        variable_name_arg_and_trg[0][0]],
+                                                                    targets_ids)],
+                                 orelse=[]))
+
+    def _generate_set_call_body(self, external_function_name, arg_length, strart_idx, target_ids):
         arg_ids = np.arange(arg_length)
-        mask = np.ones(arg_length, dtype=bool)
-        mask[target_ids] = False
-        arg_ids = arg_ids[mask, ...]
         targets = []
         args = []
-
 
         for target_id in target_ids:
             targets.append(ast.Subscript(value=GLOBAL_ARRAY,
                                          slice=ast.Index(
                                              value=ast.BinOp(
-                                                 left=ast.Constant(value=target_id+strart_idx),
+                                                 left=ast.Constant(value=target_id + strart_idx),
                                                  op=ast.Add(),
                                                  right=ast.BinOp(left=ast.Constant(value=arg_length, kind=None),
                                                                  op=ast.Mult(),
                                                                  right=ast.Name(id='i', ctx=ast.Load())))),
                                          ctx=ast.Store()))
+
         for arg_id in arg_ids:
             args.append(
-                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=arg_id+strart_idx)), ctx=ast.Load))
-        return ast.Assign(targets=[ast.Tuple(elts=targets)],
-                                    value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
-                                                   args=args, keywords=[]))
+                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.BinOp(
+                                                 left=ast.Constant(value=arg_id + strart_idx),
+                                                 op=ast.Add(),
+                                                 right=ast.BinOp(left=ast.Constant(value=arg_length, kind=None),
+                                                                 op=ast.Mult(),
+                                                                 right=ast.Name(id='i', ctx=ast.Load())))),
+                              ctx=ast.Load))
+        if len(targets) > 1:
+            return ast.Assign(targets=[ast.Tuple(elts=targets)],
+                              value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
+                                             args=args, keywords=[]))
+        else:
+            return ast.Assign(targets=[targets[0]],
+                              value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
+                                             args=args, keywords=[]))
 
     def add_set_mapping(self, args2d, targets2d):
         pass
