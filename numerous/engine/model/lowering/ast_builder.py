@@ -10,10 +10,12 @@ import faulthandler
 import numpy as np
 import logging
 import ast
+import os
 
 from numerous.engine.model.lowering.utils import generate_code_file
 
 GLOBAL_ARRAY = ast.Name(id="kernel_variables")
+KERNEL_FILENAME = "tmp/listings/kernel.py"
 
 
 class ASTBuilder:
@@ -70,13 +72,14 @@ class ASTBuilder:
         self.functions.append(function)
         self.defined_functions.append(function.name)
 
-    def generate(self, filename=None, save_opt=False):
+    def generate(self, save_opt=False):
         kernel = wrap_function('global_kernel', self.read_args_section + self.body + self.return_section, decorators=[],
                                args=ast.arguments(args=[ast.arg(arg="states",
                                                                 annotation=None)], vararg=None, defaults=[],
                                                   kwarg=None))
 
-        generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel], "kernel.py")
+        os.makedirs(os.path.dirname(KERNEL_FILENAME), exist_ok=True)
+        generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel],KERNEL_FILENAME )
 
     def detailed_print(self, *args, sep=' ', end='\n', file=None):
         if config.PRINT_LLVM:
@@ -141,12 +144,6 @@ class ASTBuilder:
             return ast.Constant(value=0, kind=None)
 
     def add_set_call(self, external_function_name, variable_name_arg_and_trg, targets_ids):
-        # Module(body=[For(target=Name(id='x', ctx=Store()),
-        #                  iter=Call(func=Name(id='range', ctx=Load()), args=[Constant(value=10, kind=None)],
-        #                            keywords=[]), body=[Expr(value=Constant(value=Ellipsis, kind=None))],
-        #                  orelse=[Expr(value=Constant(value=Ellipsis, kind=None))], type_comment=None)], type_ignores=[])
-        #
-        # pass
         self.body.append(ast.For(target=ast.Name(id='i', ctx=ast.Store()),
                                  iter=ast.Call(func=ast.Name(id='range', ctx=ast.Load()), args=
                                  [ast.Constant(value=len(variable_name_arg_and_trg))], keywords=[]),

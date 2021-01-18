@@ -126,7 +126,8 @@ class Model:
      so they can be accessed as variable values there.
     """
 
-    def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False, use_llvm=True):
+    def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
+                 use_llvm=False):
         if logger_level == None:
             self.logger_level = LoggerLevel.ALL
         else:

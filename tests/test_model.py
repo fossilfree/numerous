@@ -28,7 +28,7 @@ def test_eq1():
             self.add_state('T2', 0)
             self.add_state('T3', 0)
             self.add_state('T4', 0)
-            self.add_parameter('T_4', 0)
+            # self.add_parameter('T_4', 0)
             self.add_constant('TG', 10)
             self.add_constant('R1', 10)
             self.add_constant('R2', 5)

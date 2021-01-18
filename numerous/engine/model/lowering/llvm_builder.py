@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import itertools
+import os
 from ctypes import CFUNCTYPE, POINTER, c_double, c_void_p, c_int64
 from numba import carray, cfunc, njit
 from numerous import config
@@ -18,6 +19,7 @@ llvmmodule = llvm.parse_assembly("")
 target_machine = llvm.Target.from_default_triple().create_target_machine()
 ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
 
+LLVMLISTING_FILENAME = "tmp/listings/llvm_listing.py"
 
 class LLVMBuilder:
     """
@@ -110,7 +112,7 @@ class LLVMBuilder:
 
         self.ext_funcs[name] = f_llvm
 
-    def generate(self, filename=None, save_opt=False):
+    def generate(self, save_opt=False):
 
         self.builder.position_at_end(self.bb_loop)
 
@@ -137,8 +139,8 @@ class LLVMBuilder:
         # build vars write function
         self._build_var_w()
 
-        if filename:
-            self.save_module(filename)
+
+        self.save_module(LLVMLISTING_FILENAME)
 
         llmod = llvm.parse_assembly(str(self.module))
 
@@ -197,6 +199,7 @@ class LLVMBuilder:
             print(*args, sep, end, file)
 
     def save_module(self, filename):
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
         with open(filename, 'w') as f:
             f.write(str(self.module))
 
