@@ -126,11 +126,12 @@ class Model:
      so they can be accessed as variable values there.
     """
 
-    def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False):
+    def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False, use_llvm=True):
         if logger_level == None:
             self.logger_level = LoggerLevel.ALL
         else:
             self.logger_level = logger_level
+        self.use_llvm = use_llvm
         self.numba_callbacks_init = []
         self.numba_callbacks_variables = []
         self.numba_callbacks = []
@@ -357,7 +358,7 @@ class Model:
         logging.info('lowering model')
         eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py", equation_graph=self.eg,
                                    scope_variables=self.scope_variables, scoped_equations=self.scoped_equations,
-                                   temporary_variables=tmp_vars, use_llvm=False)
+                                   temporary_variables=tmp_vars, use_llvm=self.use_llvm)
 
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.scope_variables,\
         self.state_idx,self.derivatives_idx = \

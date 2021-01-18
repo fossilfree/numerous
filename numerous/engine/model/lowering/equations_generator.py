@@ -1,20 +1,15 @@
-from ast_builder import ASTBuilder
-from numerous.engine.model.graph_representation import EdgeType
-from numerous.engine.model.lowering.llvm_builder import LLVMBuilder
-from numerous.engine.model.utils import NodeTypes, wrap_function, dot_dict, recurse_Attribute
-
-from numerous.engine.model.lowering.utils import generate_code_file, Vardef, contains_dot, \
-    non_unique_check
-
-from numerous.engine.model.graph_representation.parser_ast import function_from_graph_generic, \
-    compiled_function_from_graph_generic_llvm
-
-from numerous.engine.variables import VariableType
 import logging
-import ast
-from numba import objmode
+
 import numpy as np
 
+from ast_builder import ASTBuilder
+from numerous.engine.model.graph_representation import EdgeType
+from numerous.engine.model.graph_representation.parser_ast import function_from_graph_generic, \
+    compiled_function_from_graph_generic_llvm
+from numerous.engine.model.lowering.llvm_builder import LLVMBuilder
+from numerous.engine.model.lowering.utils import Vardef
+from numerous.engine.model.utils import NodeTypes, recurse_Attribute
+from numerous.engine.variables import VariableType
 from numerous.utils.string_utils import d_u
 
 
@@ -80,7 +75,6 @@ class EquationGenerator:
 
         self.mod_body = []
         # Create a kernel of assignments and calls
-        self.body = []
 
         self.eq_vardefs = {}
         # Loop over equation functions and generate code for each equation.
@@ -212,32 +206,7 @@ class EquationGenerator:
                                   vardef.targets]
 
         # Generate ast for this equation call
-        args_ast = [ast.Name(id=d_u(scope_vars[a])) for a in vardef.args]
         if self.equation_graph.get(n, 'vectorized'):
-            # Generate ast for targets
-            if len(vardef.targets) > 1:
-                targets = [ast.Tuple(
-                    elts=[ast.Subscript(value=ast.Name(id=d_u(scope_vars[t])), slice=ast.Name(id='i')) for t
-                          in
-                          vardef.targets])]
-            else:
-                targets = [ast.Name(id=d_u(scope_vars[vardef.targets[0]]))]
-
-            self.body.append(
-                # For loop over items in set
-                ast.For(
-                    body=[ast.Assign(targets=targets, value=ast.Call(
-                        func=ast.Name(id=self.scoped_equations[self.equation_graph.key_map[n]].replace('.', '_')),
-                        args=[ast.Subscript(value=ast.Name(id=a), slice=ast.Index(value=ast.Name(id='i'))) for a
-                              in
-                              args_ast], keywords=[]))],
-                    orelse=[],
-                    iter=ast.Call(func=ast.Name(id='range'),
-                                  args=[ast.Num(n=set_size)],
-                                  keywords=[], target=ast.Name(id='i')),
-                    target=ast.Name(id='i')
-                )
-            )
 
             llvm_args = []
             for t in vardef.args_order:
@@ -249,22 +218,7 @@ class EquationGenerator:
             ##reshape to correct format
             llvm_args = [list(x) for x in zip(*llvm_args)]
             self.generated_program.add_set_call(self.get_external_function_name(ext_func), llvm_args, vardef.llvm_target_ids)
-
-
         else:
-
-            if len(vardef.targets) > 1:
-                targets = [ast.Tuple(
-                    elts=[ast.Name(id=d_u(scope_vars[t])) for t in
-                          vardef.targets])]
-            else:
-                targets = [ast.Name(id=d_u(scope_vars[vardef.targets[0]]))]
-
-            self.body.append(ast.Assign(targets=targets, value=ast.Call(
-                func=ast.Name(id=self.scoped_equations[self.equation_graph.key_map[n]].replace('.', '_')),
-                args=args_ast,
-                keywords=[])))
-
             # Generate llvm arguments
             args = [d_u(scope_vars[a]) for a in vardef.args_order]
 
@@ -329,54 +283,6 @@ class EquationGenerator:
                 for target_ix, value_ix in m_ix[1].items():
                     mappings_ast_pairs[target_ix].append((from_, value_ix))
 
-            # Generate ast for the mappings
-
-            # Utility function to make a ..+..+.. type ast from list of elts
-            def add_ast_gen(elts_to_sum, op=ast.Add()):
-                prev = None
-                for ets in elts_to_sum:
-                    if prev:
-                        prev = ast.BinOp(op=op, left=prev, right=ets)
-                    else:
-                        prev = ets
-                return prev
-
-            map_targets = []
-            map_values = []
-
-            for t_ix, map_ in enumerate(mappings_ast_pairs):
-                map_targets.append(ast.Subscript(
-                    slice=ast.Index(value=ast.Num(n=t_ix)), value=ast.Name(id=d_u(t_sv.id))))
-                if len(map_) > 0:
-                    map_val_list = [ast.Subscript(
-                        slice=ast.Index(value=ast.Num(n=v_ix)),
-                        value=ast.Name(id=d_u(v_target))) if not v_ix is None else ast.Name(id=d_u(v_target))
-                                    for
-                                    v_target, v_indcs in map_ for v_ix in v_indcs]
-                else:
-                    map_val_list = [ast.Num(n=0)]
-
-                map_values.append(map_val_list)
-
-            self.body.append(ast.Assign(targets=[ast.Tuple(elts=map_targets)],
-                                        value=ast.Tuple(elts=[add_ast_gen(mv) for mv in map_values])))
-
-            if len(mappings[':']) > 0:
-                # Mappings of full set vars to the target
-                prev = None
-
-                for mcolon in mappings[':']:
-
-                    if prev:
-                        prev = ast.BinOp(left=prev, right=ast.Name(id=d_u(mcolon)), op=ast.Add())
-                    else:
-                        prev = ast.Name(id=d_u(mcolon))
-                if len(mappings['ix']) > 0:
-                    self.body.append(
-                        ast.AugAssign(target=ast.Name(id=d_u(t_sv.id)), value=prev, op=ast.Add()))
-                else:
-                    self.body.append(ast.Assign(targets=[ast.Name(id=d_u(t_sv.id))], value=prev))
-
             # Generate llvm
             mappings_llvm = {}
             if len(mappings[':']) > 0:
@@ -402,10 +308,7 @@ class EquationGenerator:
                 #     print(f"Mapping  {self.scope_variables[v1].path.primary_path}"
                 #           f" to {self.scope_variables[k].path.primary_path} ")
                 self.generated_program.add_mapping(v, [k])
-
-
         else:
-
             # Register targeted variables
             if is_set_var := self.equation_graph.get(t, attr='is_set_var'):
                 self.all_targeted_set_vars.append(self.equation_graph.key_map[t])
@@ -438,34 +341,6 @@ class EquationGenerator:
                         target_indcs_map[mi[1] if mi[1] else 0].append((v[0], mi[0]))
 
             target_var = self.equation_graph.key_map[t]
-
-            # Generate ast
-            if self.equation_graph.get(t, 'is_set_var'):
-                map_targs = ast.Tuple(
-                    elts=[ast.Subscript(value=ast.Name(id=d_u(target_var)), slice=ast.Index(value=ast.Num(n=i)))
-                          for
-                          i, _ in enumerate(target_indcs_map) if len(_) > 0])
-            else:
-                map_targs = ast.Name(id=d_u(target_var))
-
-            map_values = []
-            for values in target_indcs_map:
-
-                prev = None
-                for v in values:
-                    v_ = ast.Name(id=d_u(self.equation_graph.key_map[v[0]])) if v[1] is None else ast.Subscript(
-                        value=ast.Name(id=d_u(self.equation_graph.key_map[v[0]])),
-                        slice=ast.Index(value=ast.Num(n=v[1])))
-                    if prev:
-                        prev = ast.BinOp(op=ast.Add(), left=v_, right=prev)
-                    else:
-                        prev = v_
-
-                map_values.append(prev)
-
-            assign = ast.Assign(targets=[map_targs],
-                                value=ast.Tuple(elts=map_values) if len(map_values) > 1 else map_values[0])
-            self.body.append(assign)
 
             # Generate llvm
             for values in target_indcs_map:
@@ -507,7 +382,6 @@ class EquationGenerator:
                 deriv_idx.append(v)
             if k in self.states:
                 state_idx.append(v)
-        self.generated_program.generate()
         if self.llvm:
             logging.info('generating llvm')
             diff, var_func, var_write = self.generated_program.generate("test_listing.txt", save_opt=True)
@@ -516,6 +390,7 @@ class EquationGenerator:
                                                                                                 dtype=np.int64), np.array(
                 deriv_idx, dtype=np.int64)
         else:
+            self.generated_program.generate()
             import timeit
             print('Compile time: ', timeit.timeit(
                 lambda: exec('from kernel import *', globals()), number=1))
