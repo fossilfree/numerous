@@ -25,6 +25,7 @@ from numerous.utils.string_repr import pretty_string
 from astor.code_gen import set_precedence
 import astor.code_gen
 
+
 class Delimit(object):
     """A context manager that can add enclosing
        delimiters around the output of a
@@ -71,6 +72,7 @@ class Delimit(object):
         else:
             result.append(self.closing)
 
+
 class SourceGeneratorNumerous(astor.code_gen.SourceGenerator):
     """This visitor is able to transform a well formed syntax tree into Python
     sourcecode.
@@ -92,7 +94,7 @@ class SourceGeneratorNumerous(astor.code_gen.SourceGenerator):
         self.indentation = 0  # Current indentation level
         self.new_lines = 2  # Number of lines to insert before next code
         self.colinfo = 0, 0  # index in result of string containing linefeed, and
-                             # position of last linefeed in that string
+        # position of last linefeed in that string
         self.pretty_string = pretty_string
         AST = ast.AST
 
@@ -121,7 +123,7 @@ class SourceGeneratorNumerous(astor.code_gen.SourceGenerator):
         self.write = write
 
     def __getattr__(self, name, defaults=dict(keywords=(),
-                    _pp=Precedence.highest).get):
+                                              _pp=Precedence.highest).get):
         """ Get an attribute of the node.
             like dict.get (returns None if doesn't exist)
         """
@@ -332,7 +334,7 @@ class SourceGeneratorNumerous(astor.code_gen.SourceGenerator):
         self.statement(node, '%swith ' % prefix)
         if hasattr(node, "context_expr"):  # Python < 3.3
             self.visit_withitem(node)
-        else:                              # Python >= 3.3
+        else:  # Python >= 3.3
             self.comma_list(node.items)
         self.write(':')
         self.body(node.body)

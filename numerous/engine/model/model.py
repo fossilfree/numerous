@@ -126,11 +126,13 @@ class Model:
      so they can be accessed as variable values there.
     """
 
-    def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False):
+    def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
+                 use_llvm=True):
         if logger_level == None:
             self.logger_level = LoggerLevel.ALL
         else:
             self.logger_level = logger_level
+        self.use_llvm = use_llvm
         self.numba_callbacks_init = []
         self.numba_callbacks_variables = []
         self.numba_callbacks = []
@@ -329,7 +331,7 @@ class Model:
         self.eg.remove_chains()
         tmp_vars = self.eg.create_assignments()
         self.eg.add_mappings()
-        #self.eg.as_graphviz("test9",force=True)
+        # self.eg.as_graphviz("test9",force=True)
         self.lower_model_codegen(tmp_vars)
 
         for i, variable in enumerate(self.variables.values()):
@@ -338,7 +340,6 @@ class Model:
                     self.aliases.update({path: variable.id})
             if variable.alias is not None:
                     self.aliases.update({variable.alias: variable.id})
-
             for path in variable.path.path[self.system.id]:
                 self.path_variables.update({path: variable.value})  # is this used at all?
 
@@ -358,7 +359,7 @@ class Model:
         logging.info('lowering model')
         eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py", equation_graph=self.eg,
                                    scope_variables=self.scope_variables, scoped_equations=self.scoped_equations,
-                                   temporary_variables=tmp_vars)
+                                   temporary_variables=tmp_vars, use_llvm=self.use_llvm)
 
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.scope_variables,\
         self.state_idx,self.derivatives_idx = \
