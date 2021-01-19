@@ -17,7 +17,8 @@ class Node:
     """
 
     def __init__(self, tag=None, id_=None):
-
+        if not isinstance(tag, str):
+            raise TypeError(f'Tag must be a string. Cannot be {type(tag)}')
         if tag:
             self.tag = tag
         else:

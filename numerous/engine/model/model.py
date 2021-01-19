@@ -343,7 +343,7 @@ class Model:
             for path in variable.path.path[self.system.id]:
                 self.path_variables.update({path: variable.value})  # is this used at all?
 
-
+        self.inverse_aliases = {v: k for k, v in self.aliases.items()}
 
         assemble_finish = time.time()
         print("Assemble time: ", assemble_finish - assemble_start)
@@ -374,9 +374,12 @@ class Model:
         def c3(self,value,idx):
             return var_write(value,idx)
 
+
+
         setattr(CompiledModel, "compiled_compute", c1)
         setattr(CompiledModel, "read_variables", c2)
         setattr(CompiledModel, "write_variables", c3)
+
         self.compiled_compute, self.var_func, self.var_write = compiled_compute, var_func, var_write
         self.init_values = np.ascontiguousarray([self.scope_variables[k].value for k in self.vars_ordered_values.keys()],
                                                 dtype=np.float64)
@@ -387,6 +390,18 @@ class Model:
         # dict with scope variable id as key and scope variable itself as value
 
         # Create aliases for all paths in each scope variable
+        def c4(values_dict):
+
+            return [self.var_write(v, self.vars_ordered_values[self.aliases[k]]) for k, v in values_dict.items()]
+
+
+        def c5():
+            vals = var_func()
+
+            return {self.inverse_aliases[k]: v for k, v in zip(self.vars_ordered_values.keys(), vals)}
+
+        setattr(self, "update_variables", c4)
+        setattr(self, "get_variables", c5)
 
         self.info.update({"Solver": {}})
 
