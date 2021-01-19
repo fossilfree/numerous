@@ -1,4 +1,5 @@
 import logging
+from enum import Enum
 
 import numpy as np
 
@@ -13,8 +14,11 @@ from numerous.engine.variables import VariableType
 from numerous.utils.string_utils import d_u
 
 
+
+
+
 class EquationGenerator:
-    def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations, temporary_variables,use_llvm=True):
+    def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations, temporary_variables, use_llvm=True):
         self.filename = filename
         self.scope_variables = scope_variables
         self.set_variables = {}
@@ -384,7 +388,7 @@ class EquationGenerator:
                 state_idx.append(v)
         if self.llvm:
             logging.info('generating llvm')
-            diff, var_func, var_write = self.generated_program.generate("test_listing.txt", save_opt=True)
+            diff, var_func, var_write = self.generated_program.generate(save_opt=True)
 
             return diff, var_func, var_write, self.values_order, self.scope_variables, np.array(state_idx,
                                                                                                 dtype=np.int64), np.array(
@@ -393,7 +397,7 @@ class EquationGenerator:
             self.generated_program.generate()
             import timeit
             print('Compile time: ', timeit.timeit(
-                lambda: exec('from kernel import *', globals()), number=1))
+                lambda: exec('from tmp.listings.kernel import *', globals()), number=1))
             def var_func():
                 return kernel_variables
             def var_write(value,idx):

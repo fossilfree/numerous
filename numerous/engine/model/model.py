@@ -127,7 +127,7 @@ class Model:
     """
 
     def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
-                 use_llvm=False):
+                 use_llvm=True):
         if logger_level == None:
             self.logger_level = LoggerLevel.ALL
         else:

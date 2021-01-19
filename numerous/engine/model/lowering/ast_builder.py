@@ -102,9 +102,15 @@ class ASTBuilder:
             args.append(
                 ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=arg_id + start_idx)),
                               ctx=ast.Load))
-        self.body.append(ast.Assign(targets=[ast.Tuple(elts=targets)],
-                                    value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
-                                                   args=args, keywords=[])))
+        if len(targets) > 1:
+            self.body.append(ast.Assign(targets=[ast.Tuple(elts=targets)],
+                                        value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
+                                                       args=args, keywords=[])))
+        else:
+            self.body.append(ast.Assign(targets=[targets[0]],
+                                        value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
+                                                       args=args, keywords=[])))
+
 
 
     def add_mapping(self, args, target):
