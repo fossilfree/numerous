@@ -124,7 +124,9 @@ class Subsystem(ConnectorItem):
                 var.path.extend_path(item.id, self.id, self.tag)
                 if len(tail) == 1:
                     var.path.extend_path(self.id, tail[0].id, tail[0].tag)
-                for t1, t2 in zip(tail[0::2][::-1], tail[1::2][::-1]):
+                if len(tail)>1:
+                    t1 = tail[0::2][0]
+                    t2 = tail[1::2][0]
                     var.path.extend_path(t2.id, t1.id, t1.tag)
         if isinstance(item, Subsystem):
             for item_ in item.registered_items.values():

@@ -283,7 +283,8 @@ def test_chain_item_binding_model_nested(ms3, solver,use_llvm):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_chain_item_binding_model_nested2(ms3, solver):
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_chain_item_binding_model_nested2(ms3, solver,use_llvm):
     ms4 = Subsystem('new_s4')
     ms4.register_item(ms3)
     ms5 = Subsystem('new_s5')
@@ -293,7 +294,7 @@ def test_chain_item_binding_model_nested2(ms3, solver):
     ms6.register_item(ms5)
     ms7 = Subsystem('new_s7')
     ms7.register_item(ms6)
-    m1 = Model(ms7)
+    m1 = Model(ms7,use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     s1.solve()
     assert len(m1.path_variables) == 50
