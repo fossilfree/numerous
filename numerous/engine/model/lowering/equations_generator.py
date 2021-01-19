@@ -18,8 +18,9 @@ from numerous.utils.string_utils import d_u
 
 
 class EquationGenerator:
-    def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations, temporary_variables, use_llvm=True):
+    def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations, temporary_variables,system_tag="", use_llvm=True):
         self.filename = filename
+        self.system_tag=system_tag
         self.scope_variables = scope_variables
         self.set_variables = {}
         for k, var in temporary_variables.items():
@@ -388,16 +389,16 @@ class EquationGenerator:
                 state_idx.append(v)
         if self.llvm:
             logging.info('generating llvm')
-            diff, var_func, var_write = self.generated_program.generate(save_opt=True)
+            diff, var_func, var_write = self.generated_program.generate(system_tag=self.system_tag,save_opt=True)
 
             return diff, var_func, var_write, self.values_order, self.scope_variables, np.array(state_idx,
                                                                                                 dtype=np.int64), np.array(
                 deriv_idx, dtype=np.int64)
         else:
-            self.generated_program.generate()
+            self.generated_program.generate(system_tag=self.system_tag)
             import timeit
             print('Compile time: ', timeit.timeit(
-                lambda: exec('from tmp.listings.kernel import *', globals()), number=1))
+                lambda: exec('from tmp.listings.'+self.system_tag+'_kernel import *', globals()), number=1))
             def var_func():
                 return kernel_variables
             def var_write(value,idx):

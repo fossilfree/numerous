@@ -19,7 +19,9 @@ llvmmodule = llvm.parse_assembly("")
 target_machine = llvm.Target.from_default_triple().create_target_machine()
 ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
 
-LLVMLISTING_FILENAME = "tmp/listings/llvm_listing.py"
+LISTING_FILEPATH = "tmp/listings/"
+LISTINGFILENAME = "_llvm_listing.txt"
+LLVMOPTLISTING_FILENAME = "tmp/listings/llvm_listing_opt.txt"
 
 class LLVMBuilder:
     """
@@ -112,7 +114,7 @@ class LLVMBuilder:
 
         self.ext_funcs[name] = f_llvm
 
-    def generate(self, save_opt=False):
+    def generate(self, system_tag="", save_opt=False):
 
         self.builder.position_at_end(self.bb_loop)
 
@@ -140,7 +142,7 @@ class LLVMBuilder:
         self._build_var_w()
 
 
-        self.save_module(LLVMLISTING_FILENAME)
+        self.save_module(LISTING_FILEPATH+system_tag+LISTINGFILENAME)
 
         llmod = llvm.parse_assembly(str(self.module))
 
@@ -150,8 +152,9 @@ class LLVMBuilder:
         pmb.populate(pm)
 
         pm.run(llmod)
+        os.makedirs(os.path.dirname(LLVMOPTLISTING_FILENAME), exist_ok=True)
         if save_opt:
-            with open("llvm_opt.txt", 'w') as f:
+            with open(LLVMOPTLISTING_FILENAME, 'w') as f:
                 f.write(str(llmod))
 
         ee.add_module(llmod)

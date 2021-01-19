@@ -359,7 +359,7 @@ class Model:
         logging.info('lowering model')
         eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py", equation_graph=self.eg,
                                    scope_variables=self.scope_variables, scoped_equations=self.scoped_equations,
-                                   temporary_variables=tmp_vars, use_llvm=self.use_llvm)
+                                   temporary_variables=tmp_vars,system_tag=self.system.tag, use_llvm=self.use_llvm)
 
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.scope_variables,\
         self.state_idx,self.derivatives_idx = \

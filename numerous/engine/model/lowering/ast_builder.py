@@ -15,7 +15,8 @@ import os
 from numerous.engine.model.lowering.utils import generate_code_file
 
 GLOBAL_ARRAY = ast.Name(id="kernel_variables")
-KERNEL_FILENAME = "tmp/listings/kernel.py"
+LISTING_FILEPATH = "tmp/listings/"
+LISTINGFILENAME = "_kernel.py"
 
 
 class ASTBuilder:
@@ -72,14 +73,14 @@ class ASTBuilder:
         self.functions.append(function)
         self.defined_functions.append(function.name)
 
-    def generate(self, save_opt=False):
+    def generate(self, system_tag="", save_opt=False):
         kernel = wrap_function('global_kernel', self.read_args_section + self.body + self.return_section, decorators=[],
                                args=ast.arguments(args=[ast.arg(arg="states",
                                                                 annotation=None)], vararg=None, defaults=[],
                                                   kwarg=None))
-
-        os.makedirs(os.path.dirname(KERNEL_FILENAME), exist_ok=True)
-        generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel],KERNEL_FILENAME )
+        kernel_filename = LISTING_FILEPATH + system_tag + LISTINGFILENAME
+        os.makedirs(os.path.dirname(kernel_filename), exist_ok=True)
+        generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel], kernel_filename)
 
     def detailed_print(self, *args, sep=' ', end='\n', file=None):
         if config.PRINT_LLVM:
@@ -110,8 +111,6 @@ class ASTBuilder:
             self.body.append(ast.Assign(targets=[targets[0]],
                                         value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
                                                        args=args, keywords=[])))
-
-
 
     def add_mapping(self, args, target):
         if len(target) > 1:
@@ -179,11 +178,11 @@ class ASTBuilder:
         for arg_id in arg_ids:
             args.append(
                 ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.BinOp(
-                                                 left=ast.Constant(value=arg_id + strart_idx),
-                                                 op=ast.Add(),
-                                                 right=ast.BinOp(left=ast.Constant(value=arg_length, kind=None),
-                                                                 op=ast.Mult(),
-                                                                 right=ast.Name(id='i', ctx=ast.Load())))),
+                    left=ast.Constant(value=arg_id + strart_idx),
+                    op=ast.Add(),
+                    right=ast.BinOp(left=ast.Constant(value=arg_length, kind=None),
+                                    op=ast.Mult(),
+                                    right=ast.Name(id='i', ctx=ast.Load())))),
                               ctx=ast.Load))
         if len(targets) > 1:
             return ast.Assign(targets=[ast.Tuple(elts=targets)],
