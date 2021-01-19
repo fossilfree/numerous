@@ -272,10 +272,11 @@ def test_chain_item_model(ms2, solver, use_llvm):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_chain_item_binding_model_nested(ms3, solver):
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_chain_item_binding_model_nested(ms3, solver,use_llvm):
     ms4 = Subsystem('new_s')
     ms4.register_item(ms3)
-    m1 = Model(ms4)
+    m1 = Model(ms4,use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
@@ -301,8 +302,9 @@ def test_chain_item_binding_model_nested2(ms3, solver):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_chain_item_binding_model(ms3, solver):
-    m1 = Model(ms3)
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_chain_item_binding_model(ms3, solver,use_llvm):
+    m1 = Model(ms3,use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
