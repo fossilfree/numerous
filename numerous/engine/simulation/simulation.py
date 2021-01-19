@@ -52,6 +52,7 @@ class Simulation:
             """
 
             """
+
             solver.y0 = y
 
             solver.numba_model.historian_update(t)
@@ -67,7 +68,7 @@ class Simulation:
             #     if solver.numba_model.is_external_data:
             #         solver.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
             #                                                 self.model.external_mappings.external_mappings_time)
-
+        self.end_step = __end_step
         print("Generating Numba Model")
         generation_start = time.time()
         numba_model = model.generate_compiled_model(t_start, len(self.time))
@@ -103,21 +104,39 @@ class Simulation:
         #                                               reverse=True)]
 
     def solve(self):
-        self.__init_step()
-        self.model.numba_model.historian_reinit()
-        self.solver.y0 = self.model.numba_model.get_states()
+        self.reset()
+
         result_status = "not finished"
         try:
-            sol, result_status = self.solver.solve()
+            sol, self.result_status = self.solver.solve()
+
         except Exception as e:
             raise e
 
         finally:
-            self.info.update({"Solving status": result_status})
-            list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,
-                                                              self.model.path_variables), self.model.callbacks))
-            self.model.create_historian_df()
+            self.info.update({"Solving status": self.result_status})
+            self.complete()
         return sol
+
+    def reset(self):
+        self.__init_step()
+        self.model.numba_model.historian_reinit()
+
+        self.end_step(self.solver, self.model.numba_model.get_states(), 0)
+
+    def step(self, dt):
+        try:
+            stop= self.solver.solver_step(dt)
+        except Exception as e:
+            raise e
+
+        return stop
+
+    def complete(self):
+
+        list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,
+                                                          self.model.path_variables), self.model.callbacks))
+        self.model.create_historian_df()
 
     def __init_step(self):
         pass

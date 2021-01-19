@@ -22,6 +22,7 @@ class IVP_solver(BaseSolver):
         self.diff_function = numba_model.func
         self.max_event_steps = max_event_steps
         self.options = kwargs
+        self.t = 0
 
     def solve(self):
         """
@@ -36,30 +37,31 @@ class IVP_solver(BaseSolver):
 
         try:
             for t in tqdm(self.time[0:-1]):
-                if self.solver_step(t):
+                if self.solver_step(self.delta_t):
                     break
         except Exception as e:
             print(e)
             raise e
 
-        return  self.sol,  self.result_status
+        return self.sol,  self.result_status
 
-    def solver_step(self,t):
+    def solver_step(self, dt):
         step_not_finished = True
-        current_timestamp = t
+        current_timestamp = self.t
         event_steps = 0
         stop_condition = False
+        t_end = self.t + dt
 
         while step_not_finished:
-            t_eval = np.linspace(current_timestamp, t + self.delta_t, self.num_inner + 1)
-            self.sol = solve_ivp(self.diff_function, (current_timestamp, t + self.delta_t), y0=self.y0, t_eval=t_eval,
+            t_eval = np.linspace(current_timestamp, t_end, self.num_inner + 1)
+            self.sol = solve_ivp(self.diff_function, (current_timestamp, t_end), y0=self.y0, t_eval=t_eval,
                             dense_output=False,
                             **self.options)
             step_not_finished = False
             event_step = self.sol.status == 1
 
             if self.sol.status == 0:
-                current_timestamp = t + self.delta_t
+                current_timestamp = t_end
             if event_step:
                 event_id = np.nonzero([x.size > 0 for x in self.sol.t_events])[0][0]
                 # solution stuck
@@ -81,6 +83,8 @@ class IVP_solver(BaseSolver):
                     self.result_status = self.sol.message
             if stop_condition:
                 break
+
+        self.t = t_end
         if stop_condition:
             self.result_status = "Stopping condition reached"
             return True
