@@ -115,33 +115,35 @@ def expected(length, N, k):
     return (k ** N) * np.ones(length)
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_system_link_Success1(solver):
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_system_link_Success1(solver, use_llvm):
     N_inner = 5
     N_outer = 2
     system = Success1(N_outer=N_outer, N_inner=N_inner)
-    model = Model(system)
+    model = Model(system,use_llvm=use_llvm)
 
     sim = Simulation(model, t_start=0, t_stop=100, num=200, solver_type=solver)
 
     sim.solve()
     df = sim.model.historian_df
 
-    assert approx(np.array(df['works.linkersubsystem_2.boundary.t1.x'])[1:], rel=1) == \
+    assert approx(np.array(df['works.linkersubsystem_2.item_5.item_4.item_3.item_2.item_1.boundary.t1.x'])[1:], rel=1) == \
            expected(len(df.index[:-1]),  (N_outer-1)*N_inner, 0.9)
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_system_link_Success2(solver):
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_system_link_Success2(solver,use_llvm):
     N_inner = 5
     N_outer = 2
     system = Success2(N_outer=N_outer, N_inner=N_inner)
-    model = Model(system)
+    model = Model(system,use_llvm=use_llvm)
 
     sim = Simulation(model, t_start=0, t_stop=100, num=200, solver_type=solver)
 
     sim.solve()
     df = sim.model.historian_df
 
-    assert approx(np.array(df['doesnotwork.linkersubsystem_2.boundary.t1.x'])[1:], rel=1) == \
+    assert approx(np.array(df['doesnotwork.inlet_2.item_5.item_4.item_3.item_2.item_1.boundary.t1.x'])[1:], rel=1) == \
            expected(len(df.index[:-1]), (N_outer-1)*N_inner, 0.9)
 
 

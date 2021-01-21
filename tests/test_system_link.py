@@ -76,8 +76,9 @@ def system51():
     return Root(N_outer=1, N_inner=5)
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_system_link_1_5(system15, solver):
-    model = Model(system15)
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_system_link_1_5(system15, solver,use_llvm):
+    model = Model(system15,use_llvm=use_llvm)
 
     sim = Simulation(model, t_start=0, t_stop=100, num=200, solver_type=solver)
 
@@ -88,8 +89,9 @@ def test_system_link_1_5(system15, solver):
            expected(len(df.index[:-1]), 5, 0.9)
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_system_link_5_1(system51, solver):
-    model = Model(system51)
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_system_link_5_1(system51, solver,use_llvm):
+    model = Model(system51,use_llvm=use_llvm)
 
     sim = Simulation(model, t_start=0, t_stop=100, num=200, solver_type=solver)
 
