@@ -17,6 +17,14 @@ numba_model_spec = [
     ('path_keys', types.ListType(types.unicode_type)),
     ('historian_max_size', int64),
     ('in_memory_history_correction', boolean),
+    ('external_mappings_time', float64[:, :]),
+    ('number_of_external_mappings', int64),
+    ('external_mappings_numpy', float64[:, :, :]),
+    ('external_df_idx', int64[:, :]),
+    ('approximation_type', boolean[:]),
+    ('is_external_data', boolean),
+    ('max_external_t', int64),
+    ('external_idx', int64[:]),
 ]
 
 
@@ -27,23 +35,33 @@ def step_aproximation(t, time_array, data_array):
 
 
 class CompiledModel:
-    def __init__(self, init_vars,deriv_idx,state_idx,
+    def __init__(self, init_vars, deriv_idx, state_idx,
                  global_vars, number_of_timesteps, start_time, historian_max_size,
-                 in_memory_history_correction):
+                 in_memory_history_correction, external_mappings_time, number_of_external_mappings,
+                 external_mappings_numpy, external_df_idx, interpolation_info,
+                 is_external_data, t_max,external_idx):
+        self.external_idx=external_idx
+        self.external_mappings_time = external_mappings_time
+        self.number_of_external_mappings = number_of_external_mappings
+        self.external_mappings_numpy = external_mappings_numpy
+        self.external_df_idx = external_df_idx
+        self.interpolation_info = interpolation_info
+        self.is_external_data = is_external_data
+        self.max_external_t = t_max
         self.global_vars = global_vars
-        self.deriv_idx =deriv_idx
+        self.deriv_idx = deriv_idx
         self.state_idx = state_idx
         self.path_variables = typed.Dict.empty(*kv_ty)
         self.path_keys = typed.List.empty_list(types.unicode_type)
         self.number_of_timesteps = number_of_timesteps
         self.start_time = start_time
         self.historian_ix = 0
-        self.init_vars=init_vars
+        self.init_vars = init_vars
         self.historian_max_size = historian_max_size
         self.in_memory_history_correction = in_memory_history_correction
-        self.historian_data = np.empty((len(init_vars) + 1, self.historian_max_size- self.in_memory_history_correction), dtype=np.float64)
+        self.historian_data = np.empty(
+            (len(init_vars) + 1, self.historian_max_size - self.in_memory_history_correction), dtype=np.float64)
         self.historian_data.fill(np.nan)
-
 
     def vectorizedfulljacobian(self, t, y, dt):
         h = 1e-8
@@ -60,25 +78,25 @@ class CompiledModel:
         jac = diff.T
         return np.ascontiguousarray(jac)
 
-    # def map_external_data(self, t):
-    #     for i in range(self.number_of_external_mappings):
-    #         df_indx = self.external_df_idx[i][0]
-    #         var_idx = self.external_df_idx[i][1]
-    #         self.scope_vars_3d[self.external_idx_3d[0][i]][self.external_idx_3d[1][i]][
-    #             self.external_idx_3d[2][i]] = np.interp(t, self.external_mappings_time[df_indx],
-    #                                                     self.external_mappings_numpy[df_indx, :, var_idx]) if \
-    #             self.approximation_type[i] else \
-    #             step_aproximation(t, self.external_mappings_time[df_indx],
-    #                               self.external_mappings_numpy[df_indx, :, var_idx])
+    def map_external_data(self, t):
+        for i in range(self.number_of_external_mappings):
+            df_indx = self.external_df_idx[i][0]
+            var_idx = self.external_df_idx[i][1]
+            value = np.interp(t, self.external_mappings_time[df_indx],
+                                                        self.external_mappings_numpy[df_indx, :, var_idx]) if \
+                self.interpolation_info[i] else \
+                step_aproximation(t, self.external_mappings_time[df_indx],
+                                  self.external_mappings_numpy[df_indx, :, var_idx])
+            self.write_variables(value, self.external_idx[i])
 
-    # def update_external_data(self, external_mappings_numpy, external_mappings_time):
-    #     self.external_mappings_time = external_mappings_time
-    #     self.external_mappings_numpy = external_mappings_numpy
-    #
-    # def is_external_data_update_needed(self, t):
-    #     if self.is_external_data and t > self.max_external_t:
-    #         return True
-    #     return False
+    def update_external_data(self, external_mappings_numpy, external_mappings_time):
+        self.external_mappings_time = external_mappings_time
+        self.external_mappings_numpy = external_mappings_numpy
+
+    def is_external_data_update_needed(self, t):
+        if self.is_external_data and t > self.max_external_t:
+            return True
+        return False
 
     def get_states(self):
         return self.read_variables()[self.state_idx]
@@ -97,10 +115,8 @@ class CompiledModel:
     def historian_update(self, time: np.float64) -> None:
         ix = self.historian_ix
         self.historian_data[0][ix] = time
-        self.historian_data[1:,ix]= self.read_variables()
+        self.historian_data[1:, ix] = self.read_variables()
         self.historian_ix += 1
-
-
 
     # def run_callbacks_with_updates(self, time: int) -> None:
     #     '''
@@ -121,7 +137,6 @@ class CompiledModel:
     #             self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][self.var_idxs_pos_3d[2][j]] \
     #                 = self.path_variables[key]
 
-
     def get_g(self, t, yold, y, dt, order, a, af):
         f = self.func(t, y)
         _sum = np.zeros_like(y)
@@ -130,11 +145,7 @@ class CompiledModel:
         g = y + _sum - af[order - 1] * dt * f
         return np.ascontiguousarray(g), np.ascontiguousarray(f)
 
-
     def func(self, _t, y):
         self.global_vars[0] = _t
         deriv = self.compiled_compute(y)
         return deriv
-
-
-

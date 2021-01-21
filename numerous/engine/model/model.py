@@ -7,6 +7,8 @@ import uuid
 
 from numba.experimental import jitclass
 import pandas as pd
+from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
+
 from numerous.utils.logger_levels import LoggerLevel
 
 from numerous.utils.historian import InMemoryHistorian
@@ -127,11 +129,17 @@ class Model:
     """
 
     def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
+                 external_mappings=None, data_loader=None,historian=InMemoryHistorian(),
                  use_llvm=True):
         if logger_level == None:
             self.logger_level = LoggerLevel.ALL
         else:
             self.logger_level = logger_level
+
+        self.is_external_data = True if external_mappings else False
+        self.external_mappings = ExternalMapping(external_mappings,
+                                                 data_loader) if external_mappings else EmptyMapping()
+
         self.use_llvm = use_llvm
         self.numba_callbacks_init = []
         self.numba_callbacks_variables = []
@@ -150,7 +158,7 @@ class Model:
         self.flat_scope_idx_from = None
         self.historian_df = None
         self.aliases = {}
-        self.historian = InMemoryHistorian()
+        self.historian = historian
 
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
@@ -345,6 +353,22 @@ class Model:
                 self.path_variables.update({path: variable.value})  # is this used at all?
 
         self.inverse_aliases = {v: k for k, v in self.aliases.items()}
+
+        number_of_external_mappings = 0
+        external_idx = []
+        # for key in self.vars_ordered_values.keys():
+
+        for var in self.variables.values():
+            if self.external_mappings.is_mapped_var(self.variables, var.id, self.system.id):
+                external_idx.append(self.vars_ordered_values[var.id])
+                number_of_external_mappings += 1
+                self.external_mappings.add_df_idx(self.variables, var.id, self.system.id)
+
+        self.number_of_external_mappings = number_of_external_mappings
+        self.external_mappings.store_mappings()
+        self.external_idx = np.array(external_idx, dtype=np.int64)
+
+
 
         assemble_finish = time.time()
         print("Assemble time: ", assemble_finish - assemble_start)
@@ -688,13 +712,21 @@ class Model:
         NM_instance = CompiledModel_instance(self.init_values,self.derivatives_idx,self.state_idx,
                                              self.global_vars, number_of_timesteps, start_time,
                                              self.historian.get_historian_max_size(number_of_timesteps),
-                                             self.historian.need_to_correct())
+                                             self.historian.need_to_correct(),
+                                             self.external_mappings.external_mappings_time,
+                                             self.number_of_external_mappings,
+                                             self.external_mappings.external_mappings_numpy,
+                                             self.external_mappings.external_df_idx,
+                                             self.external_mappings.interpolation_info,
+                                             self.is_external_data, self.external_mappings.t_max,
+                                             self.external_idx
+                                             )
 
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value
             NM_instance.path_keys.append(key)
         # NM_instance.run_init_callbacks(start_time)
-        # NM_instance.map_external_data(start_time)
+        NM_instance.map_external_data(start_time)
 
         # NM_instance.historian_update(start_time)
         self.numba_model = NM_instance

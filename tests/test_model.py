@@ -340,7 +340,8 @@ class StaticDataSystem(Subsystem):
         self.register_items(o_s)
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_external_data(solver):
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_external_data(solver,use_llvm):
     external_mappings = []
 
     import pandas as pd
@@ -362,10 +363,21 @@ def test_external_data(solver):
         ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1, dataframe_aliases))
     data_loader = InMemoryDataLoader(df)
     s = Simulation(
-        Model(StaticDataSystem('system', n=1), external_mappings=external_mappings,data_loader=data_loader),
+        Model(StaticDataSystem('system', n=1),use_llvm=use_llvm, external_mappings=external_mappings,data_loader=data_loader),
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=solver
     )
     s.solve()
     assert approx(np.array(s.model.historian_df['system.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
     assert approx(np.array(s.model.historian_df['system.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:]+1
 
+@pytest.mark.parametrize("solver", solver_types)
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_static_system(solver,use_llvm):
+    import numpy as np
+    s = Simulation(
+        Model(StaticDataSystem('system', n=1),use_llvm=use_llvm),
+        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=solver
+    )
+    s.solve()
+    assert approx(np.array(s.model.historian_df['system.tm0.test_nm.T_i1'])[1:]) == np.repeat(0,(100))
+    assert approx(np.array(s.model.historian_df['system.tm0.test_nm.T_i2'])[1:]) == np.repeat(0,(100))

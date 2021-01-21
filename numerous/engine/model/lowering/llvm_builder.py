@@ -59,7 +59,6 @@ class LLVMBuilder:
             self.variable_names[v] = k
 
 
-
         self.max_var = initial_values.shape[0]
 
         self.var_global = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), self.max_var), 'global_var')
@@ -92,6 +91,7 @@ class LLVMBuilder:
 
         self.builder.position_at_end(self.bb_entry)
         self.builder.branch(self.bb_loop)
+        self.builder.position_at_end(self.bb_loop)
 
     def add_external_function(self, function, signature, number_of_args, target_ids):
         """
@@ -133,7 +133,6 @@ class LLVMBuilder:
             self.builder.store(self.builder.load(*pointer), dg_ptr)
 
         self.builder.ret(self.builder.gep(self.deriv_global, [self.index0, self.index0]))
-
 
         # build vars read function
         self._build_var_r()

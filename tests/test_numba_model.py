@@ -191,6 +191,7 @@ def test_model_without_update(ms3):
     assert n_m.path_variables["S3.3.t1.R"] == 3
     assert n_m.path_variables["S3.4.t1.R"] == 2
 
+@pytest.mark.skip(reason="Functionality not implemented in current version")
 def test_model_with_update(ms3):
     m1 = Model(ms3)
     n_m = m1.generate_numba_model(0, 1)
