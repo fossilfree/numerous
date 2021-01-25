@@ -68,6 +68,7 @@ class Simulation:
                 if solver.numba_model.is_external_data:
                     solver.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
                                                             self.model.external_mappings.external_mappings_time)
+
         self.end_step = __end_step
         print("Generating Numba Model")
         generation_start = time.time()
@@ -82,7 +83,8 @@ class Simulation:
 
         if solver_type.value == SolverType.NUMEROUS.value:
             self.solver = Numerous_solver(time_, delta_t, numba_model,
-                                          num_inner, max_event_steps, self.model.states_as_vector, **kwargs)
+                                          num_inner, max_event_steps, self.model.states_as_vector,
+                                          numba_compiled_solver=model.use_llvm, **kwargs)
 
         self.solver.register_endstep(__end_step)
 
@@ -126,7 +128,7 @@ class Simulation:
 
     def step(self, dt):
         try:
-            stop= self.solver.solver_step(dt)
+            stop = self.solver.solver_step(dt)
         except Exception as e:
             raise e
 

@@ -6,13 +6,14 @@ import time
 
 class Numerous_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, numba_model, num_inner, max_event_steps, y0, **kwargs):
+    def __init__(self, time, delta_t, numba_model, num_inner, max_event_steps, y0, numba_compiled_solver, **kwargs):
         super().__init__()
         self.time = time
         self.num_inner = num_inner
         self.delta_t = delta_t
         self.numba_model = numba_model
         self.diff_function = numba_model.func
+        self.numba_compiled_solver = numba_compiled_solver
 
         self.f0 = numba_model.func(time[0], y0)
         self.max_event_steps = max_event_steps
@@ -38,12 +39,13 @@ class Numerous_solver(BaseSolver):
         self.y0 = y0
 
         # Generate the solver
-        self._non_compiled_solve = self.generate_solver()
-        self._solve = self.compile_solver()
-        # self._solve = self.generate_solver()
+        if numba_compiled_solver:
+            self._non_compiled_solve = njit(self.generate_solver())
+            self._solve = self.compile_solver()
+        else:
+            self._solve = self.generate_solver()
 
     def generate_solver(self):
-        @njit
         def _solve(numba_model, _solve_state, initial_step, order, strict_eval, outer_itermax,
                    min_step, max_step, step_integrate_,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
@@ -142,7 +144,7 @@ class Numerous_solver(BaseSolver):
                         x = int(p_size * j_i / progress_c)
                         print(t, 100 * t / t_end)
                         numba_model.historian_update(t)
-                        numba_model.run_callbacks_with_updates(t)
+                        # numba_model.run_callbacks_with_updates(t)
                         if strict_eval:
                             te_array[1] = t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                         else:

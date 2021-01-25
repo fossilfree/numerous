@@ -704,10 +704,13 @@ class Model:
         #
         # Equation_Parser.create_numba_iterations(CompiledModel, self.numba_callbacks_init_run, "run_init_callbacks",
         #                                         "callback_func_init_pre_update", create_cbiu_call, ",time")
-
-        # @jitclass(numba_model_spec)
-        class CompiledModel_instance(CompiledModel):
-            pass
+        if self.use_llvm:
+            @jitclass(numba_model_spec)
+            class CompiledModel_instance(CompiledModel):
+                pass
+        else:
+            class CompiledModel_instance(CompiledModel):
+                pass
 
         NM_instance = CompiledModel_instance(self.init_values,self.derivatives_idx,self.state_idx,
                                              self.global_vars, number_of_timesteps, start_time,

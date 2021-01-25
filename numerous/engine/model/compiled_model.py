@@ -45,7 +45,7 @@ class CompiledModel:
         self.number_of_external_mappings = number_of_external_mappings
         self.external_mappings_numpy = external_mappings_numpy
         self.external_df_idx = external_df_idx
-        self.interpolation_info = interpolation_info
+        self.approximation_type = interpolation_info
         self.is_external_data = is_external_data
         self.max_external_t = t_max
         self.global_vars = global_vars
@@ -84,7 +84,7 @@ class CompiledModel:
             var_idx = self.external_df_idx[i][1]
             value = np.interp(t, self.external_mappings_time[df_indx],
                                                         self.external_mappings_numpy[df_indx, :, var_idx]) if \
-                self.interpolation_info[i] else \
+                self.approximation_type[i] else \
                 step_aproximation(t, self.external_mappings_time[df_indx],
                                   self.external_mappings_numpy[df_indx, :, var_idx])
             self.write_variables(value, self.external_idx[i])
