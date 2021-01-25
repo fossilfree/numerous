@@ -1,3 +1,5 @@
+from pytest import approx
+
 from numerous.multiphysics.equation_decorators import Equation
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
@@ -94,6 +96,7 @@ class SpringCoupling(ConnectorTwoWay):
         mechanics.x1 = self.side1.mechanics.x
         mechanics.x2 = self.side2.mechanics.x
 
+
 class OscillatorSystem2(Subsystem):
     def __init__(self, tag, c=1, k=1, x0=[10, 8], a=1, n=1):
         super().__init__(tag)
@@ -130,6 +133,7 @@ class OscillatorSystem2(Subsystem):
             spc3.mechanics.k = te.mechanics.k
             # Register the items to the subsystem to make it recognize them.
             self.register_items([spc3, te])
+
 
 class OscillatorSystem(Subsystem):
     def __init__(self, tag, c=1, k=1, x0=[10, 8], a=1, n=1):
@@ -174,31 +178,38 @@ if __name__ == "__main__":
     from matplotlib import pyplot as plt
 
     subsystem = OscillatorSystem('system', k=0.01, c=0.001, a=0, n=2, x0=[1, 2, 3])
+    python_model = model.Model(subsystem, use_llvm=False)
+    python_model_compiled = python_model.generate_compiled_model(0, 100)
+
+    llvm_model = model.Model(subsystem, use_llvm=True)
+    llvm_model_compiled = python_model.generate_compiled_model(0, 100)
+    print("Results Compare")
+    print(python_model_compiled.func(0, np.array([0., 1., 0., 2.])))
+    print(llvm_model_compiled.func(0, np.array([0., 1., 0., 2.])))
+
+
     # Define simulation
-    s = simulation.Simulation(
-        model.Model(subsystem),
-        t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
-    )
+    s = simulation.Simulation(llvm_model,
+                              t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
+                              )
     # Solve and plot
     tic = time()
     s.solve()
     toc = time()
     print('Execution time: ', toc - tic)
-    # print(s.model.historian_df)
-    # print(len(list(s.model.historian_df)))
-    # s.model.historian_df['oscillator0_mechanics_a'].plot()
-    # for i in range(10):
-    #    for k, v in zip(list(s.model.historian_df),s.model.historian_df.loc[i,:]):
-    #        print(k,': ',v)
-
-    # print(s.model.historian_df.describe())
-    # print(list(s.model.historian_df))
-    # for c in list(s.model.historian_df):
-    #    if not c == 'time':
-    # print(s.model.historian_df[c].describe())
-    # print(list(s.model.historian_df))
-
     s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.x', 'system.SET_oscillators.oscillator1.mechanics.x']].plot()
-    # print()
+    plt.show()
+    plt.interactive(False)
+
+    # Define simulation
+    s = simulation.Simulation(python_model,
+                              t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
+                              )
+    # Solve and plot
+    tic = time()
+    s.solve()
+    toc = time()
+    print('Execution time: ', toc - tic)
+    s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.x', 'system.SET_oscillators.oscillator1.mechanics.x']].plot()
     plt.show()
     plt.interactive(False)
