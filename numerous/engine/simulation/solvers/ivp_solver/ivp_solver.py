@@ -8,12 +8,13 @@ from numerous.engine.simulation.solvers.base_solver import BaseSolver
 
 
 """
-Wraper for scipy ivp solver.
+Wrapper for scipy ivp solver.
 """
 class IVP_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, numba_model, num_inner, max_event_steps,y0, **kwargs):
+    def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps,y0, **kwargs):
         super().__init__()
+        self.model = model
         self.time = time
         self.y0=y0
         self.num_inner = num_inner
@@ -44,25 +45,27 @@ class IVP_solver(BaseSolver):
 
         return  self.sol,  self.result_status
 
-    def solver_step(self,t):
+    def solver_step(self,t, delta_t=None):
         step_not_finished = True
         current_timestamp = t
         event_steps = 0
 
+        if delta_t is None:
+            delta_t = self.delta_t
 
         stop_condition = False
 
         while step_not_finished:
-            t_eval = np.linspace(current_timestamp, t + self.delta_t, self.num_inner + 1)
+            t_eval = np.linspace(current_timestamp, t + delta_t, self.num_inner + 1)
 
-            self.sol = solve_ivp(self.diff_function, (current_timestamp, t + self.delta_t), y0=self.y0, t_eval=t_eval,
+            self.sol = solve_ivp(self.diff_function, (current_timestamp, t + delta_t), y0=self.y0, t_eval=t_eval,
                             dense_output=False,
                             **self.options)
             step_not_finished = False
             event_step = self.sol.status == 1
 
             if self.sol.status == 0:
-                current_timestamp = t + self.delta_t
+                current_timestamp = t + delta_t
             if event_step:
                 event_id = np.nonzero([x.size > 0 for x in self.sol.t_events])[0][0]
                 # solution stuck

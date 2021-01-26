@@ -42,7 +42,6 @@ numba_model_spec = [
     ('is_external_data', boolean),
     ('max_external_t', int64),
     ('historian_max_size', int64),
-    ('in_memory_history_correction', boolean),
 ]
 
 
@@ -61,8 +60,8 @@ class CompiledModel:
                  sum_idxs_pos_3d, sum_idxs_sum_3d, sum_slice_idxs, sum_slice_idxs_len, sum_mapping, callbacks,
                  global_vars, number_of_timesteps, start_time, mapped_variables_array,
                  external_mappings_time, number_of_external_mappings, external_idx_3d, external_mappings_numpy,
-                 external_df_idx, approximation_type, is_external_data, max_external_t, historian_max_size,
-                 in_memory_history_correction):
+                 external_df_idx, approximation_type, is_external_data, max_external_t, historian_max_size
+                 ):
 
         self.external_idx_3d = external_idx_3d
         self.external_df_idx = external_df_idx
@@ -96,9 +95,8 @@ class CompiledModel:
         self.approximation_type = approximation_type
 
         self.historian_max_size = historian_max_size
-        self.in_memory_history_correction = in_memory_history_correction
 
-        self.historian_data = np.empty((len(var_idxs_historian_3d) + 1, self.historian_max_size- self.in_memory_history_correction), dtype=np.float64)
+        self.historian_data = np.empty((len(var_idxs_historian_3d) + 1, self.historian_max_size), dtype=np.float64)
         self.historian_data.fill(np.nan)
         self.mapped_variables_array = mapped_variables_array
         self.is_external_data = is_external_data

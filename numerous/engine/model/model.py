@@ -500,6 +500,8 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
+
+    #TODO: This is not working!
     def save_variables_schedule(self, period, filename):
         """
         Save data to file on given period.
@@ -551,7 +553,7 @@ class Model:
         self.events.update({name: _Event(name, self, event_function=event_function, callbacks=callbacks)})
 
     def store_history(self, history):
-        self.historian.store(self._generate_history_df(history))
+        self.historian.store(self._generate_history_df(history, rename_columns=False))
 
     def add_event_callback(self, event_name, event_callback):
         """
@@ -634,6 +636,12 @@ class Model:
 
     # Method that generates numba_model
     def generate_numba_model(self, start_time, number_of_timesteps):
+
+        # The historian needs to be initialized within the numba model
+        if self.historian.get_historian_max_size() is None:
+            self.historian.max_size = number_of_timesteps+1
+
+
         for spec_dict in self.numba_callbacks_variables:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
@@ -691,8 +699,8 @@ class Model:
                                              self.external_mappings.external_df_idx,
                                              self.external_mappings.interpolation_info,
                                              self.is_external_data, self.external_mappings.t_max,
-                                             self.historian.get_historian_max_size(number_of_timesteps),
-                                             self.historian.need_to_correct())
+                                             self.historian.get_historian_max_size(),
+                                             )
 
         for key, value in self.path_variables.items():
             NM_instance.path_variables[key] = value

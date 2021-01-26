@@ -76,11 +76,11 @@ class Simulation:
         print("Generation time: ", generation_finish - generation_start)
 
         if solver_type.value == SolverType.SOLVER_IVP.value:
-            self.solver = IVP_solver(time_, delta_t, numba_model,
+            self.solver = IVP_solver(time_, delta_t, model, numba_model,
                                      num_inner, max_event_steps, self.model.states_as_vector, **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
-            self.solver = Numerous_solver(time_, delta_t, numba_model,
+            self.solver = Numerous_solver(time_, delta_t, model, numba_model,
                                           num_inner, max_event_steps, self.model.states_as_vector, **kwargs)
 
         self.solver.register_endstep(__end_step)
@@ -116,9 +116,9 @@ class Simulation:
             self.model.create_historian_df()
         return sol
 
-    def step_solve(self, step_size):
+    def step_solve(self, t, step_size):
         try:
-            t, results_status = self.solver.step_solve(step_size)
+            t, results_status = self.solver.solver_step(t, step_size)
 
             return t, results_status
         except Exception as e:
