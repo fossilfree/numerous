@@ -66,8 +66,9 @@ def ms3():
 
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_equation_inheritence_1(ms1, solver):
-    m1 = Model(ms1)
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_single_equation_multiple_variables(ms1, solver,use_llvm):
+    m1 = Model(ms1, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     s1.solve()
     assert m1.historian_df["S1.test1.t1.P"][100] == 5

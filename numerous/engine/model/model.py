@@ -1,5 +1,6 @@
 import itertools
-from copy import copy
+from copy import copy, deepcopy
+from typing import TypeVar
 
 import numpy as np
 import time
@@ -52,7 +53,6 @@ class ModelNamespace:
         self.mappings = []
         self.full_tag = item_path + '.' + tag
         self.item_indcs = item_indcs
-
 
         self.path = path
         self.is_set = pos
@@ -129,7 +129,7 @@ class Model:
     """
 
     def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
-                 external_mappings=None, data_loader=None,historian=InMemoryHistorian(),
+                 external_mappings=None, data_loader=None, historian=InMemoryHistorian(),
                  use_llvm=True):
         if logger_level == None:
             self.logger_level = LoggerLevel.ALL
@@ -340,15 +340,15 @@ class Model:
         self.eg.remove_chains()
         tmp_vars = self.eg.create_assignments()
         self.eg.add_mappings()
-        # self.eg.as_graphviz("test9",force=True)
+        # self.eg.as_graphviz("test_mv", force=True)
         self.lower_model_codegen(tmp_vars)
 
         for i, variable in enumerate(self.variables.values()):
             # if variable.logger_level.value >= self.logger_level.value:
             for path in variable.path.path[self.system.id]:
-                    self.aliases.update({path: variable.id})
+                self.aliases.update({path: variable.id})
             if variable.alias is not None:
-                    self.aliases.update({variable.alias: variable.id})
+                self.aliases.update({variable.alias: variable.id})
             for path in variable.path.path[self.system.id]:
                 self.path_variables.update({path: variable.value})  # is this used at all?
 
@@ -368,8 +368,6 @@ class Model:
         self.external_mappings.store_mappings()
         self.external_idx = np.array(external_idx, dtype=np.int64)
 
-
-
         assemble_finish = time.time()
         print("Assemble time: ", assemble_finish - assemble_start)
         self.info.update({"Assemble time": assemble_finish - assemble_start})
@@ -384,45 +382,42 @@ class Model:
         logging.info('lowering model')
         eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py", equation_graph=self.eg,
                                    scope_variables=self.scope_variables, scoped_equations=self.scoped_equations,
-                                   temporary_variables=tmp_vars,system_tag=self.system.tag, use_llvm=self.use_llvm)
+                                   temporary_variables=tmp_vars, system_tag=self.system.tag, use_llvm=self.use_llvm)
 
-        compiled_compute, var_func, var_write, self.vars_ordered_values, self.scope_variables,\
-        self.state_idx,self.derivatives_idx = \
+        compiled_compute, var_func, var_write, self.vars_ordered_values, self.scope_variables, \
+        self.state_idx, self.derivatives_idx = \
             eq_gen.generate_equations()
 
-        def c1(self,array_):
+        def c1(self, array_):
             return compiled_compute(array_)
 
         def c2(self):
             return var_func()
 
-        def c3(self,value,idx):
-            return var_write(value,idx)
-
-
+        def c3(self, value, idx):
+            return var_write(value, idx)
 
         setattr(CompiledModel, "compiled_compute", c1)
         setattr(CompiledModel, "read_variables", c2)
         setattr(CompiledModel, "write_variables", c3)
 
         self.compiled_compute, self.var_func, self.var_write = compiled_compute, var_func, var_write
-        self.init_values = np.ascontiguousarray([self.scope_variables[k].value for k in self.vars_ordered_values.keys()],
-                                                dtype=np.float64)
+        self.init_values = np.ascontiguousarray(
+            [self.scope_variables[k].value for k in self.vars_ordered_values.keys()],
+            dtype=np.float64)
         for k, v in self.vars_ordered_values.items():
             self.var_write(self.scope_variables[k].value, v)
+
         # values of all model variables in specific order: self.vars_ordered_values
         # full tags of all variables in the model in specific order: self.vars_ordered
         # dict with scope variable id as key and scope variable itself as value
 
         # Create aliases for all paths in each scope variable
         def c4(values_dict):
-
             return [self.var_write(v, self.vars_ordered_values[self.aliases[k]]) for k, v in values_dict.items()]
-
 
         def c5():
             vals = var_func()
-
             return {self.inverse_aliases[k]: v for k, v in zip(self.vars_ordered_values.keys(), vals)}
 
         setattr(self, "update_variables", c4)
@@ -680,8 +675,6 @@ class Model:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
 
-
-
         ##Adding callbacks_varaibles to numba specs
         # def create_cbi_call(_method_name: str, i: int):
         #     return "      self." \
@@ -703,16 +696,21 @@ class Model:
         #            "" + _method_name + "(time, self.path_variables)\n"
         #
         # Equation_Parser.create_numba_iterations(CompiledModel, self.numba_callbacks_init_run, "run_init_callbacks",
+        #
         #                                         "callback_func_init_pre_update", create_cbiu_call, ",time")
+
+        # Creating a copy of CompiledModel class so it is possible
+        # to creat instance detached from muttable type of CompiledModel
+        tmp = type(f'{CompiledModel.__name__}'+self.system.id, CompiledModel.__bases__, dict(CompiledModel.__dict__))
         if self.use_llvm:
             @jitclass(numba_model_spec)
-            class CompiledModel_instance(CompiledModel):
+            class CompiledModel_instance(tmp):
                 pass
         else:
-            class CompiledModel_instance(CompiledModel):
+            class CompiledModel_instance(tmp):
                 pass
 
-        NM_instance = CompiledModel_instance(self.init_values,self.derivatives_idx,self.state_idx,
+        NM_instance = CompiledModel_instance(self.init_values, self.derivatives_idx, self.state_idx,
                                              self.global_vars, number_of_timesteps, start_time,
                                              self.historian.get_historian_max_size(number_of_timesteps),
                                              self.historian.need_to_correct(),
@@ -734,6 +732,8 @@ class Model:
         # NM_instance.historian_update(start_time)
         self.numba_model = NM_instance
         return self.numba_model
+
+
 
     def create_historian_df(self):
         self.historian_df = self._generate_history_df(self.numba_model.historian_data, rename_columns=False)

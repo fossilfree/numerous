@@ -15,7 +15,7 @@ class Simulation:
           time :  ndarray
                Not unique tag that will be used in reports or printed output.
           solver: :class:`BaseSolver`
-               Instance of differantial eqautions solver that will be used for the model.
+               Instance of differential equations solver that will be used for the model.
           delta_t :  float
                timestep.
           callbacks :  list
@@ -59,9 +59,9 @@ class Simulation:
             # solver.numba_model.run_callbacks_with_updates(t)
             solver.numba_model.map_external_data(t)
 
-            # if solver.numba_model.is_store_required():
-            #     self.model.store_history(numba_model.historian_data)
-            #     solver.numba_model.historian_reinit()
+            if solver.numba_model.is_store_required():
+                self.model.store_history(numba_model.historian_data)
+                solver.numba_model.historian_reinit()
             #
             if solver.numba_model.is_external_data_update_needed(t):
                 solver.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
