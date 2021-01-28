@@ -211,9 +211,9 @@ def function_from_graph_generic(g: Graph, name, var_def_):
                 body.append(ast_assign)
     var_def_.order_variables(g.arg_metadata)
     if (l := len(var_def_.get_targets())) > 1:
-        return_ = ast.Return(value=ast.Tuple(elts=var_def_.get_targets()))
+        return_ = ast.Return(value=ast.Tuple(elts=var_def_.get_order_trgs()))
     elif l == 1:
-        return_ = ast.Return(value=var_def_.get_targets()[0])
+        return_ = ast.Return(value=var_def_.get_order_trgs()[0])
     else:
         g.as_graphviz('noret', force=True)
         raise IndexError(f'Function {name} should have return, no?')

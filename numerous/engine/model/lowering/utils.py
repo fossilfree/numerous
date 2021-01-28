@@ -69,6 +69,7 @@ class Vardef:
         self.args = []
         self.llvm =llvm
         self.args_order = []
+        self.trgs_order = []
 
     def format(self, var):
         return ast.Name(id=var.replace('scope.', 's_'))
@@ -83,6 +84,10 @@ class Vardef:
     def order_variables(self,order_data):
         for var in order_data:
             self.args_order.append("scope."+var)
+        for var in order_data:
+            tmp_v = "scope."+var
+            if tmp_v in self.targets:
+                self.trgs_order.append(tmp_v)
 
     def var_def(self, var, read=True):
         if not var in self.vars_inds_map:
@@ -103,6 +108,12 @@ class Vardef:
     def get_order_args(self, form=True):
         if form:
             return [self.format(a) for a in self.args_order]
+        else:
+            return self.args
+
+    def get_order_trgs(self, form=True):
+        if form:
+            return [self.format(a) for a in self.trgs_order]
         else:
             return self.args
 

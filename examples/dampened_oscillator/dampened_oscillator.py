@@ -113,21 +113,21 @@ class OscillatorSystem2(Subsystem):
         if True:
             spc1 = SpringCoupling('spc1', k=0, dx0=4)
             spc1.bind(side1=oscillators[0], side2=oscillators[1])
-            spc1.side1.mechanics.v_dot += spc1.mechanics.F1
-            spc1.side2.mechanics.v_dot += spc1.mechanics.F2
+            # spc1.side1.mechanics.v_dot += spc1.mechanics.F1
+            # spc1.side2.mechanics.v_dot += spc1.mechanics.F2
 
             spc2 = SpringCoupling('spc2', k=0, dx0=4)
             spc2.bind(side1=oscillators[0], side2=oscillators[1])
-            spc2.side1.mechanics.v_dot += spc2.mechanics.F1
-            spc2.side2.mechanics.v_dot += spc2.mechanics.F2
+            # spc2.side1.mechanics.v_dot += spc2.mechanics.F1
+            # spc2.side2.mechanics.v_dot += spc2.mechanics.F2
 
             # Register the items to the subsystem to make it recognize them.
             self.register_items([spc1, spc2], tag="couplings", structure=ItemsStructure.SET)
 
             spc3 = SpringCoupling('spc3', k=0, dx0=4)
             spc3.bind(side1=oscillators[0], side2=oscillators[1])
-            spc3.side1.mechanics.v_dot += spc3.mechanics.F1
-            spc3.side2.mechanics.v_dot += spc3.mechanics.F2
+            # spc3.side1.mechanics.v_dot += spc3.mechanics.F1
+            # spc3.side2.mechanics.v_dot += spc3.mechanics.F2
 
             te = TestEq(k=0)
             spc3.mechanics.k = te.mechanics.k
@@ -150,21 +150,21 @@ class OscillatorSystem(Subsystem):
         if True:
             spc1 = SpringCoupling('spc1', k=0, dx0=4)
             spc1.bind(side1=oscillators[0], side2=oscillators[1])
-            spc1.side1.mechanics.v_dot += spc1.mechanics.F1
-            spc1.side2.mechanics.v_dot += spc1.mechanics.F2
+            # spc1.side1.mechanics.v_dot += spc1.mechanics.F1
+            # spc1.side2.mechanics.v_dot += spc1.mechanics.F2
 
             spc2 = SpringCoupling('spc2', k=0, dx0=4)
             spc2.bind(side1=oscillators[0], side2=oscillators[1])
-            spc2.side1.mechanics.v_dot += spc2.mechanics.F1
-            spc2.side2.mechanics.v_dot += spc2.mechanics.F2
+            # spc2.side1.mechanics.v_dot += spc2.mechanics.F1
+            # spc2.side2.mechanics.v_dot += spc2.mechanics.F2
 
             # Register the items to the subsystem to make it recognize them.
             self.register_items([spc1, spc2], tag="couplings", structure=ItemsStructure.SET)
 
             spc3 = SpringCoupling('spc3', k=0, dx0=4)
             spc3.bind(side1=oscillators[0], side2=oscillators[1])
-            spc3.side1.mechanics.v_dot += spc3.mechanics.F1
-            spc3.side2.mechanics.v_dot += spc3.mechanics.F2
+            # spc3.side1.mechanics.v_dot += spc3.mechanics.F1
+            # spc3.side2.mechanics.v_dot += spc3.mechanics.F2
 
             te = TestEq(k=0)
             spc3.mechanics.k = te.mechanics.k
@@ -184,34 +184,38 @@ if __name__ == "__main__":
     llvm_model = model.Model(subsystem, use_llvm=True)
     llvm_model_compiled = llvm_model.generate_compiled_model(0, 100)
     print("Results Compare")
+    # print(python_model_compiled.read_variables())
     print(python_model_compiled.func(0, np.array([0., 1., 0., 2.])))
     # [0.    0. - 0.01 - 0.02]
     # [-0.01 - 0.02  0.    0-.]
+    # print(llvm_model_compiled.read_variables())
     print(llvm_model_compiled.func(0, np.array([0., 1., 0., 2.])))
 
-    #
-    # # Define simulation
-    # s = simulation.Simulation(llvm_model,
-    #                           t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
-    #                           )
-    # # Solve and plot
-    # tic = time()
-    # s.solve()
-    # toc = time()
-    # print('Execution time: ', toc - tic)
-    # s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.x', 'system.SET_oscillators.oscillator1.mechanics.x']].plot()
-    # plt.show()
-    # plt.interactive(False)
-    #
-    # # Define simulation
-    # s = simulation.Simulation(python_model,
-    #                           t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
-    #                           )
-    # # Solve and plot
-    # tic = time()
-    # s.solve()
-    # toc = time()
-    # print('Execution time: ', toc - tic)
-    # s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.x', 'system.SET_oscillators.oscillator1.mechanics.x']].plot()
-    # plt.show()
-    # plt.interactive(False)
+
+
+
+    # Define simulation
+    s = simulation.Simulation(llvm_model,
+                              t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
+                              )
+    # Solve and plot
+    tic = time()
+    s.solve()
+    toc = time()
+    print('Execution time: ', toc - tic)
+    s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.x', 'system.SET_oscillators.oscillator1.mechanics.x']].plot()
+    plt.show()
+    plt.interactive(False)
+
+    # Define simulation
+    s = simulation.Simulation(python_model,
+                              t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
+                              )
+    # Solve and plot
+    tic = time()
+    s.solve()
+    toc = time()
+    print('Execution time: ', toc - tic)
+    s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.x', 'system.SET_oscillators.oscillator1.mechanics.x']].plot()
+    plt.show()
+    plt.interactive(False)
