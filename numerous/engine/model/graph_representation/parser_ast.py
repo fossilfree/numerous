@@ -371,6 +371,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
         source_id = local_id
         if source_id[:6] == 'scope.':
             scope_var = tag_vars[source_id[6:]]
+            tag_vars[source_id[6:]].used_in_equation_graph = True
 
         else:
             scope_var = None
@@ -444,6 +445,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
 
             if source_id[:6] == 'scope.':
                 scope_var = tag_vars[source_id[6:]]
+                tag_vars[source_id[6:]].used_in_equation_graph = True
 
                 if scope_var.type == VariableType.CONSTANT:
                     # print(scope_var.tag,': ',scope_var.value)
@@ -628,7 +630,8 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
                         except StopIteration:
                             pass
             for sv in scope_variables:
-                g.arg_metadata.append(sv)
+                if scope_variables[sv].used_in_equation_graph:
+                    g.arg_metadata.append(sv)
 
 
 def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):

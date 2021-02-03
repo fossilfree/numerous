@@ -37,6 +37,7 @@ class Graph:
         self.lower_graph = None
 
         self.node_edges = None
+
         ##For equation arguments order.
         self.arg_metadata = []
 
@@ -333,17 +334,8 @@ class Graph:
     def get_dependants_graph(self, node):
         if not self.lower_graph:
             self.make_lower_graph()
-
-        # s_nodes = list(self.get_nodes())
-
-        # 'my nodes: ', s_nodes)
-        # l_nodes = np.array([s_nodes.index(node) for node in nodes], np.int32)
-        # aprint('nod: ', nodes)
-        # if len(l_nodes)>0:
         nodes, edges = self.lower_graph.get_dependants_graph(np.array([node], np.int64))
         return self.subgraph(nodes, edges)
-        # else:
-        #    return Graph()
 
     def replace_nodes_by_key(self, key, to_be_replaced):
         n = self.node_map[key]
