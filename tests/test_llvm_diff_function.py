@@ -66,7 +66,7 @@ def ms1(simple_item):
             super().__init__(tag)
             self.register_items([simple_item])
 
-    return S1('S1')
+    return S1('S1_diff')
 
 
 @pytest.fixture
@@ -123,7 +123,13 @@ def ms2():
 
             self.register_items([input, item1, item2, item3, ground])
 
-    return S2('S2')
+    return S2('S2_diff')
+
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests():
+    import shutil
+    shutil.rmtree('./tmp', ignore_errors=True)
+    yield
 
 
 @pytest.fixture
@@ -185,7 +191,7 @@ def ms3():
 
             self.register_items([input, item1, item2, item3, ground])
 
-    return S3('S3')
+    return S3('S3_diff')
 
 
 def test_llvm_diff_function_simple(ms1):

@@ -113,21 +113,21 @@ class OscillatorSystem2(Subsystem):
         if True:
             spc1 = SpringCoupling('spc1', k=0, dx0=4)
             spc1.bind(side1=oscillators[0], side2=oscillators[1])
-            # spc1.side1.mechanics.v_dot += spc1.mechanics.F1
-            # spc1.side2.mechanics.v_dot += spc1.mechanics.F2
+            spc1.side1.mechanics.v_dot += spc1.mechanics.F1
+            spc1.side2.mechanics.v_dot += spc1.mechanics.F2
 
             spc2 = SpringCoupling('spc2', k=0, dx0=4)
             spc2.bind(side1=oscillators[0], side2=oscillators[1])
-            # spc2.side1.mechanics.v_dot += spc2.mechanics.F1
-            # spc2.side2.mechanics.v_dot += spc2.mechanics.F2
+            spc2.side1.mechanics.v_dot += spc2.mechanics.F1
+            spc2.side2.mechanics.v_dot += spc2.mechanics.F2
 
             # Register the items to the subsystem to make it recognize them.
             self.register_items([spc1, spc2], tag="couplings", structure=ItemsStructure.SET)
 
             spc3 = SpringCoupling('spc3', k=0, dx0=4)
             spc3.bind(side1=oscillators[0], side2=oscillators[1])
-            # spc3.side1.mechanics.v_dot += spc3.mechanics.F1
-            # spc3.side2.mechanics.v_dot += spc3.mechanics.F2
+            spc3.side1.mechanics.v_dot += spc3.mechanics.F1
+            spc3.side2.mechanics.v_dot += spc3.mechanics.F2
 
             te = TestEq(k=0)
             spc3.mechanics.k = te.mechanics.k
@@ -150,21 +150,21 @@ class OscillatorSystem(Subsystem):
         if True:
             spc1 = SpringCoupling('spc1', k=0, dx0=4)
             spc1.bind(side1=oscillators[0], side2=oscillators[1])
-            # spc1.side1.mechanics.v_dot += spc1.mechanics.F1
-            # spc1.side2.mechanics.v_dot += spc1.mechanics.F2
+            spc1.side1.mechanics.v_dot += spc1.mechanics.F1
+            spc1.side2.mechanics.v_dot += spc1.mechanics.F2
 
             spc2 = SpringCoupling('spc2', k=0, dx0=4)
             spc2.bind(side1=oscillators[0], side2=oscillators[1])
-            # spc2.side1.mechanics.v_dot += spc2.mechanics.F1
-            # spc2.side2.mechanics.v_dot += spc2.mechanics.F2
+            spc2.side1.mechanics.v_dot += spc2.mechanics.F1
+            spc2.side2.mechanics.v_dot += spc2.mechanics.F2
 
             # Register the items to the subsystem to make it recognize them.
             self.register_items([spc1, spc2], tag="couplings", structure=ItemsStructure.SET)
 
             spc3 = SpringCoupling('spc3', k=0, dx0=4)
             spc3.bind(side1=oscillators[0], side2=oscillators[1])
-            # spc3.side1.mechanics.v_dot += spc3.mechanics.F1
-            # spc3.side2.mechanics.v_dot += spc3.mechanics.F2
+            spc3.side1.mechanics.v_dot += spc3.mechanics.F1
+            spc3.side2.mechanics.v_dot += spc3.mechanics.F2
 
             te = TestEq(k=0)
             spc3.mechanics.k = te.mechanics.k

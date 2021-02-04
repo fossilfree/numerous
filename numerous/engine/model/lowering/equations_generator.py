@@ -39,7 +39,7 @@ class EquationGenerator:
                 new_sv = {}
                 tail = {}
                 for k, v in self.scope_variables.items():
-                    if k == var.variable.id:
+                    if k == var.scope_var_id:
                         tail.update({k: v})
                         new_sv.update({var.id: var})
                     else:
@@ -225,7 +225,13 @@ class EquationGenerator:
             self.generated_program.add_set_call(self.get_external_function_name(ext_func), llvm_args, vardef.llvm_target_ids)
         else:
             # Generate llvm arguments
-            args = [d_u(scope_vars[a]) for a in vardef.args_order]
+            args = []
+            for a in vardef.args_order:
+                if a in scope_vars:
+                    args.append(d_u(scope_vars[a]))
+                else:
+                    args.append(a)
+
 
             # Add this eq to the llvm_program
             self.generated_program.add_call(self.get_external_function_name(ext_func), args, vardef.llvm_target_ids)
@@ -389,9 +395,7 @@ class EquationGenerator:
                 deriv_idx, dtype=np.int64)
         else:
             self.generated_program.generate(system_tag=self.system_tag)
-            import timeit
-            print('Compile time: ', timeit.timeit(
-                lambda: exec('from tmp.listings.'+self.system_tag+'_kernel import *', globals()), number=1))
+            exec('from tmp.listings.'+self.system_tag+'_kernel import *', globals())
             def var_func():
                 return kernel_variables
             def var_write(value,idx):

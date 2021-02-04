@@ -57,7 +57,7 @@ def ms1(simple_item):
             super().__init__(tag)
             self.register_items([simple_item])
 
-    return S1('S1')
+    return S1('S1_nm')
 
 
 @pytest.fixture
@@ -122,7 +122,14 @@ def ms2():
 
             self.register_items([input, item1, item2, item3, ground])
 
-    return S2('S2')
+    return S2('S2_nm')
+
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests():
+    import shutil
+    shutil.rmtree('./tmp', ignore_errors=True)
+    yield
+
 
 
 @pytest.fixture
@@ -180,25 +187,25 @@ def ms3():
 
             self.register_items([input, item1, item2, item3, ground])
 
-    return S3('S3')
+    return S3('S3_nm')
 
 
 def test_model_without_update(ms3):
     m1 = Model(ms3)
-    n_m = m1.generate_numba_model(0, 1)
-    assert n_m.path_variables["S3.1.t1.R"] == 10
-    assert n_m.path_variables["S3.2.t1.R"] == 5
-    assert n_m.path_variables["S3.3.t1.R"] == 3
-    assert n_m.path_variables["S3.4.t1.R"] == 2
+    n_m = m1.generate_compiled_model(0, 1)
+    assert n_m.path_variables["S3_nm.1.t1.R"] == 10
+    assert n_m.path_variables["S3_nm.2.t1.R"] == 5
+    assert n_m.path_variables["S3_nm.3.t1.R"] == 3
+    assert n_m.path_variables["S3_nm.4.t1.R"] == 2
 
 @pytest.mark.skip(reason="Functionality not implemented in current version")
 def test_model_with_update(ms3):
     m1 = Model(ms3)
     n_m = m1.generate_numba_model(0, 1)
     n_m.run_callbacks_with_updates(0.1)
-    assert n_m.path_variables["S3.1.t1.R"] == 10
-    assert n_m.path_variables["S3.2.t1.R"] == 5
-    assert n_m.path_variables["S3.3.t1.R"] == 3
-    assert n_m.path_variables["S3.4.t1.R"] == 2
+    assert n_m.path_variables["S3_nm.1.t1.R"] == 10
+    assert n_m.path_variables["S3_nm.2.t1.R"] == 5
+    assert n_m.path_variables["S3_nm.3.t1.R"] == 3
+    assert n_m.path_variables["S3_nm.4.t1.R"] == 2
 
 

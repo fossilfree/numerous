@@ -10,6 +10,13 @@ from numerous.engine.simulation.solvers.base_solver import solver_types, SolverT
 import numpy as np
 import copy
 
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests():
+    import shutil
+    shutil.rmtree('./tmp', ignore_errors=True)
+    yield
+
+
 
 class TestLogItem1(Item, EquationBase):
     def __init__(self, tag='testlogitem1'):

@@ -631,7 +631,10 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
                             pass
             for sv in scope_variables:
                 if scope_variables[sv].used_in_equation_graph:
-                    g.arg_metadata.append(sv)
+                    g.arg_metadata.append((sv,scope_variables[sv].used_in_equation_graph))
+                else:
+                    g.arg_metadata.append((scope_variables[sv].id,scope_variables[sv].used_in_equation_graph))
+
 
 
 def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):

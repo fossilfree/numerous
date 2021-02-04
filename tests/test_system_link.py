@@ -9,6 +9,12 @@ import numpy as np
 
 from numerous.engine.simulation.solvers.base_solver import solver_types
 
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests():
+    import shutil
+    shutil.rmtree('./tmp', ignore_errors=True)
+    yield
+
 
 class InitialValue(Item, EquationBase):
     def __init__(self, tag='initialvalue', x0=1):
@@ -19,7 +25,7 @@ class InitialValue(Item, EquationBase):
 
 
 class Root(Subsystem):
-    def __init__(self, tag='root', N_outer=2, N_inner=5, k=0.9):
+    def __init__(self, tag='root_linktest', N_outer=2, N_inner=5, k=0.9):
         super().__init__(tag)
         inlet_item = InitialValue(x0=1)
         for i in range(N_outer):
@@ -85,7 +91,7 @@ def test_system_link_1_5(system15, solver,use_llvm):
     sim.solve()
     df = sim.model.historian_df
 
-    assert approx(np.array(df['root.linkersubsystem_4.item_0.t1.x'])[1:]) == \
+    assert approx(np.array(df['root_linktest.linkersubsystem_4.item_0.t1.x'])[1:]) == \
            expected(len(df.index[:-1]), 5, 0.9)
 
 @pytest.mark.parametrize("solver", solver_types)
@@ -98,5 +104,5 @@ def test_system_link_5_1(system51, solver,use_llvm):
     sim.solve()
     df = sim.model.historian_df
 
-    assert approx(np.array(df['root.linkersubsystem_0.item_4.t1.x'])[1:]) == \
+    assert approx(np.array(df['root_linktest.linkersubsystem_0.item_4.t1.x'])[1:]) == \
            expected(len(df.index[:-1]), 5, 0.9)

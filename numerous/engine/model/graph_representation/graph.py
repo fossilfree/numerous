@@ -40,6 +40,7 @@ class Graph:
 
         ##For equation arguments order.
         self.arg_metadata = []
+        self.skipped_arg_metadata = []
 
     def build_node_edges(self):
         self.node_edges = [([], []) for n in range(self.node_counter)]

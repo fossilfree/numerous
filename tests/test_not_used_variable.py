@@ -36,6 +36,12 @@ def simple_item(test_eq1):
 
     return T1('test_item')
 
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests():
+    import shutil
+    shutil.rmtree('./tmp', ignore_errors=True)
+    yield
+
 
 @pytest.fixture
 def ms4(simple_item):
@@ -44,7 +50,7 @@ def ms4(simple_item):
             super().__init__(tag)
             self.register_items([simple_item])
 
-    return S1('S1')
+    return S1('S1_var')
 
 
 @pytest.mark.parametrize("solver", solver_types)
@@ -54,4 +60,4 @@ def test_var_not_used(ms4, solver, use_llvm):
     s1 = Simulation(m1, t_start=0, t_stop=100, num=10, solver_type=solver)
     s1.solve()
     df = s1.model.historian_df
-    assert approx(np.array(df['S1.test_item.t1.P2'])) == np.repeat(11, (11))
+    assert approx(np.array(df['S1_var.test_item.t1.P2'])) == np.repeat(11, (11))
