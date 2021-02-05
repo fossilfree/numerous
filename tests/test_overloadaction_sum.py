@@ -89,11 +89,11 @@ class System(Subsystem, EquationBase):
 
 @pytest.fixture
 def system1():
-    return System(subsystem=Subsystem1(item1=Item1()))
+    return System(tag='system1_overload',subsystem=Subsystem1(item1=Item1()))
 
 @pytest.fixture
 def system2():
-    return System(subsystem=Subsystem2(item1=Item2()))
+    return System(tag='system2_overload',subsystem=Subsystem2(item1=Item2()))
 
 def expected_sol(t):
     return -1*(t*np.exp(t) -1)*np.exp(-t)
@@ -105,7 +105,7 @@ def test_overloadaction_sum(system1, solver, use_llvm):
     sim = Simulation(model, t_start=0, t_stop=10, num=100, solver_type = solver)
     sim.solve()
     df = sim.model.historian_df
-    assert approx(np.array(df['system_overload.subsystem1.item1.t1.x'])) == expected_sol(np.linspace(0, 10, 101))
+    assert approx(np.array(df['system1_overload.subsystem1.item1.t1.x'])) == expected_sol(np.linspace(0, 10, 101))
 
 @pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
@@ -114,4 +114,4 @@ def test_overloadaction_sum_multiple(system2, solver, use_llvm):
     sim = Simulation(model, t_start=0, t_stop=10, num=100, solver_type = solver)
     sim.solve()
     df = sim.model.historian_df
-    assert approx(np.array(df['system_overload.subsystem1.item1.t1.x'])) == expected_sol(np.linspace(0, 10, 101))
+    assert approx(np.array(df['system2_overload.subsystem1.item1.t1.x'])) == expected_sol(np.linspace(0, 10, 101))
