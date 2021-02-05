@@ -2,6 +2,18 @@ import ast
 from enum import IntEnum, unique
 
 
+
+
+class TemporaryKeyGenerator:
+    def __init__(self):
+        self.tmp_ = 0
+
+    def generate(self):
+        self.tmp_ += 1
+        return f'tmp{self.tmp_}'
+
+
+
 class Vardef:
     def __init__(self):
         self.vars_inds_map = []

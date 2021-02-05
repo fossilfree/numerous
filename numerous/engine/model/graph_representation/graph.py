@@ -1,23 +1,10 @@
 import logging
-
 import numpy as np
-
 from graphviz import Digraph
-
-from .utils import EdgeType
+from .utils import EdgeType, TemporaryKeyGenerator
 from .lower_graph import multi_replace, _Graph
 
-
-class TMP:
-    def __init__(self):
-        self.tmp_ = 0
-
-    def tmp(self):
-        self.tmp_ += 1
-        return f'tmp{self.tmp_}'
-
-
-tmp = TMP().tmp
+tmp_generator = TemporaryKeyGenerator().generate
 
 
 class Graph:
@@ -32,7 +19,7 @@ class Graph:
         self.node_map = {}
         self.key_map = {}
         self.nodes_attr = {'deleted': [0] * preallocate_items}
-        self.edges_attr = {'deleted': [0] * preallocate_items, "e_type":[EdgeType.UNDEFINED] * self.preallocate_items}
+        self.edges_attr = {'deleted': [0] * preallocate_items, "e_type": [EdgeType.UNDEFINED] * self.preallocate_items}
         self.edges = np.ones((self.preallocate_items, 2), dtype=np.int32) * -1
         self.lower_graph = None
 
@@ -56,7 +43,7 @@ class Graph:
 
     def add_node(self, key=None, ignore_existing=False, skip_existing=True, **attrs):
         if not key:
-            key = tmp()
+            key = tmp_generator()
         if key not in self.node_map or ignore_existing:
             if not key in self.node_map:
 
@@ -84,7 +71,7 @@ class Graph:
                 return self.node_map[key]
         return node
 
-    def add_edge(self, start=-1, end=-1,e_type=EdgeType.UNDEFINED, **attrs):
+    def add_edge(self, start=-1, end=-1, e_type=EdgeType.UNDEFINED, **attrs):
         edge = self.edge_counter
         self.edges[edge, :] = [start, end]
 
@@ -274,11 +261,10 @@ class Graph:
         if False or force:
             dot = Digraph()
             for k, n in self.node_map.items():
-
                 dot.node(k, label=self.nodes_attr['label'][n])
 
             for i, e in enumerate(self.edges[:self.edge_counter]):
-                if self.edges_attr['deleted'][i]==0:
+                if self.edges_attr['deleted'][i] == 0:
                     try:
                         if e[0] >= 0 and e[1] >= 0:
                             dot.edge(self.key_map[e[0]], self.key_map[e[1]], label=str(self.edges_attr['e_type'][i]))
@@ -345,6 +331,3 @@ class Graph:
 
         multi_replace(edges, to_be_replaced_v, n)
         [self.remove_node(t) for t in to_be_replaced_v]
-
-
-
