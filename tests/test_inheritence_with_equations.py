@@ -23,6 +23,10 @@ class Base_eq(Item, EquationBase):
     def eval2(self, scope):
         scope.P = 5
 
+    @Equation()
+    def eval3(self, scope):
+        scope.T = 50
+
 
 class Child_eq(Base_eq):
     def __init__(self, tag):
@@ -78,6 +82,7 @@ def test_single_equation_multiple_variables(ms1, solver,use_llvm):
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     s1.solve()
     assert m1.historian_df["S1_inh.test1.t1.P"][100] == 5
+    assert m1.historian_df["S1_inh.test1.t1.T"][100] == 50
 
 @pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.skip(reason="Functionality not implemented in current version")
