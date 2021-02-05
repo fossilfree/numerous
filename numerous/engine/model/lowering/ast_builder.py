@@ -80,7 +80,11 @@ class ASTBuilder:
                                                   kwarg=None))
         kernel_filename = LISTING_FILEPATH + system_tag + LISTINGFILENAME
         os.makedirs(os.path.dirname(kernel_filename), exist_ok=True)
-        generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel], kernel_filename)
+        variable_names_print=[]
+        for key, value in self.variable_names.items():
+            variable_names_print.append('#'+str(key) + ' : '+str(value))
+        generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel], kernel_filename,
+                           names='\n'.join(variable_names_print)+'\n')
 
     def detailed_print(self, *args, sep=' ', end='\n', file=None):
         if config.PRINT_LLVM:

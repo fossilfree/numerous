@@ -350,18 +350,26 @@ class EquationGenerator:
 
             target_var = self.equation_graph.key_map[t]
 
-            # Generate llvm
+            # Generate llvm/ast
+            mapping_dict = {}
             for values in target_indcs_map:
                 for v in values:
                     var_name = d_u(self.equation_graph.key_map[v[0]])
                     if var_name in self.scope_variables:
-                        self.generated_program.add_mapping([var_name], [target_var])
+                        if target_var in mapping_dict:
+                            mapping_dict[target_var].append(var_name)
+                        else:
+                            mapping_dict[target_var] = [var_name]
                     else:
-                        if var_name in self.set_variables:
-                            self.generated_program.add_mapping(
-                                [self.set_variables[var_name].get_var_by_idx(v[1]).id], [target_var])
+                        if target_var in self.set_variables:
+                            if var_name in mapping_dict:
+                                mapping_dict[target_var].append(self.set_variables[var_name].get_var_by_idx(v[1]).id)
+                            else:
+                                mapping_dict[target_var] = [self.set_variables[var_name].get_var_by_idx(v[1]).id]
                         else:
                             raise ValueError(f'Variable  {var_name} mapping not found')
+            for k,v in mapping_dict.items():
+                self.generated_program.add_mapping(v, [k])
 
     def generate_equations(self):
         logging.info('Generate kernel')

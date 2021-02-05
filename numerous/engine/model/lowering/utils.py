@@ -21,11 +21,11 @@ def wrap_module(body):
     return mod
 
 
-def generate_code_file(mod_body, file,preamble="from numba import njit, carray, float64, float32\nimport numpy as np\n"):
+def generate_code_file(mod_body, file,names="#",preamble="from numba import njit, carray, float64, float32\nimport numpy as np\n"):
     mod = wrap_module(mod_body)
     print('Generating Source')
 
-    source = preamble + astor.to_source(mod, indent_with=' ' * 4, add_line_information=False,
+    source = names+preamble + astor.to_source(mod, indent_with=' ' * 4, add_line_information=False,
                                         source_generator_class=SourceGeneratorNumerous)
 
     with open(file, 'w') as f:
