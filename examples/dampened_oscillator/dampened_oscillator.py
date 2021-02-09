@@ -178,44 +178,45 @@ if __name__ == "__main__":
     from matplotlib import pyplot as plt
 
     subsystem = OscillatorSystem('system', k=0.01, c=0.001, a=0, n=2, x0=np.arange(2))
-    python_model = model.Model(subsystem, use_llvm=False)
-    python_model_compiled = python_model.generate_compiled_model(0, 100)
-    #
-    llvm_model = model.Model(subsystem, use_llvm=True)
-    llvm_model_compiled = llvm_model.generate_compiled_model(0, 100)
-    print("Results Compare")
+    test_model = model.Model(subsystem, use_llvm=False)
+    # # python_model_compiled = python_model.generate_compiled_model(0, 100)
+    # #
+    # llvm_model = model.Model(subsystem, use_llvm=True)
+    # llvm_model_compiled = llvm_model.generate_compiled_model(0, 100)
+    # print("Results Compare")
     # print(python_model_compiled.read_variables())
-    print(python_model_compiled.func(0, np.array([0., 1., 0., 2.])))
-    # [0.    0. - 0.01 - 0.02]
-    # [-0.01 - 0.02  0.    0-.]
+    # print(python_model_compiled.func(0, np.array([0., 1., 0., 2.])))
+    # [ 0.    0.   -0.01 -0.02]
+
+    #[ 0.    0.   -0.01 -0.02]
     # print(llvm_model_compiled.read_variables())
-    print(llvm_model_compiled.func(0, np.array([0., 1., 0., 2.])))
+    # print(llvm_model_compiled.func(0, np.array([0., 1., 0., 2.])))
 
 
 
+
+    # # Define simulation
+    # s = simulation.Simulation(llvm_model,
+    #                           t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
+    #                           )
+    # # Solve and plot
+    # tic = time()
+    # s.solve()
+    # toc = time()
+    # print('Execution time: ', toc - tic)
+    # s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.x', 'system.SET_oscillators.oscillator1.mechanics.x']].plot()
+    # plt.show()
+    # plt.interactive(False)
 
     # Define simulation
-    s = simulation.Simulation(llvm_model,
-                              t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
-                              )
-    # Solve and plot
-    tic = time()
-    s.solve()
-    toc = time()
-    print('Execution time: ', toc - tic)
-    s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.x', 'system.SET_oscillators.oscillator1.mechanics.x']].plot()
-    plt.show()
-    plt.interactive(False)
-
-    # Define simulation
-    s = simulation.Simulation(python_model,
-                              t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
-                              )
-    # Solve and plot
-    tic = time()
-    s.solve()
-    toc = time()
-    print('Execution time: ', toc - tic)
-    s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.x', 'system.SET_oscillators.oscillator1.mechanics.x']].plot()
-    plt.show()
-    plt.interactive(False)
+    # s = simulation.Simulation(python_model,
+    #                           t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
+    #                           )
+    # # Solve and plot
+    # tic = time()
+    # s.solve()
+    # toc = time()
+    # print('Execution time: ', toc - tic)
+    # s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.x', 'system.SET_oscillators.oscillator1.mechanics.x']].plot()
+    # plt.show()
+    # plt.interactive(False)

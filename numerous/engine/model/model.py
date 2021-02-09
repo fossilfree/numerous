@@ -8,6 +8,8 @@ import uuid
 
 from numba.experimental import jitclass
 import pandas as pd
+
+from numerous.engine.model.utils import Imports
 from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
 
 from numerous.utils.logger_levels import LoggerLevel
@@ -129,18 +131,28 @@ class Model:
     """
 
     def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
-                 external_mappings=None, data_loader=None, historian=InMemoryHistorian(),
+                 external_mappings=None,external_functions_source=None, data_loader=None, historian=InMemoryHistorian(),
                  use_llvm=True):
         if logger_level == None:
             self.logger_level = LoggerLevel.ALL
         else:
             self.logger_level = logger_level
 
+        self.external_functions_source = external_functions_source
+
         self.is_external_data = True if external_mappings else False
         self.external_mappings = ExternalMapping(external_mappings,
                                                  data_loader) if external_mappings else EmptyMapping()
 
         self.use_llvm = use_llvm
+
+        self.imports = Imports()
+        self.imports.add_as_import("numpy","np")
+        self.imports.add_from_import("numba","njit")
+        self.imports.add_from_import("numba", "carray")
+        self.imports.add_from_import("numba", "float64")
+        self.imports.add_from_import("numba", "float32")
+
         self.numba_callbacks_init = []
         self.numba_callbacks_variables = []
         self.numba_callbacks = []
@@ -382,7 +394,8 @@ class Model:
         logging.info('lowering model')
         eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py", equation_graph=self.eg,
                                    scope_variables=self.scope_variables, scoped_equations=self.scoped_equations,
-                                   temporary_variables=tmp_vars, system_tag=self.system.tag, use_llvm=self.use_llvm)
+                                   temporary_variables=tmp_vars, system_tag=self.system.tag, use_llvm=self.use_llvm,
+                                   imports =  self.imports, external_functions_source= self.external_functions_source )
 
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.scope_variables, \
         self.state_idx, self.derivatives_idx = \

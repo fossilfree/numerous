@@ -73,7 +73,7 @@ class ASTBuilder:
         self.functions.append(function)
         self.defined_functions.append(function.name)
 
-    def generate(self, system_tag="", save_opt=False):
+    def generate(self,imports, system_tag="",external_functions_source=False, save_opt=False):
         kernel = wrap_function('global_kernel', self.read_args_section + self.body + self.return_section, decorators=[],
                                args=ast.arguments(args=[ast.arg(arg="states",
                                                                 annotation=None)], vararg=None, defaults=[],
@@ -83,7 +83,8 @@ class ASTBuilder:
         variable_names_print=[]
         for key, value in self.variable_names.items():
             variable_names_print.append('#'+str(key) + ' : '+str(value))
-        generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel], kernel_filename,
+        generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel], kernel_filename,imports,
+                           external_functions_source=external_functions_source,
                            names='\n'.join(variable_names_print)+'\n')
 
     def detailed_print(self, *args, sep=' ', end='\n', file=None):

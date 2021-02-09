@@ -2,6 +2,18 @@ import ast
 from enum import unique, IntEnum
 
 
+class Imports:
+    def __init__(self):
+        self.as_imports = []
+        self.from_imports = []
+
+    def add_as_import(self, module_name, alias):
+        self.as_imports.append((module_name, alias))
+
+    def add_from_import(self, module_name, element):
+        self.from_imports.append((module_name, element))
+
+
 # TODO add setVAR/GridVar?
 @unique
 class NodeTypes(IntEnum):

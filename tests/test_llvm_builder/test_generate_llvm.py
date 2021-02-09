@@ -1,5 +1,5 @@
 import pytest
-from numba import carray
+from numba import carray, njit
 from pytest import approx
 
 from numerous.engine.model.lowering.llvm_builder import LLVMBuilder
@@ -31,6 +31,19 @@ eval_llvm_mix_signature = 'void(float64, CPointer(float64),float64, CPointer(flo
 def eval_llvm_mix(s_x1, s_x2_dot, s_x2, s_x3_dot):
     carray(s_x2_dot, (1,))[0] = -100 if s_x1 > s_x2 else 50
     carray(s_x3_dot, (1,))[0] = -carray(s_x2_dot, (1,))[0]
+
+
+eval_llvm2_signature = 'void(float64, float64, CPointer(float64), CPointer(float64))'
+
+
+def eval_llvm2(s_x1, s_x2, s_x2_dot, s_x3_dot):
+    carray(s_x2_dot, (1,))[0] = nested(-100) if s_x1 > s_x2 else 50
+    carray(s_x3_dot, (1,))[0] = -carray(s_x2_dot, (1,))[0]
+
+
+@njit
+def nested(s_x):
+    return s_x + 1
 
 
 number_of_derivatives = 3
@@ -120,6 +133,23 @@ def test_llvm_1_function():
     assert approx(diff(np.array([2.3, 2.2, 2.1]))) == np.array([-100, 100, 9.])
 
 
+def test_llvm_nested_function_and_mapping():
+    llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
+    llvm_program.add_external_function(eval_llvm2, eval_llvm2_signature, number_of_args=4, target_ids=[2, 3])
+
+    llvm_program.add_call(eval_llvm2.__qualname__,
+                          ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
+                           "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"], target_ids=[2, 3])
+
+    llvm_program.add_mapping(args=["oscillator1.mechanics.a"],
+                             targets=["oscillator1.mechanics.x_dot"])
+
+    diff, var_func, _ = llvm_program.generate(filename)
+
+    assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([50, -50, 9.])
+    assert approx(diff(np.array([2.3, 2.2, 2.1]))) == np.array([-99, 99, 9.])
+
+
 def test_llvm_1_function_and_mapping():
     llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
     llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
@@ -135,6 +165,7 @@ def test_llvm_1_function_and_mapping():
 
     assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([50, -50, 9.])
     assert approx(diff(np.array([2.3, 2.2, 2.1]))) == np.array([-100, 100, 9.])
+
 
 def test_llvm_unordered_vars():
     llvm_program = LLVMBuilder(initial_values, variable_distributed, STATES, DERIVATIVES)
