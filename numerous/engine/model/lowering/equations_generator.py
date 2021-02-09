@@ -361,7 +361,7 @@ class EquationGenerator:
                         else:
                             mapping_dict[target_var] = [var_name]
                     else:
-                        if target_var in self.set_variables:
+                        if var_name in self.set_variables:
                             if var_name in mapping_dict:
                                 mapping_dict[target_var].append(self.set_variables[var_name].get_var_by_idx(v[1]).id)
                             else:
