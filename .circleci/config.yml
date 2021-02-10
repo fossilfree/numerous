@@ -6,11 +6,12 @@ jobs:
 
     steps:
       - checkout
+      - run: apt-get install -y sudo # https://discuss.circleci.com/t/sudo-command-not-found/14208/4
       - run:
           name: Install pip
           command: |
             sudo apt update
-            sudo apt install -y python-pip python-dev
+            sudo apt install -y python3-pip python3-dev
       - python/install-packages:
           pkg-manager: pip
           pypi-cache: false
