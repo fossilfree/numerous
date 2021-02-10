@@ -13,15 +13,15 @@ jobs:
             sudo apt update
             sudo apt install -y python3-pip python3-dev
       - python/install-packages:
-          pkg-manager: pip
+          pkg-manager: pip3
           pypi-cache: false
       - python/install-packages:
           pip-dependency-file: requirements.txt
-          pkg-manager: pip
+          pkg-manager: pip3
           pypi-cache: false
       - python/install-packages:
           args: pytest
-          pkg-manager: pip
+          pkg-manager: pip3
           pypi-cache: false
       - run:
           name: Tests
