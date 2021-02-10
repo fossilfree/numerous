@@ -8,9 +8,11 @@ jobs:
       - checkout
       - python/install-packages:
           pkg-manager: pip
+          pypi-cache: false
       - python/install-packages:
-                pip-dependency-file: requirements.txt
-                pkg-manager: pip
+          pip-dependency-file: requirements.txt
+          pkg-manager: pip
+          pypi-cache: false
       - python/install-packages:
           args: pytest
           pkg-manager: pip
