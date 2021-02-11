@@ -24,7 +24,7 @@ class DynamicDataTest(EquationBase, Item):
 class DynamicDataSystem(Subsystem):
     def __init__(self, tag, n=1):
         super().__init__(tag)
-        self.register_items(DynamicDataTest('tm1'))
+        self.register_items([DynamicDataTest('tm1')])
 
 
 if __name__ == "__main__":
@@ -36,6 +36,6 @@ if __name__ == "__main__":
     model = model.Model(DynamicDataSystem('system'),external_functions_source="external_data_functions")
     s = simulation.Simulation(model, t_start=0, t_stop=10.0, num=10, num_inner=10)
     s.solve()
-    s.model.historian_df['system.tm0.test_nm.T_i1'].plot()
+    s.model.historian_df['system.tm1.test_nm.T_i1'].plot()
     plt.show()
     plt.interactive(False)
