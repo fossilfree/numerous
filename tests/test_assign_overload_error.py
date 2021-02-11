@@ -26,11 +26,17 @@ class Item2(Item, EquationBase):
     def eval(self, scope):
         scope.T2 = 1
 
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests():
+    import shutil
+    shutil.rmtree('./tmp', ignore_errors=True)
+    yield
+
 
 @pytest.fixture
 def system1():
     class System(Subsystem, EquationBase):
-        def __init__(self, tag='system1', item1=object, item2=object):
+        def __init__(self, tag='system1_test_assign', item1=object, item2=object):
             super(System, self).__init__(tag)
             self.register_items([item1, item2])
 
@@ -40,5 +46,5 @@ def system1():
 # This tests if an error is raised upon overwriting Item1.t1.T1 with Item2.t1.T2
 def test_assign_overload_error(system1):
     with pytest.raises(ValueError, match=r".*Variable already have mapping.*"):
-        system1.get_item(ItemPath('system1.item1')).t1.T1 = system1.get_item(ItemPath('system1.item2')).t1.T2
-        system1.get_item(ItemPath('system1.item1')).t1.T1 += system1.get_item(ItemPath('system1.item2')).t1.T2
+        system1.get_item(ItemPath('system1_test_assign.item1')).t1.T1 = system1.get_item(ItemPath('system1_test_assign.item2')).t1.T2
+        system1.get_item(ItemPath('system1_test_assign.item1')).t1.T1 += system1.get_item(ItemPath('system1_test_assign.item2')).t1.T2

@@ -6,7 +6,7 @@ from numerous.engine.model.external_mappings import ExternalMappingElement
 from numerous.utils.data_loader import LocalDataLoader, InMemoryDataLoader
 from pytest import approx
 
-from model.external_mappings.interpolation_type import InterpolationType
+from numerous.engine.model.external_mappings.interpolation_type import InterpolationType
 from numerous.utils.callback_decorators import CallbackMethodType, NumbaCallback
 from numerous.utils.numba_callback import NumbaCallbackBase
 from numerous.engine.model import Model
@@ -16,6 +16,13 @@ from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoW
 from numerous import EquationBase, OutputFilter, Equation
 from numerous.engine.simulation.solvers.base_solver import solver_types
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
+
+
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests():
+    import shutil
+    shutil.rmtree('./tmp', ignore_errors=True)
+    yield
 
 
 @pytest.fixture
@@ -28,7 +35,7 @@ def test_eq1():
             self.add_state('T2', 0)
             self.add_state('T3', 0)
             self.add_state('T4', 0)
-            self.add_parameter('T_4', 0)
+            # self.add_parameter('T_4', 0)
             self.add_constant('TG', 10)
             self.add_constant('R1', 10)
             self.add_constant('R2', 5)
@@ -188,14 +195,16 @@ def ms3():
 
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_model_var_referencing(ms1, solver):
-    m1 = Model(ms1)
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_model_var_referencing(ms1, solver, use_llvm):
+    m1 = Model(ms1, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
     s1.solve()
     assert approx(list(m1.states_as_vector[::-1]), rel=0.01) == [2010, 1010, 510, 210]
 
 
 @pytest.mark.parametrize("solver", solver_types)
+@pytest.mark.skip(reason="Functionality not implemented in current version")
 def test_model_save_only_aliases(ms3, solver):
     of = OutputFilter(only_aliases=True)
     m1 = Model(ms3, historian_filter=of)
@@ -205,6 +214,7 @@ def test_model_save_only_aliases(ms3, solver):
 
 
 @pytest.mark.parametrize("solver", solver_types)
+@pytest.mark.skip(reason="Functionality not implemented in current version")
 def test_model_save_only_aliases2(ms3, solver):
     of = OutputFilter(only_aliases=True)
     m1 = Model(ms3, historian_filter=of)
@@ -226,10 +236,10 @@ def test_1_item_model(ms1):
 
 
 @pytest.mark.parametrize("solver", solver_types)
+@pytest.mark.skip(reason="Functionality not implemented in current version")
 def test_callback_step_item_model(ms1, solver):
-
     class SimpleCallback(NumbaCallbackBase):
-        def finalize(self,var_list):
+        def finalize(self, var_list):
             pass
 
         @NumbaCallback(method_type=CallbackMethodType.INITIALIZE)
@@ -238,9 +248,8 @@ def test_callback_step_item_model(ms1, solver):
 
         @NumbaCallback(method_type=CallbackMethodType.UPDATE, run_after_init=True)
         def update(self, time, variables):
-
             if variables['S1.test_item.t1.T2'] > 1000:
-                 raise ValueError("Overflow of state2")
+                raise ValueError("Overflow of state2")
 
     m1 = Model(ms1)
     m1.add_callback(SimpleCallback())
@@ -259,25 +268,28 @@ def test_add_item_twice_with_same_tag(ms2):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_chain_item_model(ms2, solver):
-    m1 = Model(ms2)
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_chain_item_model(ms2, solver, use_llvm):
+    m1 = Model(ms2, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_chain_item_binding_model_nested(ms3, solver):
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_chain_item_binding_model_nested(ms3, solver, use_llvm):
     ms4 = Subsystem('new_s')
     ms4.register_item(ms3)
-    m1 = Model(ms4)
+    m1 = Model(ms4, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_chain_item_binding_model_nested2(ms3, solver):
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_chain_item_binding_model_nested2(ms3, solver, use_llvm):
     ms4 = Subsystem('new_s4')
     ms4.register_item(ms3)
     ms5 = Subsystem('new_s5')
@@ -287,7 +299,7 @@ def test_chain_item_binding_model_nested2(ms3, solver):
     ms6.register_item(ms5)
     ms7 = Subsystem('new_s7')
     ms7.register_item(ms6)
-    m1 = Model(ms7)
+    m1 = Model(ms7, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     s1.solve()
     assert len(m1.path_variables) == 50
@@ -296,8 +308,9 @@ def test_chain_item_binding_model_nested2(ms3, solver):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_chain_item_binding_model(ms3, solver):
-    m1 = Model(ms3)
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_chain_item_binding_model(ms3, solver, use_llvm):
+    m1 = Model(ms3, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
@@ -331,33 +344,49 @@ class StaticDataSystem(Subsystem):
         # Register the items to the subsystem to make it recognize them.
         self.register_items(o_s)
 
+
 @pytest.mark.parametrize("solver", solver_types)
-def test_external_data(solver):
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_external_data(solver, use_llvm):
     external_mappings = []
 
     import pandas as pd
     import numpy as np
 
     data = {'time': np.arange(100),
-            'Dew Point Temperature {C}': np.arange(100)+1,
-            'Dry Bulb Temperature {C}': np.arange(100)+2,
+            'Dew Point Temperature {C}': np.arange(100) + 1,
+            'Dry Bulb Temperature {C}': np.arange(100) + 2,
             }
 
     df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
     index_to_timestep_mapping = 'time'
     index_to_timestep_mapping_start = 0
     dataframe_aliases = {
-        'system.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
-        'system.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE)
+        'system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
+        'system_external.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE)
     }
-    external_mappings.append( ExternalMappingElement
-        ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1, dataframe_aliases))
+    external_mappings.append(ExternalMappingElement
+                             ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
+                              dataframe_aliases))
     data_loader = InMemoryDataLoader(df)
     s = Simulation(
-        Model(StaticDataSystem('system', n=1), external_mappings=external_mappings,data_loader=data_loader),
+        Model(StaticDataSystem('system_external', n=1), use_llvm=use_llvm, external_mappings=external_mappings,
+              data_loader=data_loader),
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=solver
     )
     s.solve()
-    assert approx(np.array(s.model.historian_df['system.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
-    assert approx(np.array(s.model.historian_df['system.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:]+1
+    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
+    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
 
+
+@pytest.mark.parametrize("solver", solver_types)
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_static_system(solver, use_llvm):
+    import numpy as np
+    s = Simulation(
+        Model(StaticDataSystem('system_static', n=1), use_llvm=use_llvm),
+        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=solver
+    )
+    s.solve()
+    assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i1'])[1:]) == np.repeat(0, (100))
+    assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i2'])[1:]) == np.repeat(0, (100))

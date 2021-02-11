@@ -9,6 +9,12 @@ from numerous.engine.system import ConnectorItem, ConnectorTwoWay, Item, Subsyst
 from numerous.engine.simulation.solvers.base_solver import solver_types
 from tests.test_equations import TestEq_input, Test_Eq, TestEq_ground
 
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests():
+    import shutil
+    shutil.rmtree('./tmp', ignore_errors=True)
+    yield
+
 
 class I(ConnectorItem):
     def __init__(self, tag, P, T, R):
@@ -79,13 +85,14 @@ def filename():
 
 
 @pytest.mark.parametrize("solver", solver_types)
+@pytest.mark.skip(reason="Functionality not implemented in current version")
 def test_start_stop_model(filename, solver):
     def stop_callback(t, _):
         if t > 1:
             raise ValueError("Overflow of state2")
 
     hdf = HistoryDataFrame()
-    m1 = Model(S3('S3'), historian=hdf)
+    m1 = Model(S3('S3_sl'), historian=hdf)
 
     c1 = _SimulationCallback("test")
     c1.add_callback_function(stop_callback)
@@ -96,14 +103,14 @@ def test_start_stop_model(filename, solver):
     with pytest.raises(ValueError, match=r".*Overflow of state2.*"):
         s1.solve()
     hdf2 = HistoryDataFrame.load(filename)
-    m2 = Model(S3('S3'), historian=hdf2)
+    m2 = Model(S3('S3_sl2'), historian=hdf2)
     m2.restore_state()
 
     assert approx(m2.states_as_vector, rel=0.1) == [89.8, 3.9, 0.7, 3.3]
 
     s2 = Simulation(m2, t_start=0, t_stop=1, num=50, solver_type=solver)
     s2.solve()
-    m3 = Model(S3('S3'), historian=hdf)
+    m3 = Model(S3('S3_sl3'), historian=hdf)
 
     s3 = Simulation(m3, t_start=0, t_stop=2, num=100, solver_type=solver)
     s3.solve()

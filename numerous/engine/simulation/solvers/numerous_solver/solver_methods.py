@@ -16,6 +16,14 @@ class RK45(BaseMethod):
     def __init__(self, numerous_solver, **options):
 
         submethod=options['submethod']
+        profile = numerous_solver.numba_compiled_solver
+
+        def comp(fun):
+            if profile:
+                return njit(fun)
+            else:
+                # return options['lp'](fun)
+                return fun
 
         if submethod == None:
             submethod = 'RKDP45'
@@ -100,7 +108,7 @@ class RK45(BaseMethod):
         self.atol = options.get('atol', 1e-3)
         self.rtol = options.get('rtol', 1e-3)
 
-        @njit
+        @comp
         def Rk45(nm, t, dt, y, _not_used1, _not_used2, _solve_state):
 
             c = _solve_state[0]
@@ -190,9 +198,9 @@ class LevenbergMarquardt(BaseMethod):
         self.longer = options.get('longer', 1.2)
         self.shorter = options.get('longer', 0.8)
         lp = options.get('lp', None)
-        profile = False
-        if lp is not None:
-            profile = True
+        profile = numerous_solver.numba_compiled_solver
+        # if lp is not None:
+        #     profile = True
 
         eps = np.finfo(1.0).eps
         newton_tol = max(10 * eps / rel_tol, min(0.03, rel_tol ** 0.5))
@@ -207,10 +215,11 @@ class LevenbergMarquardt(BaseMethod):
 
 
         def comp(fun):
-            if not profile:
+            if profile:
                 return njit(fun)
             else:
-                return options['lp'](fun)
+                # return options['lp'](fun)
+                return fun
 
 
         @comp

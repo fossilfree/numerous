@@ -16,6 +16,9 @@ class VariableType(Enum):
     PARAMETER = 1
     STATE = 2
     DERIVATIVE = 3
+    PARAMETER_SET = 4
+    TMP_PARAMETER = 5
+    TMP_PARAMETER_SET = 6
 
 
 class OverloadAction(Enum):
@@ -45,7 +48,7 @@ class DetailedVariableDescription(VariableDescription):
 
 class MappedValue(object):
     def __init__(self, id):
-        self.id = id
+        self.id = str(id).replace("-","_")
         self.mapping = None
         self.sum_mapping = []
         self.special_mapping = False
@@ -102,6 +105,10 @@ class VariablePath:
     def __init__(self, tag, id):
 
         self.path = {id: tag}
+
+        ##
+        self.primary_path = tag
+
         self.used_id_pairs = []
 
     def __iter__(self):
@@ -111,9 +118,46 @@ class VariablePath:
         if not (current_id + new_id in self.used_id_pairs):
             if new_id in self.path:
                 self.path[new_id].extend([new_tag + '.' + x for x in self.path[current_id]])
+                self.primary_path = new_tag + '.' + self.path[current_id][-1]
             else:
                 self.path.update({new_id: [new_tag + '.' + x for x in self.path[current_id]]})
+                self.primary_path = new_tag + '.' + self.path[current_id][-1]
             self.used_id_pairs.append(current_id + new_id)
+
+
+class SetOfVariables:
+    def __init__(self, tag, item_tag, ns_tag):
+        self.tag = tag
+        self.id = "SET" + str(uuid.uuid4()).replace("-", "_")
+        self.variables = {}
+        self.mapping = []
+        self.sum_mapping = []
+        self.item_tag = item_tag
+        self.ns_tag = ns_tag
+        self.size = 0
+
+    def get_size(self):
+        return self.size
+
+    def get_path_dot(self):
+        result = list(self.variables.values())[0].get_path_dot()
+
+        return result[:result.find(self.item_tag)] + self.item_tag + "." + self.ns_tag + "." + self.tag
+
+    def add_variable(self, variable):
+        self.variables.update({variable.id: variable})
+        variable.set_var = self
+        if variable.sum_mapping:
+            self.sum_mapping.append(variable.sum_mapping)
+        if variable.mapping:
+            self.mapping.append(variable.mapping)
+        self.size += 1
+
+    def get_var_by_idx(self, i):
+        return next(var for var in self.variables.values() if var.set_var_ix == i)
+
+    def __iter__(self):
+        return iter(self.variables.values())
 
 
 class Variable(MappedValue):
@@ -126,7 +170,13 @@ class Variable(MappedValue):
         self.tag = detailed_variable_description.tag
         self.type = detailed_variable_description.type
         self.path = VariablePath([detailed_variable_description.tag], self.id)
+        self.paths = []
         self.alias = None
+        self.set_var = None
+        self.set_var_ix = None
+        self.set_namespace = None
+        self.size = 0
+
         if base_variable:
 
             self.value = base_variable.value
@@ -140,9 +190,25 @@ class Variable(MappedValue):
         self.logger_level = detailed_variable_description.logger_level
         self.associated_scope = []
         self.idx_in_scope = []
+        self.top_item = None
+
+    def get_path_dot(self):
+        return self.path.path[self.top_item][0]
 
     def update_value(self, value):
         self.value = value
+
+    def update_set_var(self, set_var, set_namespace):
+        if not self.set_var:
+            self.set_var = set_var
+            self.set_namespace = set_namespace
+            print('path: ', self.get_path_dot())
+            print('set_var: ', set_var)
+            print('ns: ', set_namespace.tag)
+        else:
+            if self.set_var != set_var:
+                print(self.set_var, ' ', set_var)
+                raise ValueError(f'Setvar for {self.id} already set!')
 
     @staticmethod
     def create(namespace, v_id, tag,

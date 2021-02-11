@@ -16,17 +16,18 @@ class Node:
 
     """
 
-    def __init__(self, tag=None, id=None):
-
+    def __init__(self, tag=None, id_=None):
+        if not isinstance(tag, str):
+            raise TypeError(f'Tag must be a string. Cannot be {type(tag)}')
         if tag:
             self.tag = tag
         else:
             self.tag = 'not_tagged'
-        if id is None:
+        if id_ is None:
             self.id = self.tag + str(uuid.uuid1())
         else:
             if self.id is None:
-                self.id = self.tag + uuid.UUID(id)
+                self.id = self.tag + uuid.UUID(id_)
         super(Node, self).__init__()
 
 

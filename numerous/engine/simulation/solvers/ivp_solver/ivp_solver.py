@@ -23,6 +23,7 @@ class IVP_solver(BaseSolver):
         self.diff_function = numba_model.func
         self.max_event_steps = max_event_steps
         self.options = kwargs
+        self.t = 0
 
     def solve(self):
         """
@@ -37,13 +38,13 @@ class IVP_solver(BaseSolver):
 
         try:
             for t in tqdm(self.time[0:-1]):
-                if self.solver_step(t):
+                if self.solver_step(self.delta_t):
                     break
         except Exception as e:
             print(e)
             raise e
 
-        return  self.sol,  self.result_status
+        return self.sol,  self.result_status
 
     def solver_step(self,t, delta_t=None):
         step_not_finished = True
@@ -54,18 +55,18 @@ class IVP_solver(BaseSolver):
             delta_t = self.delta_t
 
         stop_condition = False
+        t_end = t + delta_t
 
         while step_not_finished:
-            t_eval = np.linspace(current_timestamp, t + delta_t, self.num_inner + 1)
-
-            self.sol = solve_ivp(self.diff_function, (current_timestamp, t + delta_t), y0=self.y0, t_eval=t_eval,
+            t_eval = np.linspace(current_timestamp, t_end, self.num_inner + 1)
+            self.sol = solve_ivp(self.diff_function, (current_timestamp, t_end), y0=self.y0, t_eval=t_eval,
                             dense_output=False,
                             **self.options)
             step_not_finished = False
             event_step = self.sol.status == 1
 
             if self.sol.status == 0:
-                current_timestamp = t + delta_t
+                current_timestamp = t_end
                 if delta_t is not None: # added this
                     self.model.numba_model.historian_update(current_timestamp)
                     self.y0 = self.sol.y[:,-1]
@@ -82,9 +83,7 @@ class IVP_solver(BaseSolver):
                 if event_steps > self.max_event_steps:
                     stop_condition = True
                 current_timestamp = self.sol.t_events[event_id][0]
-
                 step_not_finished = True
-
                 self.__end_step(self, self.sol(current_timestamp), current_timestamp, event_id=event_id)
             else:
                 if self.sol.success:
@@ -93,6 +92,8 @@ class IVP_solver(BaseSolver):
                     self.result_status = self.sol.message
             if stop_condition:
                 break
+
+        self.t = t_end
         if stop_condition:
             self.result_status = "Stopping condition reached"
             return True

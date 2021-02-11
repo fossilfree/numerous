@@ -1,5 +1,6 @@
 import uuid
 from collections import deque
+import numpy as np
 
 from numerous.engine.variables import VariableBase, VariableDescription, VariableType
 
@@ -91,7 +92,7 @@ class EquationBase:
         -------
 
         """
-        if not isinstance(init_val, float) and not isinstance(init_val, int):
+        if not isinstance(init_val, float) and not isinstance(init_val, int) and not isinstance(init_val, np.int64):
             raise ValueError("State must be float or integer")
         self.add_variable(tag, init_val, VariableType.STATE, logger_level, alias)
         self.add_variable(tag + '_dot', 0, VariableType.DERIVATIVE, logger_level,

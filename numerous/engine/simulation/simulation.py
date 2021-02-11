@@ -15,7 +15,7 @@ class Simulation:
           time :  ndarray
                Not unique tag that will be used in reports or printed output.
           solver: :class:`BaseSolver`
-               Instance of differantial eqautions solver that will be used for the model.
+               Instance of differential equations solver that will be used for the model.
           delta_t :  float
                timestep.
           callbacks :  list
@@ -52,25 +52,27 @@ class Simulation:
             """
 
             """
+
             solver.y0 = y
 
             solver.numba_model.historian_update(t)
-            solver.numba_model.run_callbacks_with_updates(t)
+            # solver.numba_model.run_callbacks_with_updates(t)
             solver.numba_model.map_external_data(t)
 
             if solver.numba_model.is_store_required():
                 self.model.store_history(numba_model.historian_data)
                 solver.numba_model.historian_reinit()
-
+            #
             if solver.numba_model.is_external_data_update_needed(t):
                 solver.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
                 if solver.numba_model.is_external_data:
                     solver.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
                                                             self.model.external_mappings.external_mappings_time)
 
+        self.end_step = __end_step
         print("Generating Numba Model")
         generation_start = time.time()
-        numba_model = model.generate_numba_model(t_start, len(self.time))
+        numba_model = model.generate_compiled_model(t_start, len(self.time))
 
         generation_finish = time.time()
         print("Generation time: ", generation_finish - generation_start)
@@ -80,8 +82,9 @@ class Simulation:
                                      num_inner, max_event_steps, self.model.states_as_vector, **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
-            self.solver = Numerous_solver(time_, delta_t, model, numba_model,
-                                          num_inner, max_event_steps, self.model.states_as_vector, **kwargs)
+            self.solver = Numerous_solver(time_, delta_t,model,  numba_model,
+                                          num_inner, max_event_steps, self.model.states_as_vector,
+                                          numba_compiled_solver=model.use_llvm, **kwargs)
 
         self.solver.register_endstep(__end_step)
 
@@ -96,25 +99,46 @@ class Simulation:
         compilation_finished = time.time()
         print("Compilation time: ", compilation_finished - compilation_start)
 
+        self.compiled_model = numba_model
         # self.solver.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
         # self.callbacks = [x.callbacks for x in sorted(model.callbacks,
         #                                               key=lambda callback: callback.priority,
         #                                               reverse=True)]
 
     def solve(self):
-        self.__init_step()
+        self.reset()
+
         result_status = "not finished"
         try:
-            sol, result_status = self.solver.solve()
+            sol, self.result_status = self.solver.solve()
+
         except Exception as e:
             raise e
 
         finally:
-            self.info.update({"Solving status": result_status})
-            list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,
-                                                              self.model.path_variables), self.model.callbacks))
-            self.model.create_historian_df()
+            self.info.update({"Solving status": self.result_status})
+            self.complete()
         return sol
+
+    def reset(self):
+        self.__init_step()
+        self.model.numba_model.historian_reinit()
+
+        self.end_step(self.solver, self.model.numba_model.get_states(), 0)
+
+    def step(self, dt):
+        try:
+            stop = self.solver.solver_step(dt)
+        except Exception as e:
+            raise e
+
+        return stop
+
+    def complete(self):
+
+        list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,
+                                                          self.model.path_variables), self.model.callbacks))
+        self.model.create_historian_df()
 
     def step_solve(self, t, step_size):
         try:
