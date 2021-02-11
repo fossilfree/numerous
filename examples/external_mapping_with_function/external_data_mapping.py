@@ -22,18 +22,17 @@ class DynamicDataTest(EquationBase, Item):
         scope.T_i1 = h_test(scope.T1)
 
 class DynamicDataSystem(Subsystem):
-    def __init__(self, tag, n=1):
+    def __init__(self, tag):
         super().__init__(tag)
         self.register_items([DynamicDataTest('tm1')])
 
 
 if __name__ == "__main__":
     from numerous.engine import model, simulation
-    from time import time
     import pandas as pd
     from matplotlib import pyplot as plt
 
-    model = model.Model(DynamicDataSystem('system'),external_functions_source="external_data_functions")
+    model = model.Model(DynamicDataSystem('system'), imports=[("external_data_functions", "h_test")])
     s = simulation.Simulation(model, t_start=0, t_stop=10.0, num=10, num_inner=10)
     s.solve()
     s.model.historian_df['system.tm1.test_nm.T_i1'].plot()

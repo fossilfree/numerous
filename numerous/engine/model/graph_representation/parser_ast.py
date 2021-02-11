@@ -231,7 +231,7 @@ def function_from_graph_generic(g: Graph, name, var_def_):
 
 
 def compiled_function_from_graph_generic_llvm(g: Graph, name,  var_def_, imports,
-                                              external_functions_source=False, compiled_function=False):
+                                             compiled_function=False):
     func, signature, fname, r_args, r_targets = function_from_graph_generic_llvm(g, name, var_def_)
     if not compiled_function:
         return func, signature, r_args, r_targets
@@ -243,8 +243,6 @@ def compiled_function_from_graph_generic_llvm(g: Graph, name,  var_def_, imports
         body.append(ast.Import(names=[ast.alias(name=module, asname=name)], level=0))
     for (module, name) in imports.from_imports:
         body.append(ast.ImportFrom(module=module, names=[ast.alias(name=name, asname=None)], level=0))
-    if external_functions_source:
-        body.append(ast.ImportFrom(module=external_functions_source, names=[ast.alias(name='h_test', asname=None)], level=0))
     body.append(func)
     body.append(ast.Return(value=ast.Name(id=fname)))
 

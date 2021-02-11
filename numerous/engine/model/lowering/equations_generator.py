@@ -16,10 +16,9 @@ from numerous.utils.string_utils import d_u
 
 class EquationGenerator:
     def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations,
-                 temporary_variables, system_tag="", use_llvm=True, imports=None, external_functions_source=None):
+                 temporary_variables, system_tag="", use_llvm=True, imports=None):
         self.filename = filename
         self.imports = imports
-        self.external_functions_source = external_functions_source
         self.system_tag = system_tag
         self.scope_variables = scope_variables
         self.set_variables = {}
@@ -139,7 +138,6 @@ class EquationGenerator:
                     compiled_function_from_graph_generic_llvm(eq[2],
                                                               eq_key,
                                                               imports=self.imports,
-                                                              external_functions_source=self.external_functions_source,
                                                               var_def_=Vardef(llvm=self.llvm),
                                                               compiled_function=True)
                 self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
