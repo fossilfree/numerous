@@ -351,7 +351,7 @@ class LevenbergMarquardt(BaseMethod):
             update_L = _solve_state[6]
             jac_updates = _solve_state[7]
             longer = _solve_state[8]
-            shorter = _solve_state[8]
+            shorter = _solve_state[9]
 
             converged = False
             y = guess_init(yold, order, last_f, dt)

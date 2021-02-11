@@ -66,6 +66,10 @@ class IVP_solver(BaseSolver):
 
             if self.sol.status == 0:
                 current_timestamp = t + delta_t
+                if delta_t is not None: # added this
+                    self.model.numba_model.historian_update(current_timestamp)
+                    self.y0 = self.sol.y[:,-1]
+                    return current_timestamp, self.sol.t[-1]
             if event_step:
                 event_id = np.nonzero([x.size > 0 for x in self.sol.t_events])[0][0]
                 # solution stuck
