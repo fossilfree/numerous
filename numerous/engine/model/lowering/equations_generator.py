@@ -404,7 +404,7 @@ class EquationGenerator:
                                                                                                 dtype=np.int64), np.array(
                 deriv_idx, dtype=np.int64)
         else:
-            self.generated_program.generate(self.imports,     external_functions_source=self.external_functions_source, system_tag=self.system_tag)
+            self.generated_program.generate(self.imports, system_tag=self.system_tag)
             exec('from tmp.listings.' + self.system_tag + '_kernel import *', globals())
 
             def var_func():
