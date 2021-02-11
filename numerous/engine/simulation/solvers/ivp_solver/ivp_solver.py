@@ -38,7 +38,7 @@ class IVP_solver(BaseSolver):
 
         try:
             for t in tqdm(self.time[0:-1]):
-                if self.solver_step(self.delta_t):
+                if self.solver_step(t,self.delta_t):
                     break
         except Exception as e:
             print(e)
