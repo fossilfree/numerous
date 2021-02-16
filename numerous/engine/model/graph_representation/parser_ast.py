@@ -564,16 +564,6 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
 
                 parsed_eq[eq_key] = list(branches_)
 
-            if len(parsed_eq[eq_key]) > 0:
-                branches_values = {}
-                for b in parsed_eq[eq_key]:
-                    branches_values[b] = tag_vars_[b].value
-
-                    print(b, ': ', tag_vars_[b].value)
-
-                eq_key = eq_key + '_' + postfix_from_branches(branches_values)
-                print('branched eq key: ', eq_key)
-
             g = parsed_eq_branches[eq_key][2]
 
             ns_path = model_namespace.full_tag
