@@ -8,7 +8,6 @@ from numerous.engine.system import Subsystem, Item
 from numerous.multiphysics import EquationBase, Equation
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
-import matplotlib.pyplot as plt
 import numpy as np
 
 from numerous.engine.simulation.solvers.base_solver import solver_types

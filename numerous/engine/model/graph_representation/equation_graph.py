@@ -11,7 +11,6 @@ class TemporaryVar():
     def __init__(self, id, svi, tag, set_var, set_var_ix):
         self.id = id
         self.tag = tag + id
-        # self.set_namespace = svi.set_namespace
         self.parent_scope_id = svi.parent_scope_id
         self.scope_var_id = svi.id
         self.set_var = set_var
