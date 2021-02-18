@@ -1,5 +1,4 @@
 import logging
-from enum import Enum
 
 import numpy as np
 from numerous.engine.model.lowering.ast_builder import ASTBuilder
@@ -13,13 +12,12 @@ from numerous.engine.variables import VariableType
 from numerous.utils.string_utils import d_u
 
 
-
-
-
 class EquationGenerator:
-    def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations, temporary_variables,system_tag="", use_llvm=True):
+    def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations,
+                 temporary_variables, system_tag="", use_llvm=True, imports=None):
         self.filename = filename
-        self.system_tag=system_tag
+        self.imports = imports
+        self.system_tag = system_tag
         self.scope_variables = scope_variables
         self.set_variables = {}
         for k, var in temporary_variables.items():
@@ -117,26 +115,30 @@ class EquationGenerator:
             full_tag = d_u(sv.id)
             self._parse_variable(full_tag, sv, sv_id)
 
-    def get_external_function_name(self,ext_func):
+    def get_external_function_name(self, ext_func):
         if self.llvm:
             return self._llvm_func_name(ext_func)
         return ext_func
+
     def _llvm_func_name(self, ext_func):
         return ext_func + '_llvm1.<locals>.' + ext_func + '_llvm'
 
     def _parse_equations(self, equations):
         logging.info('make equations for compilation')
         for eq_key, eq in equations.items():
-            vardef = Vardef(llvm = self.llvm)
+            vardef = Vardef(llvm=self.llvm)
 
             func, args, target_ids = function_from_graph_generic(eq[2], eq_key, var_def_=vardef)
 
             eq[2].lower_graph = None
             if self.llvm:
-                func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(eq[2],
-                                                                                                   eq_key,
-                                                                                                   var_def_=Vardef(llvm=self.llvm),
-                                                                                                   compiled_function=True)
+                func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(
+                    eq[2],
+                    eq_key,
+                    imports=self.imports,
+                    var_def_=Vardef(llvm=self.llvm),
+                    compiled_function=True
+                )
                 self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
             else:
                 self.generated_program.add_external_function(func, None, len(args), target_ids)
@@ -209,7 +211,7 @@ class EquationGenerator:
             self.all_targeted += [scope_vars[t] for t in
                                   vardef.targets]
 
-        # Generate ast for this equation call
+        # Generate ast for this equation callcompiled_function_from_graph_generic_llvm
         if self.equation_graph.get(n, 'vectorized'):
 
             llvm_args = []
@@ -221,7 +223,8 @@ class EquationGenerator:
                 llvm_args.append(llvm_args_)
             ##reshape to correct format
             llvm_args = [list(x) for x in zip(*llvm_args)]
-            self.generated_program.add_set_call(self.get_external_function_name(ext_func), llvm_args, vardef.llvm_target_ids)
+            self.generated_program.add_set_call(self.get_external_function_name(ext_func), llvm_args,
+                                                vardef.llvm_target_ids)
         else:
             # Generate llvm arguments
             args = []
@@ -230,7 +233,6 @@ class EquationGenerator:
                     args.append(d_u(scope_vars[a]))
                 else:
                     args.append(a)
-
 
             # Add this eq to the llvm_program
             self.generated_program.add_call(self.get_external_function_name(ext_func), args, vardef.llvm_target_ids)
@@ -367,7 +369,7 @@ class EquationGenerator:
                                 mapping_dict[target_var] = [self.set_variables[var_name].get_var_by_idx(v[1]).id]
                         else:
                             raise ValueError(f'Variable  {var_name} mapping not found')
-            for k,v in mapping_dict.items():
+            for k, v in mapping_dict.items():
                 self.generated_program.add_mapping(v, [k])
 
     def generate_equations(self):
@@ -395,18 +397,21 @@ class EquationGenerator:
                 state_idx.append(v)
         if self.llvm:
             logging.info('generating llvm')
-            diff, var_func, var_write = self.generated_program.generate(system_tag=self.system_tag,save_opt=True)
+            diff, var_func, var_write = self.generated_program.generate(system_tag=self.system_tag, save_opt=True)
 
             return diff, var_func, var_write, self.values_order, self.scope_variables, np.array(state_idx,
                                                                                                 dtype=np.int64), np.array(
                 deriv_idx, dtype=np.int64)
         else:
-            self.generated_program.generate(system_tag=self.system_tag)
-            exec('from tmp.listings.'+self.system_tag+'_kernel import *', globals())
+            self.generated_program.generate(self.imports, system_tag=self.system_tag)
+            exec('from tmp.listings.' + self.system_tag + '_kernel import *', globals())
+
             def var_func():
                 return kernel_variables
-            def var_write(value,idx):
+
+            def var_write(value, idx):
                 np.put(kernel_variables, [idx], value)
+
             return global_kernel, var_func, var_write, self.values_order, self.scope_variables, np.array(state_idx,
-                                                                                                dtype=np.int64), np.array(
+                                                                                                         dtype=np.int64), np.array(
                 deriv_idx, dtype=np.int64)
