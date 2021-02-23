@@ -307,6 +307,21 @@ def postfix_from_branches(branches: dict):
     return "_".join(postfix)
 
 
+def parse_assign(value,target,ao, name, file, ln, g, tag_vars, prefix,branches):
+    m, start = parse_(value, name, file, ln, g, tag_vars, prefix, branches=branches)
+    mapped, end = parse_(target, name, file, ln, g, tag_vars, prefix, branches=branches)
+
+    en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
+                    ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
+                    ast_op=ast.Add() if mapped else None)
+    g.add_edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy())
+    if isinstance(start, list):
+        for s in start:
+            g.add_edge(start=s[0], end=en, e_type=EdgeType.VALUE, branches=s[1])
+    else:
+        g.add_edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy())
+    return en
+
 def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
     en = None
     is_mapped = None
@@ -326,29 +341,39 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
 
         assert len(ao.targets) == 1, 'Can only parse assignments with one target'
 
-        target = ao.targets[0]
-
         # Check if attribute
-        if isinstance(ao.targets[0], ast.Attribute) or isinstance(ao.targets[0], ast.Name):
-
-            att = recurse_Attribute(ao.targets[0])
-            target_id = att
-
+        if isinstance(ao.targets[0], ast.Attribute) or isinstance(ao.targets[0], ast.Name) or isinstance(ao.targets[0],ast.Tuple):
+            pass
         else:
             raise AttributeError('Unknown type of target: ', type(ao.targets[0]))
+        if isinstance(ao.targets[0],ast.Tuple) and isinstance(ao.value, ast.Tuple):
+            for i,_ in enumerate(ao.value.elts):
+                en = parse_assign(ao.value.elts[i], ao.targets[0].elts[i], ao, name, file, ln, g, tag_vars, prefix, branches)
+        elif isinstance(ao.targets[0], ast.Tuple):
 
-        m, start = parse_(ao.value, name, file, ln, g, tag_vars, prefix, branches=branches)
-        mapped, end = parse_(ao.targets[0], name, file, ln, g, tag_vars, prefix, branches=branches)
+            m, start = parse_(ao.value, name, file, ln, g, tag_vars, prefix, branches=branches)
+            mapped = False
+            en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
+                            ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
+                            ast_op=ast.Add() if mapped else None)
+            g.add_edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy())
+            for sa in ao.targets[0].elts:
+                mapped, end = parse_(sa, name, file, ln, g, tag_vars, prefix, branches=branches)
+                g.add_edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy())
 
-        en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
-                        ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
-                        ast_op=ast.Add() if mapped else None)
-        target_edge = g.add_edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy())
-        if isinstance(start, list):
-            for s in start:
-                value_edge = g.add_edge(start=s[0], end=en, e_type=EdgeType.VALUE, branches=s[1])
+        elif isinstance(ao.value, ast.Tuple):
+            mapped, end = parse_(ao.targets[0], name, file, ln, g, tag_vars, prefix, branches=branches)
+
+            en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
+                            ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
+                            ast_op=ast.Add() if mapped else None)
+
+            g.add_edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy())
+            for sa in ao.value.elts:
+                m, start = parse_(sa, name, file, ln, g, tag_vars, prefix, branches=branches)
+                g.add_edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy())
         else:
-            value_edge = g.add_edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy())
+            en = parse_assign(ao.value, ao.targets[0], ao, name, file, ln, g, tag_vars, prefix, branches)
 
     elif isinstance(ao, ast.Num):
         # Constant
@@ -401,8 +426,8 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
         en = g.add_node(ao=ao, file=file, name=name, ln=ln, label=op_name, func=ao.func, ast_type=ast.Call,
                         node_type=NodeTypes.OP)
 
-        for i, sa in enumerate(ao.args):
-            m, start = parse_(ao.args[i], name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
+        for sa in ao.args:
+            m, start = parse_(sa, name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
             g.add_edge(start=start, end=en, e_type=EdgeType.ARGUMENT, branches=branches.copy())
 
 
@@ -430,6 +455,39 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
             m, start = parse_(sa, name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
             edge_i = g.add_edge(start=start, end=en, label=f'comp{i}', e_type=EdgeType.COMP, branches=branches)
 
+    elif isinstance(ao, ast.If):
+        new_branch = None
+        if isinstance(ao.test, ast.Attribute):
+            source_id = recurse_Attribute(ao.test)
+
+            if source_id[:6] == 'scope.':
+                scope_var = tag_vars[source_id[6:]]
+                tag_vars[source_id[6:]].used_in_equation_graph = True
+
+                if scope_var.type == VariableType.CONSTANT:
+                    new_branch = scope_var.tag
+                    branches_t = deepcopy(branches)
+                    branches_t[new_branch] = True
+                    m_t, start_t = parse_(getattr(ao, 'body'), name, file, ln, g, tag_vars, prefix, branches=branches_t)
+
+                    branches_f = deepcopy(branches)
+                    branches_f[new_branch] = False
+
+                    m_f, start_f = parse_(getattr(ao, 'orelse'), name, file, ln, g, tag_vars, prefix,
+                                          branches=branches_f)
+
+                    return [m_t, m_f], [(start_t, branches_t), (start_f, branches_f)]
+
+        en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='if_st', ast_type=ast.If, node_type=NodeTypes.OP)
+        for a in ['body', 'orelse', 'test']:
+            if isinstance(getattr(ao, a),list):
+                for a_ in getattr(ao, a):
+                    m, start = parse_(a_, name, file, ln, g, tag_vars, prefix, branches=branches)
+                    operand_edge = g.add_edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches)
+            else:
+                m, start = parse_(a_, name, file, ln, g, tag_vars, prefix, branches=branches)
+                operand_edge = g.add_edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches)
+
     elif isinstance(ao, ast.IfExp):
         new_branch = None
         if isinstance(ao.test, ast.Attribute):
@@ -456,9 +514,9 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
 
         en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='if_exp', ast_type=ast.IfExp, node_type=NodeTypes.OP)
         for a in ['body', 'orelse', 'test']:
-            m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix, branches=branches)
+                m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix, branches=branches)
 
-            operand_edge = g.add_edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches)
+                operand_edge = g.add_edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches)
 
     else:
         raise TypeError('Cannot parse <' + str(type(ao)) + '>')
