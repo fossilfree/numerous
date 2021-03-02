@@ -1,6 +1,5 @@
 import pytest
 
-from test_imports.test_external_mapping_with_function.external_data_functions import h_test
 from numerous.multiphysics.equation_decorators import Equation
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
