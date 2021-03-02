@@ -36,7 +36,7 @@ class IfSystem(Subsystem):
 
 @pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True,False])
-def test_single_if_statement(solver, use_llvm):
+def test_external_if_statement(solver, use_llvm):
     model_ = model.Model(IfSystem('if_system', IfTest('tm1')), use_llvm=use_llvm,imports=[("external_import_else_if", "h_test")])
     s = simulation.Simulation(model_, solver_type=solver, t_start=0, t_stop=10.0, num=10, num_inner=10)
     s.solve()
