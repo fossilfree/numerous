@@ -138,40 +138,24 @@ def node_to_ast(n: int, g: EquationGraph, var_def, read=True):
         raise
 
 
-def function_from_graph(g: Graph, name, decorators=[
-    ast.Call(func=ast.Name(id='njit'), args=[ast.Str(s='void(float64[:])')], keywords={})]):
-    lineno_count = 1
-
-    top_nodes = g.topological_nodes()
-    var_def_ = Vardef()
-    var_def = var_def_.var_def
-
-    body = []
-    targets = []
-    for n in top_nodes:
-        lineno_count += 1
-
-        if (na := g.get(n, 'ast_type')) == ast.Assign or na == ast.AugAssign:
-            # n[1].id = n[0]
-            value_node = g.nodes_map[g.edges_end(n, label='value', max=1)[0][0]]
-            value_ast = node_to_ast(value_node, g, var_def)
-
-            target_node = g.nodes_map[g.edges_start(n, label='target0', max=1)[0][1]]
-            target_ast = node_to_ast(target_node, g, var_def)
-
-            if value_ast and target_ast:
-                if n[1].ast_type == ast.Assign or target_node not in targets:
-                    targets.append(target_node)
-                    ast_assign = ast.Assign(targets=[target_ast], value=value_ast)
-                else:
-                    ast_assign = ast.AugAssign(target=target_ast, value=value_ast, op=ast.Add())
-                body.append(ast_assign)
-
-    args = dot_dict(args=[ast.Name(id='l')], vararg=None, defaults=[], kwarg=None)
-
-    func = wrap_function(name, body, decorators=decorators, args=args)
-
-    return func, var_def_.vars_inds_map
+def process_assign_node(target_nodes,g,var_def,value_ast,na,targets):
+    if len(target_nodes)>1:
+        target_ast = []
+        for target_node in target_nodes:
+            target_ast.append(node_to_ast(target_node[1], g, var_def, read=False))
+            targets.append(target_node[1])
+        ast_assign = ast.Assign(targets=[ast.Tuple(elts=target_ast)], value=value_ast)
+        return ast_assign
+    else:
+        target_node =target_nodes[0][1]
+        target_ast = node_to_ast(target_node, g, var_def, read=False)
+        if value_ast and target_ast:
+            if na == ast.Assign or target_node not in targets:
+                targets.append(target_node)
+                ast_assign = ast.Assign(targets=[target_ast], value=value_ast)
+            else:
+                ast_assign = ast.AugAssign(target=target_ast, value=value_ast, op=ast.Add())
+            return ast_assign
 
 
 def function_from_graph_generic(g: Graph, name, var_def_):
@@ -187,23 +171,11 @@ def function_from_graph_generic(g: Graph, name, var_def_):
         lineno_count += 1
 
         if (at := g.get(n, 'ast_type')) == ast.Assign or at == ast.AugAssign:
-            # n[1].id = n[0]
-            # value_node = g.nodes_map[g.edges_end(n, label='value',max=1)[0][0]]
 
             value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE)[1][0][0]
 
             value_ast = node_to_ast(value_node, g, var_def)
-
-            target_node = g.get_edges_for_node_filter(start_node=n, attr='e_type', val=EdgeType.TARGET)[1][0][1]
-            target_ast = node_to_ast(target_node, g, var_def, read=False)
-
-            if value_ast and target_ast:
-                if (na := g.get(n, 'ast_type')) == ast.Assign or target_node not in targets:
-                    targets.append(target_node)
-                    ast_assign = ast.Assign(targets=[target_ast], value=value_ast)
-                else:
-                    ast_assign = ast.AugAssign(target=target_ast, value=value_ast, op=ast.Add())
-                body.append(ast_assign)
+            body.append(process_assign_node(g.get_edges_for_node_filter(start_node=n, attr='e_type', val=EdgeType.TARGET)[1],g,var_def,value_ast,at,targets))
     var_def_.order_variables(g.arg_metadata)
     if (l := len(var_def_.get_targets())) > 1:
         return_ = ast.Return(value=ast.Tuple(elts=var_def_.get_order_trgs()))
@@ -266,20 +238,11 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
         lineno_count += 1
 
         if (na := g.get(n, 'ast_type')) == ast.Assign or na == ast.AugAssign:
-            # n[1].id = n[0]
+
             value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE)[1][0][0]
             value_ast = node_to_ast(value_node, g, var_def)
 
-            target_node = g.get_edges_for_node_filter(start_node=n, attr='e_type', val=EdgeType.TARGET)[1][0][1]
-            target_ast = node_to_ast(target_node, g, var_def, read=False)
-
-            if value_ast and target_ast:
-                if na == ast.Assign or target_node not in targets:
-                    targets.append(target_node)
-                    ast_assign = ast.Assign(targets=[target_ast], value=value_ast)
-                else:
-                    ast_assign = ast.AugAssign(target=target_ast, value=value_ast, op=ast.Add())
-                body.append(ast_assign)
+            body.append(process_assign_node(g.get_edges_for_node_filter(start_node=n, attr='e_type', val=EdgeType.TARGET)[1], g, var_def, value_ast, na, targets))
 
     var_def_.order_variables(g.arg_metadata)
     args = dot_dict(args=var_def_.get_order_args(), vararg=None, defaults=[], kwarg=None)
@@ -339,8 +302,6 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
 
     elif isinstance(ao, ast.Assign):
 
-        assert len(ao.targets) == 1, 'Can only parse assignments with one target'
-
         # Check if attribute
         if isinstance(ao.targets[0], ast.Attribute) or isinstance(ao.targets[0], ast.Name) or isinstance(ao.targets[0],ast.Tuple):
             pass
@@ -350,17 +311,18 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
             for i,_ in enumerate(ao.value.elts):
                 en = parse_assign(ao.value.elts[i], ao.targets[0].elts[i], ao, name, file, ln, g, tag_vars, prefix, branches)
         elif isinstance(ao.targets[0], ast.Tuple):
-
-            m, start = parse_(ao.value, name, file, ln, g, tag_vars, prefix, branches=branches)
-            mapped = False
-            en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
-                            ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
-                            ast_op=ast.Add() if mapped else None)
-            g.add_edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy())
-            for sa in ao.targets[0].elts:
-                mapped, end = parse_(sa, name, file, ln, g, tag_vars, prefix, branches=branches)
-                g.add_edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy())
-
+            if isinstance(ao.value,ast.Call):
+                m, start = parse_(ao.value, name, file, ln, g, tag_vars, prefix, branches=branches)
+                mapped = False
+                en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
+                                ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGNTUPLE,
+                                ast_op=ast.Add() if mapped else None)
+                g.add_edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy())
+                for sa in ao.targets[0].elts:
+                    mapped, end = parse_(sa, name, file, ln, g, tag_vars, prefix, branches=branches)
+                    g.add_edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy())
+            else:
+                raise AttributeError('Assigning to tuple is not supported: ', type(ao.targets[0]))
         elif isinstance(ao.value, ast.Tuple):
             mapped, end = parse_(ao.targets[0], name, file, ln, g, tag_vars, prefix, branches=branches)
 
