@@ -23,6 +23,7 @@ class NodeTypes(IntEnum):
     EQUATION = 3
     SUM = 4
     TMP = 5
+    ASSIGNTUPLE = 6
 
 def recurse_Attribute(attr, sep='.'):
         if hasattr(attr, 'id'):

@@ -315,7 +315,6 @@ class Graph:
 
             self.cyclic_dependency = self.lower_graph.cyclic_dependency
             raise ValueError('Cyclic path detected: ', self.cyclic_path)
-
         return self.lower_graph.topological_sorted_nodes
 
     def get_dependants_graph(self, node):
