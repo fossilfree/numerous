@@ -508,9 +508,9 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
              parsed_eq_branches, scoped_equations, parsed_eq):
     for m in model_namespace.equation_dict.values():
         for eq in m:
-            eq_key = "EQ_" + (eq.id + model_namespace.full_tag).replace(".", "_").replace("-", "_")
-
-            if not eq_key in parsed_eq:
+            eq_key = "EQ_" + eq.id.replace(".", "_").replace("-", "_")
+            is_parsed_eq = eq_key in parsed_eq
+            if not is_parsed_eq:
                 dsource = eq.lines
 
                 tries = 0
@@ -566,7 +566,7 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
                 else:
                     parsed_eq_branches[eq_key] = (eq, dsource, g, {})
 
-                parsed_eq[eq_key] = list(branches_)
+                parsed_eq[eq_key] =list(branches_)
 
             g = parsed_eq_branches[eq_key][2]
 
@@ -623,12 +623,13 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
                                 sv := g_qualified.get(n, 'scope_var')) else 'local')
                         except StopIteration:
                             pass
-            for sv in scope_variables:
-                if scope_variables[sv].used_in_equation_graph:
-                    g.arg_metadata.append((sv, scope_variables[sv].used_in_equation_graph))
-                    scope_variables[sv].used_in_equation_graph = False
-                else:
-                    g.arg_metadata.append((scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
+            if not is_parsed_eq:
+                for sv in scope_variables:
+                    if scope_variables[sv].used_in_equation_graph:
+                        g.arg_metadata.append((sv, scope_variables[sv].used_in_equation_graph))
+                        scope_variables[sv].used_in_equation_graph = False
+                    else:
+                        g.arg_metadata.append((scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
 
 
 def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):

@@ -2,8 +2,6 @@ import ast
 from enum import IntEnum, unique
 
 
-
-
 class TemporaryKeyGenerator:
     def __init__(self):
         self.tmp_ = 0
@@ -11,7 +9,6 @@ class TemporaryKeyGenerator:
     def generate(self):
         self.tmp_ += 1
         return f'tmp{self.tmp_}'
-
 
 
 class Vardef:
@@ -28,26 +25,27 @@ class Vardef:
 
 @unique
 class EdgeType(IntEnum):
-    TARGET=0
-    ARGUMENT=1
-    MAPPING=2
-    UNDEFINED=3
-    OPERAND=4
-    TMP=5
-    VALUE=6
-    LEFT=7
-    RIGHT=8
+    TARGET = 0
+    ARGUMENT = 1
+    MAPPING = 2
+    UNDEFINED = 3
+    OPERAND = 4
+    TMP = 5
+    VALUE = 6
+    LEFT = 7
+    RIGHT = 8
     BODY = 9
-    ORELSE =10
-    TEST=11
-    COMP=12
+    ORELSE = 10
+    TEST = 11
+    COMP = 12
+
 
 def str_to_edgetype(a):
     if a == "left":
         return EdgeType.LEFT
     if a == "right":
         return EdgeType.RIGHT
-    if a =='body':
+    if a == 'body':
         return EdgeType.BODY
     if a == 'orelse':
         return EdgeType.ORELSE
