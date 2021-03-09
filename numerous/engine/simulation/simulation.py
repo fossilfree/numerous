@@ -109,15 +109,11 @@ class Simulation:
         self.reset()
 
         result_status = "not finished"
-        try:
-            sol, self.result_status = self.solver.solve()
 
-        except Exception as e:
-            raise e
+        sol, self.result_status = self.solver.solve()
 
-        finally:
-            self.info.update({"Solving status": self.result_status})
-            self.complete()
+        self.info.update({"Solving status": self.result_status})
+        self.complete()
         return sol
 
     def reset(self):
