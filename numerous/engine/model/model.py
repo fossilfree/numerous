@@ -758,32 +758,31 @@ class Model:
         for i, var in enumerate(self.vars_ordered_values):
             data.update({self.scope_variables[var].path.primary_path: historian_data[i + 1]})
         ## solve for 1 to n
-        return AliasedDataFrame(data, aliases=self.aliases, rename_columns=rename_columns)
+        return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
 
 
 class AliasedDataFrame(pd.DataFrame):
     _metadata = ['aliases']
 
-    def __init__(self, data, aliases={}, rename_columns=False):
+    def __init__(self, data, aliases={}, rename_columns=True):
         super().__init__(data)
         self.aliases = aliases
         self.rename_columns = rename_columns
-        # if self.rename_columns:
-        #     aliases_reversed = {v: k for k, v in self.aliases.items()}
-        #     tmp = copy(list(data.keys()))
-        #     for key in tmp:
-        #         if key in aliases_reversed.keys():
-        #             data[aliases_reversed[key]] = data.pop(key)
-        #     super().__init__(data)
+        if self.rename_columns:
+            tmp = copy(list(data.keys()))
+            for key in tmp:
+                if key in self.aliases.keys():
+                    data[self.aliases[key]] = data.pop(key)
+            super().__init__(data)
 
-    # def __getitem__(self, item):
-    #     if not self.rename_columns:
-    #         if not isinstance(item, list):
-    #             col = self.aliases[item] if item in self.aliases else item
-    #             return super().__getitem__(col)
-    #
-    #         cols = [self.aliases[i] if i in self.aliases else i for i in item]
-    #
-    #         return super().__getitem__(cols)
-    #     else:
-    #         return super().__getitem__(item)
+    def __getitem__(self, item):
+        if  self.rename_columns:
+            if not isinstance(item, list):
+                col = self.aliases[item] if item in self.aliases else item
+                return super().__getitem__(col)
+
+            cols = [self.aliases[i] if i in self.aliases else i for i in item]
+
+            return super().__getitem__(cols)
+        else:
+            return super().__getitem__(item)
