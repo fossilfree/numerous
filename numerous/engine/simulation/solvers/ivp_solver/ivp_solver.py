@@ -39,6 +39,7 @@ class IVP_solver(BaseSolver):
             for t in tqdm(self.time[0:-1]):
                 if self.solver_step(t):
                     break
+
         except Exception as e:
             print(e)
             raise e
@@ -49,9 +50,11 @@ class IVP_solver(BaseSolver):
         step_not_finished = True
         current_timestamp = t
         event_steps = 0
-
+        step_solver_mode = False
         if delta_t is None:
             delta_t = self.delta_t
+        else:
+            step_solver_mode = True
 
         stop_condition = False
 
@@ -66,7 +69,7 @@ class IVP_solver(BaseSolver):
 
             if self.sol.status == 0:
                 current_timestamp = t + delta_t
-                if delta_t is not None: # added this
+                if step_solver_mode: # added this
                     self.model.numba_model.historian_update(current_timestamp)
                     self.y0 = self.sol.y[:,-1]
                     return current_timestamp, self.sol.t[-1]
