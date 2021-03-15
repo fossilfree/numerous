@@ -251,6 +251,7 @@ class CompiledModel:
 
             it += 1
             if it > itermax:
+                self.scope_vars_3d = prev_scope_vars_3d.copy()
                 raise Exception("maximum number of iterations has been reached")
             prev_scope_vars_3d = np.copy(self.scope_vars_3d)
 
