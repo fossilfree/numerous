@@ -58,7 +58,6 @@ class EquationGenerator:
 
         self.values_order = {}
 
-        self.vars_node_id = {}
         self.scope_var_node = {}
         self.scalar_variables = {}
 
@@ -95,8 +94,6 @@ class EquationGenerator:
         self.all_read_set_vars = []
 
     def _parse_variable(self, full_tag, sv, sv_id):
-        if not sv_id in self.vars_node_id:
-            self.vars_node_id[full_tag] = full_tag
 
         if full_tag not in self.scope_var_node:
             self.scope_var_node[full_tag] = sv
