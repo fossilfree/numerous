@@ -20,6 +20,16 @@ class EquationGenerator:
         self.system_tag = system_tag
         self.scope_variables = scope_variables
         self.set_variables = {}
+        self.states = []
+        self.deriv = []
+
+        for ix, (sv_id, sv) in enumerate(self.scope_variables.items()):
+            full_tag = d_u(sv.id)
+            if sv.type == VariableType.STATE:
+                self.states.append(full_tag)
+            elif sv.type == VariableType.DERIVATIVE:
+                self.deriv.append(full_tag)
+
         for k, var in temporary_variables.items():
             if var.type == VariableType.TMP_PARAMETER_SET:
                 self.set_variables.update({k: var})
@@ -46,9 +56,6 @@ class EquationGenerator:
         self.scoped_equations = scoped_equations
         self.temporary_variables = temporary_variables
 
-        self.states = []
-
-        self.deriv = []
         self.values_order = {}
 
         self.vars_node_id = {}
@@ -93,11 +100,6 @@ class EquationGenerator:
 
         if full_tag not in self.scope_var_node:
             self.scope_var_node[full_tag] = sv
-
-        if sv.type == VariableType.STATE:
-            self.states.append(self.vars_node_id[full_tag])
-        elif sv.type == VariableType.DERIVATIVE:
-            self.deriv.append(self.vars_node_id[full_tag])
 
         # If a scope_variable is part of a set it should be referenced alone
         if sv.set_var:

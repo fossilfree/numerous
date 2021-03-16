@@ -152,27 +152,6 @@ class Graph:
 
         return zip(np.argwhere(end_ix), end_)
 
-    """
-        def get_edges_for_node_filter(self, attr, start_node=None, end_node=None, val=None):
-            if start_node and end_node:
-                raise ValueError('arg cant have both start and end!')
-            
-            if not start_node is None:
-                ix = np.argwhere(self.edges[:,0] == start_node)
-    
-    
-            if not end_node is None:
-                ix = np.argwhere(self.edges[:, 1] == end_node)
-    
-            if start_node is None and end_node is None:
-                print(end_node)
-                print(start_node)
-                raise ValueError('Need at least one node!')
-    
-            ix = [i[0] for i in ix if self.edges_attr[attr][i[0]] == val]
-    
-            return ix, [self.edges[i,:] for i in ix]
-    """
 
     def get_edges_for_node_filter(self, attr, start_node=None, end_node=None, val=None):
         if start_node and end_node:
@@ -182,11 +161,9 @@ class Graph:
             self.build_node_edges()
 
         if not start_node is None:
-            # ix = np.argwhere(self.edges[:, 0] == start_node)
             ix = self.node_edges[start_node][0]
 
         if not end_node is None:
-            # ix = np.argwhere(self.edges[:, 1] == end_node)
             ix = self.node_edges[end_node][1]
 
         if start_node is None and end_node is None:
@@ -204,8 +181,6 @@ class Graph:
     def has_edge_for_nodes(self, start_node=None, end_node=None):
 
         if start_node and end_node:
-            # return [start_node, end_node] in self.edges[:]
-            # return np.where((self.edges[:self.edge_counter] == (start_node, end_node)).all(axis=1))
             return np.where(
                 (self.edges[:self.edge_counter, 0] == start_node) & (self.edges[:self.edge_counter, 1] == end_node))[0]
 
