@@ -45,13 +45,15 @@ class IVP_solver(BaseSolver):
 
         return  self.sol,  self.result_status
 
-    def solver_step(self,t, delta_t=None):
+    def solver_step(self, t, delta_t=None):
         step_not_finished = True
         current_timestamp = t
         event_steps = 0
-
+        step_solver_mode = False
         if delta_t is None:
             delta_t = self.delta_t
+        else:
+            step_solver_mode = True
 
         stop_condition = False
 
@@ -59,16 +61,16 @@ class IVP_solver(BaseSolver):
             t_eval = np.linspace(current_timestamp, t + delta_t, self.num_inner + 1)
 
             self.sol = solve_ivp(self.diff_function, (current_timestamp, t + delta_t), y0=self.y0, t_eval=t_eval,
-                            dense_output=False,
-                            **self.options)
+                                 dense_output=False,
+                                 **self.options)
             step_not_finished = False
             event_step = self.sol.status == 1
 
             if self.sol.status == 0:
                 current_timestamp = t + delta_t
-                if delta_t is not None: # added this
+                if step_solver_mode:  # added this
                     self.model.numba_model.historian_update(current_timestamp)
-                    self.y0 = self.sol.y[:,-1]
+                    self.y0 = self.sol.y[:, -1]
                     return current_timestamp, self.sol.t[-1]
             if event_step:
                 event_id = np.nonzero([x.size > 0 for x in self.sol.t_events])[0][0]
