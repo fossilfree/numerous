@@ -134,6 +134,12 @@ class CompiledModel:
 
         return np.array(result, dtype=np.float64)
 
+    def get_scope3d(self):
+        return self.scope_vars_3d
+
+    def set_scope3d(self, scope3d):
+        self.scope_vars_3d = scope3d
+
     def map_external_data(self, t):
         for i in range(self.number_of_external_mappings):
             df_indx = self.external_df_idx[i][0]
@@ -245,6 +251,7 @@ class CompiledModel:
 
             it += 1
             if it > itermax:
+                self.scope_vars_3d = prev_scope_vars_3d.copy()
                 raise Exception("maximum number of iterations has been reached")
             prev_scope_vars_3d = np.copy(self.scope_vars_3d)
 

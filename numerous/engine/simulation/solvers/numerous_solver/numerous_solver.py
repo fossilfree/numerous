@@ -62,7 +62,7 @@ class Numerous_solver(BaseSolver):
                 #return {'step_info': 1, 'dt': dt, 't': t, 'y':y, 'order': order }
                 return 1, dt, t, y, order
             t_start = t
-            t_previous = 0
+            t_previous = t0
             y_previous = np.copy(y)
 
             order_ = 0

@@ -39,7 +39,6 @@ class IVP_solver(BaseSolver):
             for t in tqdm(self.time[0:-1]):
                 if self.solver_step(t):
                     break
-
         except Exception as e:
             print(e)
             raise e
