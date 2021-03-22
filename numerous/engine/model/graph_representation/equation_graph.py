@@ -18,6 +18,7 @@ class TemporaryVar():
         self.value = svi.value
         self.type = VariableType.TMP_PARAMETER
         self.path = svi.path
+        self.item = svi.item
 
     def get_path_dot(self):
         return self.tag

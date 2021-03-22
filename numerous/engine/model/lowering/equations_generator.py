@@ -12,6 +12,8 @@ from numerous.engine.variables import VariableType
 from numerous.utils.string_utils import d_u
 
 
+
+
 class EquationGenerator:
     def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations,
                  temporary_variables, system_tag="", use_llvm=True, imports=None):
@@ -146,12 +148,20 @@ class EquationGenerator:
             vardef.args_order = args
             self.eq_vardefs[eq_key] = vardef
 
+    def search_in_item_scope(self, var_id, item_id):
+        for var in self.scope_variables.values():
+            ##TODO add namespacecheck
+            if var.item.id == item_id and var.tag == self.scope_variables[var_id].tag:
+                return var.id
+        raise ValueError("No variable found for id {}", var_id)
+
     def _process_equation_node(self, n):
 
         eq_key = self.scoped_equations[self.equation_graph.key_map[n]]
 
         # Define the function to call for this eq
         ext_func = recurse_Attribute(self.equation_graph.get(n, 'func'))
+        item_id = self.equation_graph.get(n, 'item_id')
 
         vardef = self.eq_vardefs[eq_key]
 
@@ -227,11 +237,12 @@ class EquationGenerator:
         else:
             # Generate llvm arguments
             args = []
+
             for a in vardef.args_order:
                 if a in scope_vars:
                     args.append(d_u(scope_vars[a]))
                 else:
-                    args.append(a)
+                    args.append(self.search_in_item_scope(a,item_id))
 
             # Add this eq to the llvm_program
             self.generated_program.add_call(self.get_external_function_name(ext_func), args, vardef.llvm_target_ids)

@@ -310,7 +310,7 @@ class Model:
                 else:
                     tag_vars = {v.tag: v for k, v in ns[1][0].variables.items()}
 
-                parse_eq(model_namespace=ns[1][0], equation_graph=self.eg, nodes_dep=nodes_dep,
+                parse_eq(model_namespace=ns[1][0], item_id=ns[0],  equation_graph=self.eg, nodes_dep=nodes_dep,
                          scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
                          scoped_equations=self.scoped_equations, parsed_eq=self.equations_top)
 
