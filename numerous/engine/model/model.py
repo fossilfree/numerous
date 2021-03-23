@@ -535,7 +535,6 @@ class Model:
         state_values : array of state values
 
         """
-        # return self.scope_vars_3d[self.state_idxs_3d]
         return self.var_func()[self.state_idx]
 
     def get_variable_path(self, id, item):
