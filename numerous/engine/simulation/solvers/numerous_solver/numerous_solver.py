@@ -337,8 +337,11 @@ class Numerous_solver(BaseSolver):
 
         order = self._method.order
 
+
+
         initial_step = self.select_initial_step(self.numba_model, t_start, y0, 1, order - 1, rtol,
                                                 atol)  # np.min([100000000*min_step, max_step])
+        print("initial step", initial_step)
 
         strict_eval = self.method_options.get('strict_eval')
         outer_itermax = self.method_options.get('outer_itermax')
