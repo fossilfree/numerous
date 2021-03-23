@@ -353,7 +353,7 @@ class Model:
         self.eg.remove_chains()
         tmp_vars = self.eg.create_assignments()
         self.eg.add_mappings()
-        self.eg.as_graphviz("test_mv", force=True)
+        # self.eg.as_graphviz("test_mv", force=True)
         self.lower_model_codegen(tmp_vars)
 
         for i, variable in enumerate(self.variables.values()):
