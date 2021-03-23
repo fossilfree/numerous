@@ -15,7 +15,7 @@ from numerous.engine.model.external_mappings import ExternalMapping, EmptyMappin
 from numerous.utils.logger_levels import LoggerLevel
 
 from numerous.utils.historian import InMemoryHistorian
-from numerous.engine.model.graph_representation.equation_graph import EquationGraph
+from numerous.engine.model.graph_representation.mappings_graph import MappingsGraph
 from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
 from numerous.engine.scope import Scope, ScopeVariable, ScopeSet
@@ -349,11 +349,11 @@ class Model:
 
         logging.info('variables sorted')
 
-        self.eg = EquationGraph.from_graph(self.eg)
+        self.eg = MappingsGraph.from_graph(self.eg)
         self.eg.remove_chains()
         tmp_vars = self.eg.create_assignments()
         self.eg.add_mappings()
-        # self.eg.as_graphviz("test_mv", force=True)
+        self.eg.as_graphviz("test_mv", force=True)
         self.lower_model_codegen(tmp_vars)
 
         for i, variable in enumerate(self.variables.values()):
