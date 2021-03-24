@@ -15,6 +15,8 @@ class VariableDescriptionMap(VariableBase):
         if variable_description.tag not in self.variables_descriptions:
             self.variables_descriptions[variable_description.tag] = variable_description
         else:
+            self.variables_descriptions[variable_description.tag].update = True
+            return
             raise ValueError('Variable description with tag {} is already exist in equation {}'.format(
                 variable_description.tag, self.equation.tag))
 

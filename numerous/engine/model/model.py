@@ -402,6 +402,11 @@ class Model:
         self.state_idx, self.derivatives_idx = \
             eq_gen.generate_equations()
 
+        for varname, ix in self.vars_ordered_values.items():
+            var=self.scope_variables[varname]
+            var.llvm_idx = ix
+            var.model = self
+
         def c1(self, array_):
             return compiled_compute(array_)
 
