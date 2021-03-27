@@ -198,7 +198,7 @@ def function_from_graph_generic(g: Graph, name, var_def_):
 
 
 def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_, imports,
-                                              compiled_function=False):
+                                              compiled_function=False, replacements=[]):
     func, signature, fname, r_args, r_targets = function_from_graph_generic_llvm(g, name, var_def_)
     if not compiled_function:
         return func, signature, r_args, r_targets
@@ -208,17 +208,34 @@ def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_, imports,
         body.append(ast.Import(names=[ast.alias(name=module, asname=name)], level=0))
     for (module, name) in imports.from_imports:
         body.append(ast.ImportFrom(module=module, names=[ast.alias(name=name, asname=None)], level=0))
+    #print('func: ', func)
     body.append(func)
     body.append(ast.Return(value=ast.Name(id=fname)))
-
-    func = wrap_function(fname + '1', body, decorators=[],
+    wrapper_name = fname + '1'
+    func = wrap_function(wrapper_name, body, decorators=[],
                          args=ast.arguments(args=[], vararg=None, defaults=[], kwarg=None))
     f1 = astor.to_source(func)
+    #print('code: ', f1)
+    #print('rep: ', replacements)
+    bound_funcs = {}
+    for r in list(replacements):
+        f1 = f1.replace(r[0], r[1])
+        bound_funcs[r[1]] = r[2]
+
+    #bound_funcs = dot_dict(**bound_funcs)
+    #print('fname: ', fname)
+    #print('f1: ', f1)
     tree = ast.parse(f1, mode='exec')
     code = compile(tree, filename='llvm_equations_storage', mode='exec')
-    namespace = {}
+
+    import numpy as np
+    namespace = bound_funcs
     exec(code, namespace)
-    compiled_func = list(namespace.values())[1]()
+    #print('ns: ', namespace)
+    #print('ns keys: ', namespace.keys())
+    #print('?: ', list(namespace.values())[1])
+    #print(namespace.values())
+    compiled_func = namespace[wrapper_name]()
 
     return compiled_func, signature, r_args, r_targets
 
@@ -384,8 +401,22 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
     elif isinstance(ao, ast.Call):
 
         op_name = recurse_Attribute(ao.func, sep='.')
+        #print('call: ', op_name)
+        if op_name.split('.')[0] == 'self':
+            key=op_name
 
-        en = g.add_node(ao=ao, file=file, name=name, ln=ln, label=op_name, func=ao.func, ast_type=ast.Call,
+        #    print(ao.func.attr)
+        #    print(ao.func.value)
+        #    op_name='test_func'
+        #    ao_func = ast.Attribute(attr='exp', value='bound_funcs')
+        else:
+            key=None
+
+        ao_func = ao.func
+        #print('call2: ', op_name)
+        #print('f: ', ao.func)
+
+        en = g.add_node(key=key, ao=ao, file=file, name=name, ln=ln, label=op_name, func=ao_func, ast_type=ast.Call,
                         node_type=NodeTypes.OP)
 
         for sa in ao.args:
@@ -487,25 +518,45 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
 
 
 def qualify(s, prefix):
-    return prefix + '.' + s.replace('scope.', '')
+    qualified = prefix + '.' + s.replace('scope.', '')
+    return qualified
 
+from copy import deepcopy
+import json
+import hashlib
 
-def qualify_equation(prefix, g, tag_vars):
+def qualify_equation(prefix, g, tag_vars, self):
     def q(s):
         return qualify(s, prefix)
 
     g_qual = g.clone()
+    #g_out = g.clone(deep_node_attr=False)
     # update keys
     g_qual.node_map = {q(k): v for k, v in g_qual.node_map.items()}
     g_qual.key_map = {k: q(v) for k, v in g_qual.key_map.items()}
     g_qual.nodes_attr['scope_var'][:g_qual.node_counter] = [
         tag_vars[sv.tag] if isinstance(sv := g.get(n, 'scope_var'), ScopeVariable) else sv for n in g.node_map.values()]
 
-    return g_qual
+    refer_to_self = False
+    replacements = {}
+    replacements_ = {}
+    for n in g.node_map.values():
+        if 'func' in g.nodes_attr and (f:= g.get(n, 'func')) is not None and hasattr(f, 'value'):
+            if f.value.id == 'self':
+                refer_to_self = True
+                obj = getattr(self.__self__, f.attr)
+                replacements[n] = (f.value.id+'.'+f.attr, '_'+str(id(obj)), obj)
+                replacements_[n] = (f.value.id+'.'+f.attr, '_'+str(id(obj)))
+
+
+    eq_key = 'EQ_'+hashlib.sha256(json.dumps(replacements_).encode('UTF-8')).hexdigest()
+    #print(replacements)
+    return g_qual, refer_to_self, eq_key, replacements
 
 
 def parse_eq(model_namespace,item_id, equation_graph: Graph, nodes_dep, scope_variables,
-             parsed_eq_branches, scoped_equations, parsed_eq):
+             parsed_eq_branches, scoped_equations, parsed_eq, eq_used):
+
     for m in model_namespace.equation_dict.values():
         for eq in m:
             is_set = model_namespace.is_set
@@ -576,8 +627,18 @@ def parse_eq(model_namespace,item_id, equation_graph: Graph, nodes_dep, scope_va
 
             ns_path = model_namespace.full_tag
             eq_path = ns_path + '.' + eq_key
-            g_qualified = qualify_equation(ns_path, g, scope_variables)
 
+
+
+            g_qualified, refer_to_self, eq_key_, replacements = qualify_equation(ns_path, g, scope_variables, eq)
+
+            if refer_to_self:
+                print('eq_key old: ', eq_key)
+                print('p: ',parsed_eq_branches[eq_key])
+                parsed_eq_branches[eq_key_] = (parsed_eq_branches[eq_key][0],parsed_eq_branches[eq_key][1], parsed_eq_branches[eq_key][2], {}, replacements)
+                eq_key = eq_key_
+
+            eq_used.append(eq_key)
             # make equation graph
             eq_name = ('EQ_' + eq_path).replace('.', '_')
 
@@ -635,7 +696,6 @@ def parse_eq(model_namespace,item_id, equation_graph: Graph, nodes_dep, scope_va
                         scope_variables[sv].used_in_equation_graph = False
                     else:
                         g.arg_metadata.append((sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
-
 
 def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
     logging.info('process mappings')

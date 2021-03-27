@@ -138,7 +138,8 @@ class EquationGenerator:
                     eq_key,
                     imports=self.imports,
                     var_def_=Vardef(llvm=self.llvm),
-                    compiled_function=True
+                    compiled_function=True,
+                    replacements=eq[4].values() if len(eq)>4 else []
                 )
                 self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
             else:
@@ -414,6 +415,7 @@ class EquationGenerator:
                 deriv_idx, dtype=np.int64)
         else:
             self.generated_program.generate(self.imports, system_tag=self.system_tag)
+
             exec('from tmp.listings.' + self.system_tag + '_kernel import *', globals())
 
             def var_func():

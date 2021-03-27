@@ -301,6 +301,8 @@ class Model:
         for v in self.scope_variables.values():
             v.top_item = self.system.id
 
+        eq_used = []
+
         for ns in model_namespaces:
             ##will be false for empty namespaces. Ones without equations and variables.
             if ns[1]:
@@ -312,7 +314,12 @@ class Model:
 
                 parse_eq(model_namespace=ns[1][0], item_id=ns[0],  equation_graph=self.eg, nodes_dep=nodes_dep,
                          scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
-                         scoped_equations=self.scoped_equations, parsed_eq=self.equations_top)
+                         scoped_equations=self.scoped_equations, parsed_eq=self.equations_top, eq_used=eq_used)
+
+        for k in list(self.equations_parsed.keys()):
+            if k not in eq_used:
+                pass
+                self.equations_parsed.pop(k)
 
         logging.info('parsing equations completed')
 

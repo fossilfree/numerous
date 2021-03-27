@@ -121,6 +121,9 @@ class Graph:
     def get(self, node, attr):
         return self.nodes_attr[attr][node]
 
+    def set(self, node, attr, val):
+        self.nodes_attr[attr][node]=val
+
     def get_where_attr(self, attr, val, not_=False):
         if not_:
             return [i for i, v in enumerate(self.nodes_attr[attr]) if not v == val]
@@ -195,6 +198,7 @@ class Graph:
         # Maps a key to an integer which is the internal node_id
         clone_.node_map = self.node_map.copy()
         clone_.key_map = self.key_map.copy()
+
         clone_.nodes_attr = self.nodes_attr.copy()
         clone_.edges_attr = deepcopy(self.edges_attr)
         clone_.edges = self.edges.copy()
