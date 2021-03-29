@@ -139,7 +139,7 @@ class EquationGenerator:
                     imports=self.imports,
                     var_def_=Vardef(llvm=self.llvm),
                     compiled_function=True,
-                    replacements=eq[4].values() if len(eq)>4 else []
+                    replacements=eq[4] if len(eq)>4 else {}
                 )
                 self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
             else:

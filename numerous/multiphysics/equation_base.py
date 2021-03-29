@@ -3,6 +3,7 @@ from collections import deque
 import numpy as np
 
 from numerous.engine.variables import VariableBase, VariableDescription, VariableType
+from numerous.multiphysics.equation_decorators import InlineEquation
 
 
 class VariableDescriptionMap(VariableBase):
@@ -10,6 +11,9 @@ class VariableDescriptionMap(VariableBase):
         self.variables_descriptions = super().__dict__
         self.equation = equation
         self.variables_descriptions_deque = deque()
+
+    def variable_exists(self, tag):
+        return tag in self.variables_descriptions
 
     def register_variable_description(self, variable_description):
         if variable_description.tag not in self.variables_descriptions:
@@ -32,6 +36,12 @@ class VariableDescriptionMap(VariableBase):
         else:
             raise StopIteration
 
+class Mapping:
+    def __init__(self, from_, to_=None, dir='<-'):
+        self.from_ = from_
+        self.to_ = to_ if to_ is not None else from_
+        self.dir = dir
+
 
 class EquationBase:
     """
@@ -52,7 +62,7 @@ class EquationBase:
                 self.equations.append(method_call)
 
 
-    def add_parameter(self, tag, init_val, logger_level=None, alias=None):
+    def add_parameter(self, tag, init_val=0, logger_level=None, alias=None, integrate=None):
         """
 
         Parameters
@@ -65,6 +75,21 @@ class EquationBase:
 
         """
         self.add_variable(tag, init_val, VariableType.PARAMETER, logger_level, alias)
+
+        if integrate is not None:
+            self.add_state(integrate['tag'], 0, logger_level=logger_level)
+
+            integrate_source = f"""
+            def integrate_{tag}(self, scope):
+                scope.{integrate['tag']}_dot = scope.{tag} * {integrate['scale']}
+            """
+            ie = InlineEquation()
+            integrate_source_ = ie('integrate_'+tag, integrate_source, {})
+
+            setattr(self, 'integrate_'+tag, integrate_source_)
+            self.equations.append(integrate_source_)
+
+
 
     def add_constant(self, tag, value, logger_level=None, alias=None):
         """
@@ -80,7 +105,7 @@ class EquationBase:
         """
         self.add_variable(tag, value, VariableType.CONSTANT, logger_level, alias)
 
-    def add_state(self, tag, init_val, logger_level=None, alias=None):
+    def add_state(self, tag, init_val=0, logger_level=None, alias=None):
         """
 
         Parameters
@@ -115,3 +140,11 @@ class EquationBase:
         self.variables_descriptions. \
             register_variable_description(VariableDescription(tag=tag, id=str(uuid.uuid1()), initial_value=init_val,
                                                               type=var_type, logger_level=logger_level, alias=alias))
+
+    def map_create_parameters(self, item, mappings):
+        for m in mappings:
+            if not self.variables_descriptions.variable_exists(m.to_):
+                self.add_parameter(m.to_)
+
+
+

@@ -198,7 +198,7 @@ def function_from_graph_generic(g: Graph, name, var_def_):
 
 
 def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_, imports,
-                                              compiled_function=False, replacements=[]):
+                                              compiled_function=False, replacements={}):
     func, signature, fname, r_args, r_targets = function_from_graph_generic_llvm(g, name, var_def_)
     if not compiled_function:
         return func, signature, r_args, r_targets
@@ -216,11 +216,11 @@ def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_, imports,
                          args=ast.arguments(args=[], vararg=None, defaults=[], kwarg=None))
     f1 = astor.to_source(func)
     #print('code: ', f1)
-    #print('rep: ', replacements)
-    bound_funcs = {}
-    for r in list(replacements):
-        f1 = f1.replace(r[0], r[1])
-        bound_funcs[r[1]] = r[2]
+    print('rep: ', replacements)
+    #bound_funcs = {}
+    #for r in list(replacements):
+    f1 = f1.replace('self.', 'self_')
+    #    bound_funcs[r[1]] = r[2]
 
     #bound_funcs = dot_dict(**bound_funcs)
     #print('fname: ', fname)
@@ -228,8 +228,8 @@ def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_, imports,
     tree = ast.parse(f1, mode='exec')
     code = compile(tree, filename='llvm_equations_storage', mode='exec')
 
-    import numpy as np
-    namespace = bound_funcs
+    #import numpy as np
+    namespace = replacements
     exec(code, namespace)
     #print('ns: ', namespace)
     #print('ns keys: ', namespace.keys())
@@ -524,8 +524,9 @@ def qualify(s, prefix):
 from copy import deepcopy
 import json
 import hashlib
+import inspect
 
-def qualify_equation(prefix, g, tag_vars, self):
+def qualify_equation(prefix, g, tag_vars, self, eq_current):
     def q(s):
         return qualify(s, prefix)
 
@@ -537,20 +538,30 @@ def qualify_equation(prefix, g, tag_vars, self):
     g_qual.nodes_attr['scope_var'][:g_qual.node_counter] = [
         tag_vars[sv.tag] if isinstance(sv := g.get(n, 'scope_var'), ScopeVariable) else sv for n in g.node_map.values()]
 
-    refer_to_self = False
+    #refer_to_self = False
     replacements = {}
-    replacements_ = {}
+    #replacements_ = {}
     for n in g.node_map.values():
         if 'func' in g.nodes_attr and (f:= g.get(n, 'func')) is not None and hasattr(f, 'value'):
             if f.value.id == 'self':
-                refer_to_self = True
+    #            refer_to_self = True
                 obj = getattr(self.__self__, f.attr)
-                replacements[n] = (f.value.id+'.'+f.attr, '_'+str(id(obj)), obj)
-                replacements_[n] = (f.value.id+'.'+f.attr, '_'+str(id(obj)))
-
-
-    eq_key = 'EQ_'+hashlib.sha256(json.dumps(replacements_).encode('UTF-8')).hexdigest()
+                replacements[f.value.id+'_'+f.attr] = obj
+    #            replacements_[n] = (f.value.id+'.'+f.attr, '_'+str(id(obj)))
+            #elif f.value.id == 'local':
+    top_ = inspect.getclosurevars(self)
+    #print(self.__name__)
+    #print(top_)
+    func_ = top_.nonlocals['func']
+    #print(func_)
+    replacements.update(inspect.getclosurevars(func_).globals)
     #print(replacements)
+    replacements_id = {k: id(o) for k, o in replacements.items()}
+
+
+    eq_key = 'EQ_'+eq_current+'_'+hashlib.sha256(json.dumps(replacements_id).encode('UTF-8')).hexdigest()
+    #print(replacements)
+    refer_to_self = len(replacements)>0
     return g_qual, refer_to_self, eq_key, replacements
 
 
@@ -559,6 +570,7 @@ def parse_eq(model_namespace,item_id, equation_graph: Graph, nodes_dep, scope_va
 
     for m in model_namespace.equation_dict.values():
         for eq in m:
+            print('EQ: ', eq)
             is_set = model_namespace.is_set
             if is_set:
                 eq_key = "EQ_SET" + eq.id.replace(".", "_").replace("-", "_")
@@ -630,7 +642,7 @@ def parse_eq(model_namespace,item_id, equation_graph: Graph, nodes_dep, scope_va
 
 
 
-            g_qualified, refer_to_self, eq_key_, replacements = qualify_equation(ns_path, g, scope_variables, eq)
+            g_qualified, refer_to_self, eq_key_, replacements = qualify_equation(ns_path, g, scope_variables, eq, eq_key)
 
             if refer_to_self:
                 print('eq_key old: ', eq_key)
