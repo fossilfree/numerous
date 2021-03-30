@@ -213,7 +213,7 @@ class Variable(MappedValue):
             print(value)
         self._value = value
         if self.llvm_idx is not None:
-            self.model.write_variables(value, self.llvm_idx)
+            self.model.numba_model.write_variables(value, self.llvm_idx)
 
     def update_set_var(self, set_var, set_namespace):
         if not self.set_var:
