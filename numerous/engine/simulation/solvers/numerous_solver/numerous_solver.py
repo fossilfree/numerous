@@ -142,7 +142,7 @@ class Numerous_solver(BaseSolver):
                         j_i += 1
                         p_size = 100
                         x = int(p_size * j_i / progress_c)
-                        print(t, 100 * t / t_end)
+                        #print(t, 100 * t / t_end)
                         numba_model.historian_update(t)
                         # numba_model.run_callbacks_with_updates(t)
                         if strict_eval:
@@ -178,7 +178,7 @@ class Numerous_solver(BaseSolver):
                 if step_converged:
                     y_previous = y
                     t_previous = t
-                    print(t_end-t)
+                    #print(t_end-t)
                     numba_model.map_external_data(t)
                     if numba_model.is_store_required():
                         with objmode:
