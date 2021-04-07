@@ -1,6 +1,7 @@
 import uuid
 from collections import deque
 import numpy as np
+import numbers
 
 from numerous.engine.variables import VariableBase, VariableDescription, VariableType
 from numerous.multiphysics.equation_decorators import InlineEquation
@@ -90,6 +91,23 @@ class EquationBase:
             self.equations.append(integrate_source_)
 
 
+    def add_parameters(self, parameters:dict):
+        if isinstance(parameters, dict):
+            for p, v in parameters.items():
+                if isinstance(v,numbers.Number):
+                    self.add_parameter(p, init_val=v)
+                else:
+                    self.add_parameter(p, **v)
+        if isinstance(parameters, list):
+            for p in parameters:
+                self.add_parameter(p)
+
+    def add_constants(self, constants:dict):
+        for p, v in constants.items():
+            if isinstance(v,numbers.Number):
+                self.add_constant(p, value=v)
+            else:
+                self.add_constant(p, **v)
 
     def add_constant(self, tag, value, logger_level=None, alias=None):
         """

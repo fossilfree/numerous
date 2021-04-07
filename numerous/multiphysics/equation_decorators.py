@@ -4,6 +4,16 @@ import uuid
 from functools import wraps
 import inspect
 from textwrap import dedent
+from numba import njit
+
+class Function(object):
+    def __init__(self, signature=None):
+        self.id =str(uuid.uuid4())
+        self.signature = signature
+    # self.func = func
+
+    def __call__(self, func):
+        return njit(func)
 
 
 class Equation(object):
@@ -14,16 +24,30 @@ class Equation(object):
 
     def __call__(self, func):
         @wraps(func)
-        def wrapper(self,scope):
-            func(self,scope)
+        def wrapper(self, scope):
+            func(self, scope)
+
+        if hasattr(func, '__self__'):
+            wrapper.__self__ = func.__self__
+
         wrapper._equation = True
         wrapper.lines = inspect.getsource(func)
         wrapper.id = self.id
         #a = inspect.getsourcelines(func)
         wrapper.lineno = inspect.getsourcelines(func)[1]
         wrapper.file = inspect.getfile(func)
+        wrapper.name = func.__name__
         # wrapper.i = self.i
         return wrapper
+
+
+def add_equation(host, func):
+
+    eq = Equation()
+    eq_func = eq(func)
+
+    host.equations.append(eq_func)
+
 
 def dedent_code(code):
     tries = 0
@@ -56,7 +80,6 @@ class InlineEquation(Equation):
                     print(func_source)
                     raise
 
-        print(func_source)
         func = namespace[func_name]
         @wraps(func)
         def wrapper(self,scope):

@@ -318,7 +318,7 @@ class Model:
 
         for k in list(self.equations_parsed.keys()):
             if k not in eq_used:
-                pass
+
                 self.equations_parsed.pop(k)
 
         logging.info('parsing equations completed')
@@ -398,7 +398,7 @@ class Model:
         self.info.update({"Solver": {}})
 
     def lower_model_codegen(self, tmp_vars):
-
+        self.eg.as_graphviz('eq.pdf', force=True)
         logging.info('lowering model')
         eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py", equation_graph=self.eg,
                                    scope_variables=self.scope_variables, scoped_equations=self.scoped_equations,
