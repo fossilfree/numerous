@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
 class DampenedOscillator(EquationBase, Item):
     """
-        Equation and item modelling a spring and dampener.
+        Equation and item modelling a spring and dampener
     """
 
     def __init__(self, tag="tm", x0=1, k=1, c=1, a=1):
