@@ -146,7 +146,8 @@ class LLVMBuilder:
         llmod = llvm.parse_assembly(str(self.module))
 
         pmb = llvm.create_pass_manager_builder()
-        pmb.opt_level = 1
+        pmb.opt_level = 3
+        pmb.slp_vectorize = True
         pm = llvm.create_module_pass_manager()
         pmb.populate(pm)
 
