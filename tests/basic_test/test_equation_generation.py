@@ -7,6 +7,13 @@ from numerous.engine.system import Subsystem
 from numerous.engine import model, simulation
 from numerous.engine.simulation.solvers.base_solver import solver_types
 
+
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests():
+    import shutil
+    shutil.rmtree('./tmp', ignore_errors=True)
+    yield
+
 class EqTest(EquationBase, Item):
     def __init__(self, tag="tm"):
         super(EqTest, self).__init__(tag)
@@ -33,7 +40,7 @@ class IfSystem(Subsystem):
 @pytest.mark.parametrize("use_llvm", [False,True])
 def test_external_if_statement(solver, use_llvm):
     model_ = model.Model(IfSystem('m_system', EqTest('tm1'),EqTest('tm2'),EqTest('tm3')), use_llvm=use_llvm)
-    s = simulation.Simulation(model_, solver_type=solver, t_start=0, t_stop=10.0, num=10, num_inner=10)
+    s = simulation.Simulation(model_, solver_type=solver, t_start=0, t_stop=1.0, num=1, num_inner=1)
     s.solve()
     expected = 7
     assert s.model.historian_df['m_system.tm1.test_nm.Y'][1] == expected
