@@ -266,7 +266,7 @@ class Graph:
         prev = None
         for p in path:
             this_ = cg.add_node(key=self.key_map[p], label=self.key_map[p], ignore_existing=True)
-            if prev:
+            if prev is not None:
                 cg.add_edge(prev, this_, e_type='dep')
             prev = this_
 
