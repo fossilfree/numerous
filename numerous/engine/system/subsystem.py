@@ -1,7 +1,18 @@
+import copy
+from enum import Enum
+
+from numerous import EquationBase
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.system.item import Item
 import networkx as nx
 from numerous.engine.system.connector_item import ConnectorItem
+from numerous.engine.system.namespace import SetNamespace
+
+
+class ItemsStructure(Enum):
+    LIST = 0
+    GRID = 1
+    SET = 2
 
 
 class Subsystem(ConnectorItem):
@@ -62,7 +73,7 @@ class Subsystem(ConnectorItem):
         else:
             return None
 
-    def register_items(self, items):
+    def register_items(self, items, tag="set", structure=ItemsStructure.LIST):
         """
 
         Parameters
@@ -70,7 +81,11 @@ class Subsystem(ConnectorItem):
         items : list of :class:`numerous.engine.system.Item`
             List of items to register in the subsystem.
         """
-        any(self.register_item(item) for item in items)
+        if structure == ItemsStructure.LIST:
+            any(self.register_item(item) for item in items)
+        elif structure == ItemsStructure.SET:
+            itemset = ItemSet(items, tag)
+            self.register_item(itemset)
 
     def increase_level(self):
         super().increase_level()
@@ -90,13 +105,32 @@ class Subsystem(ConnectorItem):
                 DG.add_edge(self.tag, item.tag)
         return DG
 
-    def update_variables_path(self, item, c_item):
+
+    def update_variables_path(self, item, tail=[]):
+        """
+        Create variable path hierarchy.
+
+        Parameters
+        ----------
+        item : :class:`numerous.engine.system.Item`
+            Item to update variable path.
+        tail:  list of :class:`numerous.engine.system.Item`
+            In case of nested subsystems we store them to correctly update the path.
+
+        """
+        item.path = self.path + [item.tag]
         for ns in item.registered_namespaces.values():
             for var in ns.variables.values():
-                var.path.extend_path(c_item.id, self.id, self.tag)
+                var.path.extend_path(item.id, self.id, self.tag)
+                if len(tail) == 1:
+                    var.path.extend_path(self.id, tail[0].id, tail[0].tag)
+                if len(tail)>1:
+                    t1 = tail[0::2][0]
+                    t2 = tail[1::2][0]
+                    var.path.extend_path(t2.id, t1.id, t1.tag)
         if isinstance(item, Subsystem):
-            for item in item.registered_items.values():
-                self.update_variables_path(item, c_item)
+            for item_ in item.registered_items.values():
+                item.update_variables_path(item_, tail + [self])
 
     def register_item(self, item):
         """
@@ -109,6 +143,59 @@ class Subsystem(ConnectorItem):
         if item.tag in [x.tag for x in self.registered_items.values()]:
             raise ValueError('Item with tag {} is already registered in system {}'.format(item.tag, self.tag))
         item._increase_level()
-        self.update_variables_path(item, item)
-
+        self.update_variables_path(item)
         self.registered_items.update({item.id: item})
+
+
+class ItemSet(Subsystem, EquationBase):
+
+    def __init__(self, set_structure, tag):
+
+        tag = "SET_" + tag
+        super().__init__(tag)
+        self.items = []
+        set_structure_flat = set_structure
+
+        self.item_ids = []
+
+        self.item_type = None
+
+        for item in set_structure_flat:
+            item.part_of_set = True
+            if not self.item_type:
+                self.item_type = type(item)
+
+            if not isinstance(item, self.item_type):
+                raise TypeError(f'Error in registering set {tag} - '
+                                f'All items in a set must have same type! This set is of type {self.item_type} '
+                                f'not {type(item)}!')
+
+            self.items.append(item)
+            self.item_ids.append(item.id)
+            if item.parent_set is None:
+                item.parent_set = tag
+            else:
+                raise ValueError(f'Item {item} already part of set {item.parent_set} - cannot add to {tag}')
+
+        tag_count = 0
+
+        for item in set_structure_flat:
+            for ns in item.registered_namespaces:
+                tag_ = ns.tag
+                if not (tag_ in self.registered_namespaces.keys()):
+                    sns = SetNamespace(self, tag_, self.item_ids)
+                    sns.add_equations(list(ns.associated_equations.values()), False, create_variables=False,
+                                      set_equation=True)
+                    sns.add_item(item, ns)
+                    ns.clear_equations()
+                    self.register_namespace(sns)
+                else:
+                    self.registered_namespaces[tag_].add_item(item, ns)
+                if not ns.part_of_set:
+                    ns.part_of_set = sns
+                else:
+                    ValueError(f'namespace {ns} already in set {ns.part_of_set}')
+                tag_count += 1
+        for ns in self.registered_namespaces.values():
+            ns.items = self.items
+        self.register_items(set_structure_flat)

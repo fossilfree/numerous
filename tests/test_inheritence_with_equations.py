@@ -23,6 +23,10 @@ class Base_eq(Item, EquationBase):
     def eval2(self, scope):
         scope.P = 5
 
+    @Equation()
+    def eval3(self, scope):
+        scope.T = 50
+
 
 class Child_eq(Base_eq):
     def __init__(self, tag):
@@ -45,7 +49,7 @@ def ms1():
         def __init__(self, tag):
             super().__init__(tag)
             self.register_items([Base_eq("test1")])
-    return S1('S1')
+    return S1('S1_inh')
 
 @pytest.fixture
 def ms2():
@@ -53,7 +57,7 @@ def ms2():
         def __init__(self, tag):
             super().__init__(tag)
             self.register_items([Child_eq("test1")])
-    return S2('S2')
+    return S2('S2_inh')
 
 
 @pytest.fixture
@@ -62,24 +66,34 @@ def ms3():
         def __init__(self, tag):
             super().__init__(tag)
             self.register_items([Child_eq("test1"), Child_eq("test2"), Child_eq("test3")])
-    return S2('S3')
+    return S2('S3_inh')
+
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests():
+    import shutil
+    shutil.rmtree('./tmp', ignore_errors=True)
+    yield
 
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_equation_inheritence_1(ms1, solver):
-    m1 = Model(ms1)
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_single_equation_multiple_variables(ms1, solver,use_llvm):
+    m1 = Model(ms1, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     s1.solve()
-    assert m1.historian_df["S1.test1.t1.P"][100] == 5
+    assert m1.historian_df["S1_inh.test1.t1.P"][100] == 5
+    assert m1.historian_df["S1_inh.test1.t1.T"][100] == 50
 
 @pytest.mark.parametrize("solver", solver_types)
+@pytest.mark.skip(reason="Functionality not implemented in current version")
 def test_equation_inheritence_2(ms2, solver):
     m1 = Model(ms2)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     s1.solve()
-    assert m1.historian_df["S2.test1.t1.P"][100] == 5
-    assert m1.historian_df["S2.test1.t1.L"][100] == 7
+    assert m1.historian_df["S2_inh.test1.t1.P"][100] == 5
+    assert m1.historian_df["S2_inh.test1.t1.L"][100] == 7
 
+@pytest.mark.skip(reason="Functionality not implemented in current version")
 def test_equation_inheritence_3(ms3):
     m1 = Model(ms3)
     assert len(m1.compiled_eq) == 1

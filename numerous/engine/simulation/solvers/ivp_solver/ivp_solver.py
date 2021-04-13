@@ -23,6 +23,7 @@ class IVP_solver(BaseSolver):
         self.diff_function = numba_model.func
         self.max_event_steps = max_event_steps
         self.options = kwargs
+        self.t = 0
 
     def solve(self):
         """
@@ -43,12 +44,13 @@ class IVP_solver(BaseSolver):
             print(e)
             raise e
 
-        return  self.sol,  self.result_status
+        return self.sol,  self.result_status
 
     def solver_step(self,t, delta_t=None):
         step_not_finished = True
         current_timestamp = t
         event_steps = 0
+
         step_solver_mode = False
         if delta_t is None:
             delta_t = self.delta_t
@@ -56,9 +58,10 @@ class IVP_solver(BaseSolver):
             step_solver_mode = True
 
         stop_condition = False
+        t_end = current_timestamp + delta_t
 
         while step_not_finished:
-            t_eval = np.linspace(current_timestamp, t + delta_t, self.num_inner + 1)
+            t_eval = np.linspace(current_timestamp, t_end, self.num_inner + 1)
 
             self.sol = solve_ivp(self.diff_function, (current_timestamp, t + delta_t), y0=self.y0, t_eval=t_eval,
                             dense_output=False,
@@ -67,7 +70,7 @@ class IVP_solver(BaseSolver):
             event_step = self.sol.status == 1
 
             if self.sol.status == 0:
-                current_timestamp = t + delta_t
+                current_timestamp = t_end
                 if step_solver_mode: # added this
                     self.model.numba_model.historian_update(current_timestamp)
                     self.y0 = self.sol.y[:,-1]
@@ -84,9 +87,7 @@ class IVP_solver(BaseSolver):
                 if event_steps > self.max_event_steps:
                     stop_condition = True
                 current_timestamp = self.sol.t_events[event_id][0]
-
                 step_not_finished = True
-
                 self.__end_step(self, self.sol(current_timestamp), current_timestamp, event_id=event_id)
             else:
                 if self.sol.success:
@@ -95,6 +96,8 @@ class IVP_solver(BaseSolver):
                     self.result_status = self.sol.message
             if stop_condition:
                 break
+
+        self.t = t_end
         if stop_condition:
             self.result_status = "Stopping condition reached"
             return True

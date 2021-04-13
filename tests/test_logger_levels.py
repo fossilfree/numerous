@@ -10,6 +10,13 @@ from numerous.engine.simulation.solvers.base_solver import solver_types, SolverT
 import numpy as np
 import copy
 
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests():
+    import shutil
+    shutil.rmtree('./tmp', ignore_errors=True)
+    yield
+
+
 
 class TestLogItem1(Item, EquationBase):
     def __init__(self, tag='testlogitem1'):
@@ -40,6 +47,7 @@ def sigmoidlike(t):
     return a-2*(1/(1+np.exp(-t))-0.5)
 
 @pytest.mark.parametrize("solver", solver_types)
+@pytest.mark.skip(reason="Functionality not implemented in current version")
 def test_logger_levels(solver):
     num = 100
     t_stop = 100

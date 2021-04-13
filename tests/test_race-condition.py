@@ -1,13 +1,18 @@
+import numpy as np
 import pytest
 
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
+from numerous.engine.simulation.solvers.base_solver import solver_types
 from numerous.engine.system import Subsystem, Item
 from numerous.multiphysics import EquationBase, Equation
-import numpy as np
 
-from numerous.engine.simulation.solvers.base_solver import solver_types
 
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests():
+    import shutil
+    shutil.rmtree('./tmp', ignore_errors=True)
+    yield
 
 
 class Item1(Item, EquationBase):
@@ -60,7 +65,7 @@ class Item2(Item, EquationBase):
 
 
 class System(Subsystem):
-    def __init__(self, tag='system', item=object):
+    def __init__(self, tag='system_race', item=object):
         super().__init__(tag)
         self.register_item(item)
 
@@ -76,25 +81,26 @@ def analytical(tvec, o, a, dt):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-def test_race_condition_1(solver):
+@pytest.mark.parametrize("use_llvm", [True,False])
+def test_race_condition_1(solver,use_llvm):
     omega0 = 0.01
     dt = 10
-    s1 = System(item=Link(item1=Item1(omega=omega0)))
-    s2 = System(item=Item2(omega=omega0))
+    s1 = System(item=Link(item1=Item1(omega=omega0)),tag='system_race_1')
+    s2 = System(item=Item2(omega=omega0),tag='system_race_2')
 
-    m1 = Model(s1)
-    m2 = Model(s2)
-
+    m1 = Model(s1,use_llvm=use_llvm)
     sim1 = Simulation(m1, max_step=dt, num=500, solver_type=solver)
-    sim2 = Simulation(m2, max_step=dt, num=500, solver_type=solver)
+
 
     sim1.solve()
 
     df1 = sim1.model.historian_df
 
+    m2 = Model(s2, use_llvm=use_llvm)
+    sim2 = Simulation(m2, max_step=dt, num=500, solver_type=solver)
     sim2.solve()
     df2 = sim2.model.historian_df
 
     assert np.all(
-        np.isclose(np.array(df1['system.link.t1.S'])[2:], np.array(df2['system.item2.t1.S'][2:]), rtol=1e-02, atol=1e-04))
+        np.isclose(np.array(df1['system_race_1.link.t1.S'])[2:], np.array(df2['system_race_2.item2.t1.S'][2:]), rtol=1e-02, atol=1e-04))
 

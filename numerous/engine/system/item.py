@@ -27,9 +27,15 @@ class Item(Node):
         self.callbacks = []
         self.level = 1
         self.parent_item = None
+        self.registered = False
+        self.parent_set = None
+        self.part_of_set = False
+
         self.logger_level = logger_level
         if tag:
             self.tag = tag
+
+        self.path = [self.tag]
         super(Item, self).__init__(self.tag)
 
     def get_default_namespace(self):
@@ -87,11 +93,15 @@ class Item(Node):
         ValueError
             If namespace is already registered for this item.
         """
-        if namespace.tag in self.registered_namespaces.keys():
-            raise ValueError('Namespace with name {0} is already registered in item {1}'
-                             .format(namespace.tag, self.tag))
+        if not namespace.registered:
+            if namespace.tag in self.registered_namespaces.keys():
+                raise ValueError('Namespace with name {0} is already registered in item {1}'
+                                 .format(namespace.tag, self.tag))
+            else:
+                self.registered_namespaces.update({namespace.tag: namespace})
+            namespace.registered=True
         else:
-            self.registered_namespaces.update({namespace.tag: namespace})
+            raise ValueError(f'Cannot register namespace {namespace.tag} more than once!')
 
     def get_variables(self):
         """
