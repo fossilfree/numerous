@@ -6,9 +6,10 @@ import time
 
 class Numerous_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, numba_model, num_inner, max_event_steps, y0, numba_compiled_solver, **kwargs):
+    def __init__(self, time, delta_t, model,numba_model, num_inner, max_event_steps, y0, numba_compiled_solver, **kwargs):
         super().__init__()
         self.time = time
+        self.model = model
         self.num_inner = num_inner
         self.delta_t = delta_t
         self.numba_model = numba_model
@@ -18,6 +19,7 @@ class Numerous_solver(BaseSolver):
         self.f0 = numba_model.func(time[0], y0)
         self.max_event_steps = max_event_steps
         self.options = kwargs
+        self.info = None
 
         eps = np.finfo(1.0).eps
         odesolver_options = {'longer': kwargs.get('longer', 1.2), 'shorter': kwargs.get('shorter', 0.8),
@@ -50,6 +52,7 @@ class Numerous_solver(BaseSolver):
                    min_step, max_step, step_integrate_,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
             # Init t to t0
+            step_info = 0
             t = t0
             dt = initial_step
             y = numba_model.get_states()
@@ -58,9 +61,9 @@ class Numerous_solver(BaseSolver):
                     numba_model.func(t, y)
                     numba_model.historian_update(t)
                     numba_model.map_external_data(t)
-                return {'step_info': 1}
+                return 1, dt, t, y, order
             t_start = t
-            t_previous = 0
+            t_previous = t0
             y_previous = np.copy(y)
 
             order_ = 0
@@ -142,7 +145,9 @@ class Numerous_solver(BaseSolver):
                         j_i += 1
                         p_size = 100
                         x = int(p_size * j_i / progress_c)
-                        print(t, 100 * t / t_end)
+                        #print(t, 100 * t / t_end)
+                        if not step_converged:
+                            print("step not converged, but historian updated")
                         numba_model.historian_update(t)
                         # numba_model.run_callbacks_with_updates(t)
                         if strict_eval:
@@ -195,10 +200,7 @@ class Numerous_solver(BaseSolver):
                     # numba_model.func(t, y)
                     # print(t)
 
-            info = {'step_info': step_info}
-            # Return the part of the history actually filled in
-            # print(history[1:,0])
-            return info
+            return step_info, dt, t, y, order
 
         return _solve
 
@@ -357,6 +359,50 @@ class Numerous_solver(BaseSolver):
         #     raise e
         # finally:
         return self.sol, self.result_status
+
+    def solver_step(self, t, delta_t=None):
+
+        solve_state = self._method.get_solver_state(len(self.y0))
+        t_start = t
+
+        if delta_t is None:
+            delta_t = self.delta_t
+
+        strict_eval = self.method_options.get('strict_eval')
+        outer_itermax = self.method_options.get('outer_itermax')
+
+        max_step = self.method_options.get('max_step')
+        min_step = self.method_options.get('min_step')
+        rtol = self.method_options.get('rtol')
+        atol = self.method_options.get('atol')
+
+        if self.info is not None:
+            dt = self.info.get('dt') # internal solver step size
+            order = self.info.get('order')
+            assert self.info.get('t') == t_start, f"solver time {self.info.get('t')} does not match external time " \
+                                                  f"{t_start}"
+        else:
+            order = self._method.order
+            dt = self.select_initial_step(self.numba_model, t_start, self.y0, 1, order - 1, rtol,
+                                                atol)
+
+
+        t_end = t_start + delta_t
+
+        time_span = np.linspace(t_start, t_end, 2)
+
+        step_integrate_ = self._method.step_func
+
+        step_info, dt, t, y, order = self._solve(self.numba_model,
+                           solve_state, dt, order, strict_eval, outer_itermax, min_step,
+                           max_step, step_integrate_,
+                           t_start, t_end, time_span)
+
+        info = {'step_info': step_info, 'dt': dt, 't': t, 'y': y, 'order': order}
+        self.info = info
+
+        return t_end, self.info.get('t', None)
+
 
     def register_endstep(self, __end_step):
         self.__end_step = __end_step
