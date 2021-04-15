@@ -91,13 +91,13 @@ class Vardef:
             return ast.Name(id=var.replace('scope.', 's_'))
 
     def order_variables(self, order_data):
-        for (var, used) in order_data:
+        for (var,var_id, used) in order_data:
             if used:
                 self.args_order.append("scope." + var)
             else:
-                self.args_order.append(var)
+                self.args_order.append(var_id)
 
-        for (var, used) in order_data:
+        for (var,var_id, used) in order_data:
             tmp_v = "scope." + var
             if tmp_v in self.targets:
                 self.trgs_order.append(tmp_v)

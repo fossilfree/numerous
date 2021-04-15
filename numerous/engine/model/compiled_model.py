@@ -44,6 +44,7 @@ class CompiledModel:
         self.external_mappings_time = external_mappings_time
         self.number_of_external_mappings = number_of_external_mappings
         self.external_mappings_numpy = external_mappings_numpy
+
         self.external_df_idx = external_df_idx
         self.approximation_type = interpolation_info
         self.is_external_data = is_external_data

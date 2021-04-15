@@ -19,8 +19,8 @@ class Item1(Item, EquationBase):
 
     @Equation()
     def eval(self, scope):
-        scope.x_dot = 1
-        scope.y_dot = 1
+        scope.x_dot = 1+0.1*scope.x
+        scope.y_dot = 1+0.2*scope.y
 
 
 class System(Subsystem, EquationBase):
@@ -65,4 +65,6 @@ def test_deriv_order(solver, use_llvm):
     model = Model(m, use_llvm=use_llvm)
     import numpy as np
     expected = np.array([2.5, 3., 1., 1.])
-    assert approx(model.compiled_compute(np.array([1., 2., 3., 4.]))) == expected
+    assert approx(model.compiled_compute(np.array([0., 0., 0., 0.]))) == expected
+    expected_2 = [3.3, 3.6, 1.6 , 1.4]
+    assert approx(model.compiled_compute(np.array([1., 2., 3., 4.]))) == expected_2
