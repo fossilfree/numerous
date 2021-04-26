@@ -80,8 +80,8 @@ class Numerous_solver(BaseSolver):
                     numba_model.func(t, y)
                     numba_model.historian_update(t)
                     numba_model.map_external_data(t)
-                Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
-                     dt=dt, t=t, y=y, order=order)
+                return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
+                            dt=dt, t=t, y=y, order=order)
             t_start = t
             t_previous = t0
             y_previous = np.copy(y)
