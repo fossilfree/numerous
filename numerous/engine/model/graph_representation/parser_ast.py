@@ -162,7 +162,7 @@ def function_from_graph_generic(g: Graph, name, var_def_):
     lineno_count = 1
     decorators = []
     top_nodes = g.topological_nodes()
-    #g.as_graphviz('test', force=True)
+
     var_def = var_def_.var_def
 
     body = []
@@ -198,7 +198,7 @@ def function_from_graph_generic(g: Graph, name, var_def_):
 
 
 def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_, imports,
-                                              compiled_function=False, replacements={}):
+                                              compiled_function=False):
     func, signature, fname, r_args, r_targets = function_from_graph_generic_llvm(g, name, var_def_)
     if not compiled_function:
         return func, signature, r_args, r_targets
@@ -208,34 +208,17 @@ def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_, imports,
         body.append(ast.Import(names=[ast.alias(name=module, asname=name)], level=0))
     for (module, name) in imports.from_imports:
         body.append(ast.ImportFrom(module=module, names=[ast.alias(name=name, asname=None)], level=0))
-    #print('func: ', func)
     body.append(func)
     body.append(ast.Return(value=ast.Name(id=fname)))
-    wrapper_name = fname + '1'
-    func = wrap_function(wrapper_name, body, decorators=[],
+
+    func = wrap_function(fname + '1', body, decorators=[],
                          args=ast.arguments(args=[], vararg=None, defaults=[], kwarg=None))
     f1 = astor.to_source(func)
-    #print('code: ', f1)
-    print('rep: ', replacements)
-    #bound_funcs = {}
-    #for r in list(replacements):
-    f1 = f1.replace('self.', 'self_')
-    #    bound_funcs[r[1]] = r[2]
-
-    #bound_funcs = dot_dict(**bound_funcs)
-    #print('fname: ', fname)
-    #print('f1: ', f1)
     tree = ast.parse(f1, mode='exec')
     code = compile(tree, filename='llvm_equations_storage', mode='exec')
-
-    #import numpy as np
-    namespace = replacements
+    namespace = {}
     exec(code, namespace)
-    #print('ns: ', namespace)
-    #print('ns keys: ', namespace.keys())
-    #print('?: ', list(namespace.values())[1])
-    #print(namespace.values())
-    compiled_func = namespace[wrapper_name]()
+    compiled_func = list(namespace.values())[1]()
 
     return compiled_func, signature, r_args, r_targets
 
@@ -287,9 +270,9 @@ def postfix_from_branches(branches: dict):
     return "_".join(postfix)
 
 
-def parse_assign(value,target,ao, name, file, ln, g, tag_vars, prefix,branches, missing_vars=[]):
-    m, start = parse_(value, name, file, ln, g, tag_vars, prefix, branches=branches, missing_vars=missing_vars)
-    mapped, end = parse_(target, name, file, ln, g, tag_vars, prefix, branches=branches, missing_vars=missing_vars)
+def parse_assign(value,target,ao, name, file, ln, g, tag_vars, prefix,branches):
+    m, start = parse_(value, name, file, ln, g, tag_vars, prefix, branches=branches)
+    mapped, end = parse_(target, name, file, ln, g, tag_vars, prefix, branches=branches)
 
     en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
                     ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
@@ -302,7 +285,7 @@ def parse_assign(value,target,ao, name, file, ln, g, tag_vars, prefix,branches, 
         g.add_edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy())
     return en
 
-def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}, missing_vars = []):
+def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
     en = None
     is_mapped = None
 
@@ -315,7 +298,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}, miss
 
                 # Parse function
                 for b_ in b.body:
-                    parse_(b_, name, file, ln, g, tag_vars, prefix, branches, missing_vars=missing_vars)
+                    parse_(b_, name, file, ln, g, tag_vars, prefix, branches)
 
     elif isinstance(ao, ast.Assign):
 
@@ -326,22 +309,22 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}, miss
             raise AttributeError('Unknown type of target: ', type(ao.targets[0]))
         if isinstance(ao.targets[0],ast.Tuple) and isinstance(ao.value, ast.Tuple):
             for i,_ in enumerate(ao.value.elts):
-                en = parse_assign(ao.value.elts[i], ao.targets[0].elts[i], ao, name, file, ln, g, tag_vars, prefix, branches, missing_vars=missing_vars)
+                en = parse_assign(ao.value.elts[i], ao.targets[0].elts[i], ao, name, file, ln, g, tag_vars, prefix, branches)
         elif isinstance(ao.targets[0], ast.Tuple):
             if isinstance(ao.value,ast.Call):
-                m, start = parse_(ao.value, name, file, ln, g, tag_vars, prefix, branches=branches, missing_vars=missing_vars)
+                m, start = parse_(ao.value, name, file, ln, g, tag_vars, prefix, branches=branches)
                 mapped = False
                 en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
                                 ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGNTUPLE,
                                 ast_op=ast.Add() if mapped else None)
                 g.add_edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy())
                 for sa in ao.targets[0].elts:
-                    mapped, end = parse_(sa, name, file, ln, g, tag_vars, prefix, branches=branches, missing_vars=missing_vars)
+                    mapped, end = parse_(sa, name, file, ln, g, tag_vars, prefix, branches=branches)
                     g.add_edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy())
             else:
                 raise AttributeError('Assigning to tuple is not supported: ', type(ao.targets[0]))
         elif isinstance(ao.value, ast.Tuple):
-            mapped, end = parse_(ao.targets[0], name, file, ln, g, tag_vars, prefix, branches=branches, missing_vars=missing_vars)
+            mapped, end = parse_(ao.targets[0], name, file, ln, g, tag_vars, prefix, branches=branches)
 
             en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
                             ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
@@ -349,10 +332,10 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}, miss
 
             g.add_edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy())
             for sa in ao.value.elts:
-                m, start = parse_(sa, name, file, ln, g, tag_vars, prefix, branches=branches, missing_vars=missing_vars)
+                m, start = parse_(sa, name, file, ln, g, tag_vars, prefix, branches=branches)
                 g.add_edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy())
         else:
-            en = parse_assign(ao.value, ao.targets[0], ao, name, file, ln, g, tag_vars, prefix, branches, missing_vars=missing_vars)
+            en = parse_assign(ao.value, ao.targets[0], ao, name, file, ln, g, tag_vars, prefix, branches)
 
     elif isinstance(ao, ast.Num):
         # Constant
@@ -363,16 +346,11 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}, miss
         # Check if simple name
     elif isinstance(ao, ast.Name) or isinstance(ao, ast.Attribute):
         local_id = recurse_Attribute(ao)
-        ok = True
+
         source_id = local_id
         if source_id[:6] == 'scope.':
-            try:
-                scope_var = tag_vars[source_id[6:]]
-                tag_vars[source_id[6:]].used_in_equation_graph = True
-            except KeyError:
-                scope_var = None
-                missing_vars.append(f'self.add_parameter("{source_id[6:]}")')
-
+            scope_var = tag_vars[source_id[6:]]
+            tag_vars[source_id[6:]].used_in_equation_graph = True
 
         else:
             scope_var = None
@@ -400,32 +378,18 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}, miss
 
         en = g.add_node(label=op_sym, ast_type=ast.UnaryOp, node_type=NodeTypes.OP, ast_op=ao.op, ignore_existing=True)
 
-        m, start = parse_(ao.operand, name, file, ln, g, tag_vars, prefix, branches=branches, missing_vars=missing_vars)
+        m, start = parse_(ao.operand, name, file, ln, g, tag_vars, prefix, branches=branches)
         operand_edge = g.add_edge(start=start, e_type=EdgeType.OPERAND, end=en, branches=branches.copy())
 
     elif isinstance(ao, ast.Call):
 
         op_name = recurse_Attribute(ao.func, sep='.')
-        #print('call: ', op_name)
-        if op_name.split('.')[0] == 'self':
-            key=op_name
 
-        #    print(ao.func.attr)
-        #    print(ao.func.value)
-        #    op_name='test_func'
-        #    ao_func = ast.Attribute(attr='exp', value='bound_funcs')
-        else:
-            key=None
-
-        ao_func = ao.func
-        #print('call2: ', op_name)
-        #print('f: ', ao.func)
-
-        en = g.add_node(key=key, ao=ao, file=file, name=name, ln=ln, label=op_name, func=ao_func, ast_type=ast.Call,
+        en = g.add_node(ao=ao, file=file, name=name, ln=ln, label=op_name, func=ao.func, ast_type=ast.Call,
                         node_type=NodeTypes.OP)
 
         for sa in ao.args:
-            m, start = parse_(sa, name, file, ln, g, tag_vars, prefix=prefix, branches=branches, missing_vars=missing_vars)
+            m, start = parse_(sa, name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
             g.add_edge(start=start, end=en, e_type=EdgeType.ARGUMENT, branches=branches.copy())
 
 
@@ -436,7 +400,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}, miss
                         node_type=NodeTypes.OP, ast_op=ao.op)
 
         for a in ['left', 'right']:
-            m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix, branches=branches, missing_vars=missing_vars)
+            m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix, branches=branches)
             operand_edge = g.add_edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches.copy())
 
     elif isinstance(ao, ast.Compare):
@@ -445,12 +409,12 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}, miss
         en = g.add_node(ao=ao, file=file, name=name, ln=ln, label=''.join(ops_sym), ast_type=ast.Compare,
                         node_type=NodeTypes.OP, ops=ao.ops)
 
-        m, start = parse_(ao.left, name, file, ln, g, tag_vars, prefix=prefix, branches=branches, missing_vars=missing_vars)
+        m, start = parse_(ao.left, name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
 
         edge_l = g.add_edge(start=start, end=en, label=f'left', e_type=EdgeType.LEFT, branches=branches)
 
         for i, sa in enumerate(ao.comparators):
-            m, start = parse_(sa, name, file, ln, g, tag_vars, prefix=prefix, branches=branches, missing_vars=missing_vars)
+            m, start = parse_(sa, name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
             edge_i = g.add_edge(start=start, end=en, label=f'comp{i}', e_type=EdgeType.COMP, branches=branches)
 
     elif isinstance(ao, ast.If):
@@ -466,13 +430,13 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}, miss
                     new_branch = scope_var.tag
                     branches_t = deepcopy(branches)
                     branches_t[new_branch] = True
-                    m_t, start_t = parse_(getattr(ao, 'body'), name, file, ln, g, tag_vars, prefix, branches=branches_t, missing_vars=missing_vars)
+                    m_t, start_t = parse_(getattr(ao, 'body'), name, file, ln, g, tag_vars, prefix, branches=branches_t)
 
                     branches_f = deepcopy(branches)
                     branches_f[new_branch] = False
 
                     m_f, start_f = parse_(getattr(ao, 'orelse'), name, file, ln, g, tag_vars, prefix,
-                                          branches=branches_f, missing_vars=missing_vars)
+                                          branches=branches_f)
 
                     return [m_t, m_f], [(start_t, branches_t), (start_f, branches_f)]
 
@@ -480,10 +444,10 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}, miss
         for a in ['body', 'orelse', 'test']:
             if isinstance(getattr(ao, a),list):
                 for a_ in getattr(ao, a):
-                    m, start = parse_(a_, name, file, ln, g, tag_vars, prefix, branches=branches, missing_vars=missing_vars)
+                    m, start = parse_(a_, name, file, ln, g, tag_vars, prefix, branches=branches)
                     operand_edge = g.add_edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches)
             else:
-                m, start = parse_(a_, name, file, ln, g, tag_vars, prefix, branches=branches, missing_vars=missing_vars)
+                m, start = parse_(a_, name, file, ln, g, tag_vars, prefix, branches=branches)
                 operand_edge = g.add_edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches)
 
     elif isinstance(ao, ast.IfExp):
@@ -500,19 +464,19 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}, miss
                     new_branch = scope_var.tag
                     branches_t = deepcopy(branches)
                     branches_t[new_branch] = True
-                    m_t, start_t = parse_(getattr(ao, 'body'), name, file, ln, g, tag_vars, prefix, branches=branches_t, missing_vars=missing_vars)
+                    m_t, start_t = parse_(getattr(ao, 'body'), name, file, ln, g, tag_vars, prefix, branches=branches_t)
 
                     branches_f = deepcopy(branches)
                     branches_f[new_branch] = False
 
                     m_f, start_f = parse_(getattr(ao, 'orelse'), name, file, ln, g, tag_vars, prefix,
-                                          branches=branches_f, missing_vars=missing_vars)
+                                          branches=branches_f)
 
                     return [m_t, m_f], [(start_t, branches_t), (start_f, branches_f)]
 
         en = g.add_node(ao=ao, file=file, name=name, ln=ln, label='if_exp', ast_type=ast.IfExp, node_type=NodeTypes.OP)
         for a in ['body', 'orelse', 'test']:
-                m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix, branches=branches, missing_vars=missing_vars)
+                m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix, branches=branches)
 
                 operand_edge = g.add_edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches)
 
@@ -523,65 +487,32 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}, miss
 
 
 def qualify(s, prefix):
-    qualified = prefix + '.' + s.replace('scope.', '')
-    return qualified
+    return prefix + '.' + s.replace('scope.', '')
 
-from copy import deepcopy
-import json
-import hashlib
-import inspect
 
-def qualify_equation(prefix, g, tag_vars, self, eq_current):
+def qualify_equation(prefix, g, tag_vars):
     def q(s):
         return qualify(s, prefix)
 
     g_qual = g.clone()
-    #g_out = g.clone(deep_node_attr=False)
     # update keys
     g_qual.node_map = {q(k): v for k, v in g_qual.node_map.items()}
     g_qual.key_map = {k: q(v) for k, v in g_qual.key_map.items()}
     g_qual.nodes_attr['scope_var'][:g_qual.node_counter] = [
         tag_vars[sv.tag] if isinstance(sv := g.get(n, 'scope_var'), ScopeVariable) else sv for n in g.node_map.values()]
 
-    #refer_to_self = False
-    replacements = {}
-    #replacements_ = {}
-    for n in g.node_map.values():
-        if 'func' in g.nodes_attr and (f:= g.get(n, 'func')) is not None and hasattr(f, 'value'):
-            if f.value.id == 'self':
-    #            refer_to_self = True
-                print('self:: ', self)
-                obj = getattr(self.__self__, f.attr)
-                replacements[f.value.id+'_'+f.attr] = obj
-    #            replacements_[n] = (f.value.id+'.'+f.attr, '_'+str(id(obj)))
-            #elif f.value.id == 'local':
-    top_ = inspect.getclosurevars(self)
-    #print(self.__name__)
-    #print(top_)
-    func_ = top_.nonlocals['func']
-    #print(func_)
-    replacements.update(inspect.getclosurevars(func_).globals)
-    #print(replacements)
-    replacements_id = {k: id(o) for k, o in replacements.items()}
-
-
-    eq_key = 'var_'+eq_current+'_'+hashlib.sha256(json.dumps(replacements_id).encode('UTF-8')).hexdigest()
-    #print(replacements)
-    refer_to_self = len(replacements)>0
-    return g_qual, refer_to_self, eq_key, replacements
+    return g_qual
 
 
 def parse_eq(model_namespace,item_id, equation_graph: Graph, nodes_dep, scope_variables,
-             parsed_eq_branches, scoped_equations, parsed_eq, eq_used):
-
+             parsed_eq_branches, scoped_equations, parsed_eq):
     for m in model_namespace.equation_dict.values():
         for eq in m:
-            print('EQ: ', eq)
             is_set = model_namespace.is_set
             if is_set:
                 eq_key = "EQ_SET" + eq.id.replace(".", "_").replace("-", "_")
             else:
-                eq_key = ("EQ_" + eq.__qualname__ +'_'+ eq.id).replace(".", "_").replace("-", "_")
+                eq_key = "EQ_" + eq.id.replace(".", "_").replace("-", "_")
             is_parsed_eq = eq_key in parsed_eq
             if not is_parsed_eq:
                 dsource = eq.lines
@@ -601,15 +532,8 @@ def parse_eq(model_namespace,item_id, equation_graph: Graph, nodes_dep, scope_va
 
                 g = Graph()
                 branches = {}
-                missing_vars = []
-                parse_(ast_tree, eq_key, eq.file, eq.lineno, g, scope_variables, branches=branches, missing_vars=missing_vars)
+                parse_(ast_tree, eq_key, eq.file, eq.lineno, g, scope_variables, branches=branches)
 
-
-                if len(missing_vars)>0:
-                    missing_vars = set(missing_vars)
-                    for mv in missing_vars:
-                        print(mv)
-                    raise KeyError('Missing vars')
                 # Create branched versions of graph
 
                 branches_ = set()
@@ -652,18 +576,8 @@ def parse_eq(model_namespace,item_id, equation_graph: Graph, nodes_dep, scope_va
 
             ns_path = model_namespace.full_tag
             eq_path = ns_path + '.' + eq_key
+            g_qualified = qualify_equation(ns_path, g, scope_variables)
 
-
-
-            g_qualified, refer_to_self, eq_key_, replacements = qualify_equation(ns_path, g, scope_variables, eq, eq_key)
-
-            if refer_to_self:
-                print('eq_key old: ', eq_key)
-                print('p: ',parsed_eq_branches[eq_key])
-                parsed_eq_branches[eq_key_] = (parsed_eq_branches[eq_key][0],parsed_eq_branches[eq_key][1], parsed_eq_branches[eq_key][2], {}, replacements)
-                eq_key = eq_key_
-
-            eq_used.append(eq_key)
             # make equation graph
             eq_name = ('EQ_' + eq_path).replace('.', '_')
 
@@ -721,6 +635,7 @@ def parse_eq(model_namespace,item_id, equation_graph: Graph, nodes_dep, scope_va
                         scope_variables[sv].used_in_equation_graph = False
                     else:
                         g.arg_metadata.append((sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
+
 
 def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
     logging.info('process mappings')
