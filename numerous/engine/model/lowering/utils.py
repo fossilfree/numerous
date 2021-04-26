@@ -1,7 +1,6 @@
 from enum import IntEnum, unique
-from numerous.engine.model.lowering.source_gen import SourceGeneratorNumerous
 
-import ast, astor
+import ast
 
 
 @unique
@@ -31,9 +30,9 @@ def generate_code_file(mod_body, file, imports, external_functions_source=False,
 
     mod = wrap_module(mod_body)
     print('Generating Source')
-
-    source = names + astor.to_source(mod, indent_with=' ' * 4, add_line_information=False,
-                                     source_generator_class=SourceGeneratorNumerous)
+    source = 1
+    # source = names + astor.to_source(mod, indent_with=' ' * 4, add_line_information=False,
+    #                                  source_generator_class=SourceGeneratorNumerous)
 
     with open(file, 'w') as f:
         f.write(source)
@@ -79,25 +78,25 @@ class Vardef:
         self.trgs_order = []
 
     def format(self, var):
-        return ast.Name(id=var.replace('scope.', 's_'))
+        return ast.Name(id=var.replace('scope.', 's_'), lineno=0, col_offset=0, ctx=ast.Load())
 
     def format_target(self, var):
         if self.llvm:
-            return ast.Subscript(slice=ast.Index(value=ast.Num(n=0)), value=ast.Call(
-                args=[ast.Name(id=var.replace('scope.', 's_')), ast.Tuple(elts=[ast.Num(n=1)])],
-                func=ast.Name(id='carray'),
-                keywords=[]))
+            return ast.Subscript(slice=ast.Index(value=ast.Num(n=0, lineno=0,col_offset=0), lineno=0,col_offset=0), value=ast.Call(
+                args=[ast.Name(id=var.replace('scope.', 's_'), lineno=0,col_offset=0, ctx=ast.Load()), ast.Tuple(ctx=ast.Load(),elts=[ast.Num(n=1,lineno=0,col_offset=0)], lineno=0,col_offset=0)],
+                func=ast.Name(id='carray', lineno=0,col_offset=0, ctx=ast.Load()),
+                keywords=[], lineno=0,col_offset=0), lineno=0,col_offset=0, ctx=ast.Store())
         else:
-            return ast.Name(id=var.replace('scope.', 's_'))
+            return ast.Name(id=var.replace('scope.', 's_'), lineno=0,col_offset=0, ctx=ast.Store())
 
     def order_variables(self, order_data):
-        for (var,var_id, used) in order_data:
+        for (var, var_id, used) in order_data:
             if used:
                 self.args_order.append("scope." + var)
             else:
                 self.args_order.append(var_id)
 
-        for (var,var_id, used) in order_data:
+        for (var, var_id, used) in order_data:
             tmp_v = "scope." + var
             if tmp_v in self.targets:
                 self.trgs_order.append(tmp_v)
@@ -120,9 +119,13 @@ class Vardef:
 
     def get_order_args(self, form=True):
         if form:
-            return [self.format(a) for a in self.args_order]
+            result = [self.format(a) for a in self.args_order]
         else:
-            return self.args
+            result = self.args
+        result_2 = []
+        for name in result:
+            result_2.append(ast.arg(arg=name.id,  lineno=0, col_offset=0))
+        return result_2
 
     def get_order_trgs(self, form=True):
         if form:
