@@ -19,6 +19,7 @@ class VariableType(Enum):
     PARAMETER_SET = 4
     TMP_PARAMETER = 5
     TMP_PARAMETER_SET = 6
+    CALCULATED_VARIABLE = 7
 
 
 class OverloadAction(Enum):
@@ -69,11 +70,13 @@ class MappedValue(object):
         self.sum_mapping.append(variable)
 
     def __iadd__(self, other):
+
         if isinstance(other, Variable):
             if self.mapping:
                 raise ValueError('It is not possible to add a summation to {0}. Variable already have mapping'
                                  ''.format(self.tag))
             else:
+                print('?????!!!!')
                 self.add_sum_mapping(other)
                 self.special_mapping = True
                 return self

@@ -11,6 +11,8 @@ import numpy as np
 import llvmlite.ir as ll
 import llvmlite.binding as llvm
 
+bound_funcs = 'a'
+
 faulthandler.enable()
 llvm.initialize()
 llvm.initialize_native_target()
@@ -98,6 +100,11 @@ class LLVMBuilder:
         Wrap the function and make it available in the LLVM module
         """
         print(signature)
+        print('func: ', function)
+
+
+
+
         f_c = cfunc(sig=signature)(function)
 
         name = function.__qualname__
