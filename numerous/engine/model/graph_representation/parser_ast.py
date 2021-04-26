@@ -4,7 +4,7 @@ import logging
 from copy import deepcopy
 from textwrap import dedent
 
-from numerous.engine.model.graph_representation import EquationGraph, Graph, EdgeType
+from numerous.engine.model.graph_representation import MappingsGraph, Graph, EdgeType
 from numerous.engine.model.graph_representation.utils import Vardef, str_to_edgetype
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute, dot_dict, wrap_function
 from numerous.engine.scope import ScopeVariable
@@ -56,7 +56,7 @@ def ass(a):
 
 
 # Parse a function
-def node_to_ast(n: int, g: EquationGraph, var_def, read=True):
+def node_to_ast(n: int, g: MappingsGraph, var_def, read=True):
     nk = g.key_map[n]
     try:
         if (na := g.get(n, 'ast_type')) == ast.Attribute:
@@ -504,11 +504,15 @@ def qualify_equation(prefix, g, tag_vars):
     return g_qual
 
 
-def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
+def parse_eq(model_namespace,item_id, equation_graph: Graph, nodes_dep, scope_variables,
              parsed_eq_branches, scoped_equations, parsed_eq):
     for m in model_namespace.equation_dict.values():
         for eq in m:
-            eq_key = "EQ_" + eq.id.replace(".", "_").replace("-", "_")
+            is_set = model_namespace.is_set
+            if is_set:
+                eq_key = "EQ_SET" + eq.id.replace(".", "_").replace("-", "_")
+            else:
+                eq_key = "EQ_" + eq.id.replace(".", "_").replace("-", "_")
             is_parsed_eq = eq_key in parsed_eq
             if not is_parsed_eq:
                 dsource = eq.lines
@@ -579,13 +583,14 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
 
             scoped_equations[eq_name] = eq_key
 
-            is_set = model_namespace.is_set
+
 
             eq_n = equation_graph.add_node(key=eq_name,
                                            node_type=NodeTypes.EQUATION, ast=None,
                                            name=eq_name, file=eq_name, ln=0, label=eq_name,
                                            ast_type=ast.Call,
                                            vectorized=is_set,
+                                           item_id=item_id,
                                            func=ast.Name(id=eq_key.replace('.', '_')))
 
             for n in range(g_qualified.node_counter):
@@ -626,10 +631,10 @@ def parse_eq(model_namespace, equation_graph: Graph, nodes_dep, scope_variables,
             if not is_parsed_eq:
                 for sv in scope_variables:
                     if scope_variables[sv].used_in_equation_graph:
-                        g.arg_metadata.append((sv, scope_variables[sv].used_in_equation_graph))
+                        g.arg_metadata.append((sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
                         scope_variables[sv].used_in_equation_graph = False
                     else:
-                        g.arg_metadata.append((scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
+                        g.arg_metadata.append((sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
 
 
 def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
@@ -650,8 +655,6 @@ def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
 
         if not target_var_id in nodes_dep:
             nodes_dep[target_var_id] = []
-
-        add = ast.Add()
 
         for i in m[1]:
 
@@ -675,7 +678,7 @@ def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
             ix_ = equation_graph.has_edge_for_nodes(start_node=ivar_node_e, end_node=t)
             lix = len(ix_)
             if lix == 0:
-                e_m = equation_graph.add_edge(ivar_node_e, t, e_type=EdgeType.MAPPING,
+                equation_graph.add_edge(ivar_node_e, t, e_type=EdgeType.MAPPING,
                                               mappings=[(ivar_set_var_ix, target_set_var_ix)])
             else:
                 equation_graph.edges_attr['mappings'][ix_[0]].append((ivar_set_var_ix, target_set_var_ix))

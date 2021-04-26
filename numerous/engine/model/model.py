@@ -15,7 +15,7 @@ from numerous.engine.model.external_mappings import ExternalMapping, EmptyMappin
 from numerous.utils.logger_levels import LoggerLevel
 
 from numerous.utils.historian import InMemoryHistorian
-from numerous.engine.model.graph_representation.equation_graph import EquationGraph
+from numerous.engine.model.graph_representation.mappings_graph import MappingsGraph
 from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
 from numerous.engine.scope import Scope, ScopeVariable, ScopeSet
@@ -310,7 +310,7 @@ class Model:
                 else:
                     tag_vars = {v.tag: v for k, v in ns[1][0].variables.items()}
 
-                parse_eq(model_namespace=ns[1][0], equation_graph=self.eg, nodes_dep=nodes_dep,
+                parse_eq(model_namespace=ns[1][0], item_id=ns[0],  equation_graph=self.eg, nodes_dep=nodes_dep,
                          scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
                          scoped_equations=self.scoped_equations, parsed_eq=self.equations_top)
 
@@ -349,7 +349,7 @@ class Model:
 
         logging.info('variables sorted')
 
-        self.eg = EquationGraph.from_graph(self.eg)
+        self.eg = MappingsGraph.from_graph(self.eg)
         self.eg.remove_chains()
         tmp_vars = self.eg.create_assignments()
         self.eg.add_mappings()
@@ -540,7 +540,6 @@ class Model:
         state_values : array of state values
 
         """
-        # return self.scope_vars_3d[self.state_idxs_3d]
         return self.var_func()[self.state_idx]
 
     def get_variable_path(self, id, item):
@@ -554,6 +553,8 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
+
+    #TODO: This is not working!
     def save_variables_schedule(self, period, filename):
         """
         Save data to file on given period.

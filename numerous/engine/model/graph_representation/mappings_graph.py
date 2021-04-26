@@ -18,6 +18,7 @@ class TemporaryVar():
         self.value = svi.value
         self.type = VariableType.TMP_PARAMETER
         self.path = svi.path
+        self.item = svi.item
 
     def get_path_dot(self):
         return self.tag
@@ -53,7 +54,7 @@ class SumCount:
 new_sum = SumCount().get_sum
 
 
-class EquationGraph(Graph):
+class MappingsGraph(Graph):
 
     def __init__(self, preallocate_items=1000):
         super().__init__(preallocate_items)

@@ -35,12 +35,6 @@ class Graph:
             self.node_edges[e[0]][0].append(i)
             self.node_edges[e[1]][1].append(i)
 
-    def lock(self):
-        pass
-
-    def unlock(self):
-        pass
-
     def add_node(self, key=None, ignore_existing=False, skip_existing=True, **attrs):
         if not key:
             key = tmp_generator()
@@ -70,6 +64,7 @@ class Graph:
             else:
                 return self.node_map[key]
         return node
+
 
     def add_edge(self, start=-1, end=-1, e_type=EdgeType.UNDEFINED, **attrs):
         edge = self.edge_counter
@@ -206,8 +201,8 @@ class Graph:
 
         return clone_
 
-    def update(self, another_graph):
 
+    def update(self, another_graph):
         another_keys = list(another_graph.nodes_attr.keys())
         new_map = {}
         for nk, ni in another_graph.node_map.items():
