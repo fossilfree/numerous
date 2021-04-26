@@ -37,3 +37,4 @@ class InMemoryDataLoader(DataLoader):
 
     def load(self, df_id: str, t: int) -> DataFrame:
         return self.df
+

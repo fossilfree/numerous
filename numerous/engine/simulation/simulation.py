@@ -79,13 +79,12 @@ class Simulation:
         print("Generation time: ", generation_finish - generation_start)
 
         if solver_type.value == SolverType.SOLVER_IVP.value:
-            self.solver = IVP_solver(time_, delta_t, numba_model,
+            self.solver = IVP_solver(time_, delta_t, model, numba_model,
                                      num_inner, max_event_steps, self.model.states_as_vector, **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
-            self.solver = Numerous_solver(time_, delta_t, numba_model,
-                                          num_inner, max_event_steps, self.model.states_as_vector,
-                                          numba_compiled_solver=model.use_llvm, **kwargs)
+            self.solver = Numerous_solver(time_, delta_t, model,numba_model,
+                                          num_inner, max_event_steps, self.model.states_as_vector,   numba_compiled_solver=model.use_llvm,**kwargs)
 
         self.solver.register_endstep(__end_step)
 
@@ -136,6 +135,14 @@ class Simulation:
         list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,
                                                           self.model.path_variables), self.model.callbacks))
         self.model.create_historian_df()
+
+    def step_solve(self, t, step_size):
+        try:
+            t, results_status = self.solver.solver_step(t, step_size)
+
+            return t, results_status
+        except Exception as e:
+            raise e
 
     def __init_step(self):
         pass

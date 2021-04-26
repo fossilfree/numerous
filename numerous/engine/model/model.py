@@ -576,6 +576,8 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
+
+    #TODO: This is not working!
     def save_variables_schedule(self, period, filename):
         """
         Save data to file on given period.
