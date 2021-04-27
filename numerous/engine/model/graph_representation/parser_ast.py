@@ -55,15 +55,15 @@ def ass(a):
 
 
 # Parse a function
-def node_to_ast(n: int, g: MappingsGraph, var_def, read=True):
+def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
     nk = g.key_map[n]
     try:
         if (na := g.get(n, 'ast_type')) == ast.Attribute:
 
-            return var_def(nk, read)
+            return var_def(nk,ctxread, read)
 
         elif na == ast.Name:
-            return var_def(nk, read)
+            return var_def(nk,ctxread, read)
 
         elif na == ast.Num:
             return ast.Call(args=[ast.Num(value=g.get(n, 'value'),
@@ -133,8 +133,6 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, read=True):
             ast_Comp = ast.Compare(left=left_ast, comparators=comp_ast, ops=g.get(n, 'ops'), lineno=0, col_offset=0)
 
             return ast_Comp
-
-        # TODO implement missing code ast objects
         raise TypeError(f'Cannot convert {n},{na}')
     except:
         print(n)
@@ -176,7 +174,7 @@ def function_from_graph_generic(g: Graph, name, var_def_):
         if (at := g.get(n, 'ast_type')) == ast.Assign or at == ast.AugAssign:
             value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE)[1][0][0]
 
-            value_ast = node_to_ast(value_node, g, var_def)
+            value_ast = node_to_ast(value_node, g, var_def, ctxread = True)
             body.append(process_assign_node(g.get_edges_for_node_filter(start_node=n, attr='e_type',
                                                                         val=EdgeType.TARGET)[1],
                                             g, var_def, value_ast, at, targets))
@@ -220,8 +218,8 @@ def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_, imports,
     func = wrap_function(fname + '1', body, decorators=[],
                          args=ast.arguments(posonlyargs=[], args=[], vararg=None, defaults=[],
                                             kwonlyargs=[], kw_defaults=[], kwarg=None))
-    # tree = ast.parse(ast.unparse(func), mode='exec')
-    module_func = ast.Module(body=[func],type_ignores=[])
+    # tree = compile(ast.parse(ast.unparse(func), mode='exec'), filename='llvm_equations_storage', mode='exec')
+    module_func = ast.Module(body=[func], type_ignores=[])
     code = compile(module_func, filename='llvm_equations_storage', mode='exec')
     namespace = {}
     exec(code, namespace)
@@ -246,7 +244,7 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
 
         if (na := g.get(n, 'ast_type')) == ast.Assign or na == ast.AugAssign:
             value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE)[1][0][0]
-            value_ast = node_to_ast(value_node, g, var_def)
+            value_ast = node_to_ast(value_node, g, var_def, ctxread = True)
 
             body.append(
                 process_assign_node(g.get_edges_for_node_filter(start_node=n, attr='e_type', val=EdgeType.TARGET)[1], g,

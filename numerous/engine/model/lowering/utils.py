@@ -79,14 +79,18 @@ class Vardef:
     def format(self, var):
         return ast.Name(id=var.replace('scope.', 's_'), lineno=0, col_offset=0, ctx=ast.Load())
 
-    def format_target(self, var):
+    def format_target(self, var,read):
+        if read:
+            _ctx = ast.Load()
+        else:
+            _ctx = ast.Store()
         if self.llvm:
             return ast.Subscript(slice=ast.Index(value=ast.Num(n=0, lineno=0,col_offset=0), lineno=0,col_offset=0), value=ast.Call(
                 args=[ast.Name(id=var.replace('scope.', 's_'), lineno=0,col_offset=0, ctx=ast.Load()), ast.Tuple(ctx=ast.Load(),elts=[ast.Num(n=1,lineno=0,col_offset=0)], lineno=0,col_offset=0)],
                 func=ast.Name(id='carray', lineno=0,col_offset=0, ctx=ast.Load()),
-                keywords=[], lineno=0,col_offset=0), lineno=0,col_offset=0, ctx=ast.Store())
+                keywords=[], lineno=0,col_offset=0), lineno=0,col_offset=0, ctx=_ctx)
         else:
-            return ast.Name(id=var.replace('scope.', 's_'), lineno=0,col_offset=0, ctx=ast.Store())
+            return ast.Name(id=var.replace('scope.', 's_'), lineno=0,col_offset=0, ctx=_ctx)
 
     def order_variables(self, order_data):
         for (var, var_id, used) in order_data:
@@ -100,7 +104,7 @@ class Vardef:
             if tmp_v in self.targets:
                 self.trgs_order.append(tmp_v)
 
-    def var_def(self, var, read=True):
+    def var_def(self, var,ctxread, read=True):
         if not var in self.vars_inds_map:
             self.vars_inds_map.append(var)
         if read and 'scope.' in var:
@@ -112,7 +116,7 @@ class Vardef:
                 self.targets.append(var)
 
         if var in self.targets:
-            return self.format_target(var)
+            return self.format_target(var,ctxread)
         else:
             return self.format(var)
 
