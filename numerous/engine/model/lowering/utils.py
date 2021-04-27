@@ -16,6 +16,7 @@ class VarTypes(IntEnum):
 def wrap_module(body):
     mod = ast.Module()
     mod.body = body
+    mod.type_ignores=[]
     return mod
 
 
@@ -30,9 +31,7 @@ def generate_code_file(mod_body, file, imports, external_functions_source=False,
 
     mod = wrap_module(mod_body)
     print('Generating Source')
-    source = 1
-    # source = names + astor.to_source(mod, indent_with=' ' * 4, add_line_information=False,
-    #                                  source_generator_class=SourceGeneratorNumerous)
+    source = names + ast.unparse(mod)
 
     with open(file, 'w') as f:
         f.write(source)

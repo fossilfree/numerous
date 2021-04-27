@@ -66,7 +66,10 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, read=True):
             return var_def(nk, read)
 
         elif na == ast.Num:
-            return ast.Call(args=[ast.Num(value=g.get(n, 'value'))], func=ast.Name(id='float64', lineno=0,col_offset=0), keywords={})
+            return ast.Call(args=[ast.Num(value=g.get(n, 'value'),
+                                          lineno=0, col_offset=0)], func=ast.Name(id='float64', lineno=0, col_offset=0,
+                                                                                   ctx=ast.Load()),
+                            keywords=[], lineno=0, col_offset=0)
 
         elif na == ast.BinOp:
 
@@ -97,7 +100,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, read=True):
                 a_ast = node_to_ast(a, g, var_def)
                 args_ast.append(a_ast)
 
-            ast_Call = ast.Call(args=args_ast, func=g.get(n, 'func'), keywords={}, lineno=0,col_offset=0)
+            ast_Call = ast.Call(args=args_ast, func=g.get(n, 'func'), keywords=[], lineno=0,col_offset=0)
 
             return ast_Call
 
