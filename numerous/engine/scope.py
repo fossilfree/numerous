@@ -6,7 +6,6 @@ class ScopeVariable(MappedValue):
     """
                Variable inside the scope.
     """
-
     def __init__(self, base_variable):
         super().__init__(base_variable.id)
         self.updated = False
@@ -27,11 +26,11 @@ class ScopeVariable(MappedValue):
         self.parent_scope_id = None
         self.used_in_equation_graph = False
         self.position = None
-        self.alias=base_variable.alias
+        self.alias = base_variable.alias
         self.set_var = base_variable.set_var
         self.set_var_ix = base_variable.set_var_ix
         self.get_path_dot = base_variable.get_path_dot
-        ##Should have system similar to setVar
+
         self.size = 0
         self.item=base_variable.item
 

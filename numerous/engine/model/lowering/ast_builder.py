@@ -38,7 +38,8 @@ class ASTBuilder:
                                                             args=[ast.List(
                                                                 elts=[ast.Constant(value=v) for v in initial_values],
                                                                 ctx=ast.Load())],
-                                                            keywords=[]))]
+                                                            keywords=[]
+                                                            ), lineno=0)]
 
         self.kernel_function = []
         self.variable_names = variable_names
@@ -75,9 +76,9 @@ class ASTBuilder:
 
     def generate(self, imports, system_tag="", external_functions_source=False, save_opt=False):
         kernel = wrap_function('global_kernel', self.read_args_section + self.body + self.return_section, decorators=[],
-                               args=ast.arguments(args=[ast.arg(arg="states",
+                               args=ast.arguments(posonlyargs=[], args=[ast.arg(arg="states",
                                                                 annotation=None)], vararg=None, defaults=[],
-                                                  kwarg=None))
+                                                  kwarg=None, kwonlyargs=[]))
         kernel_filename = LISTING_FILEPATH + system_tag + LISTINGFILENAME
         os.makedirs(os.path.dirname(kernel_filename), exist_ok=True)
         variable_names_print = []
@@ -111,11 +112,11 @@ class ASTBuilder:
         if len(targets) > 1:
             self.body.append(ast.Assign(targets=[ast.Tuple(elts=targets)],
                                         value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
-                                                       args=args, keywords=[])))
+                                                       args=args, keywords=[]), lineno=0))
         else:
             self.body.append(ast.Assign(targets=[targets[0]],
                                         value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
-                                                       args=args, keywords=[])))
+                                                       args=args, keywords=[]), lineno=0))
 
     def add_mapping(self, args, target):
         if len(target) > 1:
@@ -131,7 +132,8 @@ class ASTBuilder:
                                                                    value=ast.Constant(value=target_idx, kind=None)))],
                                         value=ast.Subscript(value=GLOBAL_ARRAY,
                                                             slice=ast.Index(
-                                                                value=ast.Constant(value=arg_idxs[0], kind=None)))))
+                                                                value=ast.Constant(value=arg_idxs[0], kind=None)))
+                                        , lineno=0))
         else:
             self.body.append(ast.Assign(targets=[ast.Subscript(value=GLOBAL_ARRAY,
                                                                slice=ast.Index(
@@ -141,7 +143,7 @@ class ASTBuilder:
                                                                             slice=ast.Index(
                                                                                 value=ast.Constant(value=arg_idxs[0],
                                                                                                    kind=None))))
-                                        ))
+                                        , lineno=0))
 
     def _generate_sum_left(self, arg_idxs):
         if len(arg_idxs) > 0:
@@ -192,11 +194,11 @@ class ASTBuilder:
         if len(targets) > 1:
             return ast.Assign(targets=[ast.Tuple(elts=targets)],
                               value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
-                                             args=args, keywords=[]))
+                                             args=args, keywords=[]), lineno=0)
         else:
             return ast.Assign(targets=[targets[0]],
                               value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
-                                             args=args, keywords=[]))
+                                             args=args, keywords=[]), lineno=0)
 
     def add_set_mapping(self, args2d, targets2d):
         pass

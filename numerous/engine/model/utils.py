@@ -33,15 +33,12 @@ def recurse_Attribute(attr, sep='.'):
         elif isinstance(attr.value, ast.Attribute):
             return recurse_Attribute(attr.value) + sep + attr.attr
 
-class dot_dict:
-        def __init__(self, **d):
-            for k, v in d.items():
-                setattr(self, k, v)
-
 
 def wrap_function(name, body, args, decorators):
     f = ast.FunctionDef(name)
     f.body = body
     f.decorator_list = decorators
     f.args = args
+    f.lineno = 0
+    f.col_offset = 0
     return f
