@@ -60,15 +60,15 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
     try:
         if (na := g.get(n, 'ast_type')) == ast.Attribute:
 
-            return var_def(nk,ctxread, read)
+            return var_def(nk, ctxread, read)
 
         elif na == ast.Name:
-            return var_def(nk,ctxread, read)
+            return var_def(nk, ctxread, read)
 
         elif na == ast.Num:
             return ast.Call(args=[ast.Num(value=g.get(n, 'value'),
                                           lineno=0, col_offset=0)], func=ast.Name(id='float64', lineno=0, col_offset=0,
-                                                                                   ctx=ast.Load()),
+                                                                                  ctx=ast.Load()),
                             keywords=[], lineno=0, col_offset=0)
 
         elif na == ast.BinOp:
@@ -81,7 +81,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
 
             right_ast = node_to_ast(right_node, g, var_def)
 
-            ast_binop = ast.BinOp(left=left_ast, right=right_ast, op=g.get(n, 'ast_op'), lineno=0,col_offset=0)
+            ast_binop = ast.BinOp(left=left_ast, right=right_ast, op=g.get(n, 'ast_op'), lineno=0, col_offset=0)
             return ast_binop
 
         elif na == ast.UnaryOp:
@@ -89,7 +89,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
 
             operand_ast = node_to_ast(operand, g, var_def)
 
-            ast_unop = ast.UnaryOp(operand=operand_ast, op=g.get(n, 'ast_op'), lineno=0,col_offset=0)
+            ast_unop = ast.UnaryOp(operand=operand_ast, op=g.get(n, 'ast_op'), lineno=0, col_offset=0)
             return ast_unop
 
         elif na == ast.Call:
@@ -100,7 +100,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
                 a_ast = node_to_ast(a, g, var_def)
                 args_ast.append(a_ast)
 
-            ast_Call = ast.Call(args=args_ast, func=g.get(n, 'func'), keywords=[], lineno=0,col_offset=0)
+            ast_Call = ast.Call(args=args_ast, func=g.get(n, 'func'), keywords=[], lineno=0, col_offset=0)
 
             return ast_Call
 
@@ -115,7 +115,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
             test = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.TEST)[1][0][0]
             test_ast = node_to_ast(test, g, var_def)
 
-            ast_ifexp = ast.IfExp(body=body_ast, orelse=orelse_ast, test=test_ast, lineno=0,col_offset=0)
+            ast_ifexp = ast.IfExp(body=body_ast, orelse=orelse_ast, test=test_ast, lineno=0, col_offset=0)
 
             return ast_ifexp
 
@@ -145,7 +145,8 @@ def process_assign_node(target_nodes, g, var_def, value_ast, na, targets):
         for target_node in target_nodes:
             target_ast.append(node_to_ast(target_node[1], g, var_def, read=False))
             targets.append(target_node[1])
-        ast_assign = ast.Assign(targets=[ast.Tuple(elts=target_ast)], value=value_ast, lineno=0, col_offset=0)
+        ast_assign = ast.Assign(targets=[ast.Tuple(elts=target_ast, lineno=0, col_offset=0, ctx=ast.Store())],
+                                value=value_ast, lineno=0, col_offset=0)
         return ast_assign
     else:
         target_node = target_nodes[0][1]
@@ -174,7 +175,7 @@ def function_from_graph_generic(g: Graph, name, var_def_):
         if (at := g.get(n, 'ast_type')) == ast.Assign or at == ast.AugAssign:
             value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE)[1][0][0]
 
-            value_ast = node_to_ast(value_node, g, var_def, ctxread = True)
+            value_ast = node_to_ast(value_node, g, var_def, ctxread=True)
             body.append(process_assign_node(g.get_edges_for_node_filter(start_node=n, attr='e_type',
                                                                         val=EdgeType.TARGET)[1],
                                             g, var_def, value_ast, at, targets))
@@ -244,7 +245,7 @@ def function_from_graph_generic_llvm(g: Graph, name, var_def_):
 
         if (na := g.get(n, 'ast_type')) == ast.Assign or na == ast.AugAssign:
             value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE)[1][0][0]
-            value_ast = node_to_ast(value_node, g, var_def, ctxread = True)
+            value_ast = node_to_ast(value_node, g, var_def, ctxread=True)
 
             body.append(
                 process_assign_node(g.get_edges_for_node_filter(start_node=n, attr='e_type', val=EdgeType.TARGET)[1], g,
