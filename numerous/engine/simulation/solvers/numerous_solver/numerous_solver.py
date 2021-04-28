@@ -1,7 +1,25 @@
+from collections import namedtuple
+from enum import IntEnum, unique
+
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
 from .solver_methods import *
 from numba import njit, objmode
 import time
+
+Info = namedtuple('Info', ['status', 'event_id', 'step_info', 'dt', 't', 'y', 'order'])
+
+
+@unique
+class SolveStatus(IntEnum):
+    Running = 0
+    Finished = 1
+
+
+@unique
+class SolveEvent(IntEnum):
+    NoneEvent = 0
+    Historian = 1
+    ExternalDataUpdate = 2
 
 
 class Numerous_solver(BaseSolver):
@@ -62,7 +80,8 @@ class Numerous_solver(BaseSolver):
                     numba_model.func(t, y)
                     numba_model.historian_update(t)
                     numba_model.map_external_data(t)
-                return 1, dt, t, y, order
+                return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
+                            dt=dt, t=t, y=y, order=order)
             t_start = t
             t_previous = t0
             y_previous = np.copy(y)
@@ -146,7 +165,6 @@ class Numerous_solver(BaseSolver):
                         j_i += 1
                         p_size = 100
                         x = int(p_size * j_i / progress_c)
-                        # print(t, 100 * t / t_end)
                         if not step_converged:
                             print("step not converged, but historian updated")
                         numba_model.historian_update(t)
@@ -168,8 +186,6 @@ class Numerous_solver(BaseSolver):
 
                 dt_ = min([t_next_eval - t_start, t_new_test - t_start])
 
-                # dt_ = t_next_eval - t_start
-
                 # solve from start to new test by calling the step function
 
                 t, y, step_converged, step_info, _solve_state, factor = step_integrate_(numba_model,
@@ -186,22 +202,14 @@ class Numerous_solver(BaseSolver):
                     t_previous = t
                     numba_model.map_external_data(t)
                     if numba_model.is_store_required():
-                        with objmode:
-                            self.model.store_history(numba_model.historian_data)
-                            numba_model.historian_reinit()
-
+                        return Info(status=SolveStatus.Running, event_id=SolveEvent.Historian, step_info=step_info,
+                                    dt=dt, t=t, y=y, order=order)
                     if numba_model.is_external_data_update_needed(t):
-                        with objmode(is_external_data='boolean', external_mappings_numpy="float64[:, :, :]",
-                                     external_mappings_time="float64[:, :]"):
-                            is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
-                            external_mappings_numpy = self.model.external_mappings.external_mappings_numpy
-                            external_mappings_time = self.model.external_mappings.external_mappings_time
-                        numba_model.is_external_data = is_external_data
-                        numba_model.update_external_data(external_mappings_numpy, external_mappings_time)
-                    # numba_model.func(t, y)
-                    # print(t)
+                        return Info(status=SolveStatus.Running, event_id=SolveEvent.ExternalDataUpdate,
+                                    step_info=step_info, dt=dt, t=t, y=y, order=order)
 
-            return step_info, dt, t, y, order
+            return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
+                        dt=dt, t=t, y=y, order=order)
 
         return _solve
 
@@ -342,7 +350,6 @@ class Numerous_solver(BaseSolver):
 
         initial_step = self.select_initial_step(self.numba_model, t_start, y0, 1, order - 1, rtol,
                                                 atol)  # np.min([100000000*min_step, max_step])
-        print("initial step", initial_step)
 
         strict_eval = self.method_options.get('strict_eval')
         outer_itermax = self.method_options.get('outer_itermax')
@@ -351,10 +358,27 @@ class Numerous_solver(BaseSolver):
 
         # figure out solve_state init
         solve_state = self._method.get_solver_state(len(y0))
+
         info = self._solve(self.numba_model,
                            solve_state, initial_step, order, strict_eval, outer_itermax, min_step,
                            max_step, step_integrate_,
                            t_start, t_end, self.time)
+        while info.status == SolveStatus.Running:
+            if info.event == 1:
+                self.model.store_history(self.numba_model.historian_data)
+                self.numba_model.historian_reinit()
+            if info.event == 2:
+                is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
+                external_mappings_numpy = self.model.external_mappings.external_mappings_numpy
+                external_mappings_time = self.model.external_mappings.external_mappings_time
+                self.numba_model.is_external_data = is_external_data
+                self.numba_model.update_external_data(external_mappings_numpy, external_mappings_time)
+
+            info = self._solve(self.numba_model,
+                               solve_state, info.dt, order, strict_eval, outer_itermax, min_step,
+                               max_step, step_integrate_,
+                               info.t, t_end, self.time)
+
         print("finished")
         return self.sol, self.result_status
 
