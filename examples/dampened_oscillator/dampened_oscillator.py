@@ -132,7 +132,7 @@ class OscillatorSystem2(Subsystem):
             self.register_items([spc3, te])
 
 class OscillatorSystem(Subsystem):
-    def __init__(self, tag, c=1, k=1, x0=[10, 8], a=1, n=1):
+    def __init__(self, tag, c=1, k=1, x0=[10, 8], a=1, n=2):
         super().__init__(tag)
         oscillators = []
         for i in range(n):

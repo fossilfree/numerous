@@ -31,8 +31,8 @@ You can get started quickly here with a simple example:
 
 ```python
 from numerous.engine import model, simulation
-from numerous.examples.dampened_oscillator import OscillatorSystem
-
+from numerous.examples.dampened_oscillator.dampened_oscillator import OscillatorSystem
+import matplotlib.pyplot as plt
 #Define simulation
 s = simulation.Simulation(
      model.Model(OscillatorSystem('system')),
@@ -40,7 +40,8 @@ s = simulation.Simulation(
 )
 #Solve and plot
 s.solve()
-s.model.historian.df.plot()
+s.model.historian_df.plot.line()
+plt.show()
 ```
 
 
