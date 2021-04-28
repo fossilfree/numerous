@@ -19,6 +19,7 @@ class VariableType(Enum):
     PARAMETER_SET = 4
     TMP_PARAMETER = 5
     TMP_PARAMETER_SET = 6
+    CALCULATED_VARIABLE = 7
 
 
 class OverloadAction(Enum):
@@ -34,6 +35,7 @@ class VariableDescription:
     id: str = None
     logger_level: LoggerLevel = LoggerLevel.ALL
     alias: str = None
+    update: bool = False
 
 
 @dataclass
@@ -54,6 +56,8 @@ class MappedValue(object):
         self.special_mapping = False
         self.addself = False
         self.logger_level = None
+        self.model = None
+        self.llvm_idx = None
 
     def add_mapping(self, variable):
         if not self.special_mapping:
@@ -179,9 +183,9 @@ class Variable(MappedValue):
 
         if base_variable:
 
-            self.value = base_variable.value
+            self._value = base_variable.value
         else:
-            self.value = detailed_variable_description.initial_value
+            self._value = detailed_variable_description.initial_value
         self.item = detailed_variable_description.item
         self.metadata = detailed_variable_description.metadata
         self.mapping = detailed_variable_description.mapping
@@ -196,7 +200,21 @@ class Variable(MappedValue):
         return self.path.path[self.top_item][0]
 
     def update_value(self, value):
-        self.value = value
+        self._value = value
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, value):
+        try:
+            float(value)
+        except ValueError:
+            print(value)
+        self._value = value
+        if self.llvm_idx is not None:
+            self.model.numba_model.write_variables(value, self.llvm_idx)
 
     def update_set_var(self, set_var, set_namespace):
         if not self.set_var:

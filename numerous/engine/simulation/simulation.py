@@ -72,6 +72,7 @@ class Simulation:
         self.end_step = __end_step
         print("Generating Numba Model")
         generation_start = time.time()
+        print('Len time steps: ', len(self.time))
         numba_model = model.generate_compiled_model(t_start, len(self.time))
 
         generation_finish = time.time()

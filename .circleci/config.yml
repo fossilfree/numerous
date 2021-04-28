@@ -2,16 +2,10 @@ version: 2.1
 jobs:
   build:
     docker:
-        - image: mariuscristian/numerous-requirements:1.0.1
+        - image: cimg/python:3.9.4
 
     steps:
       - checkout
-      - run: apt-get install -y sudo # https://discuss.circleci.com/t/sudo-command-not-found/14208/4
-      - run:
-          name: Install pip
-          command: |
-            sudo apt update
-            sudo apt install -y python3-pip python3-dev
       - run:  pip3 install -r requirements.txt
       - run:
           name: Tests

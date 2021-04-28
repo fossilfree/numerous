@@ -83,3 +83,17 @@ class ConnectorOneWay(ConnectorItem):
         self.binding_names = [side1_name]
         for bn in self.binding_names:
             self.create_binding(bn)
+
+class ConnectorMultiWay(ConnectorItem):
+    """
+        Special case of  a connector item with n predefined bindings.
+
+    """
+
+    def __init__(self, tag):
+        super(ConnectorMultiWay, self).__init__(tag=tag)
+
+    def create_bindings(self, binding_names):
+        self.binding_names = binding_names
+        for bn in self.binding_names:
+            self.create_binding(bn)
