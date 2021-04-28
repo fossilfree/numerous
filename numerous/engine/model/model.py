@@ -310,7 +310,7 @@ class Model:
                 else:
                     tag_vars = {v.tag: v for k, v in ns[1][0].variables.items()}
 
-                parse_eq(model_namespace=ns[1][0], item_id=ns[0],  equation_graph=self.eg, nodes_dep=nodes_dep,
+                parse_eq(model_namespace=ns[1][0], item_id=ns[0], equation_graph=self.eg, nodes_dep=nodes_dep,
                          scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
                          scoped_equations=self.scoped_equations, parsed_eq=self.equations_top)
 
@@ -341,8 +341,6 @@ class Model:
                 other.append(sv)
 
         self.vars_ordered = states + deriv + mapping + other
-
-
         self.states_end_ix = len(states)
 
         self.deriv_end_ix = self.states_end_ix + len(deriv)
@@ -416,12 +414,12 @@ class Model:
             eq_gen.generate_equations()
 
         for varname, ix in self.vars_ordered_values.items():
-            var=self.scope_variables[varname]
+            var = self.scope_variables[varname]
             var.llvm_idx = ix
             var.model = self
-            if getattr(var, 'logger_level', None) is None: # added to temporary variables - maybe put in generate_equations?
+            if getattr(var, 'logger_level',
+                       None) is None:  # added to temporary variables - maybe put in generate_equations?
                 setattr(var, 'logger_level', LoggerLevel.ALL)
-
 
         def c1(self, array_):
             return compiled_compute(array_)
@@ -569,8 +567,7 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
-
-    #TODO: This is not working!
+    # TODO: This is not working!
     def save_variables_schedule(self, period, filename):
         """
         Save data to file on given period.
@@ -783,7 +780,6 @@ class Model:
 
         ## solve for 1 to n
         return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
-
 
 
 class AliasedDataFrame(pd.DataFrame):

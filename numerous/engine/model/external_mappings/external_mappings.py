@@ -1,5 +1,4 @@
 import numpy as np
-from pandas import DataFrame
 
 from numerous.engine.model.external_mappings.interpolation_type import InterpolationType
 
@@ -75,13 +74,9 @@ class ExternalMapping:
 
     def is_mapped_var(self, variables, var_id, system_id):
         for path in variables[var_id].path.path[system_id]:
-
-            print(path)
             for columns in self.external_columns:
-                #print(columns)
                 if path in columns:
                     return True
-
 
 
 class ExternalMappingElement:
@@ -111,7 +106,7 @@ class EmptyMapping:
         self.external_mappings_time = np.empty([0, 0], dtype=np.float64)
         self.external_df_idx = np.empty([0, 0], dtype=np.int64)
         self.t_max = 0
-        self.interpolation_info = np.empty([0], dtype=np.bool)
+        self.interpolation_info = np.empty([0], dtype=bool)
 
     def store_mappings(self):
         pass

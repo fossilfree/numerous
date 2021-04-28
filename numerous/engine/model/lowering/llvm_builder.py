@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import itertools
 import os
 from ctypes import CFUNCTYPE, POINTER, c_double, c_void_p, c_int64
 from numba import carray, cfunc, njit
@@ -10,8 +9,6 @@ import numpy as np
 
 import llvmlite.ir as ll
 import llvmlite.binding as llvm
-
-bound_funcs = 'a'
 
 faulthandler.enable()
 llvm.initialize()
@@ -99,14 +96,8 @@ class LLVMBuilder:
         """
         Wrap the function and make it available in the LLVM module
         """
-        print(signature)
-        print('func: ', function)
-
-
-
 
         f_c = cfunc(sig=signature)(function)
-
         name = function.__qualname__
 
         f_c_sym = llvm.add_symbol(name, f_c.address)
@@ -153,8 +144,7 @@ class LLVMBuilder:
         llmod = llvm.parse_assembly(str(self.module))
 
         pmb = llvm.create_pass_manager_builder()
-        pmb.opt_level = 3
-        pmb.slp_vectorize = True
+        pmb.opt_level = 1
         pm = llvm.create_module_pass_manager()
         pmb.populate(pm)
 

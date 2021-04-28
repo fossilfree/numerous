@@ -6,7 +6,8 @@ import time
 
 class Numerous_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, model,numba_model, num_inner, max_event_steps, y0, numba_compiled_solver, **kwargs):
+    def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps, y0, numba_compiled_solver,
+                 **kwargs):
         super().__init__()
         self.time = time
         self.model = model
@@ -145,7 +146,7 @@ class Numerous_solver(BaseSolver):
                         j_i += 1
                         p_size = 100
                         x = int(p_size * j_i / progress_c)
-                        #print(t, 100 * t / t_end)
+                        # print(t, 100 * t / t_end)
                         if not step_converged:
                             print("step not converged, but historian updated")
                         numba_model.historian_update(t)
@@ -183,7 +184,6 @@ class Numerous_solver(BaseSolver):
                 if step_converged:
                     y_previous = y
                     t_previous = t
-                    print(t_end-t)
                     numba_model.map_external_data(t)
                     if numba_model.is_store_required():
                         with objmode:
@@ -340,8 +340,6 @@ class Numerous_solver(BaseSolver):
 
         order = self._method.order
 
-
-
         initial_step = self.select_initial_step(self.numba_model, t_start, y0, 1, order - 1, rtol,
                                                 atol)  # np.min([100000000*min_step, max_step])
         print("initial step", initial_step)
@@ -358,10 +356,6 @@ class Numerous_solver(BaseSolver):
                            max_step, step_integrate_,
                            t_start, t_end, self.time)
         print("finished")
-        # except Exception as e:
-        #     print(e)
-        #     raise e
-        # finally:
         return self.sol, self.result_status
 
     def solver_step(self, t, delta_t=None):
@@ -381,15 +375,14 @@ class Numerous_solver(BaseSolver):
         atol = self.method_options.get('atol')
 
         if self.info is not None:
-            dt = self.info.get('dt') # internal solver step size
+            dt = self.info.get('dt')  # internal solver step size
             order = self.info.get('order')
             assert self.info.get('t') == t_start, f"solver time {self.info.get('t')} does not match external time " \
                                                   f"{t_start}"
         else:
             order = self._method.order
             dt = self.select_initial_step(self.numba_model, t_start, self.y0, 1, order - 1, rtol,
-                                                atol)
-
+                                          atol)
 
         t_end = t_start + delta_t
 
@@ -398,15 +391,14 @@ class Numerous_solver(BaseSolver):
         step_integrate_ = self._method.step_func
 
         step_info, dt, t, y, order = self._solve(self.numba_model,
-                           solve_state, dt, order, strict_eval, outer_itermax, min_step,
-                           max_step, step_integrate_,
-                           t_start, t_end, time_span)
+                                                 solve_state, dt, order, strict_eval, outer_itermax, min_step,
+                                                 max_step, step_integrate_,
+                                                 t_start, t_end, time_span)
 
         info = {'step_info': step_info, 'dt': dt, 't': t, 'y': y, 'order': order}
         self.info = info
 
         return t_end, self.info.get('t', None)
-
 
     def register_endstep(self, __end_step):
         self.__end_step = __end_step
