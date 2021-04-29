@@ -3,7 +3,7 @@ import logging
 import numpy as np
 from numerous.engine.model.lowering.ast_builder import ASTBuilder
 from numerous.engine.model.graph_representation import EdgeType
-from numerous.engine.model.graph_representation.parser_ast import function_from_graph_generic, \
+from numerous.engine.model.ast_parser.parser_ast import function_from_graph_generic, \
     compiled_function_from_graph_generic_llvm
 from numerous.engine.model.lowering.llvm_builder import LLVMBuilder
 from numerous.engine.model.lowering.utils import Vardef

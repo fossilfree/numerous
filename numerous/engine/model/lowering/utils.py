@@ -76,8 +76,12 @@ class Vardef:
         self.args_order = []
         self.trgs_order = []
 
-    def format(self, var):
-        return ast.Name(id=var.replace('scope.', 's_'), lineno=0, col_offset=0, ctx=ast.Load())
+    def format(self, var, read=True):
+        if read:
+            _ctx = ast.Load()
+        else:
+            _ctx = ast.Store()
+        return ast.Name(id=var.replace('scope.', 's_'), lineno=0, col_offset=0, ctx=_ctx)
 
     def format_target(self, var,read):
         if read:
@@ -116,13 +120,13 @@ class Vardef:
                 self.targets.append(var)
 
         if var in self.targets:
-            return self.format_target(var,ctxread)
+            return self.format_target(var, ctxread)
         else:
-            return self.format(var)
+            return self.format(var, ctxread)
 
     def get_order_args(self, form=True):
         if form:
-            result = [self.format(a) for a in self.args_order]
+            result = [self.format(a,False) for a in self.args_order]
         else:
             result = self.args
         result_2 = []
@@ -132,18 +136,18 @@ class Vardef:
 
     def get_order_trgs(self, form=True):
         if form:
-            return [self.format(a) for a in self.trgs_order]
+            return [self.format(a,False) for a in self.trgs_order]
         else:
             return self.args
 
     def get_args(self, form=True):
         if form:
-            return [self.format(a) for a in self.args]
+            return [self.format(a,False) for a in self.args]
         else:
             return self.args
 
     def get_targets(self, form=True):
         if form:
-            return [self.format(a) for a in self.targets]
+            return [self.format(a,False) for a in self.targets]
         else:
             return self.targets

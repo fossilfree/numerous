@@ -1,6 +1,5 @@
 import itertools
-from copy import copy, deepcopy
-from typing import TypeVar
+from copy import copy
 
 import numpy as np
 import time
@@ -25,9 +24,9 @@ from numerous.engine.variables import VariableType
 from numerous.utils.numba_callback import NumbaCallbackBase
 
 from enum import IntEnum
-from numerous.engine.model.graph_representation.parser_ast import parse_eq
+from numerous.engine.model.ast_parser.parser_ast import parse_eq
 from numerous.engine.model.graph_representation.graph import Graph
-from numerous.engine.model.graph_representation.parser_ast import process_mappings
+from numerous.engine.model.ast_parser.parser_ast import process_mappings
 
 from numerous.engine.model.lowering.equations_generator import EquationGenerator
 from numerous.engine.system import SetNamespace

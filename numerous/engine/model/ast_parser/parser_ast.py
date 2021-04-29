@@ -75,11 +75,11 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
 
             left_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=[EdgeType.LEFT])[1][0][0]
 
-            left_ast = node_to_ast(left_node, g, var_def)
+            left_ast = node_to_ast(left_node, g, var_def, ctxread=ctxread)
 
             right_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=[EdgeType.RIGHT])[1][0][0]
 
-            right_ast = node_to_ast(right_node, g, var_def)
+            right_ast = node_to_ast(right_node, g, var_def, ctxread=ctxread)
 
             ast_binop = ast.BinOp(left=left_ast, right=right_ast, op=g.get(n, 'ast_op'), lineno=0, col_offset=0)
             return ast_binop
@@ -87,7 +87,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
         elif na == ast.UnaryOp:
             operand = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.OPERAND)[1][0][0]
 
-            operand_ast = node_to_ast(operand, g, var_def)
+            operand_ast = node_to_ast(operand, g, var_def, ctxread=ctxread)
 
             ast_unop = ast.UnaryOp(operand=operand_ast, op=g.get(n, 'ast_op'), lineno=0, col_offset=0)
             return ast_unop
@@ -97,7 +97,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
             args = [ii[0] for ii in g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.ARGUMENT)[1]]
             args_ast = []
             for a in args:
-                a_ast = node_to_ast(a, g, var_def)
+                a_ast = node_to_ast(a, g, var_def, ctxread=ctxread)
                 args_ast.append(a_ast)
 
             ast_Call = ast.Call(args=args_ast, func=g.get(n, 'func'), keywords=[], lineno=0, col_offset=0)
@@ -107,13 +107,13 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
         elif na == ast.IfExp:
 
             body = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.BODY)[1][0][0]
-            body_ast = node_to_ast(body, g, var_def)
+            body_ast = node_to_ast(body, g, var_def, ctxread=ctxread)
 
             orelse = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.ORELSE)[1][0][0]
-            orelse_ast = node_to_ast(orelse, g, var_def)
+            orelse_ast = node_to_ast(orelse, g, var_def, ctxread=ctxread)
 
             test = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.TEST)[1][0][0]
-            test_ast = node_to_ast(test, g, var_def)
+            test_ast = node_to_ast(test, g, var_def, ctxread=ctxread)
 
             ast_ifexp = ast.IfExp(body=body_ast, orelse=orelse_ast, test=test_ast, lineno=0, col_offset=0)
 
@@ -123,12 +123,12 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
             comp = [ii[0] for ii in g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.COMP)[1]]
             comp_ast = []
             for a in comp:
-                a_ast = node_to_ast(a, g, var_def)
+                a_ast = node_to_ast(a, g, var_def, ctxread=ctxread)
                 comp_ast.append(a_ast)
 
             left = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.LEFT)[1][0][0]
 
-            left_ast = node_to_ast(left, g, var_def)
+            left_ast = node_to_ast(left, g, var_def, ctxread=ctxread)
 
             ast_Comp = ast.Compare(left=left_ast, comparators=comp_ast, ops=g.get(n, 'ops'), lineno=0, col_offset=0)
 
@@ -219,7 +219,6 @@ def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_, imports,
     func = wrap_function(fname + '1', body, decorators=[],
                          args=ast.arguments(posonlyargs=[], args=[], vararg=None, defaults=[],
                                             kwonlyargs=[], kw_defaults=[], kwarg=None))
-    # tree = compile(ast.parse(ast.unparse(func), mode='exec'), filename='llvm_equations_storage', mode='exec')
     module_func = ast.Module(body=[func], type_ignores=[])
     code = compile(module_func, filename='llvm_equations_storage', mode='exec')
     namespace = {}
