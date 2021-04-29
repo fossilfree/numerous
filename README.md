@@ -31,16 +31,15 @@ You can get started quickly here with a simple example:
 
 ```python
 from numerous.engine import model, simulation
-from numerous.examples.dampened_oscillator import OscillatorSystem
-
+from numerous.examples.dampened_oscillator.dampened_oscillator import OscillatorSystem
 #Define simulation
 s = simulation.Simulation(
      model.Model(OscillatorSystem('system')),
     t_start=0, t_stop=10, num=100, num_inner=100, max_step=0.1
 )
-#Solve and plot
+#Solve
 s.solve()
-s.model.historian.df.plot()
+simulation_result = s.model.historian_df
 ```
 
 
