@@ -1,6 +1,5 @@
 import itertools
-from copy import copy, deepcopy
-from typing import TypeVar
+from copy import copy
 
 import numpy as np
 import time
@@ -25,9 +24,9 @@ from numerous.engine.variables import VariableType
 from numerous.utils.numba_callback import NumbaCallbackBase
 
 from enum import IntEnum
-from numerous.engine.model.graph_representation.parser_ast import parse_eq
+from numerous.engine.model.ast_parser.parser_ast import parse_eq
 from numerous.engine.model.graph_representation.graph import Graph
-from numerous.engine.model.graph_representation.parser_ast import process_mappings
+from numerous.engine.model.ast_parser.parser_ast import process_mappings
 
 from numerous.engine.model.lowering.equations_generator import EquationGenerator
 from numerous.engine.system import SetNamespace
@@ -310,7 +309,7 @@ class Model:
                 else:
                     tag_vars = {v.tag: v for k, v in ns[1][0].variables.items()}
 
-                parse_eq(model_namespace=ns[1][0], item_id=ns[0],  equation_graph=self.eg, nodes_dep=nodes_dep,
+                parse_eq(model_namespace=ns[1][0], item_id=ns[0], equation_graph=self.eg, nodes_dep=nodes_dep,
                          scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
                          scoped_equations=self.scoped_equations, parsed_eq=self.equations_top)
 
@@ -329,6 +328,8 @@ class Model:
         other = []
 
         for sv_id, sv in self.scope_variables.items():
+            if sv.logger_level is None:
+                sv.logger_level = LoggerLevel.ALL
             if sv.type == VariableType.STATE:
                 states.append(sv)
             elif sv.type == VariableType.DERIVATIVE:
@@ -355,13 +356,22 @@ class Model:
         self.eg.add_mappings()
         # self.eg.as_graphviz("test_mv", force=True)
         self.lower_model_codegen(tmp_vars)
+        self.logged_aliases = {}
 
         for i, variable in enumerate(self.variables.values()):
-            # if variable.logger_level.value >= self.logger_level.value:
+            if variable.logger_level is None:
+                variable.logger_level = LoggerLevel.ALL
+            logvar = False
+            if variable.logger_level.value >= self.logger_level.value:
+                logvar = True
             for path in variable.path.path[self.system.id]:
                 self.aliases.update({path: variable.id})
+                if logvar:
+                    self.logged_aliases.update({path: variable.id})
             if variable.alias is not None:
                 self.aliases.update({variable.alias: variable.id})
+                if logvar:
+                    self.logged_aliases.update({variable.alias: variable.id})
             for path in variable.path.path[self.system.id]:
                 self.path_variables.update({path: variable.value})  # is this used at all?
 
@@ -403,9 +413,12 @@ class Model:
             eq_gen.generate_equations()
 
         for varname, ix in self.vars_ordered_values.items():
-            var=self.scope_variables[varname]
+            var = self.scope_variables[varname]
             var.llvm_idx = ix
             var.model = self
+            if getattr(var, 'logger_level',
+                       None) is None:  # added to temporary variables - maybe put in generate_equations?
+                setattr(var, 'logger_level', LoggerLevel.ALL)
 
         def c1(self, array_):
             return compiled_compute(array_)
@@ -553,8 +566,7 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
-
-    #TODO: This is not working!
+    # TODO: This is not working!
     def save_variables_schedule(self, period, filename):
         """
         Save data to file on given period.
@@ -762,7 +774,9 @@ class Model:
         data = {'time': time}
 
         for i, var in enumerate(self.vars_ordered_values):
-            data.update({self.scope_variables[var].path.primary_path: historian_data[i + 1]})
+            if self.scope_variables[var].logger_level.value >= self.logger_level.value:
+                data.update({self.scope_variables[var].path.primary_path: historian_data[i + 1]})
+
         ## solve for 1 to n
         return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
 
@@ -782,7 +796,7 @@ class AliasedDataFrame(pd.DataFrame):
             super().__init__(data)
 
     def __getitem__(self, item):
-        if  self.rename_columns:
+        if self.rename_columns:
             if not isinstance(item, list):
                 col = self.aliases[item] if item in self.aliases else item
                 return super().__getitem__(col)

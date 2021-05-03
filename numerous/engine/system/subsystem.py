@@ -73,7 +73,7 @@ class Subsystem(ConnectorItem):
         else:
             return None
 
-    def register_items(self, items, tag="set", structure=ItemsStructure.LIST):
+    def register_items(self, items, tag="set", structure=ItemsStructure.LIST, bind=False):
         """
 
         Parameters
@@ -86,6 +86,10 @@ class Subsystem(ConnectorItem):
         elif structure == ItemsStructure.SET:
             itemset = ItemSet(items, tag)
             self.register_item(itemset)
+
+        if bind:
+            for i in items:
+                setattr(self, i.tag, i)
 
     def increase_level(self):
         super().increase_level()
