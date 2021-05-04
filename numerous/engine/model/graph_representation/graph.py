@@ -7,6 +7,21 @@ from .lower_graph import multi_replace, _Graph
 tmp_generator = TemporaryKeyGenerator().generate
 
 
+class Node:
+    def __init__(self, key=None, ao=None, file=None, name=None, ln=None,
+                 label=None, ast_type=None, node_type=None, ast_op=None):
+        self.key = key
+        self.ao = ao
+        self.file = file
+        self.name = name
+        self.ln = ln
+        self.label = label
+        self.ast_type = ast_type
+        self.node_type = node_type
+        self.ast_op = ast_op
+        self.deleted = False
+
+
 class Graph:
 
     def __init__(self, preallocate_items=1000):
@@ -18,7 +33,7 @@ class Graph:
         # Maps a key to an integer which is the internal node_id
         self.node_map = {}
         self.key_map = {}
-        self.nodes_attr = {'deleted': [0] * preallocate_items}
+        self.nodes_attr = [[Node()] * preallocate_items]
         self.edges_attr = {'deleted': [0] * preallocate_items, "e_type": [EdgeType.UNDEFINED] * self.preallocate_items}
         self.edges = np.ones((self.preallocate_items, 2), dtype=np.int32) * -1
         self.lower_graph = None
@@ -35,36 +50,31 @@ class Graph:
             self.node_edges[e[0]][0].append(i)
             self.node_edges[e[1]][1].append(i)
 
-    def add_node(self, key=None, ignore_existing=False, skip_existing=True, **attrs):
-        if not key:
-            key = tmp_generator()
-        if key not in self.node_map or ignore_existing:
-            if not key in self.node_map:
+    def add_node(self, node, ignore_existing=False, skip_existing=True):
+        if not node.key:
+            node.key = tmp_generator()
+        if node.key not in self.node_map or ignore_existing:
+            if not node.key in self.node_map:
 
-                node = self.node_counter
-                self.node_map[key] = node
-                self.key_map[node] = key
+                node_n = self.node_counter
+                self.node_map[node.key] = node_n
+                self.key_map[node_n] = node.key
                 self.node_counter += 1
 
                 if self.node_counter > self.allocated:
                     raise ValueError('Exceeding allocation')
 
             else:
-                node = self.node_map[key]
+                node_n = self.node_map[node.key]
 
-            for ak, a in attrs.items():
-                if not ak in self.nodes_attr:
-                    self.nodes_attr[ak] = [None] * self.preallocate_items
-
-                self.nodes_attr[ak][node] = a
+            self.nodes_attr[node_n] = node
 
         else:
             if not skip_existing:
-                raise ValueError(f'Node with key already in graph <{key}>')
+                raise ValueError(f'Node with key already in graph <{node.key}>')
             else:
-                return self.node_map[key]
-        return node
-
+                return self.node_map[node.key]
+        return node_n
 
     def add_edge(self, start=-1, end=-1, e_type=EdgeType.UNDEFINED, **attrs):
         edge = self.edge_counter
@@ -93,15 +103,14 @@ class Graph:
         if end:
             self.edges[edge, 1] = end
 
-    def remove_node(self, node):
-        self.nodes_attr['deleted'][node] = 1
+    def remove_node(self, node_n):
+        self.nodes_attr[node_n].deleted=True
 
     def clean(self):
         logging.info('Cleaning eq graph')
         self.lower_graph = None
         self.node_edges = None
 
-        attr_keys = list(self.nodes_attr.keys())
         cleaned_graph = Graph(preallocate_items=self.preallocate_items)
 
         old_new = {n: cleaned_graph.add_node(key=k, **{a: self.nodes_attr[a][n] for a in attr_keys}) for k, n in
@@ -122,7 +131,7 @@ class Graph:
         return self.nodes_attr[attr][node]
 
     def set(self, node, attr, val):
-        self.nodes_attr[attr][node]=val
+        self.nodes_attr[attr][node] = val
 
     def get_where_attr(self, attr, val, not_=False):
         if not_:
@@ -149,7 +158,6 @@ class Graph:
             end_ = start_
 
         return zip(np.argwhere(end_ix), end_)
-
 
     def get_edges_for_node_filter(self, attr, start_node=None, end_node=None, val=None):
         if start_node and end_node:
@@ -204,7 +212,6 @@ class Graph:
         clone_.edges = self.edges.copy()
 
         return clone_
-
 
     def update(self, another_graph):
         another_keys = list(another_graph.nodes_attr.keys())
