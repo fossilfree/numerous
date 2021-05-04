@@ -100,20 +100,7 @@ class Graph:
         logging.info('Cleaning eq graph')
         self.lower_graph = None
         self.node_edges = None
-
-        attr_keys = list(self.nodes_attr.keys())
-        cleaned_graph = Graph(preallocate_items=self.preallocate_items)
-
-        old_new = {n: cleaned_graph.add_node(key=k, **{a: self.nodes_attr[a][n] for a in attr_keys}) for k, n in
-                   self.node_map.items() if self.get(n, 'deleted') <= 0}
-
-        edge_keys = self.edges_attr.keys()
-        for i, e in enumerate(self.edges[:self.edge_counter]):
-            if e[0] in old_new and e[1] in old_new and self.edges_attr['deleted'][i] <= 0:
-                cleaned_graph.add_edge(old_new[e[0]], old_new[e[1]],
-                                       **{k: self.edges_attr[k][i] for k in edge_keys})
-
-        return cleaned_graph
+        return self
 
     def remove_edge(self, edge):
         self.edges_attr['deleted'][edge] = 1
