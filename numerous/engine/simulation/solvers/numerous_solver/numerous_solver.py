@@ -200,7 +200,7 @@ class Numerous_solver(BaseSolver):
                 if step_converged:
                     y_previous = y
                     t_previous = t
-                    print(t_end-t)
+                    #print(t_end-t)
                     numba_model.map_external_data(t)
                     if numba_model.is_store_required():
                         return Info(status=SolveStatus.Running, event_id=SolveEvent.Historian, step_info=step_info,
