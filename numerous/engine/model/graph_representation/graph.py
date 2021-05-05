@@ -192,21 +192,6 @@ class Graph:
 
         return clone_
 
-
-    def update(self, another_graph):
-        another_keys = list(another_graph.nodes_attr.keys())
-        new_map = {}
-        for nk, ni in another_graph.node_map.items():
-            newi = self.add_node(key=nk, **{k: another_graph.nodes_attr[k][ni] for k in another_keys},
-                                 ignore_existing=True)
-            new_map[ni] = newi
-
-        another_eqdge_keys = list(another_graph.edges_attr.keys())
-
-        for i, e in enumerate(another_graph.edges[:another_graph.edge_counter]):
-            self.add_edge(new_map[e[0]], new_map[e[1]],
-                          **{k: another_graph.edges_attr[k][i] for k in another_eqdge_keys})
-
     def subgraph(self, nodes, edges):
         subgraph = Graph()
         sg_map = {}
