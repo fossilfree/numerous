@@ -33,6 +33,7 @@ class Graph:
         # Maps a key to an integer which is the internal node_id
         self.node_map = {}
         self.key_map = {}
+        self.nodes = [[Node()] * preallocate_items]
         self.nodes_attr = [[Node()] * preallocate_items]
         self.edges_attr = {'deleted': [0] * preallocate_items, "e_type": [EdgeType.UNDEFINED] * self.preallocate_items}
         self.edges = np.ones((self.preallocate_items, 2), dtype=np.int32) * -1
@@ -66,8 +67,8 @@ class Graph:
 
             else:
                 node_n = self.node_map[node.key]
-
-            self.nodes_attr[node_n] = node
+            ##TODO NODE allocation
+            self.nodes[node_n] = node
 
         else:
             if not skip_existing:
@@ -104,43 +105,37 @@ class Graph:
             self.edges[edge, 1] = end
 
     def remove_node(self, node_n):
-        self.nodes_attr[node_n].deleted=True
+        self.nodes[node_n].deleted = True
 
     def clean(self):
         logging.info('Cleaning eq graph')
         self.lower_graph = None
         self.node_edges = None
-
-        cleaned_graph = Graph(preallocate_items=self.preallocate_items)
-
-        old_new = {n: cleaned_graph.add_node(key=k, **{a: self.nodes_attr[a][n] for a in attr_keys}) for k, n in
-                   self.node_map.items() if self.get(n, 'deleted') <= 0}
-
-        edge_keys = self.edges_attr.keys()
-        for i, e in enumerate(self.edges[:self.edge_counter]):
-            if e[0] in old_new and e[1] in old_new and self.edges_attr['deleted'][i] <= 0:
-                cleaned_graph.add_edge(old_new[e[0]], old_new[e[1]],
-                                       **{k: self.edges_attr[k][i] for k in edge_keys})
-
-        return cleaned_graph
+        ##realocate Nodes
+        return self
 
     def remove_edge(self, edge):
         self.edges_attr['deleted'][edge] = 1
 
     def get(self, node, attr):
-        return self.nodes_attr[attr][node]
+        return getattr(self.nodes[node],attr)
 
     def set(self, node, attr, val):
-        self.nodes_attr[attr][node] = val
+        setattr(self.nodes[node], attr, val)
+
 
     def get_where_attr(self, attr, val, not_=False):
-        if not_:
-            return [i for i, v in enumerate(self.nodes_attr[attr]) if not v == val]
-        else:
-            if isinstance(val, list):
-                return [i for i, v in enumerate(self.nodes_attr[attr]) if v in val]
+        def filter_function(node):
+            if node.deleted:
+                return False
+            if getattr(node, attr) == val:
+                return True and not not_
             else:
-                return [i for i, v in enumerate(self.nodes_attr[attr]) if v == val]
+                return False or not_
+
+        return filter(filter_function, self.nodes)
+
+
 
     def get_edges_for_node(self, start_node=None, end_node=None):
         if not start_node is None:
@@ -207,7 +202,7 @@ class Graph:
         clone_.node_map = self.node_map.copy()
         clone_.key_map = self.key_map.copy()
 
-        clone_.nodes_attr = self.nodes_attr.copy()
+        clone_.nodes = self.nodes.copy()
         clone_.edges_attr = deepcopy(self.edges_attr)
         clone_.edges = self.edges.copy()
 
