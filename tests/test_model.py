@@ -3,7 +3,7 @@ from abc import ABC
 import pytest
 from numerous.engine.model.external_mappings import ExternalMappingElement
 
-from numerous.utils.data_loader import LocalDataLoader, InMemoryDataLoader
+from numerous.utils.data_loader import InMemoryDataLoader
 from pytest import approx
 
 from numerous.engine.model.external_mappings.interpolation_type import InterpolationType
