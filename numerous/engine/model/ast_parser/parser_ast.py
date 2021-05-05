@@ -3,8 +3,7 @@ import logging
 from copy import deepcopy
 from textwrap import dedent
 
-from graph_representation import Node
-from numerous.engine.model.graph_representation import MappingsGraph, Graph, EdgeType
+from numerous.engine.model.graph_representation import MappingsGraph, Graph, EdgeType,Node
 from numerous.engine.model.graph_representation.utils import str_to_edgetype
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute, wrap_function
 from numerous.engine.scope import ScopeVariable
