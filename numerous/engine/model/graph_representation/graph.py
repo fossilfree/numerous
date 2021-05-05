@@ -9,16 +9,28 @@ tmp_generator = TemporaryKeyGenerator().generate
 
 class Node:
     def __init__(self, key=None, ao=None, file=None, name=None, ln=None,
-                 label=None, ast_type=None, node_type=None, ast_op=None):
+                 label=None, ast_type=None, vectorized=None, item_id=None, node_type=None, ops=None, func=None,
+                 id=None, local_id=None, scope_var=None,
+                 ast_op=None, value=None, is_set_var=None, set_var_ix=None):
         self.key = key
         self.ao = ao
         self.file = file
+        self.value = value
         self.name = name
         self.ln = ln
         self.label = label
         self.ast_type = ast_type
         self.node_type = node_type
         self.ast_op = ast_op
+        self.id = id
+        self.vectorized = vectorized
+        self.item_id = item_id
+        self.is_set_var = is_set_var
+        self.ops = ops
+        self.set_var_ix = set_var_ix
+        self.func = func
+        self.local_id = local_id
+        self.scope_var = scope_var
         self.deleted = False
 
 
@@ -33,8 +45,7 @@ class Graph:
         # Maps a key to an integer which is the internal node_id
         self.node_map = {}
         self.key_map = {}
-        self.nodes = [[Node()] * preallocate_items]
-        self.nodes_attr = [[Node()] * preallocate_items]
+        self.nodes = []
         self.edges_attr = {'deleted': [0] * preallocate_items, "e_type": [EdgeType.UNDEFINED] * self.preallocate_items}
         self.edges = np.ones((self.preallocate_items, 2), dtype=np.int32) * -1
         self.lower_graph = None
@@ -67,8 +78,11 @@ class Graph:
 
             else:
                 node_n = self.node_map[node.key]
-            ##TODO NODE allocation
-            self.nodes[node_n] = node
+
+            if node_n < len(self.nodes):
+                self.nodes[node_n] = node
+            else:
+                self.nodes.append(node)
 
         else:
             if not skip_existing:
@@ -118,11 +132,10 @@ class Graph:
         self.edges_attr['deleted'][edge] = 1
 
     def get(self, node, attr):
-        return getattr(self.nodes[node],attr)
+        return getattr(self.nodes[node], attr)
 
     def set(self, node, attr, val):
         setattr(self.nodes[node], attr, val)
-
 
     def get_where_attr(self, attr, val, not_=False):
         def filter_function(node):
@@ -134,8 +147,6 @@ class Graph:
                 return False or not_
 
         return filter(filter_function, self.nodes)
-
-
 
     def get_edges_for_node(self, start_node=None, end_node=None):
         if not start_node is None:
@@ -208,36 +219,23 @@ class Graph:
 
         return clone_
 
-    def update(self, another_graph):
-        another_keys = list(another_graph.nodes_attr.keys())
-        new_map = {}
-        for nk, ni in another_graph.node_map.items():
-            newi = self.add_node(key=nk, **{k: another_graph.nodes_attr[k][ni] for k in another_keys},
-                                 ignore_existing=True)
-            new_map[ni] = newi
-
-        another_eqdge_keys = list(another_graph.edges_attr.keys())
-
-        for i, e in enumerate(another_graph.edges[:another_graph.edge_counter]):
-            self.add_edge(new_map[e[0]], new_map[e[1]],
-                          **{k: another_graph.edges_attr[k][i] for k in another_eqdge_keys})
-
     def subgraph(self, nodes, edges):
         subgraph = Graph()
         sg_map = {}
         for n in nodes:
-            sg_map[n] = subgraph.add_node(self.key_map[n], **{k: v[n] for k, v in self.nodes_attr.items()})
+            node_copy = self.nodes[n].copy()
+            node_copy.key = self.key_map[n]
+            sg_map[n] = subgraph.add_node(node_copy)
 
         for e in edges:
             subgraph.add_edge(sg_map[e[0]], sg_map[e[1]])
         return subgraph
 
     def as_graphviz(self, file, force=False):
-        # if True:
         if False or force:
             dot = Digraph()
             for k, n in self.node_map.items():
-                dot.node(k, label=self.nodes_attr['label'][n])
+                dot.node(k, label=self.nodes[n].label)
 
             for i, e in enumerate(self.edges[:self.edge_counter]):
                 if self.edges_attr['deleted'][i] == 0:
@@ -257,7 +255,7 @@ class Graph:
     def make_lower_graph(self, top_sort=False):
         self.lower_graph = _Graph(self.node_counter,
                                   np.array(self.edges[:self.edge_counter], np.int64),
-                                  np.array(self.nodes_attr['node_type'][:self.node_counter], np.int64))
+                                  np.array([node.node_type for node in self.nodes[:self.node_counter]], np.int64))
 
         if top_sort:
             self.lower_graph.topological_sort()
@@ -266,7 +264,8 @@ class Graph:
         cg = Graph()
         prev = None
         for p in path:
-            this_ = cg.add_node(key=self.key_map[p], label=self.key_map[p], ignore_existing=True)
+            new_node = Node(key=self.key_map[p], label=self.key_map[p])
+            this_ = cg.add_node(new_node, ignore_existing=True)
             if prev is not None:
                 cg.add_edge(prev, this_, e_type='dep')
             prev = this_
