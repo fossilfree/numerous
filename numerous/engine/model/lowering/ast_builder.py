@@ -164,7 +164,7 @@ class ASTBuilder:
                                                                     self.variable_names[
                                                                         variable_name_arg_and_trg[0][0]],
                                                                     targets_ids)],
-                                 orelse=[]))
+                                 orelse=[], lineno=0))
 
     def _generate_set_call_body(self, external_function_name, arg_length, strart_idx, target_ids):
         arg_ids = np.arange(arg_length)

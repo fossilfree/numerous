@@ -126,7 +126,6 @@ class Graph:
         logging.info('Cleaning eq graph')
         self.lower_graph = None
         self.node_edges = None
-        ##realocate Nodes
         return self
 
     def remove_edge(self, edge):
