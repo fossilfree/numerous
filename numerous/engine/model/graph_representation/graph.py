@@ -32,6 +32,7 @@ class Node:
         self.local_id = local_id
         self.scope_var = scope_var
         self.deleted = False
+        self.node_n = 0
 
 
 class Graph:
@@ -78,7 +79,7 @@ class Graph:
 
             else:
                 node_n = self.node_map[node.key]
-
+            node.node_n = node_n
             if node_n < len(self.nodes):
                 self.nodes[node_n] = node
             else:
@@ -146,7 +147,7 @@ class Graph:
             else:
                 return False or not_
 
-        return filter(filter_function, self.nodes)
+        return [node.node_n for node in filter(filter_function, self.nodes)]
 
     def get_edges_for_node(self, start_node=None, end_node=None):
         if not start_node is None:
