@@ -3,6 +3,7 @@ import logging
 from copy import deepcopy
 from textwrap import dedent
 
+from graph_representation import Edge
 from numerous.engine.model.graph_representation import MappingsGraph, Graph, EdgeType,Node
 from numerous.engine.model.graph_representation.utils import str_to_edgetype
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute, wrap_function
@@ -327,10 +328,10 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
                 en = g.add_node(Node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
                                 ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGNTUPLE,
                                 ast_op=ast.Add() if mapped else None))
-                g.add_edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy())
+                g.add_edge(Edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy()))
                 for sa in ao.targets[0].elts:
                     mapped, end = parse_(sa, name, file, ln, g, tag_vars, prefix, branches=branches)
-                    g.add_edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy())
+                    g.add_edge(Edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy()))
             else:
                 raise AttributeError('Assigning to tuple is not supported: ', type(ao.targets[0]))
         elif isinstance(ao.value, ast.Tuple):
@@ -340,10 +341,10 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
                             ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
                             ast_op=ast.Add() if mapped else None))
 
-            g.add_edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy())
+            g.add_edge(Edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy()))
             for sa in ao.value.elts:
                 m, start = parse_(sa, name, file, ln, g, tag_vars, prefix, branches=branches)
-                g.add_edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy())
+                g.add_edge(Edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy()))
         else:
             en = parse_assign(ao.value, ao.targets[0], ao, name, file, ln, g, tag_vars, prefix, branches)
 
@@ -390,7 +391,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
                         ignore_existing=True)
 
         m, start = parse_(ao.operand, name, file, ln, g, tag_vars, prefix, branches=branches)
-        operand_edge = g.add_edge(start=start, e_type=EdgeType.OPERAND, end=en, branches=branches.copy())
+        g.add_edge(Edge(start=start, e_type=EdgeType.OPERAND, end=en, branches=branches.copy()))
 
     elif isinstance(ao, ast.Call):
 
@@ -401,7 +402,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
 
         for sa in ao.args:
             m, start = parse_(sa, name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
-            g.add_edge(start=start, end=en, e_type=EdgeType.ARGUMENT, branches=branches.copy())
+            g.add_edge(Edge(start=start, end=en, e_type=EdgeType.ARGUMENT, branches=branches.copy()))
 
 
     elif isinstance(ao, ast.BinOp):
@@ -412,7 +413,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
 
         for a in ['left', 'right']:
             m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix, branches=branches)
-            operand_edge = g.add_edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches.copy())
+            g.add_edge(Edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches.copy()))
 
     elif isinstance(ao, ast.Compare):
         ops_sym = [get_op_sym(o) for o in ao.ops]
@@ -422,11 +423,11 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
 
         m, start = parse_(ao.left, name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
 
-        edge_l = g.add_edge(start=start, end=en, label=f'left', e_type=EdgeType.LEFT, branches=branches)
+        g.add_edge(Edge(start=start, end=en, label=f'left', e_type=EdgeType.LEFT, branches=branches))
 
         for i, sa in enumerate(ao.comparators):
             m, start = parse_(sa, name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
-            edge_i = g.add_edge(start=start, end=en, label=f'comp{i}', e_type=EdgeType.COMP, branches=branches)
+            g.add_edge(Edge(start=start, end=en, label=f'comp{i}', e_type=EdgeType.COMP, branches=branches))
 
     elif isinstance(ao, ast.If):
         new_branch = None
@@ -457,13 +458,12 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
             if isinstance(getattr(ao, a), list):
                 for a_ in getattr(ao, a):
                     m, start = parse_(a_, name, file, ln, g, tag_vars, prefix, branches=branches)
-                    operand_edge = g.add_edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches)
+                    g.add_edge(Edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches))
             else:
-                m, start = parse_(a_, name, file, ln, g, tag_vars, prefix, branches=branches)
-                operand_edge = g.add_edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches)
+                m, start = parse_(a, name, file, ln, g, tag_vars, prefix, branches=branches)
+                g.add_edge(Edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches))
 
     elif isinstance(ao, ast.IfExp):
-        new_branch = None
         if isinstance(ao.test, ast.Attribute):
             source_id = recurse_Attribute(ao.test)
 
@@ -490,7 +490,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
         for a in ['body', 'orelse', 'test']:
             m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix, branches=branches)
 
-            operand_edge = g.add_edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches)
+            g.add_edge(Edge(start=start, end=en, e_type=str_to_edgetype(a), branches=branches))
 
     else:
         raise TypeError('Cannot parse <' + str(type(ao)) + '>')
@@ -553,7 +553,7 @@ def parse_eq(model_namespace, item_id, equation_graph: Graph, nodes_dep, scope_v
                 # Create branched versions of graph
 
                 branches_ = set()
-                [branches_.update(b.keys()) for b in g.edges_attr['branches'][:g.edge_counter] if b]
+                [branches_.update(b.keys()) for b.branches in g.edges_c[:g.edge_counter] if b.branches]
                 all_branches = [{}]
                 from copy import deepcopy
                 for b in branches_:
@@ -629,7 +629,7 @@ def parse_eq(model_namespace, item_id, equation_graph: Graph, nodes_dep, scope_v
 
                     try:
                         next(end_edges)
-                        equation_graph.add_edge(eq_n, neq, e_type=EdgeType.TARGET, arg_local=sv.id if sv else 'local')
+                        equation_graph.add_edge(Edge(start=eq_n, end=neq, e_type=EdgeType.TARGET, arg_local=sv.id if sv else 'local'))
                         targeted = True
                     except StopIteration:
                         pass
@@ -638,8 +638,8 @@ def parse_eq(model_namespace, item_id, equation_graph: Graph, nodes_dep, scope_v
                         start_edges = g_qualified.get_edges_for_node(start_node=n)
                         try:
                             next(start_edges)
-                            equation_graph.add_edge(neq, eq_n, e_type=EdgeType.ARGUMENT, arg_local=sv.id if (
-                                sv := g_qualified.get(n, 'scope_var')) else 'local')
+                            equation_graph.add_edge(Edge(neq, eq_n, e_type=EdgeType.ARGUMENT, arg_local=sv.id if (
+                                sv := g_qualified.get(n, 'scope_var')) else 'local'))
                         except StopIteration:
                             pass
             if not is_parsed_eq:
@@ -692,8 +692,8 @@ def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
             ix_ = equation_graph.has_edge_for_nodes(start_node=ivar_node_e, end_node=t)
             lix = len(ix_)
             if lix == 0:
-                equation_graph.add_edge(ivar_node_e, t, e_type=EdgeType.MAPPING,
-                                        mappings=[(ivar_set_var_ix, target_set_var_ix)])
+                equation_graph.add_edge(Edge(ivar_node_e, t, e_type=EdgeType.MAPPING,
+                                        mappings=[(ivar_set_var_ix, target_set_var_ix)]))
             else:
                 equation_graph.edges_attr['mappings'][ix_[0]].append((ivar_set_var_ix, target_set_var_ix))
 

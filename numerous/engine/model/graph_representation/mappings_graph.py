@@ -3,7 +3,7 @@ from numerous.engine.model.utils import NodeTypes
 from numerous import VariableType, SetOfVariables
 from numerous.utils.string_utils import d_u
 
-from .graph import Graph, Node
+from .graph import Graph, Node, Edge
 
 
 class TemporaryVar():
@@ -97,7 +97,7 @@ class MappingsGraph(Graph):
     def create_assignments(self):
         from tqdm import tqdm
         temp_variables = {}
-        for ii, n in tqdm(enumerate(self.get_where_attr('node_type', NodeTypes.EQUATION))):
+        for ii, n in tqdm(enumerate(self.get_where_node_attr('node_type', NodeTypes.EQUATION))):
             for i, e in self.get_edges_for_node(start_node=n):
                 va = e[1].copy()
                 if va in self.vars_assignments and len(self.vars_assignments[va]) > 1:
@@ -126,7 +126,7 @@ class MappingsGraph(Graph):
                                         file='sum', label=tmp_label, ln=0, scope_var=svf), ignore_existing=False)
                     # Add temp var to Equation target
 
-                    self.add_edge(n, tmp, e_type=EdgeType.TARGET, arg_local=self.edges_attr['arg_local'][i[0]])
+                    self.add_edge(Edge(n, tmp, e_type=EdgeType.TARGET, arg_local=self.edges_c[i[0]].arg_local))
                     # Add temp var in var assignments
 
                     self.vars_assignments_mappings[va][(nix := self.vars_assignments[va].index(n))] = ':'
@@ -140,18 +140,19 @@ class MappingsGraph(Graph):
                 nsn = self.add_node(Node(key=ns, node_type=NodeTypes.SUM, name=ns,  file='sum',
                                     label=ns,
                                     ln=0, ast_type=None))
-                self.add_edge(nsn, a, e_type=EdgeType.TARGET)
+                self.add_edge(Edge(start=nsn, end=a, e_type=EdgeType.TARGET))
                 for v, mappings in zip(vals, self.vars_assignments_mappings[a]):
-                    self.add_edge(v, nsn, e_type=EdgeType.VALUE, mappings=mappings)
+                    self.add_edge(Edge(start=v, end=nsn, e_type=EdgeType.VALUE, mappings=mappings))
 
             elif a in self.vars_mappings:
                 ns = new_sum()
                 nsn = self.add_node(Node(key=ns, node_type=NodeTypes.SUM, name=ns, file='sum',
                                     label=ns,
                                     ln=0, ast_type=None))
-                self.add_edge(nsn, a,e_type=EdgeType.TARGET)
+                self.add_edge(Edge(start=nsn, end=a,e_type=EdgeType.TARGET))
 
-                self.add_edge(self.vars_mappings[a][0], nsn,  e_type=EdgeType.VALUE, mappings=self.vars_mappings[a][1])
+                self.add_edge(Edge(start=self.vars_mappings[a][0], end=nsn,
+                                   e_type=EdgeType.VALUE, mappings=self.vars_mappings[a][1]))
 
     @classmethod
     def from_graph(cls, eg):

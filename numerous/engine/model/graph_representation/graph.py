@@ -1,4 +1,6 @@
 import logging
+from copy import copy
+
 import numpy as np
 from graphviz import Digraph
 from .utils import EdgeType, TemporaryKeyGenerator
@@ -32,7 +34,21 @@ class Node:
         self.local_id = local_id
         self.scope_var = scope_var
         self.deleted = False
-        self.node_n = 0
+        self.node_n = -1
+
+
+class Edge:
+    def __init__(self, start=-1, end=-1, e_type=EdgeType.UNDEFINED, label=None, arg_local=None, mappings=None,
+                 branches=None):
+        self.start = start
+        self.end = end
+        self.e_type = e_type
+        self.arg_local = arg_local
+        self.branches = branches
+        self.label = label
+        self.mappings = mappings
+        self.deleted = False
+        self.edge_n = -1
 
 
 class Graph:
@@ -47,7 +63,8 @@ class Graph:
         self.node_map = {}
         self.key_map = {}
         self.nodes = []
-        self.edges_attr = {'deleted': [0] * preallocate_items, "e_type": [EdgeType.UNDEFINED] * self.preallocate_items}
+        self.edges_c = []
+        # self.edges_attr = {'deleted': [0] * preallocate_items, "e_type": [EdgeType.UNDEFINED] * self.preallocate_items}
         self.edges = np.ones((self.preallocate_items, 2), dtype=np.int32) * -1
         self.lower_graph = None
 
@@ -58,7 +75,7 @@ class Graph:
         self.skipped_arg_metadata = []
 
     def build_node_edges(self):
-        self.node_edges = [([], []) for n in range(self.node_counter)]
+        self.node_edges = [([], []) for _ in range(self.node_counter)]
         for i, e in enumerate(self.edges[:self.edge_counter]):
             self.node_edges[e[0]][0].append(i)
             self.node_edges[e[1]][1].append(i)
@@ -92,29 +109,22 @@ class Graph:
                 return self.node_map[node.key]
         return node_n
 
-    def add_edge(self, start=-1, end=-1, e_type=EdgeType.UNDEFINED, **attrs):
-        edge = self.edge_counter
-        self.edges[edge, :] = [start, end]
+    def add_edge(self, edge: Edge):
+        edge_n = self.edge_counter
+        self.edges[edge_n, :] = [edge.start, edge.end]
 
         self.edge_counter += 1
 
         if self.edge_counter > self.allocated:
             raise ValueError('Exceeding allocation')
-
-        for ak, a in attrs.items():
-            if not ak in self.edges_attr:
-                self.edges_attr[ak] = [None] * self.preallocate_items
-
-            self.edges_attr[ak][edge] = a
-        self.edges_attr["e_type"][edge] = e_type
-        if e_type == EdgeType.TARGET:
+        self.edges_c.append(edge)
+        edge.edge_n = edge_n
+        if edge.e_type == EdgeType.TARGET:
             pass
-        return edge
+        return edge_n
 
     def set_edge(self, edge, start=None, end=None):
-        # print(edge)
         if start:
-            # print('start: ', start)
             self.edges[edge, 0] = start
         if end:
             self.edges[edge, 1] = end
@@ -128,8 +138,8 @@ class Graph:
         self.node_edges = None
         return self
 
-    def remove_edge(self, edge):
-        self.edges_attr['deleted'][edge] = 1
+    def remove_edge(self, edge_n):
+        self.nodes[edge_n].deleted = True
 
     def get(self, node, attr):
         return getattr(self.nodes[node], attr)
@@ -137,7 +147,7 @@ class Graph:
     def set(self, node, attr, val):
         setattr(self.nodes[node], attr, val)
 
-    def get_where_attr(self, attr, val, not_=False):
+    def get_where_node_attr(self, attr, val, not_=False):
         def filter_function(node):
             if node.deleted:
                 return False
@@ -149,13 +159,13 @@ class Graph:
         return [node.node_n for node in filter(filter_function, self.nodes)]
 
     def get_edges_for_node(self, start_node=None, end_node=None):
-        if not start_node is None:
+        if start_node is not None:
             start_ix = self.edges[:self.edge_counter, 0] == start_node
             start_ = self.edges[:self.edge_counter][start_ix]
         else:
             start_ = self.edges[:self.edge_counter, :]
             start_ix = range(self.edge_counter)
-        if not end_node is None:
+        if end_node is not None:
             end_ix = start_[:, 1] == end_node
             end_ = self.edges[:self.edge_counter][end_ix]
 
@@ -183,12 +193,17 @@ class Graph:
             print(start_node)
             raise ValueError('Need at least one node!')
 
-        if isinstance(val, list):
-            ix = [i for i in ix if self.edges_attr[attr][i] in val]
-        else:
-            ix = [i for i in ix if self.edges_attr[attr][i] == val]
+        def filter_function(edge):
+            if edge.deleted:
+                return False
+            if getattr(edge, attr) == val or getattr(edge, attr) in val:
+                return True
+            else:
+                return False
 
+        ix = [edge.edge_n for edge in filter(filter_function, self.edges_c)]
         return ix, [self.edges[i, :] for i in ix]
+
 
     def has_edge_for_nodes(self, start_node=None, end_node=None):
 
@@ -214,7 +229,7 @@ class Graph:
         clone_.key_map = self.key_map.copy()
 
         clone_.nodes = self.nodes.copy()
-        clone_.edges_attr = deepcopy(self.edges_attr)
+        clone_.edges_c = deepcopy(self.edges_c)
         clone_.edges = self.edges.copy()
 
         return clone_
@@ -223,12 +238,12 @@ class Graph:
         subgraph = Graph()
         sg_map = {}
         for n in nodes:
-            node_copy = self.nodes[n].copy()
+            node_copy = copy(self.nodes[n])
             node_copy.key = self.key_map[n]
             sg_map[n] = subgraph.add_node(node_copy)
 
         for e in edges:
-            subgraph.add_edge(sg_map[e[0]], sg_map[e[1]])
+            subgraph.add_edge(Edge(start=sg_map[e[0]], end=sg_map[e[1]]))
         return subgraph
 
     def as_graphviz(self, file, force=False):
@@ -238,11 +253,11 @@ class Graph:
                 dot.node(k, label=self.nodes[n].label)
 
             for i, e in enumerate(self.edges[:self.edge_counter]):
-                if self.edges_attr['deleted'][i] == 0:
+                if not self.edges_c[i].deleted:
                     try:
                         if e[0] >= 0 and e[1] >= 0:
-                            dot.edge(self.key_map[e[0]], self.key_map[e[1]], label=str(self.edges_attr['e_type'][i]))
-                    except:
+                            dot.edge(self.key_map[e[0]], self.key_map[e[1]], label=str(self.edges_c[i].e_type))
+                    except Exception as e:
                         print(e)
                         raise
 
@@ -267,7 +282,7 @@ class Graph:
             new_node = Node(key=self.key_map[p], label=self.key_map[p])
             this_ = cg.add_node(new_node, ignore_existing=True)
             if prev is not None:
-                cg.add_edge(prev, this_, e_type='dep')
+                cg.add_edge(Edge(start=prev, end=this_, e_type=EdgeType.DEP))
             prev = this_
 
         return cg
