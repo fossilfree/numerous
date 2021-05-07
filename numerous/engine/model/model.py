@@ -267,8 +267,11 @@ class Model:
             self.synchronized_scope.update(scope_select)
             self.scope_variables.update(variables)
 
-        mappings = []
+        # copy logger level to variable (scope variables vs variables needs to be re-thought!)
+        for scope_variable, variable in zip(self.scope_variables.values(), self.variables.values()):
+            variable.logger_level = scope_variable.logger_level
 
+        mappings = []
         for variable in self.scope_variables.values():
             variable.top_item = self.system.id
 
