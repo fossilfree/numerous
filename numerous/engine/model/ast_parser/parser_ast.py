@@ -285,12 +285,12 @@ def parse_assign(value, target, ao, name, file, ln, g, tag_vars, prefix, branche
     en = g.add_node(Node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
                     ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
                     ast_op=ast.Add() if mapped else None))
-    g.add_edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy())
+    g.add_edge(Edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy()))
     if isinstance(start, list):
         for s in start:
-            g.add_edge(start=s[0], end=en, e_type=EdgeType.VALUE, branches=s[1])
+            g.add_edge(Edge(start=s[0], end=en, e_type=EdgeType.VALUE, branches=s[1]))
     else:
-        g.add_edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy())
+        g.add_edge(Edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy()))
     return en
 
 
@@ -553,7 +553,7 @@ def parse_eq(model_namespace, item_id, equation_graph: Graph, nodes_dep, scope_v
                 # Create branched versions of graph
 
                 branches_ = set()
-                [branches_.update(b.keys()) for b.branches in g.edges_c[:g.edge_counter] if b.branches]
+                [branches_.update(b.branches.keys()) for b in g.edges_c[:g.edge_counter] if b.branches]
                 all_branches = [{}]
                 from copy import deepcopy
                 for b in branches_:

@@ -78,14 +78,13 @@ class MappingsGraph(Graph):
                     self.vars_assignments[target] = []
                     self.vars_assignments_mappings[target] = []
                 ##if mapping edge
-                if self.edges_attr['e_type'][edge_ix] == EdgeType.MAPPING:
-                    self.vars_mappings[target] = (edge[0], self.edges_attr['mappings'][edge_ix])
+                if self.edges_c[edge_ix].e_type == EdgeType.MAPPING:
+                    self.vars_mappings[target] = (edge[0], self.edges_c[edge_ix].mappings)
                     self.remove_edge(edge_ix)
 
                 self.vars_assignments[target].append(edge[0])
-
-                if "mappings" in self.edges_attr:
-                    self.vars_assignments_mappings[target].append(self.edges_attr['mappings'][edge_ix])
+                if self.edges_c[edge_ix].mappings:
+                    self.vars_assignments_mappings[target].append(self.edges_c[edge_ix].mappings)
 
         for target in self.variables():
             target_edges_indcs, target_edges = self.get_edges_for_node_filter(end_node=target, attr='e_type',
