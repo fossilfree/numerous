@@ -368,7 +368,7 @@ class Numerous_solver(BaseSolver):
                 self.model.store_history(self.numba_model.historian_data)
                 self.numba_model.historian_reinit()
             if info.event == 2:
-                is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
+                is_external_data = self.model.external_mappings.load_new_external_data_batch(info.t)
                 external_mappings_numpy = self.model.external_mappings.external_mappings_numpy
                 external_mappings_time = self.model.external_mappings.external_mappings_time
                 self.numba_model.is_external_data = is_external_data

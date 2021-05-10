@@ -3,7 +3,7 @@ from numerous.engine.model.utils import NodeTypes
 from numerous import VariableType, SetOfVariables
 from numerous.utils.string_utils import d_u
 
-from .graph import Graph
+from .graph import Graph, Node
 
 
 class TemporaryVar():
@@ -122,9 +122,8 @@ class MappingsGraph(Graph):
 
                     temp_variables.update(fake_sv)
 
-                    tmp = self.add_node(key=tmp_label, node_type=NodeTypes.TMP, name=tmp_label, ast=None,
-                                        file='sum', label=tmp_label, ln=0,
-                                        ast_type=None, scope_var=svf, ignore_existing=False)
+                    tmp = self.add_node(Node(key=tmp_label, node_type=NodeTypes.TMP, name=tmp_label,
+                                        file='sum', label=tmp_label, ln=0, scope_var=svf), ignore_existing=False)
                     # Add temp var to Equation target
 
                     self.add_edge(n, tmp, e_type=EdgeType.TARGET, arg_local=self.edges_attr['arg_local'][i[0]])
@@ -138,18 +137,18 @@ class MappingsGraph(Graph):
         for a, vals in self.vars_assignments.items():
             if len(vals) > 1:
                 ns = new_sum()
-                nsn = self.add_node(key=ns, node_type=NodeTypes.SUM, name=ns, ast=None, file='sum',
+                nsn = self.add_node(Node(key=ns, node_type=NodeTypes.SUM, name=ns,  file='sum',
                                     label=ns,
-                                    ln=0, ast_type=None)
+                                    ln=0, ast_type=None))
                 self.add_edge(nsn, a, e_type=EdgeType.TARGET)
                 for v, mappings in zip(vals, self.vars_assignments_mappings[a]):
                     self.add_edge(v, nsn, e_type=EdgeType.VALUE, mappings=mappings)
 
             elif a in self.vars_mappings:
                 ns = new_sum()
-                nsn = self.add_node(key=ns, node_type=NodeTypes.SUM, name=ns, ast=None, file='sum',
+                nsn = self.add_node(Node(key=ns, node_type=NodeTypes.SUM, name=ns, file='sum',
                                     label=ns,
-                                    ln=0, ast_type=None)
+                                    ln=0, ast_type=None))
                 self.add_edge(nsn, a,e_type=EdgeType.TARGET)
 
                 self.add_edge(self.vars_mappings[a][0], nsn,  e_type=EdgeType.VALUE, mappings=self.vars_mappings[a][1])
