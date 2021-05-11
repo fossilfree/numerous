@@ -107,12 +107,8 @@ class MappedValue(object):
 class VariablePath:
 
     def __init__(self, tag, id):
-
         self.path = {id: tag}
-
-        ##
         self.primary_path = tag
-
         self.used_id_pairs = []
 
     def __iter__(self):

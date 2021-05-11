@@ -1,6 +1,6 @@
 class ItemPath:
     """
-           Represent a unique item path to item from the top of gierarchy..
+           Represent a unique item path to item from the top of hierarchy..
 
           Attributes
           ----------
