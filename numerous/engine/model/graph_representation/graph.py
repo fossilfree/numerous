@@ -139,7 +139,7 @@ class Graph:
         return self
 
     def remove_edge(self, edge_n):
-        self.nodes[edge_n].deleted = True
+        self.edges_c[edge_n].deleted = True
 
     def get(self, node, attr):
         return getattr(self.nodes[node], attr)
@@ -178,7 +178,7 @@ class Graph:
     def get_edges_for_node_filter(self, attr, start_node=None, end_node=None, val=None):
         if start_node and end_node:
             raise ValueError('arg cant have both start and end!')
-
+        ix = []
         if not self.node_edges:
             self.build_node_edges()
 
@@ -201,8 +201,8 @@ class Graph:
             else:
                 return False
 
-        ix = [edge.edge_n for edge in filter(filter_function, self.edges_c)]
-        return ix, [self.edges[i, :] for i in ix]
+        ix_r = [edge.edge_n for edge in filter(filter_function, map(self.edges_c.__getitem__, ix))]
+        return ix_r, [self.edges[i, :] for i in ix_r]
 
 
     def has_edge_for_nodes(self, start_node=None, end_node=None):
