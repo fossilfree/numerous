@@ -354,7 +354,7 @@ class Model:
         self.eg.remove_chains()
         tmp_vars = self.eg.create_assignments()
         self.eg.add_mappings()
-        self.eg.as_graphviz("test_mv", force=True)
+        # self.eg.as_graphviz("test_mv", force=True)
         self.lower_model_codegen(tmp_vars)
         self.logged_aliases = {}
 
@@ -379,7 +379,6 @@ class Model:
 
         number_of_external_mappings = 0
         external_idx = []
-        # for key in self.vars_ordered_values.keys():
 
         for var in self.variables.values():
             if self.external_mappings.is_mapped_var(self.variables, var.id, self.system.id):

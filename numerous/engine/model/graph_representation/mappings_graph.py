@@ -83,8 +83,7 @@ class MappingsGraph(Graph):
                     self.remove_edge(edge_ix)
 
                 self.vars_assignments[target].append(edge[0])
-                if self.edges_c[edge_ix].mappings:
-                    self.vars_assignments_mappings[target].append(self.edges_c[edge_ix].mappings)
+                self.vars_assignments_mappings[target].append(self.edges_c[edge_ix].mappings)
 
         for target in self.variables():
             target_edges_indcs, target_edges = self.get_edges_for_node_filter(end_node=target, attr='e_type',

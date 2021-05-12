@@ -65,7 +65,7 @@ class Main(Subsystem):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-@pytest.mark.parametrize("use_llvm", [True])
+@pytest.mark.parametrize("use_llvm", [False,True])
 def test_deriv_order(solver, use_llvm):
     m = Main()
     model = Model(m, use_llvm=use_llvm)
