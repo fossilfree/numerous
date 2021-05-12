@@ -285,6 +285,7 @@ def parse_assign(value, target, ao, name, file, ln, g, tag_vars, prefix, branche
                     ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
                     ast_op=ast.Add() if mapped else None))
     g.add_edge(Edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy()))
+
     if isinstance(start, list):
         for s in start:
             g.add_edge(Edge(start=s[0], end=en, e_type=EdgeType.VALUE, branches=s[1]))
@@ -328,6 +329,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
                                 ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGNTUPLE,
                                 ast_op=ast.Add() if mapped else None))
                 g.add_edge(Edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy()))
+
                 for sa in ao.targets[0].elts:
                     mapped, end = parse_(sa, name, file, ln, g, tag_vars, prefix, branches=branches)
                     g.add_edge(Edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy()))
@@ -337,8 +339,8 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
             mapped, end = parse_(ao.targets[0], name, file, ln, g, tag_vars, prefix, branches=branches)
 
             en = g.add_node(Node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
-                            ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
-                            ast_op=ast.Add() if mapped else None))
+                                 ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
+                                 ast_op=ast.Add() if mapped else None))
 
             g.add_edge(Edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy()))
             for sa in ao.value.elts:
@@ -351,7 +353,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
         # Constant
         source_id = 'c' + str(ao.value)
         en = g.add_node(Node(ao=ao, file=file, name=name, ln=ln, label=source_id, ast_type=ast.Num, value=ao.value,
-                        node_type=NodeTypes.VAR))
+                             node_type=NodeTypes.VAR))
 
         # Check if simple name
     elif isinstance(ao, ast.Name) or isinstance(ao, ast.Attribute):
@@ -379,7 +381,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
             var_type = VariableType.PARAMETER
 
         en = g.add_node(Node(key=source_id, ao=ao, file=file, name=name, ln=ln, id=source_id, local_id=local_id,
-                        ast_type=type(ao), node_type=node_type, scope_var=scope_var), ignore_existing=True)
+                             ast_type=type(ao), node_type=node_type, scope_var=scope_var), ignore_existing=True)
 
 
     elif isinstance(ao, ast.UnaryOp):
@@ -397,7 +399,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
         op_name = recurse_Attribute(ao.func, sep='.')
 
         en = g.add_node(Node(ao=ao, file=file, name=name, ln=ln, label=op_name, func=ao.func, ast_type=ast.Call,
-                        node_type=NodeTypes.OP))
+                             node_type=NodeTypes.OP))
 
         for sa in ao.args:
             m, start = parse_(sa, name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
@@ -408,7 +410,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
 
         op_sym = get_op_sym(ao.op)
         en = g.add_node(Node(ao=ao, file=file, name=name, ln=ln, label=op_sym, ast_type=ast.BinOp,
-                        node_type=NodeTypes.OP, ast_op=ao.op))
+                             node_type=NodeTypes.OP, ast_op=ao.op))
 
         for a in ['left', 'right']:
             m, start = parse_(getattr(ao, a), name, file, ln, g, tag_vars, prefix, branches=branches)
@@ -418,7 +420,7 @@ def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
         ops_sym = [get_op_sym(o) for o in ao.ops]
 
         en = g.add_node(Node(ao=ao, file=file, name=name, ln=ln, label=''.join(ops_sym), ast_type=ast.Compare,
-                        node_type=NodeTypes.OP, ops=ao.ops))
+                             node_type=NodeTypes.OP, ops=ao.ops))
 
         m, start = parse_(ao.left, name, file, ln, g, tag_vars, prefix=prefix, branches=branches)
 
@@ -519,15 +521,21 @@ def qualify_equation(prefix, g, tag_vars):
     return g_qual
 
 
+def _generate_equation_key(equation_id: str, is_set: bool) -> str:
+    if is_set:
+        eq_key = "EQ_SET" + equation_id.replace(".", "_").replace("-", "_")
+    else:
+        eq_key = "EQ_" + equation_id.replace(".", "_").replace("-", "_")
+    return eq_key
+
+
 def parse_eq(model_namespace, item_id, equation_graph: Graph, nodes_dep, scope_variables,
              parsed_eq_branches, scoped_equations, parsed_eq):
     for m in model_namespace.equation_dict.values():
         for eq in m:
+            ns_path = model_namespace.full_tag
             is_set = model_namespace.is_set
-            if is_set:
-                eq_key = "EQ_SET" + eq.id.replace(".", "_").replace("-", "_")
-            else:
-                eq_key = "EQ_" + eq.id.replace(".", "_").replace("-", "_")
+            eq_key = _generate_equation_key(eq.id, is_set)
             is_parsed_eq = eq_key in parsed_eq
             if not is_parsed_eq:
                 dsource = eq.lines
@@ -585,11 +593,10 @@ def parse_eq(model_namespace, item_id, equation_graph: Graph, nodes_dep, scope_v
                 else:
                     parsed_eq_branches[eq_key] = (eq, dsource, g, {})
 
-                parsed_eq[eq_key] = list(branches_)
+                parsed_eq[eq_key] = 'EQ_' + ns_path+'.'+eq.name
 
             g = parsed_eq_branches[eq_key][2]
 
-            ns_path = model_namespace.full_tag
             eq_path = ns_path + '.' + eq_key
             g_qualified = qualify_equation(ns_path, g, scope_variables)
 
@@ -599,12 +606,12 @@ def parse_eq(model_namespace, item_id, equation_graph: Graph, nodes_dep, scope_v
             scoped_equations[eq_name] = eq_key
 
             eq_n = equation_graph.add_node(Node(key=eq_name,
-                                           node_type=NodeTypes.EQUATION,
-                                           name=eq_name, file=eq_name, ln=0, label=eq_name,
-                                           ast_type=ast.Call,
-                                           vectorized=is_set,
-                                           item_id=item_id,
-                                           func=ast.Name(id=eq_key.replace('.', '_'))))
+                                                node_type=NodeTypes.EQUATION,
+                                                name=eq_name, file=eq_name, ln=0, label=parsed_eq[eq_key],
+                                                ast_type=ast.Call,
+                                                vectorized=is_set,
+                                                item_id=item_id,
+                                                func=ast.Name(id=eq_key.replace('.', '_'))))
 
             for n in range(g_qualified.node_counter):
 
@@ -619,7 +626,8 @@ def parse_eq(model_namespace, item_id, equation_graph: Graph, nodes_dep, scope_v
 
                     sv = g_qualified.get(n, 'scope_var')
                     neq = equation_graph.add_node(Node(key=sv.id, node_type=NodeTypes.VAR, scope_var=sv,
-                                                   is_set_var=is_set, label=sv.get_path_dot()), ignore_existing=True)
+                                                       is_set_var=is_set, label=sv.get_path_dot()),
+                                                  ignore_existing=True)
 
                     targeted = False
                     read = False
@@ -663,8 +671,8 @@ def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
         node_type = NodeTypes.VAR
 
         t = equation_graph.add_node(Node(key=target_var_id, file='mapping', name=m, ln=0, id=target_var_id,
-                                    label=target_var.get_path_dot(), ast_type=ast.Attribute, node_type=node_type,
-                                    scope_var=target_var,  set_var_ix=target_set_var_ix),ignore_existing=False,)
+                                         label=target_var.get_path_dot(), ast_type=ast.Attribute, node_type=node_type,
+                                         scope_var=target_var, set_var_ix=target_set_var_ix), ignore_existing=False, )
 
         if not target_var_id in nodes_dep:
             nodes_dep[target_var_id] = []
@@ -684,9 +692,10 @@ def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
                 nodes_dep[ivar_id] = []
 
             ivar_node_e = equation_graph.add_node(Node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id,
-                                                  label=ivar_var.get_path_dot(),
-                                                  ast_type=ast.Attribute, node_type=NodeTypes.VAR, scope_var=ivar_var,
-                                                  set_var_ix=ivar_set_var_ix), ignore_existing=False)
+                                                       label=ivar_var.get_path_dot(),
+                                                       ast_type=ast.Attribute, node_type=NodeTypes.VAR,
+                                                       scope_var=ivar_var,
+                                                       set_var_ix=ivar_set_var_ix), ignore_existing=False)
 
             ix_ = equation_graph.has_edge_for_nodes(start_node=ivar_node_e, end_node=t)
             lix = len(ix_)

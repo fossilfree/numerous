@@ -92,7 +92,7 @@ class MappingsGraph(Graph):
                 for edge_ix in target_edges_indcs:
                     self.remove_edge(edge_ix)
 
-    def create_assignments(self):
+    def create_assignments(self,variables):
         from tqdm import tqdm
         temp_variables = {}
         for ii, n in tqdm(enumerate(self.get_where_node_attr('node_type', NodeTypes.EQUATION))):
@@ -101,13 +101,14 @@ class MappingsGraph(Graph):
                 if va in self.vars_assignments and len(self.vars_assignments[va]) > 1:
                     # Make new temp var
                     sv = self.get(e[1], 'scope_var')
-                    tmp_label = sv.tag + str(self.key_map[va]) + '_tmp'
+                    tmp_key = sv.tag + str(self.key_map[va]) + '_tmp'
+                    tmp_label = sv.tag + variables[str(self.key_map[va])].path.primary_path + '_tmp'
                     # Create fake scope variables for tmp setvar
                     fake_sv = {}
                     svf = None
                     if isinstance(sv, SetOfVariables):
                         tmp_var_counter = 0
-                        tsv = TemporarySetVar(tmp_label, sv)
+                        tsv = TemporarySetVar(tmp_key, sv)
                         for svi in sv.variables.values():
                             tmp_var_counter += 1
                             svf = TemporaryVar('tmp_var_' + str(tmp_var_counter), svi,
@@ -115,12 +116,12 @@ class MappingsGraph(Graph):
                             tsv.tmp_vars.append(svf)
                         fake_sv[tsv.id] = tsv
                     else:
-                        svf = TemporaryVar(d_u(tmp_label), sv, tmp_label, None, None)
+                        svf = TemporaryVar(d_u(tmp_key), sv, tmp_key, None, None)
                         fake_sv[d_u(svf.get_path_dot())] = svf
 
                     temp_variables.update(fake_sv)
 
-                    tmp = self.add_node(Node(key=tmp_label, node_type=NodeTypes.TMP, name=tmp_label,
+                    tmp = self.add_node(Node(key=tmp_key, node_type=NodeTypes.TMP, name=tmp_key,
                                         file='sum', label=tmp_label, ln=0, scope_var=svf), ignore_existing=False)
                     # Add temp var to Equation target
 
