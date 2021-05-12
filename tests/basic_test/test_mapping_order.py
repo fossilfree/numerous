@@ -65,12 +65,12 @@ class Main(Subsystem):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-@pytest.mark.parametrize("use_llvm", [False, True])
+@pytest.mark.parametrize("use_llvm", [False,True])
 def test_deriv_order(solver, use_llvm):
     m = Main()
     model = Model(m, use_llvm=use_llvm)
     import numpy as np
     expected = np.array([2.5, 3., 1., 1.])
     assert approx(model.compiled_compute(np.array([0., 0., 0., 0.]))) == expected
-    expected_2 = [3.3, 3.6, 1.6 , 1.4]
+    expected_2 = [3.3, 3.6, 1.6, 1.4]
     assert approx(model.compiled_compute(np.array([1., 2., 3., 4.]))) == expected_2
