@@ -379,6 +379,11 @@ class Model:
                 self.path_variables.update({path: variable.value})  # is this used at all?
 
         self.inverse_aliases = {v: k for k, v in self.aliases.items()}
+        inverse_logged_aliases = {}
+        for k,v in self.logged_aliases.items():
+            inverse_logged_aliases[v] = inverse_logged_aliases.get(v, []) + [k]
+
+        self.inverse_logged_aliases = inverse_logged_aliases
 
         number_of_external_mappings = 0
         external_idx = []
@@ -768,6 +773,18 @@ class Model:
         self.numba_model = NM_instance
         return self.numba_model
 
+    def create_historian_dict(self):
+        historian_data = self.numba_model.historian_data
+        time = historian_data[0]
+        data = {'time': time}
+
+        for i, var in enumerate(self.vars_ordered_values):
+            if self.scope_variables[var].logger_level.value >= self.logger_level.value:
+                for vv in self.inverse_logged_aliases[var]:
+                    data.update({vv: historian_data[i + 1]})
+
+        return data
+
     def create_historian_df(self):
         self.historian_df = self._generate_history_df(self.numba_model.historian_data, rename_columns=False)
         self.historian.store(self.historian_df)
@@ -781,7 +798,9 @@ class Model:
                 data.update({self.scope_variables[var].path.primary_path: historian_data[i + 1]})
 
         ## solve for 1 to n
+
         return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
+
 
 
 class AliasedDataFrame(pd.DataFrame):
