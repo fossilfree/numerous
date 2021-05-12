@@ -148,7 +148,7 @@ class MappingsGraph(Graph):
                 nsn = self.add_node(Node(key=ns, node_type=NodeTypes.SUM, name=ns, file='sum',
                                     label=ns,
                                     ln=0, ast_type=None))
-                self.add_edge(Edge(start=nsn, end=a,e_type=EdgeType.TARGET))
+                self.add_edge(Edge(start=nsn, end=a, e_type=EdgeType.TARGET))
 
                 self.add_edge(Edge(start=self.vars_mappings[a][0], end=nsn,
                                    e_type=EdgeType.VALUE, mappings=self.vars_mappings[a][1]))
