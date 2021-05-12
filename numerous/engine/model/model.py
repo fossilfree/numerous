@@ -775,7 +775,7 @@ class Model:
                 data.update({self.scope_variables[var].path.primary_path: historian_data[i + 1]})
 
         ## solve for 1 to n
-        return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
+        return AliasedDataFrame(data, aliases=self.aliases, rename_columns=rename_columns)
 
 
 class AliasedDataFrame(pd.DataFrame):
