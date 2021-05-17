@@ -349,7 +349,7 @@ class Model:
         self.mapping_end_ix = self.deriv_end_ix + len(mapping)
 
         self.special_indcs = [self.states_end_ix, self.deriv_end_ix, self.mapping_end_ix]
-        self.vars_ordered_values = np.array([v.value for v in self.vars_ordered], dtype=np.float64)
+        self.vars_ordered_values = np.array([v.value for v in self.vars_ordered], dtype=np.float64) # Here it's an array?
 
         logging.info('variables sorted')
 
@@ -379,11 +379,17 @@ class Model:
                 self.path_variables.update({path: variable.value})  # is this used at all?
 
         self.inverse_aliases = {v: k for k, v in self.aliases.items()}
-        inverse_logged_aliases = {}
+        inverse_logged_aliases = {} # {id: [alias1, alias2...], ...}
         for k,v in self.logged_aliases.items():
             inverse_logged_aliases[v] = inverse_logged_aliases.get(v, []) + [k]
 
         self.inverse_logged_aliases = inverse_logged_aliases
+
+        for varname, ix in self.vars_ordered_values.items(): # now it's a dict...
+            var = self.scope_variables[varname]
+            if var.logger_level.value >= self.logger_level.value:
+                for vv in self.inverse_logged_aliases[varname]:
+                    self.logged_variables.update({vv: ix})
 
         number_of_external_mappings = 0
         external_idx = []
@@ -419,6 +425,8 @@ class Model:
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.scope_variables, \
         self.state_idx, self.derivatives_idx = \
             eq_gen.generate_equations()
+
+        self.logged_variables = {}
 
         for varname, ix in self.vars_ordered_values.items():
             var = self.scope_variables[varname]
@@ -773,32 +781,22 @@ class Model:
         self.numba_model = NM_instance
         return self.numba_model
 
-    def create_historian_dict(self):
-        historian_data = self.numba_model.historian_data
+    def create_historian_dict(self, historian_data=None):
+        if historian_data is None:
+            historian_data = self.numba_model.historian_data
         time = historian_data[0]
-        data = {'time': time}
 
-        for i, var in enumerate(self.vars_ordered_values):
-            if self.scope_variables[var].logger_level.value >= self.logger_level.value:
-                for vv in self.inverse_logged_aliases[var]:
-                    data.update({vv: historian_data[i + 1]})
-
+        data = {var: historian_data[i+1] for var, i in self.logged_variables.items()}
+        data.update({'time': time})
         return data
+
 
     def create_historian_df(self):
         self.historian_df = self._generate_history_df(self.numba_model.historian_data, rename_columns=False)
         self.historian.store(self.historian_df)
 
     def _generate_history_df(self, historian_data, rename_columns=True):
-        time = historian_data[0]
-        data = {'time': time}
-
-        for i, var in enumerate(self.vars_ordered_values):
-            if self.scope_variables[var].logger_level.value >= self.logger_level.value:
-                data.update({self.scope_variables[var].path.primary_path: historian_data[i + 1]})
-
-        ## solve for 1 to n
-
+        data = self.create_historian_dict(historian_data)
         return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
 
 
