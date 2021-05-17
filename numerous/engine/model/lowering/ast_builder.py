@@ -1,14 +1,8 @@
 from __future__ import print_function
 
-import itertools
-from ctypes import CFUNCTYPE, POINTER, c_double, c_void_p, c_int64
-from numba import carray, cfunc, njit
-
 from numerous.engine.model.utils import wrap_function
 from numerous import config
-import faulthandler
 import numpy as np
-import logging
 import ast
 import os
 
