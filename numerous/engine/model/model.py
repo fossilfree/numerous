@@ -165,6 +165,7 @@ class Model:
         self.historian_df = None
         self.aliases = {}
         self.historian = historian
+        self.vars_ordered_value = {}
 
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
@@ -343,7 +344,6 @@ class Model:
         self.mapping_end_ix = self.deriv_end_ix + len(mapping)
 
         self.special_indcs = [self.states_end_ix, self.deriv_end_ix, self.mapping_end_ix]
-        self.vars_ordered_values = np.array([v.value for v in self.vars_ordered], dtype=np.float64)
 
         logging.info('variables sorted')
 
