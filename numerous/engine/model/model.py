@@ -388,8 +388,9 @@ class Model:
         for varname, ix in self.vars_ordered_values.items(): # now it's a dict...
             var = self.scope_variables[varname]
             if var.logger_level.value >= self.logger_level.value:
-                for vv in self.inverse_logged_aliases[varname]:
-                    self.logged_variables.update({vv: ix})
+                if varname in self.inverse_logged_aliases:
+                    for vv in self.inverse_logged_aliases[varname]:
+                        self.logged_variables.update({vv: ix})
 
         number_of_external_mappings = 0
         external_idx = []
