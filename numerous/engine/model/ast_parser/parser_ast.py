@@ -2,7 +2,7 @@ import ast
 import logging
 from textwrap import dedent
 
-from ast_visitor import ast_to_graph
+from numerous.engine.model.ast_parser.ast_visitor import ast_to_graph
 from numerous.engine.model.graph_representation import Graph, EdgeType, Node, Edge
 from numerous.engine.model.utils import NodeTypes
 from numerous.engine.scope import ScopeVariable
