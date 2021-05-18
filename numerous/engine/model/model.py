@@ -384,6 +384,7 @@ class Model:
             inverse_logged_aliases[v] = inverse_logged_aliases.get(v, []) + [k]
 
         self.inverse_logged_aliases = inverse_logged_aliases
+        self.logged_variables = {}
 
         for varname, ix in self.vars_ordered_values.items(): # now it's a dict...
             var = self.scope_variables[varname]
