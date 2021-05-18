@@ -54,7 +54,7 @@ def sigmoidlike(t):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-@pytest.mark.parametrize("use_llvm", [True,False])
+@pytest.mark.parametrize("use_llvm", [True, False])
 def test_logger_levels(solver, use_llvm):
     num = 100
     t_stop = 100
