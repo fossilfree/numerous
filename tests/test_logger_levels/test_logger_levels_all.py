@@ -8,7 +8,7 @@ from numerous.engine.system.item import Item
 from numerous.engine.system.subsystem import Subsystem
 from numerous.engine.simulation.solvers.base_solver import solver_types, SolverType
 import numpy as np
-import copy
+
 
 INFO = LoggerLevel.INFO
 DEBUG = LoggerLevel.DEBUG
@@ -17,7 +17,7 @@ ALL = LoggerLevel.ALL
 @pytest.fixture(autouse=True)
 def run_before_and_after_tests():
     import shutil
-    shutil.rmtree('./tmp', ignore_errors=True)
+    shutil.rmtree('../tmp', ignore_errors=True)
     yield
 
 
@@ -45,20 +45,23 @@ class TestLogSubsystem1(Subsystem):
         self.register_items([item])
 
 
-sys = TestLogSubsystem1()
-model = Model(sys, logger_level=ALL, use_llvm=True)
+
 
 
 def sigmoidlike(t):
 
     return 1/(1+np.exp(2*t))
 
-def test_logger_levels():
+@pytest.mark.parametrize("solver", solver_types)
+@pytest.mark.parametrize("use_llvm", [False])
+def test_logger_levels(solver, use_llvm):
     num = 100
     t_stop = 100
     t_start = 0
+    sys = TestLogSubsystem1()
+    model = Model(sys, logger_level=ALL, use_llvm=use_llvm)
     tvec = np.linspace(t_start, t_stop, num+1, dtype=np.float64)
-    sim = Simulation(model, t_start=t_start, t_stop=t_stop, num=num, num_inner=1, solver_type=SolverType.NUMEROUS,
+    sim = Simulation(model, t_start=t_start, t_stop=t_stop, num=num, num_inner=1, solver_type=solver,
                      rtol=1e-6, atol=1e-6)
     sim.solve()
 
