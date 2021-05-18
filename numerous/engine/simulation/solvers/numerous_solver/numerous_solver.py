@@ -365,10 +365,10 @@ class Numerous_solver(BaseSolver):
                            t_start, t_end, self.time)
 
         while info.status == SolveStatus.Running:
-            if info.event == 1:
+            if info.event_id == 1:
                 self.model.store_history(self.numba_model.historian_data)
                 self.numba_model.historian_reinit()
-            if info.event == 2:
+            if info.event_id == 2:
                 is_external_data = self.model.external_mappings.load_new_external_data_batch(info.t)
                 external_mappings_numpy = self.model.external_mappings.external_mappings_numpy
                 external_mappings_time = self.model.external_mappings.external_mappings_time
@@ -400,9 +400,9 @@ class Numerous_solver(BaseSolver):
         atol = self.method_options.get('atol')
 
         if self.info is not None:
-            dt = self.info.get('dt')  # internal solver step size
-            order = self.info.get('order')
-            assert self.info.get('t') == t_start, f"solver time {self.info.get('t')} does not match external time " \
+            dt = self.info.dt  # internal solver step size
+            order = self.info.order
+            assert self.info.t == t_start, f"solver time {self.info.t} does not match external time " \
                                                   f"{t_start}"
         else:
             order = self._method.order
@@ -415,31 +415,26 @@ class Numerous_solver(BaseSolver):
 
         step_integrate_ = self._method.step_func
 
-        step_info, dt, t, y, order = self._solve(self.numba_model,
+        info = self._solve(self.numba_model,
                                                  solve_state, dt, order, strict_eval, outer_itermax, min_step,
                                                  max_step, step_integrate_,
                                                  t_start, t_end, time_span)
 
-        while info.status == SolveStatus.Running:
-            if info.event == 1:
-                self.model.store_history(self.numba_model.historian_data)
-                self.numba_model.historian_reinit()
-            if info.event == 2:
-                is_external_data = self.model.external_mappings.load_new_external_data_batch(info.t)
-                external_mappings_numpy = self.model.external_mappings.external_mappings_numpy
-                external_mappings_time = self.model.external_mappings.external_mappings_time
-                self.numba_model.is_external_data = is_external_data
-                self.numba_model.update_external_data(external_mappings_numpy, external_mappings_time)
 
-            info = self._solve(self.numba_model,
-                               solve_state, info.dt, order, strict_eval, outer_itermax, min_step,
-                               max_step, step_integrate_,
-                               info.t, t_end, self.time)
+        if info.event_id == 1:
+            self.model.store_history(self.numba_model.historian_data)
+            self.numba_model.historian_reinit()
+        if info.event_id == 2:
+            is_external_data = self.model.external_mappings.load_new_external_data_batch(info.t)
+            external_mappings_numpy = self.model.external_mappings.external_mappings_numpy
+            external_mappings_time = self.model.external_mappings.external_mappings_time
+            self.numba_model.is_external_data = is_external_data
+            self.numba_model.update_external_data(external_mappings_numpy, external_mappings_time)
 
-        info = {'step_info': step_info, 'dt': dt, 't': t, 'y': y, 'order': order}
+
         self.info = info
 
-        return t_end, self.info.get('t', None)
+        return t_end, self.info.t
 
     def register_endstep(self, __end_step):
         self.__end_step = __end_step

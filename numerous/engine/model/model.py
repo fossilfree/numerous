@@ -374,6 +374,19 @@ class Model:
                 self.path_variables.update({path: variable.value})  # is this used at all?
 
         self.inverse_aliases = {v: k for k, v in self.aliases.items()}
+        inverse_logged_aliases = {} # {id: [alias1, alias2...], ...}
+        for k,v in self.logged_aliases.items():
+            inverse_logged_aliases[v] = inverse_logged_aliases.get(v, []) + [k]
+
+        self.inverse_logged_aliases = inverse_logged_aliases
+        self.logged_variables = {}
+
+        for varname, ix in self.vars_ordered_values.items(): # now it's a dict...
+            var = self.scope_variables[varname]
+            if var.logger_level.value >= self.logger_level.value:
+                if varname in self.inverse_logged_aliases:
+                    for vv in self.inverse_logged_aliases[varname]:
+                        self.logged_variables.update({vv: ix})
 
         number_of_external_mappings = 0
         external_idx = []
@@ -762,20 +775,24 @@ class Model:
         self.numba_model = NM_instance
         return self.numba_model
 
+    def create_historian_dict(self, historian_data=None):
+        if historian_data is None:
+            historian_data = self.numba_model.historian_data
+        time = historian_data[0]
+
+        data = {var: historian_data[i+1] for var, i in self.logged_variables.items()}
+        data.update({'time': time})
+        return data
+
+
     def create_historian_df(self):
         self.historian_df = self._generate_history_df(self.numba_model.historian_data, rename_columns=False)
         self.historian.store(self.historian_df)
 
     def _generate_history_df(self, historian_data, rename_columns=True):
-        time = historian_data[0]
-        data = {'time': time}
+        data = self.create_historian_dict(historian_data)
+        return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
 
-        for i, var in enumerate(self.vars_ordered_values):
-            if self.scope_variables[var].logger_level.value >= self.logger_level.value:
-                data.update({self.scope_variables[var].path.primary_path: historian_data[i + 1]})
-
-        ## solve for 1 to n
-        return AliasedDataFrame(data, aliases=self.aliases, rename_columns=rename_columns)
 
 
 class AliasedDataFrame(pd.DataFrame):
