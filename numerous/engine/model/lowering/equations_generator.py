@@ -1,10 +1,11 @@
 import logging
 
 import numpy as np
+
+from numerous.engine.model.ast_parser.equation_form_graph import function_from_graph_generic, compiled_function_from_graph_generic_llvm
 from numerous.engine.model.lowering.ast_builder import ASTBuilder
 from numerous.engine.model.graph_representation import EdgeType
-from numerous.engine.model.ast_parser.parser_ast import function_from_graph_generic, \
-    compiled_function_from_graph_generic_llvm
+
 from numerous.engine.model.lowering.llvm_builder import LLVMBuilder
 from numerous.engine.model.lowering.utils import Vardef
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute
@@ -170,20 +171,20 @@ class EquationGenerator:
             self.equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.ARGUMENT))
         # Determine the local arguments names
         args_local = [self.equation_graph.key_map[ae[0]] for i, ae in zip(a_indcs, a_edges) if
-                      not self.equation_graph.edges_attr['arg_local'][i] == 'local']
+                      not self.equation_graph.edges_c[i].arg_local == 'local']
 
         # Determine the local arguments names
-        args_scope_var = [self.equation_graph.edges_attr['arg_local'][i] for i, ae in zip(a_indcs, a_edges) if
-                          not self.equation_graph.edges_attr['arg_local'][i] == 'local']
+        args_scope_var = [self.equation_graph.edges_c[i].arg_local for i, ae in zip(a_indcs, a_edges) if
+                          not self.equation_graph.edges_c[i].arg_local == 'local']
 
         # Find the targets by looking for target edges
         t_indcs, t_edges = list(
             self.equation_graph.get_edges_for_node_filter(start_node=n, attr='e_type', val=EdgeType.TARGET))
         targets_local = [self.equation_graph.key_map[te[1]] for i, te in zip(t_indcs, t_edges) if
-                         not self.equation_graph.edges_attr['arg_local'][i] == 'local']
-        targets_scope_var = [self.equation_graph.edges_attr['arg_local'][i] for i, ae in zip(t_indcs, t_edges)
+                         not self.equation_graph.edges_c[i].arg_local == 'local']
+        targets_scope_var = [self.equation_graph.edges_c[i].arg_local for i, ae in zip(t_indcs, t_edges)
                              if
-                             not self.equation_graph.edges_attr['arg_local'][i] == 'local']
+                             not self.equation_graph.edges_c[i].arg_local == 'local']
         set_size = 0
         # Record targeted and read variables
         if self.equation_graph.get(n, 'vectorized'):
@@ -270,7 +271,7 @@ class EquationGenerator:
             for v_ix, v in zip(v_indcs, value_edges):
                 if (nt := self.equation_graph.get(v[0], 'node_type')) == NodeTypes.VAR or nt == NodeTypes.TMP:
 
-                    if (mix := self.equation_graph.edges_attr['mappings'][v_ix]) == ':':
+                    if (mix := self.equation_graph.edges_c[v_ix].mappings) == ':':
                         mappings[':'].append(self.equation_graph.key_map[v[0]])
 
                     elif isinstance(mix, list):
@@ -283,7 +284,7 @@ class EquationGenerator:
 
                     else:
                         raise ValueError(
-                            f'mapping indices not specified!{self.equation_graph.edges_attr["mappings"][v_ix]}, {self.equation_graph.key_map[t]} <- {self.equation_graph.key_map[v[0]]}')
+                            f'mapping indices not specified!{self.equation_graph.edges_c[v_ix].mappings}, {self.equation_graph.key_map[t]} <- {self.equation_graph.key_map[v[0]]}')
 
                 else:
                     raise ValueError(f'this must be a mistake {self.equation_graph.key_map[v[0]]}')
@@ -347,7 +348,7 @@ class EquationGenerator:
                 else:
                     self.all_read.append(self.equation_graph.key_map[v[0]])
 
-                maps = self.equation_graph.edges_attr['mappings'][vi]
+                maps = self.equation_graph.edges_c[vi].mappings
 
                 if maps == ':':
                     if self.equation_graph.key_map[t] in self.set_variables:

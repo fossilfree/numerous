@@ -1,6 +1,7 @@
-from numba import njit,int64
+from numba import njit, int64
 from numba.experimental import jitclass
 import numpy as np
+
 
 @njit
 def multi_replace(arr, to_rep, new_val):
@@ -101,7 +102,6 @@ def walk_children(parent_edges, children_edges, self_edges, n, edges, ix, visite
                 ix, n_visited = walk_parents_to_var(parent_edges, self_edges, e[0], edges, ix, visited_edges, n_visited,
                                                     node_types)
 
-
     return ix, n_visited
 
 
@@ -183,7 +183,6 @@ class _Graph:
 
         self.children = np.zeros((self.n_nodes, self.n_children_max), np.int64)
 
-
         self.parent_edges = np.zeros((self.n_nodes, self.n_children_max), np.int64)
 
         self.children_edges = np.zeros((self.n_nodes, self.n_children_max), np.int64)
@@ -195,7 +194,6 @@ class _Graph:
 
         self.make_children_map()
         self.topological_sorted_nodes = np.zeros(self.n_nodes, np.int64)
-
 
     def in_degree(self):
 
@@ -212,7 +210,6 @@ class _Graph:
                 raise ValueError('More children than allowed!')
             row[row[0]] = e[1]
 
-
             row_pe = self.parent_edges[e[1], :]
             row_pe[0] += 1
             if row_pe[0] > self.n_children_max - 1:
@@ -225,14 +222,12 @@ class _Graph:
                 raise ValueError('More parents than allowed!')
             row_ce[row_ce[0]] = i
 
-    """
     def make_edges_map(self, edges, nodes):
         n_nodes = len(nodes)
         parent_edges = np.zeros((n_nodes, self.n_children_max), int64)
         children_edges = np.zeros((n_nodes, self.n_children_max), int64)
 
         for i, e in enumerate(edges):
-
 
             row_pe = parent_edges[e[1], :]
             row_pe[0] += 1
@@ -247,7 +242,6 @@ class _Graph:
             row_ce[row_ce[0]] = e[2]
 
         return parent_edges, children_edges
-    """
 
     def get_zero_indegree(self):
         n_zero_indegree = 0
@@ -290,7 +284,6 @@ class _Graph:
             self.cyclic_dependency = -1
 
         self.topological_sorted_nodes = sorted_nodes
-
 
     def get_ancestor_graph(self, n):
         edges = np.zeros_like(self.edges)
@@ -344,7 +337,6 @@ class _Graph:
 
     def get_dependants_graph_subgraph(self, nodes, subedges):
 
-
         edges = np.zeros_like(subedges)
 
         ix = int64(0)
@@ -362,7 +354,6 @@ class _Graph:
         for i, e in enumerate(edges):
             nodes[2 * i] = e[0]
             nodes[2 * i + 1] = e[1]
-
 
         nodes = np.unique(nodes)
 

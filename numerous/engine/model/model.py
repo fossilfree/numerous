@@ -32,14 +32,6 @@ from numerous.engine.model.lowering.equations_generator import EquationGenerator
 from numerous.engine.system import SetNamespace
 
 
-class LowerMethod(IntEnum):
-    Tensor = 0
-    Codegen = 1
-
-
-lower_method = LowerMethod.Codegen
-
-
 class ModelNamespace:
 
     def __init__(self, tag, outgoing_mappings, item_tag, item_indcs, path, pos, item_path):
@@ -107,7 +99,6 @@ class ModelAssembler:
                 scope_select.update({scope.id: scope})
                 equation_dict.update({scope.id: (eq_methods, namespace.outgoing_mappings)})
 
-            ##
             for v in namespace.ordered_variables():
                 variables_.update({v.id: v})
 
@@ -131,7 +122,10 @@ class Model:
 
     def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
                  external_mappings=None, data_loader=None, imports=None, historian=InMemoryHistorian(),
-                 use_llvm=True):
+                 use_llvm=True, generate_graph_pdf=False):
+
+        self.generate_graph_pdf = generate_graph_pdf
+
         if logger_level == None:
             self.logger_level = LoggerLevel.ALL
         else:
@@ -171,6 +165,7 @@ class Model:
         self.historian_df = None
         self.aliases = {}
         self.historian = historian
+        self.vars_ordered_value = {}
 
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
@@ -349,15 +344,15 @@ class Model:
         self.mapping_end_ix = self.deriv_end_ix + len(mapping)
 
         self.special_indcs = [self.states_end_ix, self.deriv_end_ix, self.mapping_end_ix]
-        self.vars_ordered_values = np.array([v.value for v in self.vars_ordered], dtype=np.float64) # Here it's an array?
 
         logging.info('variables sorted')
 
         self.eg = MappingsGraph.from_graph(self.eg)
         self.eg.remove_chains()
-        tmp_vars = self.eg.create_assignments()
+        tmp_vars = self.eg.create_assignments(self.variables)
         self.eg.add_mappings()
-        # self.eg.as_graphviz("test_mv", force=True)
+        if self.generate_graph_pdf:
+            self.eg.as_graphviz(self.system.tag, force=True)
         self.lower_model_codegen(tmp_vars)
         self.logged_aliases = {}
 
@@ -395,7 +390,6 @@ class Model:
 
         number_of_external_mappings = 0
         external_idx = []
-        # for key in self.vars_ordered_values.keys():
 
         for var in self.variables.values():
             if self.external_mappings.is_mapped_var(self.variables, var.id, self.system.id):

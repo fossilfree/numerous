@@ -32,7 +32,7 @@ class ScopeVariable(MappedValue):
         self.get_path_dot = base_variable.get_path_dot
 
         self.size = 0
-        self.item=base_variable.item
+        self.item = base_variable.item
 
 
     def update_ix(self, ix):
