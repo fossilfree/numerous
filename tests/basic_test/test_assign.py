@@ -26,23 +26,43 @@ class Item1(Item, EquationBase):
     def eval(self, scope):
         scope.x_dot = 1
 
+class Item2(Item, EquationBase):
+    def __init__(self, tag='item2'):
+        super(Item2, self).__init__(tag)
+        self.t1 = self.create_namespace('t1')
+        self.add_state('x', 0)
+        self.t1.add_equations([self])
 
+    @Equation()
+    def eval(self, scope):
+        el1,el2=1,2
+        scope.x_dot = el1
 
 class System(Subsystem):
-    def __init__(self, tag='system'):
+    def __init__(self, tag='system', item=None):
         super(System, self).__init__(tag)
-        item1 = Item1(tag='item1')
-        self.register_items([item1])
+        self.register_items([item])
 
 
 
 @pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [False,True])
-def test_deriv_order(solver, use_llvm):
-    m = System()
-    model = Model(m, use_llvm=use_llvm, generate_graph_pdf=True)
+def test_single_assign(solver, use_llvm):
+    m = System(item=Item1(tag='item1'))
+    model = Model(m, use_llvm=use_llvm, generate_graph_pdf=False)
     s = simulation.Simulation(model, solver_type=solver, t_start=0, t_stop=2.0, num=2, num_inner=2)
     s.solve()
     historian_df = s.model.historian_df
     assert approx(historian_df['system.item1.t1.x'][2]) == 2
 
+
+
+@pytest.mark.parametrize("solver", solver_types)
+@pytest.mark.parametrize("use_llvm", [False,True])
+def test_tuple_assign(solver, use_llvm):
+    m = System(item=Item2(tag='item2'))
+    model = Model(m, use_llvm=use_llvm, generate_graph_pdf=False)
+    s = simulation.Simulation(model, solver_type=solver, t_start=0, t_stop=2.0, num=2, num_inner=2)
+    s.solve()
+    historian_df = s.model.historian_df
+    assert approx(historian_df['system.item2.t1.x'][2]) == 2

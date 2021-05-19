@@ -13,45 +13,11 @@ op_sym_map = {ast.Add: '+', ast.Sub: '-', ast.Div: '/', ast.Mult: '*', ast.Pow: 
 def get_op_sym(op):
     return op_sym_map[type(op)]
 
+
 #
 # def parse_(ao, name, file, ln, g: Graph, tag_vars, prefix='.', branches={}):
 #     en = None
 #     is_mapped = None
-#
-#     if isinstance(ao, ast.Num):
-#         # Constant
-#         source_id = 'c' + str(ao.value)
-#         en = g.add_node(Node(ao=ao, file=file, name=name, ln=ln, label=source_id, ast_type=ast.Num, value=ao.value,
-#                              node_type=NodeTypes.VAR))
-#
-#         # Check if simple name
-#     elif isinstance(ao, ast.Name) or isinstance(ao, ast.Attribute):
-#         local_id = recurse_Attribute(ao)
-#
-#         source_id = local_id
-#         if source_id[:6] == 'scope.':
-#             scope_var = tag_vars[source_id[6:]]
-#             tag_vars[source_id[6:]].used_in_equation_graph = True
-#
-#         else:
-#             scope_var = None
-#
-#         if '-' in source_id:
-#             raise ValueError(f'Bad character -')
-#
-#         node_type = NodeTypes.VAR
-#
-#         if scope_var:
-#
-#             var_type = VariableType.DERIVATIVE
-#             is_mapped = scope_var.sum_mapping or scope_var.mapping
-#
-#         else:
-#             var_type = VariableType.PARAMETER
-#
-#         en = g.add_node(Node(key=source_id, ao=ao, file=file, name=name, ln=ln, id=source_id, local_id=local_id,
-#                              ast_type=type(ao), node_type=node_type, scope_var=scope_var), ignore_existing=True)
-#
 #
 #     elif isinstance(ao, ast.UnaryOp):
 #         # Unary op
@@ -238,26 +204,25 @@ class AstVisitor(ast.NodeVisitor):
         self.mapped_stack.append(is_mapped)
         self.node_number_stack.append(en)
 
-
-    def _select_scope_var(self,source_id):
+    def _select_scope_var(self, source_id):
         if source_id[:6] == 'scope.':
             scope_var = self.scope_variables[source_id[6:]]
             self.scope_variables[source_id[6:]].used_in_equation_graph = True
             is_mapped = scope_var.sum_mapping or scope_var.mapping
         else:
             scope_var = None
-            is_mapped =None
+            is_mapped = None
         return scope_var, is_mapped
 
     def visit_Constant(self, node):
         source_id = 'c' + str(node.value)
         en = self.graph.add_node(Node(ao=node, file=self.eq_file, name=self.eq_key, ln=self.eq_lineno,
                                       label=source_id, ast_type=ast.Num, value=node.value,
-                             node_type=NodeTypes.VAR))
+                                      node_type=NodeTypes.VAR))
         self.mapped_stack.append(None)
         self.node_number_stack.append(en)
 
-
+    def visit_Tuple(self, node):
 
 
         #
@@ -277,6 +242,8 @@ class AstVisitor(ast.NodeVisitor):
         #         g.add_edge(Edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy()))
         #     return en
         #
+
+
         #     if isinstance(ao.targets[0], ast.Tuple) and isinstance(ao.value, ast.Tuple):
         #         for i, _ in enumerate(ao.value.elts):
         #             en = parse_assign(ao.value.elts[i], ao.targets[0].elts[i], ao, name, file, ln, g, tag_vars, prefix,
