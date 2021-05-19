@@ -3,7 +3,7 @@ from enum import IntEnum, unique
 
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
 from .solver_methods import *
-from numba import njit, objmode
+from numba import njit
 import time
 
 Info = namedtuple('Info', ['status', 'event_id', 'step_info', 'dt', 't', 'y', 'order'])
