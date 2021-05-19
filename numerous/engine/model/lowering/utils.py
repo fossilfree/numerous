@@ -39,8 +39,6 @@ def generate_code_file(mod_body, file, imports, external_functions_source=False,
     return source
 
 
-############### Check variables and make sets for codegen
-
 # Define helper functions to check the variables and sub lists
 def non_unique_check(listname_, list_):
     if len(list_) > len(set(list_)):

@@ -29,7 +29,7 @@ numba_model_spec = [
 
 
 @njit
-def step_aproximation(t, time_array, data_array):
+def step_approximation(t, time_array, data_array):
     idx = np.searchsorted(time_array, t, side='right') - 1
     return data_array[idx]
 
@@ -86,7 +86,7 @@ class CompiledModel:
             value = np.interp(t, self.external_mappings_time[df_indx],
                                                         self.external_mappings_numpy[df_indx, :, var_idx]) if \
                 self.approximation_type[i] else \
-                step_aproximation(t, self.external_mappings_time[df_indx],
+                step_approximation(t, self.external_mappings_time[df_indx],
                                   self.external_mappings_numpy[df_indx, :, var_idx])
             self.write_variables(value, self.external_idx[i])
 
