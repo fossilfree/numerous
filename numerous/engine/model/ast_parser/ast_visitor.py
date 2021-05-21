@@ -138,6 +138,7 @@ def get_op_sym(op):
 def ast_to_graph(ast_tree, eq_key, eq, scope_variables):
     parser = AstVisitor(eq_key, eq.file, eq.lineno, scope_variables)
     parser.visit(ast_tree)
+    parser.graph.as_graphviz("qq",force=True)
     return parser.graph
 
 
@@ -183,7 +184,7 @@ class AstVisitor(ast.NodeVisitor):
                                       ln=self.eq_lineno, id=source_id, local_id=source_id,
                                       ast_type=ast.Name, node_type=NodeTypes.VAR, scope_var=scope_var),
                                  ignore_existing=True)
-        self.mapped_stack.append(is_mapped)
+        self.mapped_stack.append([is_mapped])
         self.node_number_stack.append([en])
 
     def visit_Assign(self, node):
@@ -193,15 +194,16 @@ class AstVisitor(ast.NodeVisitor):
             else:
                 raise AttributeError('Unknown type of assign target in Equation: ', type(target))
         self.traverse(node.value)
-        m = self.mapped_stack.pop()
+        _ = self.mapped_stack.pop()
         mapped = self.mapped_stack.pop()
         start = self.node_number_stack.pop()
         end = self.node_number_stack.pop()
-        en = self.graph.add_node(Node(ao=node, file=self.eq_file, name=self.eq_key, ln=self.eq_lineno,
-                                      label='+=' if mapped else '=',
-                                      ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
-                                      ast_op=ast.Add() if mapped else None))
-        for s, e in zip(start, end):
+
+        for s, e,m in zip(start, end, mapped):
+            en = self.graph.add_node(Node(ao=node, file=self.eq_file, name=self.eq_key, ln=self.eq_lineno,
+                                          label='+=' if m else '=',
+                                          ast_type=ast.AugAssign if m else ast.Assign, node_type=NodeTypes.ASSIGN,
+                                          ast_op=ast.Add() if m else None))
             self.graph.add_edge(Edge(start=en, end=e, e_type=EdgeType.TARGET, branches=self.branches.copy()))
             self.graph.add_edge(Edge(start=s, end=en, e_type=EdgeType.VALUE, branches=self.branches.copy()))
         self.node_number_stack.append([en])
@@ -227,7 +229,7 @@ class AstVisitor(ast.NodeVisitor):
         en = self.graph.add_node(Node(ao=node, file=self.eq_file, name=self.eq_key, ln=self.eq_lineno,
                                       label=source_id, ast_type=ast.Num, value=node.value,
                                       node_type=NodeTypes.VAR))
-        self.mapped_stack.append(None)
+        self.mapped_stack.append([None])
         self.node_number_stack.append([en])
 
     def visit_Tuple(self, node):
@@ -237,8 +239,26 @@ class AstVisitor(ast.NodeVisitor):
             self.traverse(el)
             en.append(self.node_number_stack.pop())
             mapped.append(self.mapped_stack.pop())
-        self.mapped_stack.append(mapped)
+        self.mapped_stack.append(chain.from_iterable(mapped))
         self.node_number_stack.append(chain.from_iterable(en))
+
+    # def visit_Call(self, node):
+        # self.set_precedence(_Precedence.ATOM, node.func)
+        # self.traverse(node.func)
+        # with self.delimit("(", ")"):
+        #     comma = False
+        #     for e in node.args:
+        #         if comma:
+        #             elf.write(", ")
+        #         else:
+        #                 comma = True
+        #             self.traverse(e)
+        #     for e in node.keywords:
+        #             if comma:
+        #                 self.write(", ")
+        #             else:
+        #                 comma = True
+        #             self.traverse(e)
 
         #
         # def parse_assign(value, target, ao, name, file, ln, g, tag_vars, prefix, branches):
@@ -256,10 +276,7 @@ class AstVisitor(ast.NodeVisitor):
         #
 
 
-        #     if isinstance(ao.targets[0], ast.Tuple) and isinstance(ao.value, ast.Tuple):
-        #         for i, _ in enumerate(ao.value.elts):
-        #             en = parse_assign(ao.value.elts[i], ao.targets[0].elts[i], ao, name, file, ln, g, tag_vars, prefix,
-        #                               branches)
+
         #     elif isinstance(ao.targets[0], ast.Tuple):
         #         if isinstance(ao.value, ast.Call):
         #             start = parse_(ao.value, name, file, ln, g, tag_vars, prefix, branches=branches)
@@ -274,19 +291,4 @@ class AstVisitor(ast.NodeVisitor):
         #                 g.add_edge(Edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy()))
         #         else:
         #             raise AttributeError('Assigning to tuple is not supported: ', type(ao.targets[0]))
-        #     elif isinstance(ao.value, ast.Tuple):
-        #         mapped, end = parse_(ao.targets[0], name, file, ln, g, tag_vars, prefix, branches=branches)
-        #
-        #         en = g.add_node(Node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
-        #                              ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGN,
-        #                              ast_op=ast.Add() if mapped else None))
-        #
-        #         g.add_edge(Edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy()))
-        #         for sa in ao.value.elts:
-        #             m, start = parse_(sa, name, file, ln, g, tag_vars, prefix, branches=branches)
-        #             g.add_edge(Edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy()))
-        #     else:
-        #         en = parse_assign(ao.value, ao.targets[0], ao, name, file, ln, g, tag_vars, prefix, branches)
-        #
-        #
 
