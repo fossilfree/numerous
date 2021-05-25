@@ -18,7 +18,6 @@ def get_op_sym(op):
 def ast_to_graph(ast_tree, eq_key, eq, scope_variables):
     parser = AstVisitor(eq_key, eq.file, eq.lineno, scope_variables)
     parser.visit(ast_tree)
-    parser.graph.as_graphviz("test", force=True)
     return parser.graph
 
 
@@ -52,7 +51,7 @@ class AstVisitor(ast.NodeVisitor):
         self.traverse(node.body)
 
     def visit_Call(self, node: ast.Call) -> Any:
-        self._proces_name_or_atribute(node.func, ast_type=ast.Call, node_type=NodeTypes.OP, func=node.func)
+        self._process_named_node(node.func, ast_type=ast.Call, node_type=NodeTypes.OP, func=node.func)
         _ = self.mapped_stack.pop()
         en = self.node_number_stack.pop()
         for sa in node.args:
@@ -67,10 +66,10 @@ class AstVisitor(ast.NodeVisitor):
     def _is_assign_target_supported(self, target: ast.expr):
         return isinstance(target, self._supported_assign_target)
 
-    def _proces_name_or_atribute(self, node: ast.expr, ast_type: type, node_type: NodeTypes, func=None):
+    def _process_named_node(self, node: ast.expr, ast_type: type, node_type: NodeTypes, static_key=False, func=None):
         source_id = recurse_Attribute(node)
         scope_var, is_mapped = self._select_scope_var(source_id)
-        en = self.graph.add_node(Node(key=source_id, ao=node, file=self.eq_file, name=self.eq_key,
+        en = self.graph.add_node(Node(key=source_id if static_key else None, ao=node, file=self.eq_file, name=self.eq_key,
                                       ln=self.eq_lineno, id=source_id, local_id=source_id, func=func,
                                       ast_type=ast_type, node_type=node_type, scope_var=scope_var),
                                  ignore_existing=True)
@@ -105,10 +104,10 @@ class AstVisitor(ast.NodeVisitor):
         self.node_number_stack.append([en])
 
     def visit_Attribute(self, node: ast.Attribute):
-        self._proces_name_or_atribute(node, ast_type=ast.Attribute, node_type=NodeTypes.VAR)
+        self._process_named_node(node, ast_type=ast.Attribute, static_key=True, node_type=NodeTypes.VAR)
 
     def visit_Name(self, node: ast.Name):
-        self._proces_name_or_atribute(node, ast_type=ast.Name, node_type=NodeTypes.VAR)
+        self._process_named_node(node, ast_type=ast.Name, static_key=True, node_type=NodeTypes.VAR)
 
     def _select_scope_var(self, source_id: str):
         if source_id[:6] == 'scope.':
