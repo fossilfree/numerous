@@ -2,7 +2,6 @@ import pytest
 from pytest import approx
 
 from numerous.engine import simulation
-from basic_test.external_functions import if_replacement
 from numerous.multiphysics.equation_decorators import Equation
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system import Item, Subsystem
