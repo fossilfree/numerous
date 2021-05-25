@@ -1,6 +1,8 @@
 import ast
+from _ast import Call
 from copy import deepcopy
 from itertools import chain, zip_longest
+from typing import Any
 
 from numerous.engine.model.graph_representation.graph import Node, Edge, Graph
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute
@@ -168,11 +170,26 @@ class AstVisitor(ast.NodeVisitor):
 
         return "".join(self._source)
 
-    def visit_Module(self, node):
+    def visit_Module(self, node: ast.Module):
         self.traverse(node.body)
 
-    def visit_FunctionDef(self, node):
+    def visit_FunctionDef(self, node: ast.FunctionDef):
         self.traverse(node.body)
+
+    def visit_Call(self, node: Call) -> Any:
+        self._proces_name_or_atribute(node.func)
+        _ = self.mapped_stack.pop()
+        en = self.node_number_stack.pop()
+        for sa in node.args:
+            self.traverse(sa)
+            start = self.node_number_stack.pop()
+            _ = self.mapped_stack.pop()
+            self.graph.add_edge(Edge(start=start[0], end=en[0],
+                                     e_type=EdgeType.ARGUMENT, branches=self.branches.copy()))
+        self.mapped_stack.append([None])
+        self.node_number_stack.append(en)
+
+
 
     def _is_assign_target_supported(self, target):
         return isinstance(target, self._supported_assign_target)
@@ -187,7 +204,7 @@ class AstVisitor(ast.NodeVisitor):
         self.mapped_stack.append([is_mapped])
         self.node_number_stack.append([en])
 
-    def visit_Assign(self, node):
+    def visit_Assign(self, node: ast.Assign):
         for target in node.targets:
             if self._is_assign_target_supported(target):
                 self.traverse(target)
@@ -214,10 +231,10 @@ class AstVisitor(ast.NodeVisitor):
                     self.graph.add_edge(Edge(start=s, end=en, e_type=EdgeType.VALUE, branches=self.branches.copy()))
         self.node_number_stack.append([en])
 
-    def visit_Attribute(self, node):
+    def visit_Attribute(self, node: ast.Attribute):
         self._proces_name_or_atribute(node)
 
-    def visit_Name(self, node):
+    def visit_Name(self, node: ast.Name):
         self._proces_name_or_atribute(node)
 
     def _select_scope_var(self, source_id):
@@ -230,7 +247,7 @@ class AstVisitor(ast.NodeVisitor):
             is_mapped = None
         return scope_var, is_mapped
 
-    def visit_Constant(self, node):
+    def visit_Constant(self, node: ast.Constant):
         source_id = 'c' + str(node.value)
         en = self.graph.add_node(Node(ao=node, file=self.eq_file, name=self.eq_key, ln=self.eq_lineno,
                                       label=source_id, ast_type=ast.Num, value=node.value,
@@ -238,7 +255,7 @@ class AstVisitor(ast.NodeVisitor):
         self.mapped_stack.append([None])
         self.node_number_stack.append([en])
 
-    def visit_Tuple(self, node):
+    def visit_Tuple(self, node: ast.Tuple):
         en = []
         mapped = []
         for _, el in enumerate(node.elts):
@@ -287,14 +304,7 @@ class AstVisitor(ast.NodeVisitor):
         #         if isinstance(ao.value, ast.Call):
         #             start = parse_(ao.value, name, file, ln, g, tag_vars, prefix, branches=branches)
         #             mapped = False
-        #             en = g.add_node(Node(ao=ao, file=file, name=name, ln=ln, label='+=' if mapped else '=',
-        #                                  ast_type=ast.AugAssign if mapped else ast.Assign, node_type=NodeTypes.ASSIGNTUPLE,
-        #                                  ast_op=ast.Add() if mapped else None))
-        #             g.add_edge(Edge(start=start, end=en, e_type=EdgeType.VALUE, branches=branches.copy()))
         #
-        #             for sa in ao.targets[0].elts:
-        #                 mapped, end = parse_(sa, name, file, ln, g, tag_vars, prefix, branches=branches)
-        #                 g.add_edge(Edge(start=en, end=end, e_type=EdgeType.TARGET, branches=branches.copy()))
         #         else:
         #             raise AttributeError('Assigning to tuple is not supported: ', type(ao.targets[0]))
 
