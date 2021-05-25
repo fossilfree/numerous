@@ -14,9 +14,11 @@ op_sym_map = {ast.Add: '+', ast.Sub: '-', ast.Div: '/', ast.Mult: '*', ast.Pow: 
 def get_op_sym(op):
     return op_sym_map[type(op)]
 
+
 def ast_to_graph(ast_tree, eq_key, eq, scope_variables):
     parser = AstVisitor(eq_key, eq.file, eq.lineno, scope_variables)
     parser.visit(ast_tree)
+    parser.graph.as_graphviz("test", force=True)
     return parser.graph
 
 
@@ -33,18 +35,15 @@ class AstVisitor(ast.NodeVisitor):
         self.scope_variables = scope_variables
         self._supported_assign_target = (ast.Attribute, ast.Name, ast.Tuple)
 
-    def traverse(self, node:ast.AST):
+    def traverse(self, node: ast.AST):
         if isinstance(node, list):
             for item in node:
                 self.traverse(item)
         else:
             super().visit(node)
 
-    def visit(self, node:ast.AST):
-        self._source = []
+    def visit(self, node: ast.AST):
         self.traverse(node)
-
-        return "".join(self._source)
 
     def visit_Module(self, node: ast.Module):
         self.traverse(node.body)
@@ -65,10 +64,10 @@ class AstVisitor(ast.NodeVisitor):
         self.mapped_stack.append([None])
         self.node_number_stack.append(en)
 
-    def _is_assign_target_supported(self, target:ast.expr):
+    def _is_assign_target_supported(self, target: ast.expr):
         return isinstance(target, self._supported_assign_target)
 
-    def _proces_name_or_atribute(self, node:ast.expr, ast_type:type, node_type:NodeTypes, func=None):
+    def _proces_name_or_atribute(self, node: ast.expr, ast_type: type, node_type: NodeTypes, func=None):
         source_id = recurse_Attribute(node)
         scope_var, is_mapped = self._select_scope_var(source_id)
         en = self.graph.add_node(Node(key=source_id, ao=node, file=self.eq_file, name=self.eq_key,
@@ -111,7 +110,7 @@ class AstVisitor(ast.NodeVisitor):
     def visit_Name(self, node: ast.Name):
         self._proces_name_or_atribute(node, ast_type=ast.Name, node_type=NodeTypes.VAR)
 
-    def _select_scope_var(self, source_id:str):
+    def _select_scope_var(self, source_id: str):
         if source_id[:6] == 'scope.':
             scope_var = self.scope_variables[source_id[6:]]
             self.scope_variables[source_id[6:]].used_in_equation_graph = True
@@ -172,7 +171,7 @@ class AstVisitor(ast.NodeVisitor):
         ops_sym = [get_op_sym(o) for o in node.ops]
         en = self.graph.add_node(Node(ao=node, file=self.eq_file, name=self.eq_key, ln=self.eq_lineno,
                                       label=''.join(ops_sym), ast_type=ast.Compare,
-                                     node_type=NodeTypes.OP, ops=node.ops))
+                                      node_type=NodeTypes.OP, ops=node.ops))
         self.traverse(node.left)
         start = self.node_number_stack.pop()
         _ = self.mapped_stack.pop()
@@ -181,6 +180,7 @@ class AstVisitor(ast.NodeVisitor):
             self.traverse(sa)
             start = self.node_number_stack.pop()
             mapped = self.mapped_stack.pop()
-            self.graph.add_edge(Edge(start=start, end=en, label=f'comp{i}', e_type=EdgeType.COMP, branches=self.branches))
+            self.graph.add_edge(
+                Edge(start=start, end=en, label=f'comp{i}', e_type=EdgeType.COMP, branches=self.branches))
         self.mapped_stack.append(mapped)
         self.node_number_stack.append([en])
