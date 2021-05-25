@@ -1,6 +1,6 @@
 import ast
 from copy import deepcopy
-from itertools import chain
+from itertools import chain, zip_longest
 
 from numerous.engine.model.graph_representation.graph import Node, Edge, Graph
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute
@@ -198,14 +198,20 @@ class AstVisitor(ast.NodeVisitor):
         mapped = self.mapped_stack.pop()
         start = self.node_number_stack.pop()
         end = self.node_number_stack.pop()
-
-        for s, e,m in zip(start, end, mapped):
-            en = self.graph.add_node(Node(ao=node, file=self.eq_file, name=self.eq_key, ln=self.eq_lineno,
-                                          label='+=' if m else '=',
-                                          ast_type=ast.AugAssign if m else ast.Assign, node_type=NodeTypes.ASSIGN,
-                                          ast_op=ast.Add() if m else None))
-            self.graph.add_edge(Edge(start=en, end=e, e_type=EdgeType.TARGET, branches=self.branches.copy()))
-            self.graph.add_edge(Edge(start=s, end=en, e_type=EdgeType.VALUE, branches=self.branches.copy()))
+        en = 0
+        for s, e, m in zip_longest(start, end, mapped):
+            if e is not None and s is not None:
+                en = self.graph.add_node(Node(ao=node, file=self.eq_file, name=self.eq_key, ln=self.eq_lineno,
+                                              label='+=' if m else '=',
+                                              ast_type=ast.AugAssign if m else ast.Assign, node_type=NodeTypes.ASSIGN,
+                                              ast_op=ast.Add() if m else None))
+                self.graph.add_edge(Edge(start=en, end=e, e_type=EdgeType.TARGET, branches=self.branches.copy()))
+                self.graph.add_edge(Edge(start=s, end=en, e_type=EdgeType.VALUE, branches=self.branches.copy()))
+            else:
+                if e is not None:
+                    self.graph.add_edge(Edge(start=en, end=e, e_type=EdgeType.TARGET, branches=self.branches.copy()))
+                if s is not None:
+                    self.graph.add_edge(Edge(start=s, end=en, e_type=EdgeType.VALUE, branches=self.branches.copy()))
         self.node_number_stack.append([en])
 
     def visit_Attribute(self, node):
@@ -239,8 +245,8 @@ class AstVisitor(ast.NodeVisitor):
             self.traverse(el)
             en.append(self.node_number_stack.pop())
             mapped.append(self.mapped_stack.pop())
-        self.mapped_stack.append(chain.from_iterable(mapped))
-        self.node_number_stack.append(chain.from_iterable(en))
+        self.mapped_stack.append(list(chain.from_iterable(mapped)))
+        self.node_number_stack.append(list(chain.from_iterable(en)))
 
     # def visit_Call(self, node):
         # self.set_precedence(_Precedence.ATOM, node.func)

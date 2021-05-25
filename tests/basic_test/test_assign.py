@@ -51,9 +51,9 @@ class TupleToVarAssign(Item, EquationBase):
 
     @Equation()
     def eval(self, scope):
-        el1 = 1, 2
+        el1 = 2, 1
         el2, el3 = el1
-        scope.x_dot = el3-1
+        scope.x_dot = el3
 
 
 class TupleToFuncAssign(Item, EquationBase):
