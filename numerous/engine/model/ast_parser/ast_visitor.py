@@ -1,11 +1,10 @@
 import ast
-from _ast import Call
 from itertools import chain, zip_longest
 from typing import Any
 
 from numerous.engine.model.graph_representation.graph import Node, Edge, Graph
-from numerous.engine.model.utils import NodeTypes, recurse_Attribute
 from numerous.engine.model.graph_representation.utils import str_to_edgetype, EdgeType
+from numerous.engine.model.utils import NodeTypes, recurse_Attribute
 
 op_sym_map = {ast.Add: '+', ast.Sub: '-', ast.Div: '/', ast.Mult: '*', ast.Pow: '**', ast.USub: '*-1',
               ast.Lt: '<', ast.LtE: '<=', ast.Gt: '>', ast.GtE: '>=', ast.Eq: '==', ast.NotEq: '!='}
@@ -25,6 +24,8 @@ class AstVisitor(ast.NodeVisitor):
 
     def __init__(self, eq_key, eq_file, eq_lineno, scope_variables):
         self.graph = Graph()
+        self.CONSTANT_LABEL = 'c'
+        self.SCOPE_LABEL = 'scope.'
         self.branches = []
         self.eq_key = eq_key
         self.eq_file = eq_file
@@ -57,7 +58,7 @@ class AstVisitor(ast.NodeVisitor):
         for sa in node.args:
             self.traverse(sa)
             start = self.node_number_stack.pop()
-            _ = self.mapped_stack.pop()
+            self.mapped_stack.pop()
             self.graph.add_edge(Edge(start=start[0], end=en[0],
                                      e_type=EdgeType.ARGUMENT, branches=self.branches.copy()))
         self.mapped_stack.append([None])
@@ -69,10 +70,11 @@ class AstVisitor(ast.NodeVisitor):
     def _process_named_node(self, node: ast.expr, ast_type: type, node_type: NodeTypes, static_key=False, func=None):
         source_id = recurse_Attribute(node)
         scope_var, is_mapped = self._select_scope_var(source_id)
-        en = self.graph.add_node(Node(key=source_id if static_key else None, ao=node, file=self.eq_file, name=self.eq_key,
-                                      ln=self.eq_lineno, id=source_id, local_id=source_id, func=func,
-                                      ast_type=ast_type, node_type=node_type, scope_var=scope_var),
-                                 ignore_existing=True)
+        en = self.graph.add_node(
+            Node(key=source_id if static_key else None, ao=node, file=self.eq_file, name=self.eq_key,
+                 ln=self.eq_lineno, id=source_id, local_id=source_id, func=func,
+                 ast_type=ast_type, node_type=node_type, scope_var=scope_var),
+            ignore_existing=True)
         self.mapped_stack.append([is_mapped])
         self.node_number_stack.append([en])
 
@@ -83,7 +85,7 @@ class AstVisitor(ast.NodeVisitor):
             else:
                 raise AttributeError('Unknown type of assign target in Equation: ', type(target))
         self.traverse(node.value)
-        _ = self.mapped_stack.pop()
+        self.mapped_stack.pop()
         mapped = self.mapped_stack.pop()
         start = self.node_number_stack.pop()
         end = self.node_number_stack.pop()
@@ -110,9 +112,10 @@ class AstVisitor(ast.NodeVisitor):
         self._process_named_node(node, ast_type=ast.Name, static_key=True, node_type=NodeTypes.VAR)
 
     def _select_scope_var(self, source_id: str):
-        if source_id[:6] == 'scope.':
-            scope_var = self.scope_variables[source_id[6:]]
-            self.scope_variables[source_id[6:]].used_in_equation_graph = True
+        scope_label_length = len(self.SCOPE_LABEL)
+        if source_id[:scope_label_length] == self.SCOPE_LABEL:
+            scope_var = self.scope_variables[source_id[scope_label_length:]]
+            self.scope_variables[source_id[scope_label_length:]].used_in_equation_graph = True
             is_mapped = scope_var.sum_mapping or scope_var.mapping
         else:
             scope_var = None
@@ -120,7 +123,7 @@ class AstVisitor(ast.NodeVisitor):
         return scope_var, is_mapped
 
     def visit_Constant(self, node: ast.Constant):
-        source_id = 'c' + str(node.value)
+        source_id = self.CONSTANT_LABEL + str(node.value)
         en = self.graph.add_node(Node(ao=node, file=self.eq_file, name=self.eq_key, ln=self.eq_lineno,
                                       label=source_id, ast_type=ast.Num, value=node.value,
                                       node_type=NodeTypes.VAR))
@@ -130,7 +133,7 @@ class AstVisitor(ast.NodeVisitor):
     def visit_Tuple(self, node: ast.Tuple):
         en = []
         mapped = []
-        for _, el in enumerate(node.elts):
+        for el in node.elts:
             self.traverse(el)
             en.append(self.node_number_stack.pop())
             mapped.append(self.mapped_stack.pop())
