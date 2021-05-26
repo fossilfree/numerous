@@ -53,7 +53,7 @@ class AstVisitor(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> Any:
         self._process_named_node(node.func, ast_type=ast.Call, node_type=NodeTypes.OP, func=node.func)
-        _ = self.mapped_stack.pop()
+        self.mapped_stack.pop()
         en = self.node_number_stack.pop()
         for sa in node.args:
             self.traverse(sa)
@@ -147,7 +147,7 @@ class AstVisitor(ast.NodeVisitor):
                                       node_type=NodeTypes.OP, ast_op=node.op))
 
         self.traverse(node.left)
-        _ = self.mapped_stack.pop()
+        self.mapped_stack.pop()
         start = self.node_number_stack.pop()
         self.graph.add_edge(Edge(start=start[0], end=en,
                                  e_type=str_to_edgetype("left"), branches=self.branches.copy()))
@@ -176,7 +176,7 @@ class AstVisitor(ast.NodeVisitor):
                                       node_type=NodeTypes.OP, ops=node.ops))
         self.traverse(node.left)
         start = self.node_number_stack.pop()
-        _ = self.mapped_stack.pop()
+        self.mapped_stack.pop()
         self.graph.add_edge(Edge(start=start, end=en, label=f'left', e_type=EdgeType.LEFT, branches=self.branches))
         for i, sa in enumerate(node.comparators):
             self.traverse(sa)
