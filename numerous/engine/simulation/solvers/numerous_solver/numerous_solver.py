@@ -1,10 +1,12 @@
+import time
 from collections import namedtuple
 from enum import IntEnum, unique
 
+import numpy as np
+from numba import njit
+
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
-from .solver_methods import *
-from numba import njit, objmode
-import time
+from .solver_methods import BaseMethod, RK45
 
 Info = namedtuple('Info', ['status', 'event_id', 'step_info', 'dt', 't', 'y', 'order'])
 
@@ -403,7 +405,7 @@ class Numerous_solver(BaseSolver):
             dt = self.info.dt  # internal solver step size
             order = self.info.order
             assert self.info.t == t_start, f"solver time {self.info.t} does not match external time " \
-                                                  f"{t_start}"
+                                           f"{t_start}"
         else:
             order = self._method.order
             dt = self.select_initial_step(self.numba_model, t_start, self.y0, 1, order - 1, rtol,
@@ -416,10 +418,9 @@ class Numerous_solver(BaseSolver):
         step_integrate_ = self._method.step_func
 
         info = self._solve(self.numba_model,
-                                                 solve_state, dt, order, strict_eval, outer_itermax, min_step,
-                                                 max_step, step_integrate_,
-                                                 t_start, t_end, time_span)
-
+                           solve_state, dt, order, strict_eval, outer_itermax, min_step,
+                           max_step, step_integrate_,
+                           t_start, t_end, time_span)
 
         if info.event_id == 1:
             self.model.store_history(self.numba_model.historian_data)
@@ -430,7 +431,6 @@ class Numerous_solver(BaseSolver):
             external_mappings_time = self.model.external_mappings.external_mappings_time
             self.numba_model.is_external_data = is_external_data
             self.numba_model.update_external_data(external_mappings_numpy, external_mappings_time)
-
 
         self.info = info
 

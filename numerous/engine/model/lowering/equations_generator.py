@@ -2,7 +2,8 @@ import logging
 
 import numpy as np
 
-from numerous.engine.model.ast_parser.equation_form_graph import function_from_graph_generic, compiled_function_from_graph_generic_llvm
+from numerous.engine.model.ast_parser.equation_form_graph import function_from_graph_generic,\
+    compiled_function_from_graph_generic_llvm
 from numerous.engine.model.lowering.ast_builder import ASTBuilder
 from numerous.engine.model.graph_representation import EdgeType
 
@@ -11,8 +12,6 @@ from numerous.engine.model.lowering.utils import Vardef
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute
 from numerous.engine.variables import VariableType
 from numerous.utils.string_utils import d_u
-
-
 
 
 class EquationGenerator:
