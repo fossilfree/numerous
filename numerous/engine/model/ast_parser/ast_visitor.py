@@ -17,6 +17,7 @@ def get_op_sym(op):
 def ast_to_graph(ast_tree, eq_key, eq, scope_variables):
     parser = AstVisitor(eq_key, eq.file, eq.lineno, scope_variables)
     parser.visit(ast_tree)
+    # parser.graph.as_graphviz("qq",force=True)
     return parser.graph
 
 
@@ -104,6 +105,7 @@ class AstVisitor(ast.NodeVisitor):
                 if s is not None:
                     self.graph.add_edge(Edge(start=s, end=en, e_type=EdgeType.VALUE, branches=self.branches.copy()))
         self.node_number_stack.append([en])
+        self.mapped_stack.append(mapped)
 
     def visit_Attribute(self, node: ast.Attribute):
         self._process_named_node(node, ast_type=ast.Attribute, static_key=True, node_type=NodeTypes.VAR)
@@ -186,3 +188,20 @@ class AstVisitor(ast.NodeVisitor):
                 Edge(start=start, end=en, label=f'comp{i}', e_type=EdgeType.COMP, branches=self.branches))
         self.mapped_stack.append(mapped)
         self.node_number_stack.append([en])
+
+    def visit_If(self, node: ast.If) -> Any:
+        parser = AstVisitor(self.eq_key,self.eq_file,self.eq_lineno, self.scope_variables)
+        parser.visit(node.body)
+        parser.graph.as_graphviz("qq", force=True)
+        subgraph = parser.graph
+        en = self.graph.add_node(
+                 Node(ao=node, file=self.eq_file, name=self.eq_key,
+                      ln=self.eq_lineno, label="IF",ast_type=ast.If, node_type=NodeTypes.IF))
+        self.mapped_stack.append([None])
+        self.node_number_stack.append(en)
+
+   # source_id = recurse_Attribute(node)
+   #      scope_var, is_mapped = self._select_scope_var(source_id)
+   #          ignore_existing=True)
+   #      self.mapped_stack.append([is_mapped])
+   #      self.node_number_stack.append([en])

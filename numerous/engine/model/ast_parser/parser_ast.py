@@ -82,7 +82,7 @@ def _generate_equation_key(equation_id: str, is_set: bool) -> str:
     return eq_key
 
 
-def parse_eq(model_namespace, item_id, equation_graph: Graph, nodes_dep, scope_variables,
+def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
              parsed_eq_branches, scoped_equations, parsed_eq):
     for m in model_namespace.equation_dict.values():
         for eq in m:
@@ -148,58 +148,23 @@ def parse_eq(model_namespace, item_id, equation_graph: Graph, nodes_dep, scope_v
             g = parsed_eq_branches[eq_key][2]
 
             eq_path = ns_path + '.' + eq_key
-            g_qualified = qualify_equation(ns_path, g, scope_variables)
+            equation_graph = qualify_equation(ns_path, g, scope_variables)
 
             # make equation graph
             eq_name = ('EQ_' + eq_path).replace('.', '_')
 
             scoped_equations[eq_name] = eq_key
 
-            eq_n = equation_graph.add_node(Node(key=eq_name,
-                                                node_type=NodeTypes.EQUATION,
-                                                name=eq_name, file=eq_name, ln=0, label=parsed_eq[eq_key],
-                                                ast_type=ast.Call,
-                                                vectorized=is_set,
-                                                item_id=item_id,
-                                                func=ast.Name(id=eq_key.replace('.', '_'))))
+            eq_node_idx = mappings_graph.add_node(Node(key=eq_name,
+                                                       node_type=NodeTypes.EQUATION,
+                                                       name=eq_name, file=eq_name, ln=0, label=parsed_eq[eq_key],
+                                                       ast_type=ast.Call,
+                                                       vectorized=is_set,
+                                                       item_id=item_id,
+                                                       func=ast.Name(id=eq_key.replace('.', '_'))))
 
-            for n in range(g_qualified.node_counter):
+            connect_equation_node(equation_graph, mappings_graph, eq_node_idx, is_set)
 
-                if g_qualified.get(n, attr='node_type') == NodeTypes.VAR and g_qualified.get(n, attr='scope_var'):
-
-                    n_key = g_qualified.key_map[n]
-
-                    if not n_key in nodes_dep:
-                        nodes_dep[n_key] = []
-                    if not eq_name in nodes_dep[n_key]:
-                        nodes_dep[n_key].append(eq_name)
-
-                    sv = g_qualified.get(n, 'scope_var')
-                    neq = equation_graph.add_node(Node(key=sv.id, node_type=NodeTypes.VAR, scope_var=sv,
-                                                       is_set_var=is_set, label=sv.get_path_dot()),
-                                                  ignore_existing=True)
-
-                    targeted = False
-                    read = False
-
-                    end_edges = g_qualified.get_edges_for_node(end_node=n)
-
-                    try:
-                        next(end_edges)
-                        equation_graph.add_edge(
-                            Edge(start=eq_n, end=neq, e_type=EdgeType.TARGET, arg_local=sv.id if sv else 'local'))
-                        targeted = True
-                    except StopIteration:
-                        pass
-
-                    if not targeted and not read:
-                        start_edges = g_qualified.get_edges_for_node(start_node=n)
-                        try:
-                            next(start_edges)
-                            equation_graph.add_edge(Edge(neq, eq_n, e_type=EdgeType.ARGUMENT, arg_local=sv.id if (
-                                sv := g_qualified.get(n, 'scope_var')) else 'local'))
-                        except StopIteration:
-                            pass
             if not is_parsed_eq:
                 for sv in scope_variables:
                     if scope_variables[sv].used_in_equation_graph:
@@ -209,7 +174,7 @@ def parse_eq(model_namespace, item_id, equation_graph: Graph, nodes_dep, scope_v
                         g.arg_metadata.append((sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
 
 
-def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
+def process_mappings(mappings, mappings_graph: Graph,scope_vars):
     logging.info('process mappings')
     for m in mappings:
         target_var = scope_vars[m[0]]
@@ -221,12 +186,9 @@ def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
 
         node_type = NodeTypes.VAR
 
-        t = equation_graph.add_node(Node(key=target_var_id, file='mapping', name=m, ln=0, id=target_var_id,
+        t = mappings_graph.add_node(Node(key=target_var_id, file='mapping', name=m, ln=0, id=target_var_id,
                                          label=target_var.get_path_dot(), ast_type=ast.Attribute, node_type=node_type,
                                          scope_var=target_var, set_var_ix=target_set_var_ix), ignore_existing=False, )
-
-        if not target_var_id in nodes_dep:
-            nodes_dep[target_var_id] = []
 
         for i in m[1]:
 
@@ -239,25 +201,24 @@ def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
 
             ivar_id = ivar_var.id
 
-            if not ivar_id in nodes_dep:
-                nodes_dep[ivar_id] = []
 
-            ivar_node_e = equation_graph.add_node(Node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id,
+
+            ivar_node_e = mappings_graph.add_node(Node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id,
                                                        label=ivar_var.get_path_dot(),
                                                        ast_type=ast.Attribute, node_type=NodeTypes.VAR,
                                                        scope_var=ivar_var,
                                                        set_var_ix=ivar_set_var_ix), ignore_existing=False)
 
-            ix_ = equation_graph.has_edge_for_nodes(start_node=ivar_node_e, end_node=t)
+            ix_ = mappings_graph.has_edge_for_nodes(start_node=ivar_node_e, end_node=t)
             lix = len(ix_)
             if lix == 0:
-                equation_graph.add_edge(Edge(ivar_node_e, t, e_type=EdgeType.MAPPING,
+                mappings_graph.add_edge(Edge(ivar_node_e, t, e_type=EdgeType.MAPPING,
                                              mappings=[(ivar_set_var_ix, target_set_var_ix)]))
             else:
-                equation_graph.edges_attr['mappings'][ix_[0]].append((ivar_set_var_ix, target_set_var_ix))
+                mappings_graph.edges_attr['mappings'][ix_[0]].append((ivar_set_var_ix, target_set_var_ix))
 
     logging.info('clone eq graph')
-    equation_graph = equation_graph.clean()
+    mappings_graph = mappings_graph.clean()
 
     logging.info('remove dependencies')
 
@@ -265,4 +226,36 @@ def process_mappings(mappings, equation_graph: Graph, nodes_dep, scope_vars):
 
     logging.info('done cleaning')
 
-    return equation_graph
+    return mappings_graph
+
+
+def connect_equation_node(equation_graph, mappings_graph, eq_node_idx, is_set):
+    for n in range(equation_graph.node_counter):
+        if equation_graph.get(n, attr='node_type') == NodeTypes.VAR and equation_graph.get(n, attr='scope_var'):
+
+            sv = equation_graph.get(n, 'scope_var')
+            neq = mappings_graph.add_node(Node(key=sv.id, node_type=NodeTypes.VAR, scope_var=sv,
+                                               is_set_var=is_set, label=sv.get_path_dot()),
+                                          ignore_existing=True)
+
+            targeted = False
+            read = False
+
+            end_edges = equation_graph.get_edges_for_node(end_node=n)
+
+            try:
+                next(end_edges)
+                mappings_graph.add_edge(
+                    Edge(start=eq_node_idx, end=neq, e_type=EdgeType.TARGET, arg_local=sv.id if sv else 'local'))
+                targeted = True
+            except StopIteration:
+                pass
+
+            if not targeted and not read:
+                start_edges = equation_graph.get_edges_for_node(start_node=n)
+                try:
+                    next(start_edges)
+                    mappings_graph.add_edge(Edge(neq, eq_node_idx, e_type=EdgeType.ARGUMENT, arg_local=sv.id if (
+                        sv := equation_graph.get(n, 'scope_var')) else 'local'))
+                except StopIteration:
+                    pass

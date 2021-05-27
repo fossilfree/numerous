@@ -287,7 +287,7 @@ class Model:
                     sum_mapping.append(_from.id)
                 mappings.append((var.id, sum_mapping))
 
-        self.eg = Graph(preallocate_items=1000000)
+        self.mappings_graph = Graph(preallocate_items=1000000)
 
         nodes_dep = {}
         self.equations_parsed = {}
@@ -307,15 +307,15 @@ class Model:
                 else:
                     tag_vars = {v.tag: v for k, v in ns[1][0].variables.items()}
 
-                parse_eq(model_namespace=ns[1][0], item_id=ns[0], equation_graph=self.eg, nodes_dep=nodes_dep,
+                parse_eq(model_namespace=ns[1][0], item_id=ns[0], mappings_graph=self.mappings_graph,
                          scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
                          scoped_equations=self.scoped_equations, parsed_eq=self.equations_top)
 
         logging.info('parsing equations completed')
 
         # Process mappings add update the global graph
-        self.eg = process_mappings(mappings, self.eg, nodes_dep, self.scope_variables)
-        self.eg.build_node_edges()
+        self.mappings_graph = process_mappings(mappings, self.mappings_graph, self.scope_variables)
+        self.mappings_graph.build_node_edges()
 
         logging.info('Mappings processed')
 
@@ -347,12 +347,12 @@ class Model:
 
         logging.info('variables sorted')
 
-        self.eg = MappingsGraph.from_graph(self.eg)
-        self.eg.remove_chains()
-        tmp_vars = self.eg.create_assignments(self.variables)
-        self.eg.add_mappings()
+        self.mappings_graph = MappingsGraph.from_graph(self.mappings_graph)
+        self.mappings_graph.remove_chains()
+        tmp_vars = self.mappings_graph.create_assignments(self.variables)
+        self.mappings_graph.add_mappings()
         if self.generate_graph_pdf:
-            self.eg.as_graphviz(self.system.tag, force=True)
+            self.mappings_graph.as_graphviz(self.system.tag, force=True)
         self.lower_model_codegen(tmp_vars)
         self.logged_aliases = {}
 
@@ -413,7 +413,7 @@ class Model:
     def lower_model_codegen(self, tmp_vars):
 
         logging.info('lowering model')
-        eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py", equation_graph=self.eg,
+        eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py", equation_graph=self.mappings_graph,
                                    scope_variables=self.scope_variables, scoped_equations=self.scoped_equations,
                                    temporary_variables=tmp_vars, system_tag=self.system.tag, use_llvm=self.use_llvm,
                                    imports=self.imports)
