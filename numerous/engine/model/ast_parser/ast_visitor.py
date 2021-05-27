@@ -17,7 +17,7 @@ def get_op_sym(op):
 def ast_to_graph(ast_tree, eq_key, eq, scope_variables):
     parser = AstVisitor(eq_key, eq.file, eq.lineno, scope_variables)
     parser.visit(ast_tree)
-    # parser.graph.as_graphviz("qq",force=True)
+    parser.graph.as_graphviz("qq",force=True)
     return parser.graph
 
 
