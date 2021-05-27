@@ -2,7 +2,7 @@ import ast
 import logging
 from textwrap import dedent
 
-from numerous.engine.model.ast_parser.ast_visitor import ast_to_graph
+from numerous.engine.model.ast_parser.ast_visitor import ast_to_graph, connect_equation_node
 from numerous.engine.model.graph_representation import Graph, EdgeType, Node, Edge
 from numerous.engine.model.utils import NodeTypes
 from numerous.engine.scope import ScopeVariable
@@ -155,15 +155,15 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
 
             scoped_equations[eq_name] = eq_key
 
-            eq_node_idx = mappings_graph.add_node(Node(key=eq_name,
+            node = Node(key=eq_name,
                                                        node_type=NodeTypes.EQUATION,
                                                        name=eq_name, file=eq_name, ln=0, label=parsed_eq[eq_key],
                                                        ast_type=ast.Call,
                                                        vectorized=is_set,
                                                        item_id=item_id,
-                                                       func=ast.Name(id=eq_key.replace('.', '_'))))
+                                                       func=ast.Name(id=eq_key.replace('.', '_')))
 
-            connect_equation_node(equation_graph, mappings_graph, eq_node_idx, is_set)
+            connect_equation_node(equation_graph, mappings_graph, node, is_set)
 
             if not is_parsed_eq:
                 for sv in scope_variables:
@@ -174,7 +174,7 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
                         g.arg_metadata.append((sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
 
 
-def process_mappings(mappings, mappings_graph: Graph,scope_vars):
+def process_mappings(mappings, mappings_graph: Graph, scope_vars):
     logging.info('process mappings')
     for m in mappings:
         target_var = scope_vars[m[0]]
@@ -201,8 +201,6 @@ def process_mappings(mappings, mappings_graph: Graph,scope_vars):
 
             ivar_id = ivar_var.id
 
-
-
             ivar_node_e = mappings_graph.add_node(Node(key=ivar_id, file='mapping', name=m, ln=0, id=ivar_id,
                                                        label=ivar_var.get_path_dot(),
                                                        ast_type=ast.Attribute, node_type=NodeTypes.VAR,
@@ -227,35 +225,3 @@ def process_mappings(mappings, mappings_graph: Graph,scope_vars):
     logging.info('done cleaning')
 
     return mappings_graph
-
-
-def connect_equation_node(equation_graph, mappings_graph, eq_node_idx, is_set):
-    for n in range(equation_graph.node_counter):
-        if equation_graph.get(n, attr='node_type') == NodeTypes.VAR and equation_graph.get(n, attr='scope_var'):
-
-            sv = equation_graph.get(n, 'scope_var')
-            neq = mappings_graph.add_node(Node(key=sv.id, node_type=NodeTypes.VAR, scope_var=sv,
-                                               is_set_var=is_set, label=sv.get_path_dot()),
-                                          ignore_existing=True)
-
-            targeted = False
-            read = False
-
-            end_edges = equation_graph.get_edges_for_node(end_node=n)
-
-            try:
-                next(end_edges)
-                mappings_graph.add_edge(
-                    Edge(start=eq_node_idx, end=neq, e_type=EdgeType.TARGET, arg_local=sv.id if sv else 'local'))
-                targeted = True
-            except StopIteration:
-                pass
-
-            if not targeted and not read:
-                start_edges = equation_graph.get_edges_for_node(start_node=n)
-                try:
-                    next(start_edges)
-                    mappings_graph.add_edge(Edge(neq, eq_node_idx, e_type=EdgeType.ARGUMENT, arg_local=sv.id if (
-                        sv := equation_graph.get(n, 'scope_var')) else 'local'))
-                except StopIteration:
-                    pass

@@ -190,18 +190,45 @@ class AstVisitor(ast.NodeVisitor):
         self.node_number_stack.append([en])
 
     def visit_If(self, node: ast.If) -> Any:
-        parser = AstVisitor(self.eq_key,self.eq_file,self.eq_lineno, self.scope_variables)
+        parser = AstVisitor(self.eq_key, self.eq_file, self.eq_lineno, self.scope_variables)
         parser.visit(node.body)
-        parser.graph.as_graphviz("qq", force=True)
         subgraph = parser.graph
-        en = self.graph.add_node(
-                 Node(ao=node, file=self.eq_file, name=self.eq_key,
-                      ln=self.eq_lineno, label="IF",ast_type=ast.If, node_type=NodeTypes.IF))
+        node = Node(ao=node, file=self.eq_file, name=self.eq_key,
+                    ln=self.eq_lineno, label="IF", ast_type=ast.If, node_type=NodeTypes.IF)
+        subgraph_node_idx = connect_equation_node(subgraph, self.graph, node, is_set=False)
         self.mapped_stack.append([None])
-        self.node_number_stack.append(en)
+        self.node_number_stack.append(subgraph_node_idx)
 
-   # source_id = recurse_Attribute(node)
-   #      scope_var, is_mapped = self._select_scope_var(source_id)
-   #          ignore_existing=True)
-   #      self.mapped_stack.append([is_mapped])
-   #      self.node_number_stack.append([en])
+
+def connect_equation_node(equation_graph, mappings_graph, node, is_set):
+    eq_node_idx = mappings_graph.add_node(node)
+    for n in range(equation_graph.node_counter):
+        if equation_graph.get(n, attr='node_type') == NodeTypes.VAR and equation_graph.get(n, attr='scope_var'):
+
+            sv = equation_graph.get(n, 'scope_var')
+            neq = mappings_graph.add_node(Node(key=sv.id, node_type=NodeTypes.VAR, scope_var=sv,
+                                               is_set_var=is_set, label=sv.get_path_dot()),
+                                          ignore_existing=True)
+
+            targeted = False
+            read = False
+
+            end_edges = equation_graph.get_edges_for_node(end_node=n)
+
+            try:
+                next(end_edges)
+                mappings_graph.add_edge(
+                    Edge(start=eq_node_idx, end=neq, e_type=EdgeType.TARGET, arg_local=sv.id if sv else 'local'))
+                targeted = True
+            except StopIteration:
+                pass
+
+            if not targeted and not read:
+                start_edges = equation_graph.get_edges_for_node(start_node=n)
+                try:
+                    next(start_edges)
+                    mappings_graph.add_edge(Edge(neq, eq_node_idx, e_type=EdgeType.ARGUMENT, arg_local=sv.id if (
+                        sv := equation_graph.get(n, 'scope_var')) else 'local'))
+                except StopIteration:
+                    pass
+    return eq_node_idx
