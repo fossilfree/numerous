@@ -129,7 +129,6 @@ class EquationGenerator:
         for eq_key, eq in equations.items():
             vardef = Vardef(llvm=self.llvm)
 
-            func, args, target_ids = function_from_graph_generic(eq[2], eq_key, var_def_=vardef)
 
             eq[2].lower_graph = None
             if self.llvm:
@@ -142,6 +141,7 @@ class EquationGenerator:
                 )
                 self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
             else:
+                func, args, target_ids = function_from_graph_generic(eq[2], eq_key, var_def_=vardef)
                 self.generated_program.add_external_function(func, None, len(args), target_ids)
 
             vardef.llvm_target_ids = target_ids

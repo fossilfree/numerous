@@ -22,11 +22,11 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
 
         elif na == ast.BinOp:
 
-            left_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=[EdgeType.LEFT])[1][0][0]
+            left_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.LEFT)[1][0][0]
 
             left_ast = node_to_ast(left_node, g, var_def, ctxread=ctxread)
 
-            right_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=[EdgeType.RIGHT])[1][0][0]
+            right_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.RIGHT)[1][0][0]
 
             right_ast = node_to_ast(right_node, g, var_def, ctxread=ctxread)
 
@@ -88,6 +88,10 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
         raise
 
 
+def process_if_node(func_body, func_test):
+    pass
+
+
 def process_assign_node(target_nodes, g, var_def, value_ast, na, targets):
     if len(target_nodes) > 1:
         target_ast = []
@@ -128,6 +132,13 @@ def function_from_graph_generic(g: Graph, name, var_def_):
             body.append(process_assign_node(g.get_edges_for_node_filter(start_node=n, attr='e_type',
                                                                         val=EdgeType.TARGET)[1],
                                             g, var_def, value_ast, at, targets))
+        if (at := g.get(n, 'ast_type')) == ast.If:
+            print(at)
+            func_body, _, _ = function_from_graph_generic(g.nodes[n].subgraph_body, "if_body" + str(n), var_def_)
+            func_test, _, _ = function_from_graph_generic(g.nodes[n].subgraph_test, "if_test" + str(n), var_def_)
+            body.append(func_body)
+            body.append(func_test)
+            # body.append(process_if_node(func_body, func_test))
     var_def_.order_variables(g.arg_metadata)
     if (l := len(var_def_.get_targets())) > 1:
         return_ = ast.Return(value=ast.Tuple(elts=var_def_.get_order_trgs()))

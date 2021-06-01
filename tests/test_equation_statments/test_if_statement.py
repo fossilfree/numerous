@@ -30,6 +30,7 @@ class IfTest2(EquationBase, Item):
         super(IfTest2, self).__init__(tag)
         self.add_parameter('T1', 5)
         self.add_parameter('T2', 5)
+        self.add_parameter('T3', 5)
         self.add_parameter('T_i1', 0)
         self.add_parameter('T_i2', 0)
         self.add_parameter('T_i3', 0)
@@ -39,9 +40,10 @@ class IfTest2(EquationBase, Item):
 
     @Equation()
     def eval(self, scope):
-        if scope.T1 > 0:
+        c=10
+        if scope.T3 > c:
             scope.T_i2 = scope.T1
-            scope.T_i4 = scope.T2 - 100
+            scope.T_i4 = scope.T2 -100
 
 
 class IfSystem(Subsystem):
@@ -64,7 +66,7 @@ def test_external_if_statement(solver, use_llvm):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-@pytest.mark.parametrize("use_llvm", [True, False])
+@pytest.mark.parametrize("use_llvm", [False])
 def test_external_if_statement(solver, use_llvm):
     model_ = model.Model(IfSystem('if_system', IfTest2('tm1')), use_llvm=use_llvm,
                          imports=[("external_import_else_if", "h_test")])
