@@ -89,7 +89,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
 
 
 def process_if_node(func_body, func_test):
-    pass
+    return ast.If(body=func_body, test=func_test , orelse=[])
 
 
 def process_assign_node(target_nodes, g, var_def, value_ast, na, targets):
@@ -113,7 +113,7 @@ def process_assign_node(target_nodes, g, var_def, value_ast, na, targets):
             return ast_assign
 
 
-def function_from_graph_generic(g: Graph, name, var_def_):
+def function_from_graph_generic(g: Graph, name, var_def_, arg_metadata, only_body=False):
     lineno_count = 1
     decorators = []
     top_nodes = g.topological_nodes()
@@ -124,7 +124,6 @@ def function_from_graph_generic(g: Graph, name, var_def_):
     targets = []
     for n in top_nodes:
         lineno_count += 1
-
         if (at := g.get(n, 'ast_type')) == ast.Assign or at == ast.AugAssign:
             value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE)[1][0][0]
 
@@ -132,14 +131,15 @@ def function_from_graph_generic(g: Graph, name, var_def_):
             body.append(process_assign_node(g.get_edges_for_node_filter(start_node=n, attr='e_type',
                                                                         val=EdgeType.TARGET)[1],
                                             g, var_def, value_ast, at, targets))
-        if (at := g.get(n, 'ast_type')) == ast.If:
-            print(at)
-            func_body, _, _ = function_from_graph_generic(g.nodes[n].subgraph_body, "if_body" + str(n), var_def_)
-            func_test, _, _ = function_from_graph_generic(g.nodes[n].subgraph_test, "if_test" + str(n), var_def_)
-            body.append(func_body)
-            body.append(func_test)
-            # body.append(process_if_node(func_body, func_test))
-    var_def_.order_variables(g.arg_metadata)
+        if (g.get(n, 'ast_type')) == ast.If:
+            func_body, _, _ = function_from_graph_generic(g.nodes[n].subgraph_body,
+                                                          "if_body" + str(n), var_def_, g.arg_metadata, only_body=True)
+            func_test, _, _ = function_from_graph_generic(g.nodes[n].subgraph_test,
+                                                          "if_test" + str(n), var_def_, g.arg_metadata, only_body=True)
+            body.append(process_if_node(func_body, func_test))
+    if only_body:
+        return body, None, None
+    var_def_.order_variables(arg_metadata)
     if (l := len(var_def_.get_targets())) > 1:
         return_ = ast.Return(value=ast.Tuple(elts=var_def_.get_order_trgs()))
     elif l == 1:
@@ -157,7 +157,6 @@ def function_from_graph_generic(g: Graph, name, var_def_):
     for i, arg in enumerate(var_def_.args_order):
         if arg in var_def_.targets:
             target_ids.append(i)
-
     return func, var_def_.args_order, target_ids
 
 

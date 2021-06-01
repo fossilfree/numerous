@@ -2,7 +2,7 @@ import logging
 
 import numpy as np
 
-from numerous.engine.model.ast_parser.equation_form_graph import function_from_graph_generic,\
+from numerous.engine.model.ast_parser.equation_form_graph import function_from_graph_generic, \
     compiled_function_from_graph_generic_llvm
 from numerous.engine.model.lowering.ast_builder import ASTBuilder
 from numerous.engine.model.graph_representation import EdgeType
@@ -129,7 +129,6 @@ class EquationGenerator:
         for eq_key, eq in equations.items():
             vardef = Vardef(llvm=self.llvm)
 
-
             eq[2].lower_graph = None
             if self.llvm:
                 func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(
@@ -141,7 +140,8 @@ class EquationGenerator:
                 )
                 self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
             else:
-                func, args, target_ids = function_from_graph_generic(eq[2], eq_key, var_def_=vardef)
+                func, args, target_ids = function_from_graph_generic(eq[2], eq_key,
+                                                                     var_def_=vardef, arg_metadata=eq[2].arg_metadata)
                 self.generated_program.add_external_function(func, None, len(args), target_ids)
 
             vardef.llvm_target_ids = target_ids
@@ -194,7 +194,7 @@ class EquationGenerator:
 
             # Put the information of args and targets in the scope_var attr of the graph node for those equation
             self.equation_graph.nodes[n].scope_var = {'args': [scope_vars[a] for a in vardef.args],
-                                                              'targets': [scope_vars[a] for a in vardef.targets]}
+                                                      'targets': [scope_vars[a] for a in vardef.targets]}
             # Record all targeted variables
             for t in vardef.targets:
                 self.all_targeted_set_vars.append(scope_vars[t])
@@ -210,7 +210,7 @@ class EquationGenerator:
 
             # Put the information of args and targets in the scope_var attr of the graph node for those equation
             self.equation_graph.nodes[n].scope_var = {'args': [scope_vars[a] for a in vardef.args],
-                                                              'targets': [scope_vars[a] for a in vardef.targets]}
+                                                      'targets': [scope_vars[a] for a in vardef.targets]}
             for a in vardef.args:
                 if (sva := scope_vars[a]) in self.set_variables:
                     self.all_read_set_vars.append(sva)
@@ -242,7 +242,7 @@ class EquationGenerator:
                 if a in scope_vars:
                     args.append(d_u(scope_vars[a]))
                 else:
-                    args.append(self.search_in_item_scope(a,item_id))
+                    args.append(self.search_in_item_scope(a, item_id))
 
             # Add this eq to the llvm_program
             self.generated_program.add_call(self.get_external_function_name(ext_func), args, vardef.llvm_target_ids)
