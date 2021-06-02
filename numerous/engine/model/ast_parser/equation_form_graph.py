@@ -124,13 +124,38 @@ def generate_return_statement(var_def_, g):
     return return_
 
 
-def function_from_graph_generic(g: MappingsGraph, var_def_, arg_metadata, only_body=False):
-    lineno_count = 1
+def function_from_graph_generic(g: MappingsGraph, var_def_, arg_metadata):
     decorators = []
+    body = function_body_from_graph(g, var_def_, arg_metadata)
+    var_def_.order_variables(arg_metadata)
+    body.append(generate_return_statement(var_def_, g))
+
+    args = ast.arguments(posonlyargs=[], args=var_def_.get_order_args(), vararg=None, defaults=[], kwonlyargs=[],
+                         kwarg=None)
+
+    func = wrap_function(g.label, body, decorators=decorators, args=args)
+
+    target_ids = []
+    for i, arg in enumerate(var_def_.args_order):
+        if arg in var_def_.targets:
+            target_ids.append(i)
+    return func, var_def_.args_order, target_ids
+
+
+def compare_expresion_from_graph(g, var_def_, arg_metadata, lineno_count=1):
     top_nodes = g.topological_nodes()
-
     var_def = var_def_.var_def
+    body = []
+    for n in top_nodes:
+        lineno_count += 1
+        if g.get(n, 'ast_type') == ast.Compare:
+            body.append(node_to_ast(n, g, var_def, ctxread=True))
+    return body
 
+
+def function_body_from_graph(g, var_def_, arg_metadata, lineno_count=1):
+    top_nodes = g.topological_nodes()
+    var_def = var_def_.var_def
     body = []
     targets = []
     for n in top_nodes:
@@ -143,26 +168,12 @@ def function_from_graph_generic(g: MappingsGraph, var_def_, arg_metadata, only_b
                                                                         val=EdgeType.TARGET)[1],
                                             g, var_def, value_ast, at, targets))
         if (g.get(n, 'ast_type')) == ast.If:
-            func_body, _, _ = function_from_graph_generic(g.nodes[n].subgraph_body, var_def_,
-                                                          g.arg_metadata, only_body=True)
-            func_test, _, _ = function_from_graph_generic(g.nodes[n].subgraph_test, var_def_,
-                                                          g.arg_metadata, only_body=True)
+            func_body = function_body_from_graph(g.nodes[n].subgraph_body, var_def_,
+                                                 g.arg_metadata, lineno_count=lineno_count)
+            func_test = compare_expresion_from_graph(g.nodes[n].subgraph_test, var_def_,
+                                                 g.arg_metadata, lineno_count=lineno_count)
             body.append(process_if_node(func_body, func_test))
-    if only_body:
-        return body, None, None
-    var_def_.order_variables(arg_metadata)
-
-    body.append(generate_return_statement(var_def_, g))
-    args = ast.arguments(posonlyargs=[], args=var_def_.get_order_args(), vararg=None, defaults=[], kwonlyargs=[],
-                         kwarg=None)
-
-    func = wrap_function(g.label, body, decorators=decorators, args=args)
-
-    target_ids = []
-    for i, arg in enumerate(var_def_.args_order):
-        if arg in var_def_.targets:
-            target_ids.append(i)
-    return func, var_def_.args_order, target_ids
+    return body
 
 
 def compiled_function_from_graph_generic_llvm(g: Graph, var_def_, imports,

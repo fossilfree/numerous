@@ -23,7 +23,6 @@ from numerous.engine.system.subsystem import Subsystem, ItemSet
 from numerous.engine.variables import VariableType
 from numerous.utils.numba_callback import NumbaCallbackBase
 
-from enum import IntEnum
 from numerous.engine.model.ast_parser.parser_ast import parse_eq
 from numerous.engine.model.graph_representation.graph import Graph
 from numerous.engine.model.ast_parser.parser_ast import process_mappings
