@@ -23,7 +23,7 @@ def ast_to_graph(ast_tree, eq_key, eq_file, eq_lineno, scope_variables):
 class AstVisitor(ast.NodeVisitor):
 
     def __init__(self, eq_key, eq_file, eq_lineno, scope_variables):
-        self.graph = Graph()
+        self.graph = Graph(label=eq_key)
         self.CONSTANT_LABEL = 'c'
         self.SCOPE_LABEL = 'scope.'
         self.branches = []
