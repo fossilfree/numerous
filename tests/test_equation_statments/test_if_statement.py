@@ -89,7 +89,7 @@ def test_external_if_statement(solver, use_llvm):
 
 @pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [False])
-def test_external_if_statement(solver, use_llvm):
+def test_external_if_statement_if_body_executed(solver, use_llvm):
     model_ = model.Model(IfSystem('if_system', IfTest2('tm1')), use_llvm=use_llvm,
                          imports=[("external_import_else_if", "h_test")])
     s = simulation.Simulation(model_, solver_type=solver, t_start=0, t_stop=10.0, num=10, num_inner=10)
@@ -100,10 +100,10 @@ def test_external_if_statement(solver, use_llvm):
 
 @pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [False])
-def test_external_if_statement(solver, use_llvm):
+def test_external_if_statement_if_body_skipped(solver, use_llvm):
     model_ = model.Model(IfSystem('if_system', IfTest3('tm1')), use_llvm=use_llvm,
                          imports=[("external_import_else_if", "h_test")])
     s = simulation.Simulation(model_, solver_type=solver, t_start=0, t_stop=10.0, num=10, num_inner=10)
     s.solve()
-    expected_ti4 =0
+    expected_ti4 = 0
     assert s.model.historian_df['if_system.tm1.test_nm.T_i4'][1] == expected_ti4
