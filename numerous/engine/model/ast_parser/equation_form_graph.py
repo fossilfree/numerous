@@ -89,7 +89,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
 
 
 def process_if_node(func_body, func_test):
-    return ast.If(body=func_body, test=func_test, orelse=[])
+    return ast.If(body=func_body, test=func_test, orelse=[], lineno=0, col_offset=0)
 
 
 def process_assign_node(target_nodes, g, var_def, value_ast, na, targets):
@@ -126,7 +126,7 @@ def generate_return_statement(var_def_, g):
 
 def function_from_graph_generic(g: MappingsGraph, var_def_, arg_metadata):
     decorators = []
-    body = function_body_from_graph(g, var_def_, arg_metadata)
+    body = function_body_from_graph(g, var_def_)
     var_def_.order_variables(arg_metadata)
     body.append(generate_return_statement(var_def_, g))
 
@@ -142,7 +142,7 @@ def function_from_graph_generic(g: MappingsGraph, var_def_, arg_metadata):
     return func, var_def_.args_order, target_ids
 
 
-def compare_expresion_from_graph(g, var_def_, arg_metadata, lineno_count=1):
+def compare_expresion_from_graph(g, var_def_, lineno_count=1):
     top_nodes = g.topological_nodes()
     var_def = var_def_.var_def
     body = []
@@ -153,7 +153,7 @@ def compare_expresion_from_graph(g, var_def_, arg_metadata, lineno_count=1):
     return body
 
 
-def function_body_from_graph(g, var_def_, arg_metadata, lineno_count=1):
+def function_body_from_graph(g, var_def_, lineno_count=1):
     top_nodes = g.topological_nodes()
     var_def = var_def_.var_def
     body = []
@@ -169,9 +169,9 @@ def function_body_from_graph(g, var_def_, arg_metadata, lineno_count=1):
                                             g, var_def, value_ast, at, targets))
         if (g.get(n, 'ast_type')) == ast.If:
             func_body = function_body_from_graph(g.nodes[n].subgraph_body, var_def_,
-                                                 g.arg_metadata, lineno_count=lineno_count)
+                                                 lineno_count=lineno_count)
             func_test = compare_expresion_from_graph(g.nodes[n].subgraph_test, var_def_,
-                                                 g.arg_metadata, lineno_count=lineno_count)
+                                                     lineno_count=lineno_count)
             body.append(process_if_node(func_body, func_test))
     return body
 
@@ -194,9 +194,9 @@ def compiled_function_from_graph_generic_llvm(g: Graph, var_def_, imports,
 
     func = wrap_function(fname + '1', body, decorators=[],
                          args=ast.arguments(posonlyargs=[], args=[], vararg=None, defaults=[],
-                                            kwonlyargs=[], kw_defaults=[], kwarg=None))
+                                            kwonlyargs=[], kw_defaults=[],lineno=0, kwarg=None))
     module_func = ast.Module(body=[func], type_ignores=[])
-    code = compile(module_func, filename='llvm_equations_storage', mode='exec')
+    code = compile(ast.parse(ast.unparse(module_func)), filename='llvm_equations_storage', mode='exec')
     namespace = {}
     exec(code, namespace)
     compiled_func = list(namespace.values())[1]()
@@ -206,26 +206,7 @@ def compiled_function_from_graph_generic_llvm(g: Graph, var_def_, imports,
 
 def function_from_graph_generic_llvm(g: Graph, var_def_):
     fname = g.label + '_llvm'
-
-    lineno_count = 1
-
-    top_nodes = g.topological_nodes()
-
-    var_def = var_def_.var_def
-
-    body = []
-    targets = []
-    for n in top_nodes:
-        lineno_count += 1
-
-        if (na := g.get(n, 'ast_type')) == ast.Assign or na == ast.AugAssign:
-            value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE)[1][0][0]
-            value_ast = node_to_ast(value_node, g, var_def, ctxread=True)
-
-            body.append(
-                process_assign_node(g.get_edges_for_node_filter(start_node=n, attr='e_type', val=EdgeType.TARGET)[1], g,
-                                    var_def, value_ast, na, targets))
-
+    body = function_body_from_graph(g, var_def_)
     var_def_.order_variables(g.arg_metadata)
     args = ast.arguments(posonlyargs=[], args=var_def_.get_order_args(), vararg=None, defaults=[],
                          kwonlyargs=[], kw_defaults=[], kwarg=None)
