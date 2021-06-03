@@ -223,5 +223,4 @@ def process_mappings(mappings, mappings_graph: Graph, scope_vars):
     logging.info('cleaning')
 
     logging.info('done cleaning')
-    mappings_graph.as_graphviz("qq",force=True)
     return mappings_graph
