@@ -70,8 +70,12 @@ class MappingsGraph(Graph):
     def remove_chains(self):
         for target in self.variables():
             # Get target
-            target_edges_indcs, target_edges = self.get_edges_for_node_filter(end_node=target, attr='e_type',
-                                                                              val=[EdgeType.TARGET, EdgeType.MAPPING])
+            target_edges_indcs_edge_type_target, target_edges_edge_type_target = self.get_edges_for_node_filter(
+                end_node=target, attr='e_type', val=EdgeType.TARGET)
+            target_edges_indcs_edge_type_mapping, target_edges_edge_type_mapping = self.get_edges_for_node_filter(
+                end_node=target, attr='e_type', val=EdgeType.MAPPING)
+            target_edges_indcs = target_edges_indcs_edge_type_target + target_edges_indcs_edge_type_mapping
+            target_edges = target_edges_edge_type_target+target_edges_edge_type_mapping
             for edge, edge_ix in zip(target_edges, target_edges_indcs):
 
                 if not target in self.vars_assignments:

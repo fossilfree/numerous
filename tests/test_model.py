@@ -268,7 +268,7 @@ def test_add_item_twice_with_same_tag(ms2):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-@pytest.mark.parametrize("use_llvm", [False])
+@pytest.mark.parametrize("use_llvm", [True,False])
 def test_chain_item_model(ms2, solver, use_llvm):
     m1 = Model(ms2, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
