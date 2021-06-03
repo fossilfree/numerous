@@ -1,4 +1,8 @@
 import logging
+import os
+import sys
+import time
+import types
 
 import numpy as np
 
@@ -77,11 +81,11 @@ class EquationGenerator:
         if self.llvm:
             self.generated_program = LLVMBuilder(
                 np.ascontiguousarray([x.value for x in self.scope_variables.values()], dtype=np.float64),
-                self.values_order, self.states, self.deriv)
+                self.values_order, self.states, self.deriv, system_tag=self.system_tag)
         else:
             self.generated_program = ASTBuilder(
                 np.ascontiguousarray([x.value for x in self.scope_variables.values()], dtype=np.float64),
-                self.values_order, self.states, self.deriv)
+                self.values_order, self.states, self.deriv,system_tag=self.system_tag)
 
         self.mod_body = []
         # Create a kernel of assignments and calls
@@ -382,7 +386,7 @@ class EquationGenerator:
             for k, v in mapping_dict.items():
                 self.generated_program.add_mapping(v, [k])
 
-    def generate_equations(self):
+    def generate_equations(self,save_to_file=False):
         logging.info('Generate kernel')
         # Generate the ast for the python kernel
         for n in self.topo_sorted_nodes:
@@ -407,21 +411,26 @@ class EquationGenerator:
                 state_idx.append(v)
         if self.llvm:
             logging.info('generating llvm')
-            diff, var_func, var_write = self.generated_program.generate(system_tag=self.system_tag, save_opt=True)
+            diff, var_func, var_write = self.generated_program.generate(save_opt=True)
 
             return diff, var_func, var_write, self.values_order, self.scope_variables, np.array(state_idx,
                                                                                                 dtype=np.int64), np.array(
                 deriv_idx, dtype=np.int64)
         else:
-            self.generated_program.generate(self.imports, system_tag=self.system_tag)
-            exec('from tmp.listings.' + self.system_tag + '_kernel import *', globals())
+            code = self.generated_program.generate(self.imports)
+            kernel_module = types.ModuleType('python_kernel')
+            exec(code, kernel_module.__dict__)
+            if save_to_file:
+                os.makedirs(os.path.dirname(self.generated_program.kernel_filename), exist_ok=True)
+                with open(self.generated_program.kernel_filename, 'w') as f:
+                    f.write(code)
 
             def var_func():
-                return kernel_variables
+                return kernel_module.kernel_variables
 
             def var_write(value, idx):
-                np.put(kernel_variables, [idx], value)
+                np.put(kernel_module.kernel_variables, [idx], value)
 
-            return global_kernel, var_func, var_write, self.values_order, self.scope_variables, np.array(state_idx,
+            return kernel_module.global_kernel, var_func, var_write, self.values_order, self.scope_variables, np.array(state_idx,
                                                                                                          dtype=np.int64), np.array(
                 deriv_idx, dtype=np.int64)

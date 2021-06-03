@@ -27,7 +27,7 @@ class LLVMBuilder:
     Building an LLVM module.
     """
 
-    def __init__(self, initial_values, variable_names, states, derivatives):
+    def __init__(self, initial_values, variable_names, states, derivatives, system_tag=""):
         """
         initial_values - initial values of global variables array. Array should be ordered in  such way
          that all the derivatives are located in the tail.
@@ -50,7 +50,7 @@ class LLVMBuilder:
         ])
         self.index0 = 0
         self.fnty.args[0].name = "y"
-
+        self.system_tag = system_tag
         self.variable_names = {}
 
         for k, v in variable_names.items():
@@ -112,7 +112,7 @@ class LLVMBuilder:
 
         self.ext_funcs[name] = f_llvm
 
-    def generate(self, system_tag="", save_opt=False):
+    def generate(self, save_opt=False):
 
         self.builder.position_at_end(self.bb_loop)
 
@@ -139,7 +139,7 @@ class LLVMBuilder:
         self._build_var_w()
 
 
-        self.save_module(LISTING_FILEPATH+system_tag+LISTINGFILENAME)
+        self.save_module(LISTING_FILEPATH+self.system_tag+LISTINGFILENAME)
 
         llmod = llvm.parse_assembly(str(self.module))
 
