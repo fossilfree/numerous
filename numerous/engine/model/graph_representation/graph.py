@@ -199,7 +199,7 @@ class Graph:
         def filter_function(edge):
             if edge.deleted:
                 return False
-            if getattr(edge, attr) == val:
+            if getattr(edge, attr) == val or getattr(edge, attr) in val:
                 return True
             else:
                 return False
