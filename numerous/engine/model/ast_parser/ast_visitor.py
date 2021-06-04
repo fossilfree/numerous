@@ -188,6 +188,17 @@ class AstVisitor(ast.NodeVisitor):
         self.mapped_stack.append(mapped)
         self.node_number_stack.append([en])
 
+    def visit_IfExp(self, node: ast.IfExp) -> Any:
+        en = self.graph.add_node(Node(ao=node, file=self.eq_file, name=self.eq_key, ln=self.eq_lineno, label='if_exp',
+                                      ast_type=ast.IfExp, node_type=NodeTypes.OP))
+        for a in ['body', 'orelse', 'test']:
+            self.traverse(getattr(node, a))
+            start = self.node_number_stack.pop()
+            mapped = self.mapped_stack.pop()
+            self.graph.add_edge(Edge(start=start[0], end=en, e_type=str_to_edgetype(a), branches=self.branches))
+        self.mapped_stack.append(mapped)
+        self.node_number_stack.append([en])
+
     def visit_If(self, node: ast.If) -> Any:
         subgraph_body = ast_to_graph(node.body, self.eq_key, self.eq_file, self.eq_lineno, self.scope_variables)
         subgraph_test = ast_to_graph(node.test, self.eq_key, self.eq_file, self.eq_lineno, self.scope_variables)
