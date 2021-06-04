@@ -170,12 +170,9 @@ class Model:
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
 
-        # LNT: need to map each var id to set variable
-        self.variables_set_var = {}
         self.equation_dict = {}
-        self.scope_variables = {}
-        self.name_spaces = {}
         self.variables = {}
+        self.name_spaces = {}
         self.flat_variables = {}
         self.path_variables = {}
         self.path_scope_variables = {}
@@ -260,14 +257,11 @@ class Model:
         for variables, scope_select, equation_dict in map(ModelAssembler.namespace_parser, model_namespaces):
             self.equation_dict.update(equation_dict)
             self.synchronized_scope.update(scope_select)
-            self.scope_variables.update(variables)
+            self.variables.update(variables)
 
-        # copy logger level to variable (scope variables vs variables needs to be re-thought!)
-        for scope_variable, variable in zip(self.scope_variables.values(), self.variables.values()):
-            variable.logger_level = scope_variable.logger_level
 
         mappings = []
-        for variable in self.scope_variables.values():
+        for variable in self.variables.values():
             variable.top_item = self.system.id
 
         def __get_mapping__variable(variable):
@@ -276,7 +270,7 @@ class Model:
             else:
                 return variable
 
-        for scope_var_idx, var in enumerate(self.scope_variables.values()):
+        for scope_var_idx, var in enumerate(self.variables.values()):
             if var.mapping:
                 _from = self.__get_mapping__variable(self.variables[var.mapping.id])
                 mappings.append((var.id, [_from.id]))
@@ -295,7 +289,7 @@ class Model:
         self.equations_top = {}
 
         logging.info('parsing equations starting')
-        for v in self.scope_variables.values():
+        for v in self.variables.values():
             v.top_item = self.system.id
 
         for ns in model_namespaces:
@@ -314,7 +308,7 @@ class Model:
         logging.info('parsing equations completed')
 
         # Process mappings add update the global graph
-        self.eg = process_mappings(mappings, self.eg, nodes_dep, self.scope_variables)
+        self.eg = process_mappings(mappings, self.eg, nodes_dep, self.variables)
         self.eg.build_node_edges()
 
         logging.info('Mappings processed')
@@ -325,7 +319,7 @@ class Model:
         mapping = []
         other = []
 
-        for sv_id, sv in self.scope_variables.items():
+        for sv_id, sv in self.variables.items():
             if sv.logger_level is None:
                 sv.logger_level = LoggerLevel.ALL
             if sv.type == VariableType.STATE:
@@ -382,7 +376,7 @@ class Model:
         self.logged_variables = {}
 
         for varname, ix in self.vars_ordered_values.items(): # now it's a dict...
-            var = self.scope_variables[varname]
+            var = self.variables[varname]
             if var.logger_level.value >= self.logger_level.value:
                 if varname in self.inverse_logged_aliases:
                     for vv in self.inverse_logged_aliases[varname]:
@@ -405,7 +399,7 @@ class Model:
         print("Assemble time: ", assemble_finish - assemble_start)
         self.info.update({"Assemble time": assemble_finish - assemble_start})
         self.info.update({"Number of items": len(self.model_items)})
-        self.info.update({"Number of variables": len(self.scope_variables)})
+        self.info.update({"Number of variables": len(self.variables)})
         self.info.update({"Number of equation scopes": len(self.equation_dict)})
         self.info.update({"Number of equations": len(self.compiled_eq)})
         self.info.update({"Solver": {}})
@@ -414,16 +408,16 @@ class Model:
 
         logging.info('lowering model')
         eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py", equation_graph=self.eg,
-                                   scope_variables=self.scope_variables, scoped_equations=self.scoped_equations,
+                                   scope_variables=self.variables, scoped_equations=self.scoped_equations,
                                    temporary_variables=tmp_vars, system_tag=self.system.tag, use_llvm=self.use_llvm,
                                    imports=self.imports)
 
-        compiled_compute, var_func, var_write, self.vars_ordered_values, self.scope_variables, \
+        compiled_compute, var_func, var_write, self.vars_ordered_values, self.variables, \
         self.state_idx, self.derivatives_idx = \
             eq_gen.generate_equations()
 
         for varname, ix in self.vars_ordered_values.items():
-            var = self.scope_variables[varname]
+            var = self.variables[varname]
             var.llvm_idx = ix
             var.model = self
             if getattr(var, 'logger_level',
@@ -445,10 +439,10 @@ class Model:
 
         self.compiled_compute, self.var_func, self.var_write = compiled_compute, var_func, var_write
         self.init_values = np.ascontiguousarray(
-            [self.scope_variables[k].value for k in self.vars_ordered_values.keys()],
+            [self.variables[k].value for k in self.vars_ordered_values.keys()],
             dtype=np.float64)
         for k, v in self.vars_ordered_values.items():
-            self.var_write(self.scope_variables[k].value, v)
+            self.var_write(self.variables[k].value, v)
 
         # values of all model variables in specific order: self.vars_ordered_values
         # full tags of all variables in the model in specific order: self.vars_ordered
@@ -475,19 +469,10 @@ class Model:
         states : list of states
             list of all states.
         """
-        return self.scope_variables[self.state_idx]
-
-    def synchornize_variables(self):
-        '''
-        Updates all the values of all Variable instances stored in
-        `self.variables` with the values stored in `self.scope_vars_3d`.
-        '''
-        for variable, value in zip(self.variables.values(),
-                                   self.scope_vars_3d[self.var_idxs_pos_3d]):
-            variable.value = value
+        return self.variables[self.state_idx]
 
     def update_states(self, y):
-        self.scope_variables[self.states_idx] = y
+        self.variables[self.states_idx] = y
 
     def history_as_dataframe(self):
         time = self.data[0]
@@ -529,9 +514,9 @@ class Model:
         for scope in self.synchronized_scope.values():
             for var in scope.variables.values():
                 if var.mapping_id:
-                    var.mapping = self.scope_variables[var.mapping_id]
+                    var.mapping = self.variables[var.mapping_id]
                 if var.sum_mapping_id:
-                    var.sum_mapping = self.scope_variables[var.sum_mapping_id]
+                    var.sum_mapping = self.variables[var.sum_mapping_id]
 
     def restore_state(self, timestep=-1):
         """
@@ -658,7 +643,7 @@ class Model:
         -------
 
         """
-        self.scope_variables[variable_name].alias = alias
+        self.variables[variable_name].alias = alias
 
     def add_callback(self, callback_class: NumbaCallbackBase) -> None:
         """
