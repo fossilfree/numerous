@@ -418,11 +418,12 @@ class EquationGenerator:
         else:
             code = self.generated_program.generate(self.imports)
             kernel_module = types.ModuleType('python_kernel')
-            exec(code, kernel_module.__dict__)
             if save_to_file:
                 os.makedirs(os.path.dirname(self.generated_program.kernel_filename), exist_ok=True)
                 with open(self.generated_program.kernel_filename, 'w') as f:
                     f.write(code)
+            exec(code, kernel_module.__dict__)
+
 
             def var_func():
                 return kernel_module.kernel_variables

@@ -189,18 +189,18 @@ class AstVisitor(ast.NodeVisitor):
         self.node_number_stack.append([en])
 
     def visit_If(self, node: ast.If) -> Any:
-        subgraph_body = ast_to_graph(node.body, self.eq_key, self.eq_file, self.eq_lineno,  self.scope_variables)
+        subgraph_body = ast_to_graph(node.body, self.eq_key, self.eq_file, self.eq_lineno, self.scope_variables)
         subgraph_test = ast_to_graph(node.test, self.eq_key, self.eq_file, self.eq_lineno, self.scope_variables)
         node = Node(ao=node, file=self.eq_file, name=self.eq_key,
-                    ln=self.eq_lineno, label="IF", ast_type=ast.If, node_type=NodeTypes.IF,subgraph_body=subgraph_body,
+                    ln=self.eq_lineno, label="IF", ast_type=ast.If, node_type=NodeTypes.IF, subgraph_body=subgraph_body,
                     subgraph_test=subgraph_test)
-        subgraph_node_idx = connect_equation_node(subgraph_body, self.graph, node, is_set=False)
-        connect_equation_node(subgraph_test, self.graph, node, is_set=False)
+        subgraph_node_idx = connect_equation_node(subgraph_body, self.graph, node, is_set=False, include_local=True)
+        connect_equation_node(subgraph_test, self.graph, node, is_set=False, include_local=True)
         self.mapped_stack.append([None])
         self.node_number_stack.append(subgraph_node_idx)
 
 
-def connect_equation_node(equation_graph, mappings_graph, node, is_set):
+def connect_equation_node(equation_graph, mappings_graph, node, is_set, include_local=False):
     eq_node_idx = mappings_graph.add_node(node)
     for n in range(equation_graph.node_counter):
         if equation_graph.get(n, attr='node_type') == NodeTypes.VAR:
@@ -231,10 +231,11 @@ def connect_equation_node(equation_graph, mappings_graph, node, is_set):
                     except StopIteration:
                         pass
 
-            elif equation_graph.get(n, attr='key') and not equation_graph.get(n, attr='ast_type') == ast.Num:
+            elif include_local and equation_graph.get(n, attr='key') and \
+                    not equation_graph.get(n, attr='ast_type') == ast.Num:
                 var_key = equation_graph.get(n, attr='key')
                 neq = mappings_graph.add_node(Node(key=var_key, node_type=NodeTypes.VAR,
-                                                   is_set_var=is_set,ast_type= equation_graph.get(n, attr='ast_type'),
+                                                   is_set_var=is_set, ast_type=equation_graph.get(n, attr='ast_type'),
                                                    label=var_key),
                                               ignore_existing=True)
 
@@ -246,7 +247,7 @@ def connect_equation_node(equation_graph, mappings_graph, node, is_set):
                 try:
                     next(end_edges)
                     mappings_graph.add_edge(
-                        Edge(start=eq_node_idx, end=neq, e_type=EdgeType.TARGET, arg_local = 'local'))
+                        Edge(start=eq_node_idx, end=neq, e_type=EdgeType.TARGET, arg_local='local'))
                     targeted = True
                 except StopIteration:
                     pass
