@@ -351,6 +351,8 @@ class Model:
         self.logged_aliases = {}
 
         for i, variable in enumerate(self.variables.values()):
+            if variable.temporary_variable:
+                continue
             if variable.logger_level is None:
                 variable.logger_level = LoggerLevel.ALL
             logvar = False
