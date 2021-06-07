@@ -26,6 +26,7 @@ class AstVisitor(ast.NodeVisitor):
         self.graph = Graph(label=eq_key)
         self.CONSTANT_LABEL = 'c'
         self.SCOPE_LABEL = 'scope.'
+        self.IFEXPATTRIBUTES = ['body', 'orelse', 'test']
         self.branches = []
         self.eq_key = eq_key
         self.eq_file = eq_file
@@ -191,7 +192,7 @@ class AstVisitor(ast.NodeVisitor):
     def visit_IfExp(self, node: ast.IfExp) -> Any:
         en = self.graph.add_node(Node(ao=node, file=self.eq_file, name=self.eq_key, ln=self.eq_lineno, label='if_exp',
                                       ast_type=ast.IfExp, node_type=NodeTypes.OP))
-        for a in ['body', 'orelse', 'test']:
+        for a in self.IFEXPATTRIBUTES:
             self.traverse(getattr(node, a))
             start = self.node_number_stack.pop()
             mapped = self.mapped_stack.pop()
