@@ -133,19 +133,18 @@ class EquationGenerator:
         for eq_key, eq in equations.items():
             vardef = Vardef(llvm=self.llvm)
 
-            func, args, target_ids = function_from_graph_generic(eq[2], eq_key, var_def_=vardef)
-
             eq[2].lower_graph = None
             if self.llvm:
                 func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(
                     eq[2],
-                    eq_key,
                     imports=self.imports,
                     var_def_=Vardef(llvm=self.llvm),
                     compiled_function=True
                 )
                 self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
             else:
+                func, args, target_ids = function_from_graph_generic(eq[2],
+                                                                     var_def_=vardef, arg_metadata=eq[2].arg_metadata)
                 self.generated_program.add_external_function(func, None, len(args), target_ids)
 
             vardef.llvm_target_ids = target_ids
@@ -419,11 +418,12 @@ class EquationGenerator:
         else:
             code = self.generated_program.generate(self.imports)
             kernel_module = types.ModuleType('python_kernel')
-            exec(code, kernel_module.__dict__)
             if save_to_file:
                 os.makedirs(os.path.dirname(self.generated_program.kernel_filename), exist_ok=True)
                 with open(self.generated_program.kernel_filename, 'w') as f:
                     f.write(code)
+            exec(code, kernel_module.__dict__)
+
 
             def var_func():
                 return kernel_module.kernel_variables
