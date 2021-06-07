@@ -512,14 +512,6 @@ class Model:
                """
         return [item for item in self.model_items.values() if item.tag == item_tag]
 
-    def __create_scope_mappings(self):
-        for scope in self.synchronized_scope.values():
-            for var in scope.variables.values():
-                if var.mapping_id:
-                    var.mapping = self.variables[var.mapping_id]
-                if var.sum_mapping_id:
-                    var.sum_mapping = self.variables[var.sum_mapping_id]
-
     def restore_state(self, timestep=-1):
         """
 
@@ -694,7 +686,6 @@ class Model:
                 eq_variables_ids.append(ids)
             model_namespace.equation_dict = equation_dict
             model_namespace.variables = {v.id: ScopeVariable(v) for vs in model_namespace.variable_scope for v in vs}
-            self.variables.update(model_namespace.variables)
             namespaces_list.append(model_namespace)
         return namespaces_list
 
