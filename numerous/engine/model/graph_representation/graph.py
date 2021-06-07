@@ -13,7 +13,8 @@ class Node:
     def __init__(self, key=None, ao=None, file=None, name=None, ln=None,
                  label=None, ast_type=None, vectorized=None, item_id=None, node_type=None, ops=None, func=None,
                  id=None, local_id=None, scope_var=None,
-                 ast_op=None, value=None, is_set_var=None, set_var_ix=None):
+                 ast_op=None, value=None, is_set_var=None, set_var_ix=None, subgraph_test=None,
+                 subgraph_body=None):
         self.key = key
         self.ao = ao
         self.file = file
@@ -34,6 +35,8 @@ class Node:
         self.local_id = local_id
         self.scope_var = scope_var
         self.deleted = False
+        self.subgraph_test = subgraph_test
+        self.subgraph_body = subgraph_body
         self.node_n = -1
 
 
@@ -53,7 +56,7 @@ class Edge:
 
 class Graph:
 
-    def __init__(self, preallocate_items=1000):
+    def __init__(self, label=None, preallocate_items=1000):
 
         self.preallocate_items = preallocate_items
         self.allocated = self.preallocate_items
@@ -64,7 +67,7 @@ class Graph:
         self.key_map = {}
         self.nodes = []
         self.edges_c = []
-        # self.edges_attr = {'deleted': [0] * preallocate_items, "e_type": [EdgeType.UNDEFINED] * self.preallocate_items}
+        self.label = label
         self.edges = np.ones((self.preallocate_items, 2), dtype=np.int32) * -1
         self.lower_graph = None
 
@@ -175,7 +178,7 @@ class Graph:
 
         return zip(np.argwhere(end_ix), end_)
 
-    def get_edges_for_node_filter(self, attr, start_node=None, end_node=None, val=None):
+    def get_edges_for_node_filter(self, attr, start_node: int = None, end_node: int = None, val=None):
         if start_node and end_node:
             raise ValueError('arg cant have both start and end!')
         ix = []
@@ -196,14 +199,13 @@ class Graph:
         def filter_function(edge):
             if edge.deleted:
                 return False
-            if getattr(edge, attr) == val or getattr(edge, attr) in val:
+            if getattr(edge, attr) == val :
                 return True
             else:
                 return False
 
         ix_r = [edge.edge_n for edge in filter(filter_function, map(self.edges_c.__getitem__, ix))]
         return ix_r, [self.edges[i, :] for i in ix_r]
-
 
     def has_edge_for_nodes(self, start_node=None, end_node=None):
 
@@ -264,7 +266,6 @@ class Graph:
             dot.render(file, view=True, format='pdf')
 
     def zero_in_degree(self):
-
         return [n for n in self.node_map.values() if len(list(self.get_edges_for_node(end_node=n))) == 0]
 
     def make_lower_graph(self, top_sort=False):

@@ -24,6 +24,7 @@ class NodeTypes(IntEnum):
     SUM = 4
     TMP = 5
     ASSIGNTUPLE = 6
+    IF = 7
 
 def recurse_Attribute(attr, sep='.'):
         if hasattr(attr, 'id'):

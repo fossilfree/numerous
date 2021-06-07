@@ -22,11 +22,11 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
 
         elif na == ast.BinOp:
 
-            left_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=[EdgeType.LEFT])[1][0][0]
+            left_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.LEFT)[1][0][0]
 
             left_ast = node_to_ast(left_node, g, var_def, ctxread=ctxread)
 
-            right_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=[EdgeType.RIGHT])[1][0][0]
+            right_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.RIGHT)[1][0][0]
 
             right_ast = node_to_ast(right_node, g, var_def, ctxread=ctxread)
 
@@ -88,6 +88,10 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
         raise
 
 
+def process_if_node(func_body, func_test):
+    return ast.If(body=func_body, test=func_test, orelse=[], lineno=0, col_offset=0)
+
+
 def process_assign_node(target_nodes, g, var_def, value_ast, na, targets):
     if len(target_nodes) > 1:
         target_ast = []
@@ -109,18 +113,53 @@ def process_assign_node(target_nodes, g, var_def, value_ast, na, targets):
             return ast_assign
 
 
-def function_from_graph_generic(g: Graph, name, var_def_):
-    lineno_count = 1
+def generate_return_statement(var_def_, g):
+    if (l := len(var_def_.get_targets())) > 1:
+        return_ = ast.Return(value=ast.Tuple(elts=var_def_.get_order_trgs()))
+    elif l == 1:
+        return_ = ast.Return(value=var_def_.get_order_trgs()[0])
+    else:
+        g.as_graphviz('noret', force=True)
+        raise IndexError(f'Function {g.lablel} should have return, no?')
+    return return_
+
+
+def function_from_graph_generic(g: MappingsGraph, var_def_, arg_metadata):
     decorators = []
+    body = function_body_from_graph(g, var_def_)
+    var_def_.order_variables(arg_metadata)
+    body.append(generate_return_statement(var_def_, g))
+
+    args = ast.arguments(posonlyargs=[], args=var_def_.get_order_args(), vararg=None, defaults=[], kwonlyargs=[],
+                         kwarg=None)
+
+    func = wrap_function(g.label, body, decorators=decorators, args=args)
+
+    target_ids = []
+    for i, arg in enumerate(var_def_.args_order):
+        if arg in var_def_.targets:
+            target_ids.append(i)
+    return func, var_def_.args_order, target_ids
+
+
+def compare_expresion_from_graph(g, var_def_, lineno_count=1):
     top_nodes = g.topological_nodes()
-
     var_def = var_def_.var_def
+    body = []
+    for n in top_nodes:
+        lineno_count += 1
+        if g.get(n, 'ast_type') == ast.Compare:
+            body.append(node_to_ast(n, g, var_def, ctxread=True))
+    return body
 
+
+def function_body_from_graph(g, var_def_, lineno_count=1):
+    top_nodes = g.topological_nodes()
+    var_def = var_def_.var_def
     body = []
     targets = []
     for n in top_nodes:
         lineno_count += 1
-
         if (at := g.get(n, 'ast_type')) == ast.Assign or at == ast.AugAssign:
             value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE)[1][0][0]
 
@@ -128,48 +167,36 @@ def function_from_graph_generic(g: Graph, name, var_def_):
             body.append(process_assign_node(g.get_edges_for_node_filter(start_node=n, attr='e_type',
                                                                         val=EdgeType.TARGET)[1],
                                             g, var_def, value_ast, at, targets))
-    var_def_.order_variables(g.arg_metadata)
-    if (l := len(var_def_.get_targets())) > 1:
-        return_ = ast.Return(value=ast.Tuple(elts=var_def_.get_order_trgs()))
-    elif l == 1:
-        return_ = ast.Return(value=var_def_.get_order_trgs()[0])
-    else:
-        g.as_graphviz('noret', force=True)
-        raise IndexError(f'Function {name} should have return, no?')
-    body.append(return_)
-    args = ast.arguments(posonlyargs=[], args=var_def_.get_order_args(), vararg=None, defaults=[], kwonlyargs=[],
-                         kwarg=None)
-
-    func = wrap_function(name, body, decorators=decorators, args=args)
-
-    target_ids = []
-    for i, arg in enumerate(var_def_.args_order):
-        if arg in var_def_.targets:
-            target_ids.append(i)
-
-    return func, var_def_.args_order, target_ids
+        if (g.get(n, 'ast_type')) == ast.If:
+            func_body = function_body_from_graph(g.nodes[n].subgraph_body, var_def_,
+                                                 lineno_count=lineno_count)
+            func_test = compare_expresion_from_graph(g.nodes[n].subgraph_test, var_def_,
+                                                     lineno_count=lineno_count)
+            body.append(process_if_node(func_body, func_test))
+    return body
 
 
-def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_, imports,
+def compiled_function_from_graph_generic_llvm(g: Graph, var_def_, imports,
                                               compiled_function=False):
-    func, signature, fname, r_args, r_targets = function_from_graph_generic_llvm(g, name, var_def_)
+    func, signature, fname, r_args, r_targets = function_from_graph_generic_llvm(g, var_def_)
     if not compiled_function:
         return func, signature, r_args, r_targets
 
     body = []
-    for (module, name) in imports.as_imports:
-        body.append(ast.Import(names=[ast.alias(name=module, asname=name)], lineno=0, col_offset=0, level=0))
-    for (module, name) in imports.from_imports:
+    for (module, g.label) in imports.as_imports:
+        body.append(ast.Import(names=[ast.alias(name=module, asname=g.label)], lineno=0, col_offset=0, level=0))
+    for (module, g.label) in imports.from_imports:
         body.append(
-            ast.ImportFrom(module=module, names=[ast.alias(name=name, asname=None)], lineno=0, col_offset=0, level=0))
+            ast.ImportFrom(module=module, names=[ast.alias(name=g.label, asname=None)], lineno=0, col_offset=0,
+                           level=0))
     body.append(func)
     body.append(ast.Return(value=ast.Name(id=fname, ctx=ast.Load(), lineno=0, col_offset=0), lineno=0, col_offset=0))
 
     func = wrap_function(fname + '1', body, decorators=[],
                          args=ast.arguments(posonlyargs=[], args=[], vararg=None, defaults=[],
-                                            kwonlyargs=[], kw_defaults=[], kwarg=None))
+                                            kwonlyargs=[], kw_defaults=[],lineno=0, kwarg=None))
     module_func = ast.Module(body=[func], type_ignores=[])
-    code = compile(module_func, filename='llvm_equations_storage', mode='exec')
+    code = compile(ast.parse(ast.unparse(module_func)), filename='llvm_equations_storage', mode='exec')
     namespace = {}
     exec(code, namespace)
     compiled_func = list(namespace.values())[1]()
@@ -177,28 +204,9 @@ def compiled_function_from_graph_generic_llvm(g: Graph, name, var_def_, imports,
     return compiled_func, signature, r_args, r_targets
 
 
-def function_from_graph_generic_llvm(g: Graph, name, var_def_):
-    fname = name + '_llvm'
-
-    lineno_count = 1
-
-    top_nodes = g.topological_nodes()
-
-    var_def = var_def_.var_def
-
-    body = []
-    targets = []
-    for n in top_nodes:
-        lineno_count += 1
-
-        if (na := g.get(n, 'ast_type')) == ast.Assign or na == ast.AugAssign:
-            value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE)[1][0][0]
-            value_ast = node_to_ast(value_node, g, var_def, ctxread=True)
-
-            body.append(
-                process_assign_node(g.get_edges_for_node_filter(start_node=n, attr='e_type', val=EdgeType.TARGET)[1], g,
-                                    var_def, value_ast, na, targets))
-
+def function_from_graph_generic_llvm(g: Graph, var_def_):
+    fname = g.label + '_llvm'
+    body = function_body_from_graph(g, var_def_)
     var_def_.order_variables(g.arg_metadata)
     args = ast.arguments(posonlyargs=[], args=var_def_.get_order_args(), vararg=None, defaults=[],
                          kwonlyargs=[], kw_defaults=[], kwarg=None)

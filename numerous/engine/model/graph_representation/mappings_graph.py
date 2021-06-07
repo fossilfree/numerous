@@ -32,8 +32,8 @@ class TemporarySetVar:
         self.tmp_vars = []
         self.type = VariableType.TMP_PARAMETER_SET
         self.set_var = set_var
-        self.size=set_var.size
-        self.variables=self.set_var.variables
+        self.size = set_var.size
+        self.variables = self.set_var.variables
 
     def get_size(self):
         return len(self.tmp_vars)
@@ -70,14 +70,18 @@ class MappingsGraph(Graph):
     def remove_chains(self):
         for target in self.variables():
             # Get target
-            target_edges_indcs, target_edges = self.get_edges_for_node_filter(end_node=target, attr='e_type',
-                                                                              val=[EdgeType.TARGET, EdgeType.MAPPING])
+            target_edges_indcs_edge_type_target, target_edges_edge_type_target = self.get_edges_for_node_filter(
+                end_node=target, attr='e_type', val=EdgeType.TARGET)
+            target_edges_indcs_edge_type_mapping, target_edges_edge_type_mapping = self.get_edges_for_node_filter(
+                end_node=target, attr='e_type', val=EdgeType.MAPPING)
+            target_edges_indcs = target_edges_indcs_edge_type_target + target_edges_indcs_edge_type_mapping
+            target_edges = target_edges_edge_type_target+target_edges_edge_type_mapping
             for edge, edge_ix in zip(target_edges, target_edges_indcs):
 
                 if not target in self.vars_assignments:
                     self.vars_assignments[target] = []
                     self.vars_assignments_mappings[target] = []
-                ##if mapping edge
+
                 if self.edges_c[edge_ix].e_type == EdgeType.MAPPING:
                     self.vars_mappings[target] = (edge[0], self.edges_c[edge_ix].mappings)
                     self.remove_edge(edge_ix)
@@ -92,7 +96,7 @@ class MappingsGraph(Graph):
                 for edge_ix in target_edges_indcs:
                     self.remove_edge(edge_ix)
 
-    def create_assignments(self,variables):
+    def create_assignments(self, variables):
         from tqdm import tqdm
         temp_variables = {}
         for ii, n in tqdm(enumerate(self.get_where_node_attr('node_type', NodeTypes.EQUATION))):
@@ -122,7 +126,7 @@ class MappingsGraph(Graph):
                     temp_variables.update(fake_sv)
 
                     tmp = self.add_node(Node(key=tmp_key, node_type=NodeTypes.TMP, name=tmp_key,
-                                        file='sum', label=tmp_label, ln=0, scope_var=svf), ignore_existing=False)
+                                             file='sum', label=tmp_label, ln=0, scope_var=svf), ignore_existing=False)
                     # Add temp var to Equation target
 
                     self.add_edge(Edge(n, tmp, e_type=EdgeType.TARGET, arg_local=self.edges_c[i[0]].arg_local))
@@ -136,9 +140,9 @@ class MappingsGraph(Graph):
         for a, vals in self.vars_assignments.items():
             if len(vals) > 1:
                 ns = new_sum()
-                nsn = self.add_node(Node(key=ns, node_type=NodeTypes.SUM, name=ns,  file='sum',
-                                    label=ns,
-                                    ln=0, ast_type=None))
+                nsn = self.add_node(Node(key=ns, node_type=NodeTypes.SUM, name=ns, file='sum',
+                                         label=ns,
+                                         ln=0, ast_type=None))
                 self.add_edge(Edge(start=nsn, end=a, e_type=EdgeType.TARGET))
                 for v, mappings in zip(vals, self.vars_assignments_mappings[a]):
                     self.add_edge(Edge(start=v, end=nsn, e_type=EdgeType.VALUE, mappings=mappings))
@@ -146,8 +150,8 @@ class MappingsGraph(Graph):
             elif a in self.vars_mappings:
                 ns = new_sum()
                 nsn = self.add_node(Node(key=ns, node_type=NodeTypes.SUM, name=ns, file='sum',
-                                    label=ns,
-                                    ln=0, ast_type=None))
+                                         label=ns,
+                                         ln=0, ast_type=None))
                 self.add_edge(Edge(start=nsn, end=a, e_type=EdgeType.TARGET))
 
                 self.add_edge(Edge(start=self.vars_mappings[a][0], end=nsn,
