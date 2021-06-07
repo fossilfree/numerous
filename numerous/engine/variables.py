@@ -176,7 +176,7 @@ class Variable(MappedValue):
         self.set_var_ix = None
         self.set_namespace = None
         self.size = 0
-
+        self.temporary_variable = False
         if base_variable:
 
             self._value = base_variable.value
