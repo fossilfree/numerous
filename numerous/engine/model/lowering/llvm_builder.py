@@ -112,7 +112,7 @@ class LLVMBuilder:
 
         self.ext_funcs[name] = f_llvm
 
-    def generate(self, save_opt=False):
+    def generate(self, save_to_file=False):
 
         self.builder.position_at_end(self.bb_loop)
 
@@ -138,8 +138,8 @@ class LLVMBuilder:
         # build vars write function
         self._build_var_w()
 
-
-        self.save_module(LISTING_FILEPATH+self.system_tag+LISTINGFILENAME)
+        if save_to_file:
+            self.save_module(LISTING_FILEPATH+self.system_tag+LISTINGFILENAME)
 
         llmod = llvm.parse_assembly(str(self.module))
 
@@ -150,7 +150,7 @@ class LLVMBuilder:
 
         pm.run(llmod)
         os.makedirs(os.path.dirname(LLVMOPTLISTING_FILENAME), exist_ok=True)
-        if save_opt:
+        if save_to_file:
             with open(LLVMOPTLISTING_FILENAME, 'w') as f:
                 f.write(str(llmod))
 

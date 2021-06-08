@@ -68,7 +68,7 @@ class ASTBuilder:
         self.functions.append(function)
         self.defined_functions.append(function.name)
 
-    def generate(self, imports,  external_functions_source=False, save_opt=False):
+    def generate(self, imports,  external_functions_source=False, save_to_file=False):
         kernel = wrap_function('global_kernel', self.read_args_section + self.body + self.return_section, decorators=[],
                                args=ast.arguments(posonlyargs=[], args=[ast.arg(arg="states",
                                                                 annotation=None)], vararg=None, defaults=[],

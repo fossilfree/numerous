@@ -385,7 +385,7 @@ class EquationGenerator:
             for k, v in mapping_dict.items():
                 self.generated_program.add_mapping(v, [k])
 
-    def generate_equations(self, save_to_file=True):
+    def generate_equations(self, save_to_file=False):
         logging.info('Generate kernel')
         # Generate the ast for the python kernel
         for n in self.topo_sorted_nodes:
@@ -410,7 +410,7 @@ class EquationGenerator:
                 state_idx.append(v)
         if self.llvm:
             logging.info('generating llvm')
-            diff, var_func, var_write = self.generated_program.generate(save_opt=True)
+            diff, var_func, var_write = self.generated_program.generate(save_to_file=save_to_file)
 
             return diff, var_func, var_write, self.values_order, self.scope_variables, np.array(state_idx,
                                                                                                 dtype=np.int64), np.array(
