@@ -174,7 +174,6 @@ class Model:
         self.name_spaces = {}
         self.flat_variables = {}
         self.path_variables = {}
-        self.path_scope_variables = {}
         self.states = {}
         self.period = 1
         self.mapping_from = []
@@ -262,12 +261,6 @@ class Model:
         mappings = []
         for variable in self.variables.values():
             variable.top_item = self.system.id
-
-        def __get_mapping__variable(variable):
-            if variable.mapping:
-                return __get_mapping__variable(variable.mapping)
-            else:
-                return variable
 
         for scope_var_idx, var in enumerate(self.variables.values()):
             if var.mapping:
@@ -489,7 +482,7 @@ class Model:
         self.df = self.df.set_index('time')
         self.df.index = pd.to_timedelta(self.df.index, unit='s')
 
-    def validate(self):
+    def validate_bindings(self):
         """
         Checks that all bindings are fulfilled.
         """
@@ -513,25 +506,6 @@ class Model:
                """
         return [item for item in self.model_items.values() if item.tag == item_tag]
 
-    def restore_state(self, timestep=-1):
-        """
-
-        Parameters
-        ----------
-        timestep : time
-            timestep that should be restored in the model. Default last known state is restored.
-
-        Restores last saved state from the historian.
-        """
-        last_states = self.historian.get_last_state()
-        r1 = []
-        for state_name in last_states:
-            if state_name in self.path_variables:
-                if self.path_variables[state_name].type.value not in [VariableType.CONSTANT.value]:
-                    self.path_variables[state_name].value = list(last_states[state_name].values())[0]
-                if self.path_variables[state_name].type.value is VariableType.STATE.value:
-                    r1.append(list(last_states[state_name].values())[0])
-        self.scope_vars_3d[self.state_idxs_3d] = r1
 
     @property
     def states_as_vector(self):
@@ -556,76 +530,6 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
-    # TODO: This is not working!
-    def save_variables_schedule(self, period, filename):
-        """
-        Save data to file on given period.
-
-        Parameters
-        ----------
-        period : timedelta
-            timedelta of saving history to file
-
-        filename : string
-            Name of a file
-        Returns
-        -------
-
-        """
-        self.period = period
-
-        def saver_callback(t, _):
-            if t > self.period:
-                self.historian.save(filename)
-                self.period = t + self.period
-
-        callback = _SimulationCallback("FileWriter")
-        callback.add_callback_function(saver_callback)
-        self.callbacks.append(callback)
-
-    def add_event(self, name, event_function, callbacks=None):
-        """
-        Creating and adding Event callback.
-
-
-        Parameters
-        ----------
-        name : string
-            name of the event
-
-        event_function : callable
-
-
-        callbacks : list of callable
-            callback associated with event
-
-        Returns
-        -------
-
-        """
-        if not callbacks:
-            callbacks = []
-        self.events.update({name: _Event(name, self, event_function=event_function, callbacks=callbacks)})
-
-    def add_event_callback(self, event_name, event_callback):
-        """
-        Adding the callback to existing event
-
-        Parameters
-        ----------
-        event_name : string
-            name of the registered event
-
-        event_callback : callable
-            callback associated with event
-
-
-        Returns
-        -------
-
-        """
-        self.events[event_name].add_callbacks(event_callback)
-
     def create_alias(self, variable_name, alias):
         """
 
@@ -639,24 +543,6 @@ class Model:
 
         """
         self.variables[variable_name].alias = alias
-
-    def add_callback(self, callback_class: NumbaCallbackBase) -> None:
-        """
-
-        """
-
-        self.callbacks.append(callback_class)
-        numba_update_function = Equation_Parser.parse_non_numba_function(callback_class.update, r"@NumbaCallback.+")
-        self.numba_callbacks.append(numba_update_function)
-
-        if callback_class.update.run_after_init:
-            self.numba_callbacks_init_run.append(numba_update_function)
-
-        numba_initialize_function = Equation_Parser.parse_non_numba_function(callback_class.initialize,
-                                                                             r"@NumbaCallback.+")
-
-        self.numba_callbacks_init.append(numba_initialize_function)
-        self.numba_callbacks_variables.append(callback_class.numba_params_spec)
 
     def create_model_namespaces(self, item):
         namespaces_list = []
@@ -695,30 +581,6 @@ class Model:
         for spec_dict in self.numba_callbacks_variables:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
-
-        ##Adding callbacks_varaibles to numba specs
-        # def create_cbi_call(_method_name: str, i: int):
-        #     return "      self." \
-        #            "" + _method_name + "(time, self.path_variables)\n"
-        #
-        # Equation_Parser.create_numba_iterations(CompiledModel, self.numba_callbacks, "run_callbacks",
-        #                                         "callback_func"
-        #                                         , create_cbi_call, ",time")
-        #
-        # def create_cbi2_call(_method_name: str, i: int):
-        #     return "      self." \
-        #            "" + _method_name + "(self.number_of_variables,self.number_of_timesteps)\n"
-        #
-        # Equation_Parser.create_numba_iterations(CompiledModel, self.numba_callbacks_init, "init_callbacks",
-        #                                         "callback_func_init_", create_cbi2_call, "")
-
-        # def create_cbiu_call(_method_name: str, i: int):
-        #     return "      self." \
-        #            "" + _method_name + "(time, self.path_variables)\n"
-        #
-        # Equation_Parser.create_numba_iterations(CompiledModel, self.numba_callbacks_init_run, "run_init_callbacks",
-        #
-        #                                         "callback_func_init_pre_update", create_cbiu_call, ",time")
 
         # Creating a copy of CompiledModel class so it is possible
         # to creat instance detached from muttable type of CompiledModel

@@ -19,8 +19,8 @@ target_machine = llvm.Target.from_default_triple().create_target_machine()
 ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
 
 LISTING_FILEPATH = "tmp/listings/"
-LISTINGFILENAME = "_llvm_listing.txt"
-LLVMOPTLISTING_FILENAME = "tmp/listings/llvm_listing_opt.txt"
+LISTINGFILENAME = "_llvm_listing.ll"
+LLVMOPTLISTING_FILENAME = "tmp/listings/llvm_listing_opt.ll"
 
 class LLVMBuilder:
     """

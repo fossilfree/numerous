@@ -134,23 +134,3 @@ class Scope:
         """
         for var in self.variables_dict.values():
             var.allow_update = is_true
-
-
-class TemporaryScopeWrapper3d:
-    def __init__(self, scope_vars_3d, state_idxs_3d, deriv_idxs_3d):
-        self.scope_vars_3d = scope_vars_3d
-        self.state_idxs_3d = state_idxs_3d
-        self.deriv_idxs_3d = deriv_idxs_3d
-
-    def update_states(self, state_values):
-        self.scope_vars_3d[self.state_idxs_3d] = state_values
-
-    def get_states(self):
-        return self.scope_vars_3d[self.state_idxs_3d]
-
-    def update_states_idx(self, state_value, idx):
-        np.put(self.flat_var, idx, state_value)
-
-    # return all derivatives
-    def get_derivatives(self):
-        return self.scope_vars_3d[self.deriv_idxs_3d]
