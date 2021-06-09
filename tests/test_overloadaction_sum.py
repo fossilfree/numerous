@@ -21,7 +21,7 @@ class Item1(Item, EquationBase):
         super(Item1, self).__init__(tag)
         self.t1 = self.create_namespace('t1')
         self.add_state('x', 1)
-        self.add_state('tmp', 1)
+        self.add_parameter('tmp', 1)
         self.add_state('t', 0)
         self.t1.add_equations([self])
 

@@ -213,9 +213,9 @@ class Model:
                 model_namespaces.extend(self.__add_item(registered_item))
         return model_namespaces
 
-    def __get_mapping__variable(self, variable):
-        if variable.mapping:
-            return self.__get_mapping__variable(variable.mapping)
+    def __get_mapping__variable(self, variable, depth):
+        if variable.mapping and depth>0:
+            return self.__get_mapping__variable(variable.mapping,depth-1)
         else:
             return variable
 
@@ -263,12 +263,12 @@ class Model:
 
         for scope_var_idx, var in enumerate(self.variables.values()):
             if var.mapping:
-                _from = self.__get_mapping__variable(self.variables[var.mapping.id])
+                _from = self.__get_mapping__variable(self.variables[var.mapping.id], depth=1)
                 mappings.append((var.id, [_from.id]))
             if not var.mapping and var.sum_mapping:
                 sum_mapping = []
                 for mapping_id in var.sum_mapping:
-                    _from = self.__get_mapping__variable(self.variables[mapping_id.id])
+                    _from = self.__get_mapping__variable(self.variables[mapping_id.id], depth=1)
                     sum_mapping.append(_from.id)
                 mappings.append((var.id, sum_mapping))
 
@@ -420,6 +420,9 @@ class Model:
                 setattr(var, 'logger_level', LoggerLevel.ALL)
 
         def c1(self, array_):
+            print("##########")
+            print(array_)
+            print(compiled_compute(array_))
             return compiled_compute(array_)
 
         def c2(self):
