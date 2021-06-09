@@ -213,7 +213,7 @@ def process_mappings(mappings, mappings_graph: Graph, scope_vars):
                 mappings_graph.add_edge(Edge(ivar_node_e, t, e_type=EdgeType.MAPPING,
                                              mappings=[(ivar_set_var_ix, target_set_var_ix)]))
             else:
-                mappings_graph.edges_attr['mappings'][ix_[0]].append((ivar_set_var_ix, target_set_var_ix))
+                mappings_graph.edges_c[ix_[0]].mappings.append((ivar_set_var_ix, target_set_var_ix))
 
     logging.info('clone eq graph')
     mappings_graph = mappings_graph.clean()
