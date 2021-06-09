@@ -394,9 +394,6 @@ class Model:
                 setattr(var, 'logger_level', LoggerLevel.ALL)
 
         def c1(self, array_):
-            print("##########")
-            print(array_)
-            print(compiled_compute(array_))
             return compiled_compute(array_)
 
         def c2(self):
