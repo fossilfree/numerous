@@ -21,12 +21,14 @@ class Item1(Item, EquationBase):
         super(Item1, self).__init__(tag)
         self.t1 = self.create_namespace('t1')
         self.add_state('x', 1)
+        self.add_state('tmp', 1)
         self.add_state('t', 0)
         self.t1.add_equations([self])
 
     @Equation()
     def eval(self, scope):
         scope.t_dot = 1
+        scope.tmp = -1
         scope.x_dot = -1 * np.exp(-1 * scope.t)
 
 
@@ -81,6 +83,22 @@ class Subsystem2(Subsystem, EquationBase):
         scope.x_dot_mod = 0
         scope.x_2_dot_mod = -1
 
+class Subsystem3(Subsystem, EquationBase):
+    def __init__(self, tag='subsystem1', item1=object):
+        super(Subsystem3, self).__init__(tag)
+        item2 = Item1(tag="item2")
+        self.t1 = self.create_namespace('t1')
+        self.add_parameter('x_dot_mod', 0)
+        self.add_parameter('x_2_dot_mod', 0)
+        self.t1.add_equations([self])
+        self.register_items([item1, item2])
+
+        item1.t1.x_dot += self.t1.x_dot_mod
+        self.t1.x_dot_mod = item2.t1.tmp
+    @Equation()
+    def eval(self, scope):
+        scope.x_2_dot_mod = -1
+
 class System(Subsystem, EquationBase):
     def __init__(self, tag='system_overload', subsystem=object):
         super(System, self).__init__(tag)
@@ -95,6 +113,10 @@ def system1():
 def system2():
     return System(tag='system2_overload',subsystem=Subsystem2(item1=Item2()))
 
+@pytest.fixture
+def system3():
+    return System(tag='system3_overload',subsystem=Subsystem3(item1=Item1()))
+
 def expected_sol(t):
     return -1*(t*np.exp(t) -1)*np.exp(-t)
 
@@ -106,6 +128,16 @@ def test_overloadaction_sum(system1, solver, use_llvm):
     sim.solve()
     df = sim.model.historian_df
     assert approx(np.array(df['system1_overload.subsystem1.item1.t1.x'])) == expected_sol(np.linspace(0, 10, 101))
+
+
+@pytest.mark.parametrize("solver", solver_types)
+@pytest.mark.parametrize("use_llvm", [True,False])
+def test_overloadaction_sum_chain_mapping(system3, solver, use_llvm):
+    model = Model(system3,use_llvm=use_llvm)
+    sim = Simulation(model, t_start=0, t_stop=10, num=100, solver_type = solver)
+    sim.solve()
+    df = sim.model.historian_df
+    assert approx(np.array(df['system3_overload.subsystem1.item1.t1.x'])) == expected_sol(np.linspace(0, 10, 101))
 
 @pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
