@@ -191,6 +191,7 @@ class Variable(MappedValue):
         self.associated_scope = []
         self.idx_in_scope = []
         self.top_item = None
+        self.used_in_equation_graph = False
 
     def get_path_dot(self):
         return self.path.path[self.top_item][0]

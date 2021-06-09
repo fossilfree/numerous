@@ -17,7 +17,6 @@ from numerous.utils.historian import InMemoryHistorian
 from numerous.engine.model.graph_representation.mappings_graph import MappingsGraph
 from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
-from numerous.engine.scope import Scope, ScopeVariable, ScopeSet
 
 from numerous.engine.system.subsystem import Subsystem, ItemSet
 from numerous.engine.variables import VariableType
@@ -66,41 +65,19 @@ class ModelNamespace:
 class ModelAssembler:
 
     @staticmethod
-    def __create_scope(eq_tag, eq_methods, eq_variables, namespace, tag, variables):
-        scope_id = "{0}_{1}_{2}".format(eq_tag, namespace.tag, tag, str(uuid.uuid4()))
-        if namespace.is_set:
-            scope = ScopeSet(scope_id, namespace.item_indcs)
-        else:
-            scope = Scope(scope_id, namespace.item_indcs)
-        for variable in eq_variables:
-            scope.add_variable(variable)
-            variable.bound_equation_methods = eq_methods
-            if variable.mapping:
-                pass
-            variable.parent_scope_id = scope_id
-            variables.update({variable.id: variable})
-        return scope
-
-    @staticmethod
     def namespace_parser(input_namespace):
-        scope_select = {}
-        variables = {}
         equation_dict = {}
         tag, namespaces = input_namespace
         variables_ = {}
         for namespace in namespaces:
 
             for i, (eq_tag, eq_methods) in enumerate(namespace.equation_dict.items()):
-                scope = ModelAssembler.__create_scope(eq_tag, eq_methods,
-                                                      [v for i_ in namespace.variable_scope for v in i_],
-                                                      namespace, tag, variables)
-                scope_select.update({scope.id: scope})
-                equation_dict.update({scope.id: (eq_methods, namespace.outgoing_mappings)})
-
+                scope_id = "{0}_{1}_{2}".format(eq_tag, namespace.tag, tag, str(uuid.uuid4()))
+                equation_dict.update({scope_id: (eq_methods, namespace.outgoing_mappings)})
             for v in namespace.ordered_variables():
                 variables_.update({v.id: v})
 
-        return variables_, scope_select, equation_dict
+        return variables_, equation_dict
 
 
 import logging
@@ -156,7 +133,6 @@ class Model:
         self.derivatives = {}
         self.model_items = {}
         self.state_history = {}
-        self.synchronized_scope = {}
         self.compiled_eq = []
         self.flat_scope_idx = None
         self.flat_scope_idx_from = None
@@ -249,11 +225,9 @@ class Model:
 
         # 2. Compute dictionaries
         # equation_dict <scope_id, [Callable]>
-        # synchronized_scope <scope_id, Scope>
         # scope_variables <variable_id, Variable>
-        for variables, scope_select, equation_dict in map(ModelAssembler.namespace_parser, model_namespaces):
+        for variables, equation_dict in map(ModelAssembler.namespace_parser, model_namespaces):
             self.equation_dict.update(equation_dict)
-            self.synchronized_scope.update(scope_select)
             self.variables.update(variables)
 
 
@@ -574,7 +548,7 @@ class Model:
                 equation_dict.update({eq.tag: equations})
                 eq_variables_ids.append(ids)
             model_namespace.equation_dict = equation_dict
-            model_namespace.variables = {v.id: ScopeVariable(v) for vs in model_namespace.variable_scope for v in vs}
+            model_namespace.variables = {v.id: v for vs in model_namespace.variable_scope for v in vs}
             namespaces_list.append(model_namespace)
         return namespaces_list
 

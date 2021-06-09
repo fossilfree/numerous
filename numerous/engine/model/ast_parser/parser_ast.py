@@ -2,10 +2,10 @@ import ast
 import logging
 from textwrap import dedent
 
+from numerous import Variable
 from numerous.engine.model.ast_parser.ast_visitor import ast_to_graph, connect_equation_node
 from numerous.engine.model.graph_representation import Graph, EdgeType, Node, Edge
 from numerous.engine.model.utils import NodeTypes
-from numerous.engine.scope import ScopeVariable
 
 
 def attr_ast(attr):
@@ -65,7 +65,7 @@ def qualify_equation(prefix, g, tag_vars):
     g_qual.node_map = {q(k): v for k, v in g_qual.node_map.items()}
     g_qual.key_map = {k: q(v) for k, v in g_qual.key_map.items()}
 
-    scope_vars_qual = [tag_vars[sv.tag] if isinstance(sv := g.get(n, 'scope_var'), ScopeVariable) else sv
+    scope_vars_qual = [tag_vars[sv.tag] if isinstance(sv := g.get(n, 'scope_var'), Variable) else sv
                        for n in g.node_map.values()]
 
     for i in range(g_qual.node_counter):

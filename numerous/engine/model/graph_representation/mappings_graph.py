@@ -11,7 +11,6 @@ class TemporaryVar():
         self.temporary_variable = True
         self.id = id
         self.tag = tag + id
-        self.parent_scope_id = svi.parent_scope_id
         self.scope_var_id = svi.id
         self.set_var = set_var
         self.set_var_ix = set_var_ix
