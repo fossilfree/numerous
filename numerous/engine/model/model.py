@@ -32,6 +32,17 @@ from numerous.engine.model.ast_parser.parser_ast import process_mappings
 from numerous.engine.model.lowering.equations_generator import EquationGenerator
 from numerous.engine.system import SetNamespace
 
+import faulthandler
+import llvmlite.binding as llvm
+
+faulthandler.enable()
+llvm.initialize()
+llvm.initialize_native_target()
+llvm.initialize_native_asmprinter()
+llvmmodule = llvm.parse_assembly("")
+target_machine = llvm.Target.from_default_triple().create_target_machine()
+ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
+
 
 class ModelNamespace:
 
@@ -605,20 +616,6 @@ class Model:
 
     def set_functions(self, compiled_compute, var_func, var_write):
 
-        def c1(self, array_):
-            return compiled_compute(array_)
-
-        def c2(self):
-            return var_func()
-
-        def c3(self, value, idx):
-            return var_write(value, idx)
-
-        setattr(CompiledModel, "compiled_compute", c1)
-        setattr(CompiledModel, "read_variables", c2)
-        setattr(CompiledModel, "write_variables", c3)
-
-
         self.compiled_compute, self.var_func, self.var_write = compiled_compute, var_func, var_write
 
         def c4(values_dict):
@@ -654,6 +651,8 @@ class Model:
         from numerous.engine.system.subsystem import Subsystem
         system_, logger_level, external_mappings, imports, use_llvm, vars_ordered_values, variables, state_idx, \
         derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(open(param, "rb"))
+        if isinstance(external_mappings,EmptyMapping):
+            external_mappings=None
         model = Model(system=system_, assemble=False, logger_level=logger_level, external_mappings=external_mappings,
                       use_llvm=use_llvm)
         model.variables = variables
@@ -663,15 +662,6 @@ class Model:
         model.derivatives_idx = derivatives_idx
         model.init_values = init_values
         model.aliases = aliases
-        import faulthandler
-        import llvmlite.binding as llvm
-        faulthandler.enable()
-        llvm.initialize()
-        llvm.initialize_native_target()
-        llvm.initialize_native_asmprinter()
-        llvmmodule = llvm.parse_assembly("")
-        target_machine = llvm.Target.from_default_triple().create_target_machine()
-        ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
         for equation in equations_llvm_opt:
             llmod2 = llvm.parse_assembly(equation)
             ee.add_module(llmod2)
@@ -704,6 +694,19 @@ class Model:
         @njit('void(float64,int64)')
         def var_write(var, idx):
             vars_w(var, idx)
+
+        def c1(self, array_):
+            return compiled_compute(array_)
+
+        def c2(self):
+            return var_func()
+
+        def c3(self, value, idx):
+            return var_write(value, idx)
+
+        setattr(CompiledModel, "compiled_compute", c1)
+        setattr(CompiledModel, "read_variables", c2)
+        setattr(CompiledModel, "write_variables", c3)
 
         model.set_functions(compiled_compute, var_func, var_write)
         return model
