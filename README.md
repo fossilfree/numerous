@@ -1,5 +1,4 @@
 <img src="https://numerous.com/resources/numerous-logo.svg" width="400" height="100">
----------------------------------------------------------------------------------------------------
 
 [![CircleCI](https://circleci.com/gh/fossilfree/numerous.svg?style=shield)](https://circleci.com/gh/fossilfree/numerous)
 ---------------------------------------------------------------------------------------------------
