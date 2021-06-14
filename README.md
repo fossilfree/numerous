@@ -1,4 +1,4 @@
-![Numerous Logo](./docs/source/_static/img/logo_cropped_numerous_transparent-back.svg)
+![Numerous Logo](https://numerous.com/resources/numerous-logo.svg)
 ---------------------------------------------------------------------------------------------------
 
 [![CircleCI](https://circleci.com/gh/fossilfree/numerous.svg?style=shield)](https://circleci.com/gh/fossilfree/numerous)
