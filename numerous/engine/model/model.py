@@ -402,13 +402,6 @@ class Model:
         self.state_idx, self.derivatives_idx = \
             eq_gen.generate_equations(export_model=self.export_model)
 
-        for varname, ix in self.vars_ordered_values.items():
-            var = self.variables[varname]
-            var.llvm_idx = ix
-            if getattr(var, 'logger_level',
-                       None) is None:  # added to temporary variables - maybe put in generate_equations?
-                setattr(var, 'logger_level', LoggerLevel.ALL)
-
         def c1(self, array_):
             return compiled_compute(array_)
 
@@ -421,6 +414,14 @@ class Model:
         setattr(CompiledModel, "compiled_compute", c1)
         setattr(CompiledModel, "read_variables", c2)
         setattr(CompiledModel, "write_variables", c3)
+
+        for varname, ix in self.vars_ordered_values.items():
+            var = self.variables[varname]
+            var.llvm_idx = ix
+            var.write_variable = c3
+            if getattr(var, 'logger_level',
+                       None) is None:  # added to temporary variables - maybe put in generate_equations?
+                setattr(var, 'logger_level', LoggerLevel.ALL)
 
         self.compiled_compute, self.var_func, self.var_write = compiled_compute, var_func, var_write
         self.init_values = np.ascontiguousarray(
