@@ -418,7 +418,7 @@ class Model:
         for varname, ix in self.vars_ordered_values.items():
             var = self.variables[varname]
             var.llvm_idx = ix
-            var.write_variable = c3
+            var.write_variable = var_write
             if getattr(var, 'logger_level',
                        None) is None:  # added to temporary variables - maybe put in generate_equations?
                 setattr(var, 'logger_level', LoggerLevel.ALL)
