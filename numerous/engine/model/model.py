@@ -415,14 +415,6 @@ class Model:
         setattr(CompiledModel, "read_variables", c2)
         setattr(CompiledModel, "write_variables", c3)
 
-        for varname, ix in self.vars_ordered_values.items():
-            var = self.variables[varname]
-            var.llvm_idx = ix
-            var.write_variable = var_write
-            if getattr(var, 'logger_level',
-                       None) is None:  # added to temporary variables - maybe put in generate_equations?
-                setattr(var, 'logger_level', LoggerLevel.ALL)
-
         self.compiled_compute, self.var_func, self.var_write = compiled_compute, var_func, var_write
         self.init_values = np.ascontiguousarray(
             [self.variables[k].value for k in self.vars_ordered_values.keys()],
@@ -456,6 +448,15 @@ class Model:
                              eq_gen.generated_program.equations_llvm_opt, eq_gen.generated_program.max_var,
                              eq_gen.generated_program.n_deriv), handle, protocol=pickle.HIGHEST_PROTOCOL)
             logging.info('Model successfully exported to ' + filename)
+
+        # set after export (otherwise we get pickling error for var.write_variable=var_write)
+        for varname, ix in self.vars_ordered_values.items():
+            var = self.variables[varname]
+            var.llvm_idx = ix
+            var.write_variable = var_write
+            if getattr(var, 'logger_level',
+                       None) is None:  # added to temporary variables - maybe put in generate_equations?
+                setattr(var, 'logger_level', LoggerLevel.ALL)
 
     def get_states(self):
         """
@@ -616,6 +617,13 @@ class Model:
         return self.numba_model
 
     def set_functions(self, compiled_compute, var_func, var_write):
+
+        for varname, ix in self.vars_ordered_values.items():
+            var = self.variables[varname]
+            var.write_variable = var_write
+            if getattr(var, 'logger_level',
+                       None) is None:  # added to temporary variables - maybe put in generate_equations?
+                setattr(var, 'logger_level', LoggerLevel.ALL)
 
         self.compiled_compute, self.var_func, self.var_write = compiled_compute, var_func, var_write
 
