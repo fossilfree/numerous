@@ -120,9 +120,9 @@ def test_llvm_1_to_n_mapping():
 
 def test_llvm_1_function():
     llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
-    llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
+    llvm_names = llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
 
-    llvm_program.add_call(eval_llvm.__qualname__,
+    llvm_program.add_call(llvm_names[eval_llvm.__qualname__],
                           ["oscillator1.mechanics.x", "oscillator1.mechanics.y", "oscillator1.mechanics.x_dot",
                            "oscillator1.mechanics.y_dot"],
                           target_ids=[2, 3])
@@ -135,9 +135,9 @@ def test_llvm_1_function():
 
 def test_llvm_nested_function_and_mapping():
     llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
-    llvm_program.add_external_function(eval_llvm2, eval_llvm2_signature, number_of_args=4, target_ids=[2, 3])
+    llvm_names = llvm_program.add_external_function(eval_llvm2, eval_llvm2_signature, number_of_args=4, target_ids=[2, 3])
 
-    llvm_program.add_call(eval_llvm2.__qualname__,
+    llvm_program.add_call(llvm_names[eval_llvm2.__qualname__],
                           ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
                            "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"], target_ids=[2, 3])
 
@@ -152,9 +152,9 @@ def test_llvm_nested_function_and_mapping():
 
 def test_llvm_1_function_and_mapping():
     llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
-    llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
+    llvm_names = llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
 
-    llvm_program.add_call(eval_llvm.__qualname__,
+    llvm_program.add_call(llvm_names[eval_llvm.__qualname__],
                           ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
                            "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"], target_ids=[2, 3])
 
@@ -169,7 +169,7 @@ def test_llvm_1_function_and_mapping():
 
 def test_llvm_unordered_vars():
     llvm_program = LLVMBuilder(initial_values, variable_distributed, STATES, DERIVATIVES)
-    llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
+    llvm_names = llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
     diff, var_func, _ = llvm_program.generate(filename)
     assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([2., 3., 4.])
     assert approx(var_func()) == np.array([1., 2., 3., 4., 2.1, 6., 7., 2.2, 2.3])
@@ -177,9 +177,9 @@ def test_llvm_unordered_vars():
 
 def test_llvm_1_function_and_mapping_unordered_vars():
     llvm_program = LLVMBuilder(initial_values, variable_distributed, STATES, DERIVATIVES)
-    llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
+    llvm_names = llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
 
-    llvm_program.add_call(eval_llvm.__qualname__,
+    llvm_program.add_call(llvm_names[eval_llvm.__qualname__],
                           ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
                            "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"], target_ids=[2, 3])
 
@@ -193,19 +193,19 @@ def test_llvm_1_function_and_mapping_unordered_vars():
 
 def test_llvm_1_function_and_mappings():
     llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
-    llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
+    llvm_names = llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
 
     llvm_program.add_mapping(args=["oscillator1.mechanics.x"],
                              targets=["oscillator1.mechanics.b"])
 
-    llvm_program.add_call(eval_llvm.__qualname__, ["oscillator1.mechanics.b", "oscillator1.mechanics.y",
+    llvm_program.add_call(llvm_names[eval_llvm.__qualname__], ["oscillator1.mechanics.b", "oscillator1.mechanics.y",
                                                    "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"],
                           target_ids=[2, 3])
 
     llvm_program.add_mapping(args=["oscillator1.mechanics.a"],
                              targets=["oscillator1.mechanics.b"])
 
-    llvm_program.add_call(eval_llvm.__qualname__, ["oscillator1.mechanics.b", "oscillator1.mechanics.y",
+    llvm_program.add_call(llvm_names[eval_llvm.__qualname__], ["oscillator1.mechanics.b", "oscillator1.mechanics.y",
                                                    "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"],
                           target_ids=[2, 3])
 
@@ -218,9 +218,9 @@ def test_llvm_1_function_and_mappings():
 
 def test_llvm_2_function_and_mappings():
     llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
-    llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
+    llvm_names =llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
 
-    llvm_program.add_call(eval_llvm.__qualname__, ["oscillator1.mechanics.b", "oscillator1.mechanics.y",
+    llvm_program.add_call(llvm_names[eval_llvm.__qualname__], ["oscillator1.mechanics.b", "oscillator1.mechanics.y",
                                                    "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"],
                           target_ids=[2, 3])
 
@@ -233,9 +233,9 @@ def test_llvm_2_function_and_mappings():
 
 def test_llvm_loop_seq():
     llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
-    llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
+    llvm_names =llvm_program.add_external_function(eval_llvm, eval_llvm_signature, number_of_args=4, target_ids=[2, 3])
 
-    llvm_program.add_set_call(eval_llvm.__qualname__, [
+    llvm_program.add_set_call(llvm_names[eval_llvm.__qualname__], [
         ["oscillator1.mechanics.y", "oscillator1.mechanics.z", "oscillator1.mechanics.a", "oscillator1.mechanics.b"],
         ["oscillator1.mechanics.c", "oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot",
          "oscillator1.mechanics.z_dot"]],
@@ -250,9 +250,9 @@ def test_llvm_loop_seq():
 
 def test_llvm_loop_mix():
     llvm_program = LLVMBuilder(initial_values, variable_names, STATES, DERIVATIVES)
-    llvm_program.add_external_function(eval_llvm_mix, eval_llvm_mix_signature, number_of_args=4, target_ids=[1, 3])
+    llvm_names =llvm_program.add_external_function(eval_llvm_mix, eval_llvm_mix_signature, number_of_args=4, target_ids=[1, 3])
 
-    llvm_program.add_set_call(eval_llvm_mix.__qualname__, [
+    llvm_program.add_set_call(llvm_names[eval_llvm_mix.__qualname__], [
         ["oscillator1.mechanics.y", "oscillator1.mechanics.z", "oscillator1.mechanics.a", "oscillator1.mechanics.b"],
         ["oscillator1.mechanics.c", "oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot",
          "oscillator1.mechanics.z_dot"]],
