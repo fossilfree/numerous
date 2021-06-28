@@ -12,7 +12,7 @@ Wrapper for scipy ivp solver.
 """
 class IVP_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps,y0, **kwargs):
+    def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps, y0, **kwargs):
         super().__init__()
         self.model = model
         self.time = time
@@ -46,7 +46,7 @@ class IVP_solver(BaseSolver):
 
         return self.sol,  self.result_status
 
-    def solver_step(self,t, delta_t=None):
+    def solver_step(self, t, delta_t=None):
         step_not_finished = True
         current_timestamp = t
         event_steps = 0

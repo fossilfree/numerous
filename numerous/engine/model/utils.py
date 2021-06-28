@@ -14,6 +14,12 @@ class Imports:
         self.from_imports.append((module_name, element))
 
 
+@unique
+class EventTypes(IntEnum):
+    TIME_EVENT = 0
+    STATE_EVENT = 1
+
+
 # TODO add setVAR/GridVar?
 @unique
 class NodeTypes(IntEnum):

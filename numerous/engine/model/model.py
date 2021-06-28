@@ -8,7 +8,7 @@ import uuid
 from numba.experimental import jitclass
 import pandas as pd
 
-from numerous.engine.model.utils import Imports
+from numerous.engine.model.utils import Imports, EventTypes
 from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
 
 from numerous.utils.logger_levels import LoggerLevel
@@ -500,6 +500,10 @@ class Model:
                 if result:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
+
+    def add_event(self, event: Event):
+        self.events.update({event.key:event})
+
 
     def create_alias(self, variable_name, alias):
         """
