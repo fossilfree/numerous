@@ -108,7 +108,6 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
                             raise
 
                 g = ast_to_graph(ast_tree, eq_key, eq.file, eq.lineno, scope_variables)
-                g.as_graphviz("c2",force=True)
                 # Create branched versions of graph
                 branches_ = set()
                 [branches_.update(b.branches.keys()) for b in g.edges_c[:g.edge_counter] if b.branches]
