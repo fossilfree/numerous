@@ -8,7 +8,7 @@ import uuid
 from numba.experimental import jitclass
 import pandas as pd
 
-from numerous.engine.model.utils import Imports, EventTypes
+from numerous.engine.model.utils import Imports
 from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
 
 from numerous.utils.logger_levels import LoggerLevel
@@ -190,8 +190,8 @@ class Model:
         return model_namespaces
 
     def __get_mapping__variable(self, variable, depth):
-        if variable.mapping and depth>0:
-            return self.__get_mapping__variable(variable.mapping,depth-1)
+        if variable.mapping and depth > 0:
+            return self.__get_mapping__variable(variable.mapping, depth - 1)
         else:
             return variable
 
@@ -229,7 +229,6 @@ class Model:
         for variables, equation_dict in map(ModelAssembler.namespace_parser, model_namespaces):
             self.equation_dict.update(equation_dict)
             self.variables.update(variables)
-
 
         mappings = []
         for variable in self.variables.values():
@@ -275,7 +274,6 @@ class Model:
         # Process mappings add update the global graph
         self.mappings_graph = process_mappings(mappings, self.mappings_graph, self.variables)
         self.mappings_graph.build_node_edges()
-
 
         logging.info('Mappings processed')
 
@@ -336,14 +334,14 @@ class Model:
                 self.path_variables.update({path: variable.value})  # is this used at all?
 
         self.inverse_aliases = {v: k for k, v in self.aliases.items()}
-        inverse_logged_aliases = {} # {id: [alias1, alias2...], ...}
-        for k,v in self.logged_aliases.items():
+        inverse_logged_aliases = {}  # {id: [alias1, alias2...], ...}
+        for k, v in self.logged_aliases.items():
             inverse_logged_aliases[v] = inverse_logged_aliases.get(v, []) + [k]
 
         self.inverse_logged_aliases = inverse_logged_aliases
         self.logged_variables = {}
 
-        for varname, ix in self.vars_ordered_values.items(): # now it's a dict...
+        for varname, ix in self.vars_ordered_values.items():  # now it's a dict...
             var = self.variables[varname]
             if var.logger_level.value >= self.logger_level.value:
                 if varname in self.inverse_logged_aliases:
@@ -376,7 +374,8 @@ class Model:
 
         logging.info('lowering model')
 
-        eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py", equation_graph=self.mappings_graph,
+        eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py",
+                                   equation_graph=self.mappings_graph,
                                    scope_variables=self.variables, scoped_equations=self.scoped_equations,
                                    temporary_variables=tmp_vars, system_tag=self.system.tag, use_llvm=self.use_llvm,
                                    imports=self.imports)
@@ -479,7 +478,6 @@ class Model:
                """
         return [item for item in self.model_items.values() if item.tag == item_tag]
 
-
     @property
     def states_as_vector(self):
         """
@@ -503,9 +501,8 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
-    def add_event(self, event: Event):
-        self.events.update({event.key:event})
-
+    # def add_event(self, event: Event):
+    #     self.events.update({event.key: event})
 
     def create_alias(self, variable_name, alias):
         """
@@ -598,10 +595,9 @@ class Model:
             historian_data = self.numba_model.historian_data
         time = historian_data[0]
 
-        data = {var: historian_data[i+1] for var, i in self.logged_variables.items()}
+        data = {var: historian_data[i + 1] for var, i in self.logged_variables.items()}
         data.update({'time': time})
         return data
-
 
     def create_historian_df(self):
         self.historian_df = self._generate_history_df(self.numba_model.historian_data, rename_columns=False)
@@ -610,7 +606,6 @@ class Model:
     def _generate_history_df(self, historian_data, rename_columns=True):
         data = self.create_historian_dict(historian_data)
         return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
-
 
 
 class AliasedDataFrame(pd.DataFrame):

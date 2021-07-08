@@ -45,7 +45,6 @@ class Simulation:
         time_, delta_t = np.linspace(t_start, t_stop, num + 1, retstep=True)
         self.callbacks = []
         self.time = time_
-        self.async_callback = []
         self.model = model
 
         def __end_step(solver, y, t):
@@ -83,8 +82,9 @@ class Simulation:
                                      num_inner, max_event_steps, self.model.states_as_vector, **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
-            self.solver = Numerous_solver(time_, delta_t, model,numba_model,
-                                          num_inner, max_event_steps, self.model.states_as_vector,   numba_compiled_solver=model.use_llvm,**kwargs)
+            self.solver = Numerous_solver(time_, delta_t, model, numba_model,
+                                          num_inner, max_event_steps, self.model.states_as_vector,
+                                          numba_compiled_solver=model.use_llvm, **kwargs)
 
         self.solver.register_endstep(__end_step)
 
@@ -100,15 +100,10 @@ class Simulation:
         print("Compilation time: ", compilation_finished - compilation_start)
 
         self.compiled_model = numba_model
-        # self.solver.events = [model.events[event_name].event_function._event_wrapper() for event_name in model.events]
-        # self.callbacks = [x.callbacks for x in sorted(model.callbacks,
-        #                                               key=lambda callback: callback.priority,
-        #                                               reverse=True)]
+
 
     def solve(self):
         self.reset()
-
-        result_status = "not finished"
 
         sol, self.result_status = self.solver.solve()
 
@@ -146,4 +141,3 @@ class Simulation:
 
     def __init_step(self):
         pass
-        # [x.initialize(simulation=self) for x in self.model.callbacks]

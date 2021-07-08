@@ -73,7 +73,7 @@ class IVP_solver(BaseSolver):
                 current_timestamp = t_end
                 if step_solver_mode: # added this
                     self.model.numba_model.historian_update(current_timestamp)
-                    self.y0 = self.sol.y[:,-1]
+                    self.y0 = self.sol.y[:, -1]
                     return current_timestamp, self.sol.t[-1]
             if event_step:
                 event_id = np.nonzero([x.size > 0 for x in self.sol.t_events])[0][0]
