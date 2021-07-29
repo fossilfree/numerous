@@ -47,26 +47,28 @@ class Simulation:
         self.time = time_
         self.model = model
 
-        def __end_step(solver, y, t):
+        def __end_step(solver, y, t, event_id=None):
             """
 
             """
+            solver.y0 = y.flatten()
 
-            solver.y0 = y
+            if event_id is not None:
+                list(self.model.events.values())[event_id].update(t, self.model.variables)
+            else:
+                solver.numba_model.historian_update(t)
+                solver.numba_model.map_external_data(t)
 
-            solver.numba_model.historian_update(t)
-            # solver.numba_model.run_callbacks_with_updates(t)
-            solver.numba_model.map_external_data(t)
+                if solver.numba_model.is_store_required():
+                    self.model.store_history(numba_model.historian_data)
+                    solver.numba_model.historian_reinit()
+                #
+                if solver.numba_model.is_external_data_update_needed(t):
+                    solver.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
+                    if solver.numba_model.is_external_data:
+                        solver.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
+                                                                self.model.external_mappings.external_mappings_time)
 
-            if solver.numba_model.is_store_required():
-                self.model.store_history(numba_model.historian_data)
-                solver.numba_model.historian_reinit()
-            #
-            if solver.numba_model.is_external_data_update_needed(t):
-                solver.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
-                if solver.numba_model.is_external_data:
-                    solver.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
-                                                            self.model.external_mappings.external_mappings_time)
 
         self.end_step = __end_step
         print("Generating Numba Model")
@@ -79,7 +81,7 @@ class Simulation:
 
         if solver_type.value == SolverType.SOLVER_IVP.value:
             self.solver = IVP_solver(time_, delta_t, model, numba_model,
-                                     num_inner, max_event_steps, self.model.states_as_vector, **kwargs)
+                                     num_inner, max_event_steps, self.model.states_as_vector, events=self.model.events, **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
             self.solver = Numerous_solver(time_, delta_t, model, numba_model,

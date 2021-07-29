@@ -234,26 +234,34 @@ def test_1_item_model(ms1):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-@pytest.mark.skip(reason="Functionality not implemented in current version")
 def test_callback_step_item_model(ms1, solver):
-    class SimpleCallback(NumbaCallbackBase):
+    class SimpleEvent:
+        def __init__(self,key):
+            self.key = key
+            self.check.__func__.terminal =True
+            pass
+
         def finalize(self, var_list):
             pass
 
-        @NumbaCallback(method_type=CallbackMethodType.INITIALIZE)
         def initialize(self, var_count, number_of_timesteps):
             pass
 
-        @NumbaCallback(method_type=CallbackMethodType.UPDATE, run_after_init=True)
         def update(self, time, variables):
-            if variables['S1.test_item.t1.T2'] > 1000:
-                raise ValueError("Overflow of state2")
+            pass
 
+        def check(self, time, states):
+            if time>1:
+                return 1
+            else:
+                return -1
+
+    event = SimpleEvent(key = "simple")
     m1 = Model(ms1)
-    m1.add_callback(SimpleCallback())
+    m1.add_event(event)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
-    with pytest.raises(ValueError, match=r".*Overflow of state2.*"):
-        s1.solve()
+    # with pytest.raises(ValueError, match=r".*Overflow of state2.*"):
+    s1.solve()
 
 
 def test_add_item_twice_with_same_tag(ms2):

@@ -12,5 +12,13 @@ class Event:
         pass
 
 
-    def exec(self):
+    def exec(self)->:
         pass
+
+
+class EventHandler():
+
+
+    run_event(self,event_ids):
+    for id in event_idsP
+        events[id].exec
