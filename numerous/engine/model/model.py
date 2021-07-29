@@ -99,6 +99,7 @@ class Model:
                  external_mappings=None, data_loader=None, imports=None, historian=InMemoryHistorian(),
                  use_llvm=True, generate_graph_pdf=False):
 
+        self.path_to_variable={}
         self.generate_graph_pdf = generate_graph_pdf
 
         if logger_level == None:
@@ -360,6 +361,7 @@ class Model:
         self.number_of_external_mappings = number_of_external_mappings
         self.external_mappings.store_mappings()
         self.external_idx = np.array(external_idx, dtype=np.int64)
+        self.generate_path_to_varaible()
 
         assemble_finish = time.time()
         print("Assemble time: ", assemble_finish - assemble_start)
@@ -428,6 +430,10 @@ class Model:
         setattr(self, "get_variables", c5)
 
         self.info.update({"Solver": {}})
+
+    def generate_path_to_varaible(self):
+        for k, v in self.aliases.items():
+            self.path_to_variable[k] = self.variables[v]
 
     def get_states(self):
         """
@@ -501,8 +507,8 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
-    # def add_event(self, event: Event):
-    #     self.events.update({event.key: event})
+    def add_event(self, event):
+        self.events.update({event.key: event})
 
     def create_alias(self, variable_name, alias):
         """

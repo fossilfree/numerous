@@ -6,17 +6,22 @@ import numpy as np
 
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
 
-
 """
 Wrapper for scipy ivp solver.
 """
+
+
 class IVP_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps, y0, **kwargs):
+    def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps, y0, events, **kwargs):
         super().__init__()
         self.model = model
         self.time = time
-        self.y0=y0
+        self.eventf = []
+        for event in events.values():
+            self.eventf.append(event.check)
+        self.events = events
+        self.y0 = y0
         self.num_inner = num_inner
         self.delta_t = delta_t
         self.numba_model = numba_model
@@ -44,7 +49,7 @@ class IVP_solver(BaseSolver):
             print(e)
             raise e
 
-        return self.sol,  self.result_status
+        return self.sol, self.result_status
 
     def solver_step(self, t, delta_t=None):
         step_not_finished = True
@@ -64,14 +69,14 @@ class IVP_solver(BaseSolver):
             t_eval = np.linspace(current_timestamp, t_end, self.num_inner + 1)
 
             self.sol = solve_ivp(self.diff_function, (current_timestamp, t + delta_t), y0=self.y0, t_eval=t_eval,
-                            dense_output=False,
-                            **self.options)
+                                 dense_output=False, events=self.eventf,
+                                 **self.options)
             step_not_finished = False
             event_step = self.sol.status == 1
 
             if self.sol.status == 0:
                 current_timestamp = t_end
-                if step_solver_mode: # added this
+                if step_solver_mode:  # added this
                     self.model.numba_model.historian_update(current_timestamp)
                     self.y0 = self.sol.y[:, -1]
                     return current_timestamp, self.sol.t[-1]
@@ -88,7 +93,7 @@ class IVP_solver(BaseSolver):
                     stop_condition = True
                 current_timestamp = self.sol.t_events[event_id][0]
                 step_not_finished = True
-                self.__end_step(self, self.sol(current_timestamp), current_timestamp, event_id=event_id)
+                self.__end_step(self, self.sol.y, current_timestamp, event_id=event_id)
             else:
                 if self.sol.success:
                     self.__end_step(self, self.sol.y[:, -1], current_timestamp)
@@ -103,9 +108,8 @@ class IVP_solver(BaseSolver):
             return True
         return False
 
-
     def set_state_vector(self, states_as_vector):
         self.y0 = states_as_vector
 
     def register_endstep(self, __end_step):
-        self.__end_step =__end_step
+        self.__end_step = __end_step
