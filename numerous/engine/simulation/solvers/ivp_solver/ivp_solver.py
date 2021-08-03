@@ -19,7 +19,7 @@ class IVP_solver(BaseSolver):
         self.time = time
         self.eventf = []
         for event in events.values():
-            self.eventf.append(event.check)
+            self.eventf.append(event[0])
         self.events = events
         self.y0 = y0
         self.num_inner = num_inner

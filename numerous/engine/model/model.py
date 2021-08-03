@@ -1,14 +1,16 @@
+import ast
 import itertools
 from copy import copy
 
 import numpy as np
 import time
+import inspect
 import uuid
 
 from numba.experimental import jitclass
 import pandas as pd
 
-from numerous.engine.model.utils import Imports
+from numerous.engine.model.utils import Imports, wrap_function
 from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
 
 from numerous.utils.logger_levels import LoggerLevel
@@ -99,7 +101,7 @@ class Model:
                  external_mappings=None, data_loader=None, imports=None, historian=InMemoryHistorian(),
                  use_llvm=True, save_to_file=False, generate_graph_pdf=False):
 
-        self.path_to_variable={}
+        self.path_to_variable = {}
         self.generate_graph_pdf = generate_graph_pdf
 
         if logger_level == None:
@@ -409,8 +411,7 @@ class Model:
         self.init_values = np.ascontiguousarray(
             [self.variables[k].value for k in self.vars_ordered_values.keys()],
             dtype=np.float64)
-        for k, v in self.vars_ordered_values.items():
-            self.var_write(self.variables[k].value, v)
+        self.update_all_variables()
 
         # values of all model variables in specific order: self.vars_ordered_values
         # full tags of all variables in the model in specific order: self.vars_ordered
@@ -432,6 +433,15 @@ class Model:
     def generate_path_to_varaible(self):
         for k, v in self.aliases.items():
             self.path_to_variable[k] = self.variables[v]
+
+    def update_all_variables(self):
+        for k, v in self.vars_ordered_values.items():
+            self.var_write(self.variables[k].value, v)
+
+    def update_local_variables(self):
+        vars = self.numba_model.read_variables()
+        for k, v in self.vars_ordered_values.items():
+            self.variables[k].value = vars[v]
 
     def get_states(self):
         """
@@ -505,8 +515,33 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
-    def add_event(self, event):
-        self.events.update({event.key: event})
+    def add_event(self, key, condition, action, terminal=True, direction=-1):
+        condition = self._replace_event_strings(condition)
+        condition.terminal = terminal
+        condition.direction = direction
+        self.events.update({key: [condition, action]})
+
+    def _replace_event_strings(self, condition):
+        lines = inspect.getsource(condition)
+        for (var_path, var) in self.path_to_variable.items():
+            if var_path in lines:
+                lines = lines.replace('[\'' + var_path + '\']', str(np.where(self.state_idx == var.llvm_idx)[0]))
+        func = ast.parse(lines.strip()).body[0]
+        fname = func.name
+        body = []
+        body.append(func)
+        body.append(
+            ast.Return(value=ast.Name(id=fname, ctx=ast.Load(), lineno=0, col_offset=0), lineno=0, col_offset=0))
+
+        func = wrap_function(fname + '1', body, decorators=[],
+                             args=ast.arguments(posonlyargs=[], args=[], vararg=None, defaults=[],
+                                                kwonlyargs=[], kw_defaults=[], lineno=0, kwarg=None))
+        module_func = ast.Module(body=[func], type_ignores=[])
+        code = compile(ast.parse(ast.unparse(module_func)), filename='event_storage', mode='exec')
+        namespace = {}
+        exec(code, namespace)
+        compiled_func = list(namespace.values())[1]()
+        return compiled_func
 
     def create_alias(self, variable_name, alias):
         """

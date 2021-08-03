@@ -54,7 +54,11 @@ class Simulation:
             solver.y0 = y.flatten()
 
             if event_id is not None:
-                list(self.model.events.values())[event_id].update(t, self.model.variables)
+                self.model.update_local_variables()
+                list(self.model.events.values())[event_id][1](t, self.model.path_to_variable)
+                self.model.update_all_variables()
+                solver.y0 = self.model.states_as_vector
+
             else:
                 solver.numba_model.historian_update(t)
                 solver.numba_model.map_external_data(t)
