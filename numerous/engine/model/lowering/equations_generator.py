@@ -422,16 +422,28 @@ class EquationGenerator:
                 os.makedirs(os.path.dirname(self.generated_program.kernel_filename), exist_ok=True)
                 with open(self.generated_program.kernel_filename, 'w') as f:
                     f.write(code)
-            exec(code, kernel_module.__dict__)
+                exec('from tmp.listings.' + self.system_tag + '_kernel import *', globals())
+
+                def var_func():
+                    return kernel_variables
+
+                def var_write(value, idx):
+                    np.put(kernel_variables, [idx], value)
+
+                return global_kernel, var_func, var_write, self.values_order, self.scope_variables, np.array(state_idx,
+                                                                                                             dtype=np.int64), np.array(
+                    deriv_idx, dtype=np.int64)
+            else:
+                exec(code, kernel_module.__dict__)
 
 
-            def var_func():
-                return kernel_module.kernel_variables
+                def var_func():
+                    return kernel_module.kernel_variables
 
-            def var_write(value, idx):
-                np.put(kernel_module.kernel_variables, [idx], value)
+                def var_write(value, idx):
+                    np.put(kernel_module.kernel_variables, [idx], value)
 
-            return kernel_module.global_kernel, var_func, var_write, self.values_order, self.scope_variables, np.array(
-                state_idx,
-                dtype=np.int64), np.array(
-                deriv_idx, dtype=np.int64)
+                return kernel_module.global_kernel, var_func, var_write, self.values_order, self.scope_variables, np.array(
+                    state_idx,
+                    dtype=np.int64), np.array(
+                    deriv_idx, dtype=np.int64)

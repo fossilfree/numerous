@@ -99,7 +99,7 @@ class Model:
 
     def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
                  external_mappings=None, data_loader=None, imports=None, historian=InMemoryHistorian(),
-                 use_llvm=True, generate_graph_pdf=False):
+                 use_llvm=True, save_to_file=False, generate_graph_pdf=False):
 
         self.path_to_variable = {}
         self.generate_graph_pdf = generate_graph_pdf
@@ -114,7 +114,7 @@ class Model:
                                                  data_loader) if external_mappings else EmptyMapping()
 
         self.use_llvm = use_llvm
-
+        self.save_to_file = save_to_file
         self.imports = Imports()
         self.imports.add_as_import("numpy", "np")
         self.imports.add_from_import("numba", "njit")
@@ -386,7 +386,7 @@ class Model:
 
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.variables, \
         self.state_idx, self.derivatives_idx = \
-            eq_gen.generate_equations()
+            eq_gen.generate_equations(save_to_file=self.save_to_file)
 
         for varname, ix in self.vars_ordered_values.items():
             var = self.variables[varname]
