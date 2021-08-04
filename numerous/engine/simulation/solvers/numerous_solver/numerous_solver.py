@@ -71,7 +71,7 @@ class Numerous_solver(BaseSolver):
     def generate_solver(self):
         def _solve(numba_model, _solve_state, initial_step, order, strict_eval, outer_itermax,
                    min_step, max_step, step_integrate_,
-                   t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
+                   t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100), events_list):
             # Init t to t0
             step_info = 0
             t = t0
@@ -127,6 +127,9 @@ class Numerous_solver(BaseSolver):
 
             terminate = False
             step_converged = True
+            event_trigger = False
+            t_event = t
+            y_event = y
             dt_last = -1
             j_i = 0
             progress_c = t_eval.shape[0]
@@ -139,11 +142,14 @@ class Numerous_solver(BaseSolver):
                         raise ValueError('dt shortened below min_dt')
                     decrease = True
                     te_array[0] = t_previous + dt
-                else:
+                elif step_converged and not event_trigger:
                     dt = min(max_step, dt)
                     decrease = False
 
                     te_array[0] = t + dt
+                else: # event
+                    te_array[0] = t_event
+                    y_previous = y_event
 
                 # Determine new test - it should be the smallest value requested by events, eval, step
                 t_new_test = np.min(te_array)
@@ -198,8 +204,66 @@ class Numerous_solver(BaseSolver):
                                                                                         _solve_state)
 
                 dt *= factor
+                event_trigger = False
+                t_events = np.zeros(len(events_list)) + t
+                y_events = np.zeros(len(y), len(events_list))
+
+                def sol(t):
+                    yi = np.zeros(len(y))
+                    tv=roller[1][0:order-1]
+                    yv=roller[2][0:order-1]
+                    for i, yvi in enumerate(yv):
+                        yi[i]=np.interp(t, tv, yvi)
+                    return yi
+
+                def check_event(event_fun, t_previous, y_previous, t, y, t_next_eval):
+                    t_l = t_previous
+                    y_l = y_previous
+                    e_l = event_fun(t_l, y_l, t_next_eval)
+                    t_r = t
+                    y_r = y
+                    e_r = event_fun(t_r, y_r)
+                    status = 0
+                    if np.sign(e_l) == np.sign(e_r):
+                        return status, t, y
+                    i=0
+                    t_m = (t_l+t_r)/2
+                    y_m = sol(t_m)
+
+                    while status==0: # bisection method
+                        e_m=event_fun(t_m, y_m, t_next_eval)
+                        if np.sign(e_l) != np.sign(e_m):
+                            t_r = t_m
+                        elif np.sign(e_r) != np.sign(e_m):
+                            t_l = t_m
+                        if abs(e_m) < 1e-6:
+                            status = 1
+                        if i > imax:
+                            status = -1
+                        t_m = (t_l + t_r) / 2
+                        y_m = sol(t_m)
+
+                    return status, t_m, y_m
 
                 if step_converged:
+                    for ix, event in enumuerate(events_list):
+                        t_event, y_event = check_event(event, t_previous, y_previous, t, y, t_next_eval)
+                        t_events[ix] = t_event
+                        y_events[:, ix] = y_event
+
+                if min(t_events) < t:
+                    event_trigger=True
+                    ix = np.argmin(t_events)
+                    t_event = t_events[ix]
+                    y_event = y_events[:, ix]
+
+                def test_event(t, y, *args):
+                    return y[1]
+
+                def numerous_event(t, variables, t_trigger):
+                    return variables['system.t1.height']
+
+                if not event_trigger and step_converged:
                     y_previous = y
                     t_previous = t
                     numba_model.map_external_data(t)
