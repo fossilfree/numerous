@@ -2,6 +2,7 @@ import time
 from collections import namedtuple
 from enum import IntEnum, unique
 
+import numba
 import numpy as np
 from numba import njit
 
@@ -26,9 +27,16 @@ class SolveEvent(IntEnum):
 
 class Numerous_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps, y0, numba_compiled_solver,
+    def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps, y0, numba_compiled_solver, events,
                  **kwargs):
         super().__init__()
+        # self.events_list = numba.typed.List()
+        # self.action_list =  numba.typed.List()
+        self.events_list = []
+        self.action_list = []
+        for ev, ac in events.items():
+            self.events_list.append(ac[0])
+            self.action_list.append(ac[1])
         self.time = time
         self.model = model
         self.num_inner = num_inner
@@ -70,8 +78,8 @@ class Numerous_solver(BaseSolver):
 
     def generate_solver(self):
         def _solve(numba_model, _solve_state, initial_step, order, strict_eval, outer_itermax,
-                   min_step, max_step, step_integrate_,
-                   t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100), events_list):
+                   min_step, max_step, step_integrate_, events_list,action_list,
+                   t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
             # Init t to t0
             step_info = 0
             t = t0
@@ -147,7 +155,7 @@ class Numerous_solver(BaseSolver):
                     decrease = False
 
                     te_array[0] = t + dt
-                else: # event
+                else:  # event
                     te_array[0] = t_event
                     y_previous = y_event
 
@@ -210,10 +218,10 @@ class Numerous_solver(BaseSolver):
 
                 def sol(t):
                     yi = np.zeros(len(y))
-                    tv=roller[1][0:order-1]
-                    yv=roller[2][0:order-1]
+                    tv = roller[1][0:order - 1]
+                    yv = roller[2][0:order - 1]
                     for i, yvi in enumerate(yv):
-                        yi[i]=np.interp(t, tv, yvi)
+                        yi[i] = np.interp(t, tv, yvi)
                     return yi
 
                 def check_event(event_fun, t_previous, y_previous, t, y, t_next_eval):
@@ -226,12 +234,12 @@ class Numerous_solver(BaseSolver):
                     status = 0
                     if np.sign(e_l) == np.sign(e_r):
                         return status, t, y
-                    i=0
-                    t_m = (t_l+t_r)/2
+                    i = 0
+                    t_m = (t_l + t_r) / 2
                     y_m = sol(t_m)
 
-                    while status==0: # bisection method
-                        e_m=event_fun(t_m, y_m, t_next_eval)
+                    while status == 0:  # bisection method
+                        e_m = event_fun(t_m, y_m, t_next_eval)
                         if np.sign(e_l) != np.sign(e_m):
                             t_r = t_m
                         elif np.sign(e_r) != np.sign(e_m):
@@ -252,7 +260,7 @@ class Numerous_solver(BaseSolver):
                         y_events[:, ix] = y_event
 
                 if min(t_events) < t:
-                    event_trigger=True
+                    event_trigger = True
                     ix = np.argmin(t_events)
                     t_event = t_events[ix]
                     y_event = y_events[:, ix]
@@ -301,6 +309,7 @@ class Numerous_solver(BaseSolver):
                 self._method.get_solver_state(len(self.y0)), initial_step,
                 order, strict_eval, outer_itermax, min_step,
                 max_step, step_integrate_,
+                self.events_list,
                 self.time[0],
                 self.time[-1],
                 self.time)
@@ -427,7 +436,7 @@ class Numerous_solver(BaseSolver):
 
         info = self._solve(self.numba_model,
                            solve_state, initial_step, order, strict_eval, outer_itermax, min_step,
-                           max_step, step_integrate_,
+                           max_step, step_integrate_, self.events_list, self.action_list,
                            t_start, t_end, self.time)
 
         while info.status == SolveStatus.Running:

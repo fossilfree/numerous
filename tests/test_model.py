@@ -12,7 +12,7 @@ from numerous.engine.simulation import Simulation
 
 from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
 from numerous import EquationBase, Equation
-from numerous.engine.simulation.solvers.base_solver import solver_types
+from numerous.engine.simulation.solvers.base_solver import solver_types, SolverType
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 
 
@@ -233,11 +233,11 @@ def test_1_item_model(ms1):
     assert item.t1.P.value == 100
 
 
-@pytest.mark.parametrize("solver", solver_types)
-@pytest.mark.parametrize("use_llvm", [True, False])
-def test_callback_step_item_model(ms3, solver,use_llvm):
+@pytest.mark.parametrize("solver", [SolverType.NUMEROUS])
+@pytest.mark.parametrize("use_llvm", [False])
+def test_callback_step_item_model(ms3, solver, use_llvm):
     def action(time, variables):
-        raise ValueError("Overflow of state. time:"+str(time))
+        raise ValueError("Overflow of state. time:" + str(time))
 
     def condition(time, states):
         return 500 - states['S3.3.t1.T']
