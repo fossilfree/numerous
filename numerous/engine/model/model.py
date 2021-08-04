@@ -530,7 +530,13 @@ class Model:
                 lines = lines.replace('[\'' + var_path + '\']', str(np.where(self.state_idx == var.llvm_idx)[0]))
         func = ast.parse(lines.strip()).body[0]
         fname = func.name
+        njit_decorator = ast.Name(id='njit', ctx=ast.Load())
+        func.decorator_list = [njit_decorator]
         body = []
+        for (module, label) in self.imports.from_imports:
+            body.append(
+                ast.ImportFrom(module=module, names=[ast.alias(name=label, asname=None)], lineno=0, col_offset=0,
+                               level=0))
         body.append(func)
         body.append(
             ast.Return(value=ast.Name(id=fname, ctx=ast.Load(), lineno=0, col_offset=0), lineno=0, col_offset=0))
