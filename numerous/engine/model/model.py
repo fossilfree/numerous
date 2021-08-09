@@ -10,7 +10,7 @@ import uuid
 from numba.experimental import jitclass
 import pandas as pd
 
-from numerous.engine.model.utils import Imports, wrap_function
+from numerous.engine.model.utils import Imports, wrap_function, njit_and_compile_function
 from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
 
 from numerous.utils.logger_levels import LoggerLevel
@@ -518,38 +518,26 @@ class Model:
         return ""
 
     def add_event(self, key, condition, action, terminal=True, direction=-1):
-        condition = self._replace_event_strings(condition)
+        condition = self._replace_path_strings(condition, "state")
+
         condition.terminal = terminal
         condition.direction = direction
+        action = self._replace_path_strings(action, "var")
         self.events.update({key: [condition, action]})
 
-    def _replace_event_strings(self, condition):
-        lines = inspect.getsource(condition)
+    def _get_var_idx(self, idx_type, var):
+        if idx_type == "state":
+            return np.where(self.state_idx == var.llvm_idx)[0]
+        if idx_type == "var":
+            return var.llvm_idx
+
+    def _replace_path_strings(self, function, idx_type):
+        lines = inspect.getsource(function)
         for (var_path, var) in self.path_to_variable.items():
             if var_path in lines:
-                lines = lines.replace('[\'' + var_path + '\']', str(np.where(self.state_idx == var.llvm_idx)[0]))
+                lines = lines.replace('[\'' + var_path + '\']', str(self._get_var_idx(var, idx_type)))
         func = ast.parse(lines.strip()).body[0]
-        fname = func.name
-        njit_decorator = ast.Name(id='njit', ctx=ast.Load())
-        func.decorator_list = [njit_decorator]
-        body = []
-        for (module, label) in self.imports.from_imports:
-            body.append(
-                ast.ImportFrom(module=module, names=[ast.alias(name=label, asname=None)], lineno=0, col_offset=0,
-                               level=0))
-        body.append(func)
-        body.append(
-            ast.Return(value=ast.Name(id=fname, ctx=ast.Load(), lineno=0, col_offset=0), lineno=0, col_offset=0))
-
-        func = wrap_function(fname + '1', body, decorators=[],
-                             args=ast.arguments(posonlyargs=[], args=[], vararg=None, defaults=[],
-                                                kwonlyargs=[], kw_defaults=[], lineno=0, kwarg=None))
-        module_func = ast.Module(body=[func], type_ignores=[])
-        code = compile(ast.parse(ast.unparse(module_func)), filename='event_storage', mode='exec')
-        namespace = {}
-        exec(code, namespace)
-        compiled_func = list(namespace.values())[1]()
-        return compiled_func
+        return njit_and_compile_function(func, self.imports.from_imports)
 
     def create_alias(self, variable_name, alias):
         """
