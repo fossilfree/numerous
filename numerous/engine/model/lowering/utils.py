@@ -33,13 +33,9 @@ def generate_code_file(mod_body, file, imports, external_functions_source=False,
     print('Generating Source')
     source = names + ast.unparse(mod)
 
-    with open(file, 'w') as f:
-        f.write(source)
 
     return source
 
-
-############### Check variables and make sets for codegen
 
 # Define helper functions to check the variables and sub lists
 def non_unique_check(listname_, list_):

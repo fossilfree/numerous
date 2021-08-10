@@ -29,7 +29,7 @@ numba_model_spec = [
 
 
 @njit
-def step_aproximation(t, time_array, data_array):
+def step_approximation(t, time_array, data_array):
     idx = np.searchsorted(time_array, t, side='right') - 1
     return data_array[idx]
 
@@ -86,7 +86,7 @@ class CompiledModel:
             value = np.interp(t, self.external_mappings_time[df_indx],
                                                         self.external_mappings_numpy[df_indx, :, var_idx]) if \
                 self.approximation_type[i] else \
-                step_aproximation(t, self.external_mappings_time[df_indx],
+                step_approximation(t, self.external_mappings_time[df_indx],
                                   self.external_mappings_numpy[df_indx, :, var_idx])
             self.write_variables(value, self.external_idx[i])
 
@@ -118,25 +118,6 @@ class CompiledModel:
         self.historian_data[0][ix] = time
         self.historian_data[1:, ix] = self.read_variables()
         self.historian_ix += 1
-
-    # def run_callbacks_with_updates(self, time: int) -> None:
-    #     '''
-    #     Updates all the values of all Variable instances stored in
-    #     `self.variables` with the values stored in `self.scope_vars_3d`.
-    #     '''
-    #     if self.callbacks:
-    #         for key, j in zip(self.path_keys,
-    #                           self.var_idxs_pos_3d_helper_callbacks):
-    #             self.path_variables[key] \
-    #                 = self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][
-    #                 self.var_idxs_pos_3d[2][j]]
-    #
-    #         self.run_callbacks(time)
-    #
-    #         for key, j in zip(self.path_keys,
-    #                           self.var_idxs_pos_3d_helper_callbacks):
-    #             self.scope_vars_3d[self.var_idxs_pos_3d[0][j]][self.var_idxs_pos_3d[1][j]][self.var_idxs_pos_3d[2][j]] \
-    #                 = self.path_variables[key]
 
     def get_g(self, t, yold, y, dt, order, a, af):
         f = self.func(t, y)

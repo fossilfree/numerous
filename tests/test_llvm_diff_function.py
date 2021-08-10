@@ -3,18 +3,12 @@ from abc import ABC
 import pytest
 from numerous.engine.model.external_mappings import ExternalMappingElement
 
-from numerous.utils.data_loader import LocalDataLoader, InMemoryDataLoader
 from pytest import approx
 
-from numerous.engine.model.external_mappings.interpolation_type import InterpolationType
-from numerous.utils.callback_decorators import CallbackMethodType, NumbaCallback
-from numerous.utils.numba_callback import NumbaCallbackBase
 from numerous.engine.model import Model
-from numerous.engine.simulation import Simulation
 
 from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
-from numerous import EquationBase, OutputFilter, Equation
-from numerous.engine.simulation.solvers.base_solver import solver_types
+from numerous import EquationBase, Equation
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 import numpy as np
 

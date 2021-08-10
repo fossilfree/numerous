@@ -20,7 +20,6 @@ class Equation(object):
 
     def __init__(self):
         self.id =str(uuid.uuid4())
-    # self.func = func
 
     def __call__(self, func):
         @wraps(func)
@@ -37,7 +36,7 @@ class Equation(object):
         wrapper.lineno = inspect.getsourcelines(func)[1]
         wrapper.file = inspect.getfile(func)
         wrapper.name = func.__name__
-        # wrapper.i = self.i
+        self.name = func.__name__
         return wrapper
 
 

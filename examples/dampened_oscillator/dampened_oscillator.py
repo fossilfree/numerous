@@ -184,19 +184,6 @@ if __name__ == "__main__":
     s.solve()
     toc = time()
     print('Execution time: ', toc - tic)
-    # print(s.model.historian_df)
-    # print(len(list(s.model.historian_df)))
-    # s.model.historian_df['oscillator0_mechanics_a'].plot()
-    # for i in range(10):
-    #    for k, v in zip(list(s.model.historian_df),s.model.historian_df.loc[i,:]):
-    #        print(k,': ',v)
-
-    # print(s.model.historian_df.describe())
-    # print(list(s.model.historian_df))
-    # for c in list(s.model.historian_df):
-    #    if not c == 'time':
-    # print(s.model.historian_df[c].describe())
-    # print(list(s.model.historian_df))
 
     s.model.historian_df[['system.SET_oscillators.oscillator0.mechanics.x', 'system.SET_oscillators.oscillator1.mechanics.x']].plot()
     # print()

@@ -107,12 +107,8 @@ class MappedValue(object):
 class VariablePath:
 
     def __init__(self, tag, id):
-
         self.path = {id: tag}
-
-        ##
         self.primary_path = tag
-
         self.used_id_pairs = []
 
     def __iter__(self):
@@ -180,7 +176,7 @@ class Variable(MappedValue):
         self.set_var_ix = None
         self.set_namespace = None
         self.size = 0
-
+        self.temporary_variable = False
         if base_variable:
 
             self._value = base_variable.value
@@ -195,6 +191,7 @@ class Variable(MappedValue):
         self.associated_scope = []
         self.idx_in_scope = []
         self.top_item = None
+        self.used_in_equation_graph = False
 
     def get_path_dot(self):
         return self.path.path[self.top_item][0]

@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="numerous-engine",
-    version="0.1.1",
+    version="0.2",
     author='Artem Chupryna, EnergyMachines ApS',
     author_email='artem.chupryna@energymachines.com',
     description="Numerous  - an object-oriented modelling and simulation engine.",
@@ -20,13 +20,12 @@ setuptools.setup(
     ],
     install_requires=[
         'attrs >= 19.3.0',
-        'astor == 0.8.1',
         'graphviz == 0.14',
         'importlib-metadata >= 1.3.0',
         'more-itertools >= 8.0.2',
         'numpy >= 1.17.4',
         'networkx >= 2.4',
-        'numba == 0.50.1',
+        'numba >=0.52',
         'tqdm >= 4.40.2',
         'packaging >= 19.2',
         'pandas >= 1.0.5',
@@ -40,5 +39,5 @@ setuptools.setup(
         'wcwidth >= 0.1.7',
         'zipp >= 0.6.0'
     ],
-    python_requires='>=3.7',
+    python_requires='>=3.9',
 )
