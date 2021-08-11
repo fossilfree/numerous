@@ -234,7 +234,7 @@ def test_1_item_model(ms1):
 
 
 @pytest.mark.parametrize("solver", [SolverType.NUMEROUS])
-@pytest.mark.parametrize("use_llvm", [False])
+@pytest.mark.parametrize("use_llvm", [True])
 def test_callback_step_item_model(ms3, solver, use_llvm):
     def action(time, variables):
         raise ValueError("Overflow of state. time:" + str(time))

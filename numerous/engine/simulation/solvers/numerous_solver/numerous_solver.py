@@ -30,10 +30,9 @@ class Numerous_solver(BaseSolver):
     def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps, y0, numba_compiled_solver, events,
                  **kwargs):
         super().__init__()
-        # self.events_list = numba.typed.List()
-        # self.action_list =  numba.typed.List()
-        self.events_list = []
-        self.action_list = []
+
+        self.events_list = numba.typed.List([])
+        self.action_list = numba.typed.List([])
         for ev, ac in events.items():
             self.events_list.append(ac[0])
             self.action_list.append(ac[1])
@@ -81,6 +80,7 @@ class Numerous_solver(BaseSolver):
                    min_step, max_step, step_integrate_, events_list,action_list,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
             # Init t to t0
+            imax = 100
             step_info = 0
             t = t0
             dt = initial_step
@@ -214,7 +214,7 @@ class Numerous_solver(BaseSolver):
                 dt *= factor
                 event_trigger = False
                 t_events = np.zeros(len(events_list)) + t
-                y_events = np.zeros(len(y), len(events_list))
+                y_events = np.zeros((len(y), len(events_list)))
 
                 def sol(t):
                     yi = np.zeros(len(y))
@@ -254,7 +254,7 @@ class Numerous_solver(BaseSolver):
                     return status, t_m, y_m
 
                 if step_converged:
-                    for ix, event in enumuerate(events_list):
+                    for ix, event in enumerate(events_list):
                         t_event, y_event = check_event(event, t_previous, y_previous, t, y, t_next_eval)
                         t_events[ix] = t_event
                         y_events[:, ix] = y_event
@@ -310,6 +310,7 @@ class Numerous_solver(BaseSolver):
                 order, strict_eval, outer_itermax, min_step,
                 max_step, step_integrate_,
                 self.events_list,
+                self.action_list,
                 self.time[0],
                 self.time[-1],
                 self.time)
