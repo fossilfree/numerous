@@ -30,12 +30,12 @@ class Numerous_solver(BaseSolver):
     def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps, y0, numba_compiled_solver, events,
                  **kwargs):
         super().__init__()
-
         self.events_list = numba.typed.List([])
         self.action_list = numba.typed.List([])
-        for ev, ac in events.items():
-            self.events_list.append(ac[0])
-            self.action_list.append(ac[1])
+        if events:
+            for ev, ac in events.items():
+                self.events_list.append(ac[0])
+                self.action_list.append(ac[1])
         self.time = time
         self.model = model
         self.num_inner = num_inner

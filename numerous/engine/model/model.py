@@ -523,11 +523,11 @@ class Model:
         action = self._replace_path_strings(action, "var")
         self.events.update({key: [condition, action]})
 
-    def _get_var_idx(self, idx_type, var):
+    def _get_var_idx(self, var, idx_type):
         if idx_type == "state":
             return np.where(self.state_idx == var.llvm_idx)[0]
         if idx_type == "var":
-            return var.llvm_idx
+            return [var.llvm_idx]
 
     def _replace_path_strings(self, function, idx_type):
         lines = inspect.getsource(function)
