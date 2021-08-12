@@ -55,7 +55,11 @@ class Simulation:
 
             if event_id is not None:
                 self.model.update_local_variables()
-                list(self.model.events.values())[event_id][1](t, self.model.path_to_variable)
+                ##only for debug.
+                list_var = [v.value for v in self.model.path_to_variable.values()]
+                list(self.model.events.values())[event_id][1](t, list_var)
+                for i,var in enumerate(self.model.path_to_variable.values()):
+                    var.value = list_var[i]
                 self.model.update_all_variables()
                 solver.y0 = self.model.states_as_vector
 
