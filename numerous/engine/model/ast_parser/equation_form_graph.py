@@ -154,7 +154,8 @@ def compare_expresion_from_graph(g, var_def_, lineno_count=1):
 
 
 def function_body_from_graph(g, var_def_, lineno_count=1, level=0):
-    top_nodes = range(0,len(g.nodes))#g.topological_nodes(ignore_cyclic=True)
+    g.topological_nodes(ignore_cyclic=True) # give warning if cyclic, but ignore sorting
+    top_nodes = range(0,len(g.nodes))
     var_def = var_def_.var_def
     body = []
     targets = []
