@@ -5,9 +5,10 @@ from enum import IntEnum, unique
 import numba
 import numpy as np
 from numba import njit
+from numba.core.registry import CPUDispatcher
 
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
-from .solver_methods import BaseMethod, RK45
+from .solver_methods import BaseMethod
 
 Info = namedtuple('Info', ['status', 'event_id', 'step_info', 'dt', 't', 'y', 'order'])
 
@@ -30,8 +31,17 @@ class Numerous_solver(BaseSolver):
     def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps, y0, numba_compiled_solver, events,
                  **kwargs):
         super().__init__()
-        self.events_list = numba.typed.List([])
-        self.action_list = numba.typed.List([])
+        ##dummy event condition
+        @njit
+        def condition(time, states):
+            return 1
+        ##dummy event action
+        @njit
+        def action(time, variables):
+           pass
+
+        self.events_list = numba.typed.List([condition])
+        self.action_list = numba.typed.List([action])
         if events:
             for ev, ac in events.items():
                 self.events_list.append(ac[0])
