@@ -44,7 +44,7 @@ class SimpleSystem(Subsystem):
             simple = Simple('simple' + str(i), k=k*(i+1), x0=x0[i])
             simples.append(simple)
 
-        self.register_items(simples, tag="simples", structure=ItemsStructure.SET)
+        self.register_items(simples, tag="simples", structure=ItemsStructure.LIST)
 
 
 
@@ -57,28 +57,5 @@ if __name__ == "__main__":
     # Define simulation
     s = simulation.Simulation(
         model.Model(subsystem),
-        t_start=0, t_stop=1, num=100, num_inner=100, max_step=1
+        t_start=0, t_stop=1, num=100, num_inner=100, max_step=1,use_llvm=True, save_to_file=True
     )
-    # Solve and plot
-    tic = time()
-    s.solve()
-    toc = time()
-    print('Execution time: ', toc - tic)
-    # print(s.model.historian_df)
-    # print(len(list(s.model.historian_df)))
-    # s.model.historian_df['oscillator0_mechanics_a'].plot()
-    # for i in range(10):
-    #    for k, v in zip(list(s.model.historian_df),s.model.historian_df.loc[i,:]):
-    #        print(k,': ',v)
-
-    # print(s.model.historian_df.describe())
-    # print(list(s.model.historian_df))
-    # for c in list(s.model.historian_df):
-    #    if not c == 'time':
-    # print(s.model.historian_df[c].describe())
-    # print(list(s.model.historian_df))
-
-    s.model.historian_df.plot()
-    # print()
-    plt.show()
-    plt.interactive(False)
