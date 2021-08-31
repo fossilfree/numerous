@@ -8,7 +8,7 @@ from numba import njit
 from numba.core.registry import CPUDispatcher
 
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
-from .solver_methods import BaseMethod
+from .solver_methods import BaseMethod, RK45
 
 Info = namedtuple('Info', ['status', 'event_id', 'step_info', 'dt', 't', 'y', 'order'])
 
@@ -31,21 +31,33 @@ class Numerous_solver(BaseSolver):
     def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps, y0, numba_compiled_solver, events,
                  **kwargs):
         super().__init__()
-        ##dummy event condition
-        @njit
-        def condition(time, states):
-            return 1
-        ##dummy event action
-        @njit
-        def action(time, variables):
-           pass
-
-        self.events_list = numba.typed.List([condition])
-        self.action_list = numba.typed.List([action])
         if events:
-            for ev, ac in events.items():
-                self.events_list.append(ac[0])
-                self.action_list.append(ac[1])
+
+                @njit
+                def condition(time, states):
+                    result = []
+                    for ev, ac in events.items():
+                        result.append(ac[0](time, states))
+                    return np.array(result, np.float64)
+
+                @njit
+                def action(time, variables, active):
+                    for idx, ev, ac in enumerate(events.items()):
+                        if active[idx]: ac[1](time, variables)
+        else:
+            ##dummy event condition
+            @njit
+            def condition(time, states):
+               return np.array([-1.0])
+
+            ##dummy event action
+            @njit
+            def action(time, variables):
+               pass
+
+        self.events= condition
+        self.actions = action
+
         self.time = time
         self.model = model
         self.num_inner = num_inner
@@ -319,8 +331,8 @@ class Numerous_solver(BaseSolver):
                 self._method.get_solver_state(len(self.y0)), initial_step,
                 order, strict_eval, outer_itermax, min_step,
                 max_step, step_integrate_,
-                self.events_list,
-                self.action_list,
+                self.events,
+                self.actions,
                 self.time[0],
                 self.time[-1],
                 self.time)
