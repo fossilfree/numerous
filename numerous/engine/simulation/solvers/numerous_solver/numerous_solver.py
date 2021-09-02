@@ -99,7 +99,7 @@ class Numerous_solver(BaseSolver):
 
     def generate_solver(self):
         def _solve(numba_model, _solve_state, initial_step, order, strict_eval, outer_itermax,
-                   min_step, max_step, step_integrate_, events_list,action_list,
+                   min_step, max_step, step_integrate_, events_list,action_list,number_of_events,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
             # Init t to t0
             imax = 100
@@ -235,8 +235,8 @@ class Numerous_solver(BaseSolver):
 
                 dt *= factor
                 event_trigger = False
-                t_events = np.zeros(len(events_list)) + t
-                y_events = np.zeros((len(y), len(events_list)))
+                t_events = np.zeros(number_of_events) + t
+                y_events = np.zeros((len(y), number_of_events))
 
                 def sol(t):
                     yi = np.zeros(len(y))
@@ -276,6 +276,7 @@ class Numerous_solver(BaseSolver):
                     return status, t_m, y_m
 
                 if step_converged:
+                    active_events = events_list()
                     for ix, event in enumerate(events_list):
                         t_event, y_event = check_event(event, t_previous, y_previous, t, y, t_next_eval)
                         t_events[ix] = t_event
