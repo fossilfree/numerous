@@ -39,9 +39,9 @@ class Numerous_solver(BaseSolver):
                     return np.array(result, np.float64)
 
                 # @njit
-                def action(time, variables, active):
-                    for idx, ev, ac in enumerate(events.items()):
-                        if active[idx]: ac[1](time, variables)
+                def action(time, variables, a_idx):
+                    for idx, (ev, ac) in enumerate(events.items()):
+                        if a_idx == idx: ac[1](time, variables)
         else:
             ##dummy event condition
             # @njit
@@ -129,8 +129,11 @@ class Numerous_solver(BaseSolver):
             roller_ix = -1
 
             def add_ring_buffer(t_, y_, rb, o):
+
                 if o == order:
                     y_temp = rb[2][:, :]
+                    t_temp = rb[1]
+                    rb[1][0:order - 1] = t_temp[1:order]
                     rb[2][0:order - 1, :] = y_temp[1:order, :]
 
                 o = min(o + 1, order)
@@ -159,6 +162,7 @@ class Numerous_solver(BaseSolver):
             terminate = False
             step_converged = True
             event_trigger = False
+            event_ix = -1
             t_event = t
             y_event = y
             dt_last = -1
@@ -239,10 +243,11 @@ class Numerous_solver(BaseSolver):
                 t_events = np.zeros(number_of_events) + t
                 y_events = np.zeros((len(y), number_of_events))
 
-                def sol(t):
+                def sol(t, t_r, y_r):
                     yi = np.zeros(len(y))
-                    tv = roller[1][0:order - 1]
-                    yv = roller[2][0:order - 1]
+                    tv = np.append(roller[1][0:order], t_r)
+                    yv = np.append(roller[2][0:order], y_r)
+                    yv = yv.reshape(order+1,  len(y)).T
                     for i, yvi in enumerate(yv):
                         yi[i] = np.interp(t, tv, yvi)
                     return yi
@@ -259,7 +264,7 @@ class Numerous_solver(BaseSolver):
                         return status, t, y
                     i = 0
                     t_m = (t_l + t_r) / 2
-                    y_m = sol(t_m)
+                    y_m = sol(t_m, t, y)
 
                     while status == 0:  # bisection method
                         e_m = event_fun(t_m, y_m)[ix]
@@ -272,7 +277,7 @@ class Numerous_solver(BaseSolver):
                         if i > imax:
                             status = -1
                         t_m = (t_l + t_r) / 2
-                        y_m = sol(t_m)
+                        y_m = sol(t_m, t, y)
 
                     return status, t_m, y_m
 
@@ -283,15 +288,16 @@ class Numerous_solver(BaseSolver):
                     g = g_new
                     for ix, active in enumerate(down):
                         if active:
-                            t_event, y_event = check_event(events, ix, t_previous, y_previous, t, y, t_next_eval)
+                            status, t_event, y_event = check_event(events, ix,
+                                                                   t_previous, y_previous, t, y, t_next_eval)
                             t_events[ix] = t_event
                             y_events[:, ix] = y_event
 
                 if min(t_events) < t:
                     event_trigger = True
-                    ix = np.argmin(t_events)
-                    t_event = t_events[ix]
-                    y_event = y_events[:, ix]
+                    event_ix = np.argmin(t_events)
+                    t_event = t_events[event_ix]
+                    y_event = y_events[:, event_ix]
 
                 if not event_trigger and step_converged:
                     y_previous = y
@@ -303,6 +309,10 @@ class Numerous_solver(BaseSolver):
                     if numba_model.is_external_data_update_needed(t):
                         return Info(status=SolveStatus.Running, event_id=SolveEvent.ExternalDataUpdate,
                                     step_info=step_info, dt=dt, t=t, y=y, order=order)
+                if event_trigger:
+                    actions(time, numba_model.read_variables(), event_ix)
+                    y_previous = y_event
+                    t_previous = t_event
 
             return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
                         dt=dt, t=t, y=y, order=order)
