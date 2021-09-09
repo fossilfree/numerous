@@ -100,7 +100,7 @@ class CompiledModel:
         return False
 
     def get_states(self):
-        return np.array(self.read_variables()[self.state_idx], order='C')
+        return self.read_variables()[self.state_idx]
 
     def is_store_required(self):
         if self.historian_ix >= self.historian_max_size:

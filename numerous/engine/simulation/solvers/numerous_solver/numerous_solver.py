@@ -50,7 +50,7 @@ class Numerous_solver(BaseSolver):
 
             ##dummy event action
             @njit
-            def action(t, variables):
+            def action(t, variables,ix):
                pass
 
         self.events = condition
@@ -305,17 +305,17 @@ class Numerous_solver(BaseSolver):
                     numba_model.map_external_data(t)
                     if numba_model.is_store_required():
                         return Info(status=SolveStatus.Running, event_id=SolveEvent.Historian, step_info=step_info,
-                                    dt=dt, t=t, y=y, order=order)
+                                    dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
                     if numba_model.is_external_data_update_needed(t):
                         return Info(status=SolveStatus.Running, event_id=SolveEvent.ExternalDataUpdate,
-                                    step_info=step_info, dt=dt, t=t, y=y, order=order)
+                                    step_info=step_info, dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
                 if event_trigger:
                     actions(t_event, numba_model.read_variables(), event_ix)
                     y_previous = y_event
                     t_previous = t_event
 
             return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
-                        dt=dt, t=t, y=y, order=order)
+                        dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
 
         return _solve
 
