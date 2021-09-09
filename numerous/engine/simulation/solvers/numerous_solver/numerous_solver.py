@@ -31,25 +31,25 @@ class Numerous_solver(BaseSolver):
         super().__init__()
         if events:
 
-                # @njit
+                @njit
                 def condition(t, states):
                     result = []
                     for ev, ac in events.items():
                         result.append(ac[0](t, states))
                     return np.array(result, np.float64)
 
-                # @njit
+                @njit
                 def action(t, variables, a_idx):
                     for idx, (ev, ac) in enumerate(events.items()):
                         if a_idx == idx: ac[1](t, variables)
         else:
             ##dummy event condition
-            # @njit
+            @njit
             def condition(t, states):
                return np.array([-1.0])
 
             ##dummy event action
-            # @njit
+            @njit
             def action(t, variables):
                pass
 
