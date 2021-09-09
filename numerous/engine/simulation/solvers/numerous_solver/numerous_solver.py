@@ -343,6 +343,8 @@ class Numerous_solver(BaseSolver):
                 max_step, step_integrate_,
                 self.events,
                 self.actions,
+                self.g,
+                self.number_of_events,
                 self.time[0],
                 self.time[-1],
                 self.time)
