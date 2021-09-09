@@ -32,25 +32,25 @@ class Numerous_solver(BaseSolver):
         if events:
 
                 # @njit
-                def condition(time, states):
+                def condition(t, states):
                     result = []
                     for ev, ac in events.items():
-                        result.append(ac[0](time, states))
+                        result.append(ac[0](t, states))
                     return np.array(result, np.float64)
 
                 # @njit
-                def action(time, variables, a_idx):
+                def action(t, variables, a_idx):
                     for idx, (ev, ac) in enumerate(events.items()):
-                        if a_idx == idx: ac[1](time, variables)
+                        if a_idx == idx: ac[1](t, variables)
         else:
             ##dummy event condition
             # @njit
-            def condition(time, states):
+            def condition(t, states):
                return np.array([-1.0])
 
             ##dummy event action
             # @njit
-            def action(time, variables):
+            def action(t, variables):
                pass
 
         self.events = condition
@@ -310,7 +310,7 @@ class Numerous_solver(BaseSolver):
                         return Info(status=SolveStatus.Running, event_id=SolveEvent.ExternalDataUpdate,
                                     step_info=step_info, dt=dt, t=t, y=y, order=order)
                 if event_trigger:
-                    actions(time, numba_model.read_variables(), event_ix)
+                    actions(t_event, numba_model.read_variables(), event_ix)
                     y_previous = y_event
                     t_previous = t_event
 
