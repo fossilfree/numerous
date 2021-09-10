@@ -109,7 +109,7 @@ class Model:
         self.is_external_data = True if external_mappings else False
         self.external_mappings = ExternalMapping(external_mappings,
                                                  data_loader) if external_mappings else EmptyMapping()
-
+        print(type(system))
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
         self.imports = Imports()
@@ -208,7 +208,7 @@ class Model:
         -  _3d 
 
         """
-
+        #print(type(self.system))
         def __get_mapping__idx(variable):
             if variable.mapping:
                 return __get_mapping__idx(variable.mapping)
@@ -474,7 +474,7 @@ class Model:
 
         Returns
         ----------
-        items : list of :class:`numerous.engine.system.Item`
+        items : list of :class:`numerous1.engine.system.Item`
             set of items with given tag
                """
         return [item for item in self.model_items.values() if item.tag == item_tag]
