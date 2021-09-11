@@ -49,7 +49,7 @@ class Connector(Node):
 
         Parameters
         ----------
-        list_of_eq : list of :class:`numerous1.multiphysics.Equation`
+        list_of_eq : list of :class:`numerous.multiphysics.Equation`
             List of a `Equation` that are expected to be in binded items.
 
         binding_name: string

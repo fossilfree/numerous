@@ -35,7 +35,7 @@ class Subsystem(ConnectorItem):
         ----------
         port_tag: string
             Name of the port.
-        item: :class:`numerous1.engine.system.Item`
+        item: :class:`numerous.engine.system.Item`
             item that is be used as a port.
         """
 
@@ -51,12 +51,12 @@ class Subsystem(ConnectorItem):
 
         Parameters
         ----------
-        item_path: :class:`numerous1.engine.system.ItemPath`
+        item_path: :class:`numerous.engine.system.ItemPath`
             hierarchical path to an item inside the subsystem
 
         Returns
         -------
-        Item : :class:`numerous1.engine.system.Item`
+        Item : :class:`numerous.engine.system.Item`
                 returns an item found at given path or None
 
         """
@@ -78,7 +78,7 @@ class Subsystem(ConnectorItem):
 
         Parameters
         ----------
-        items : list of :class:`numerous1.engine.system.Item`
+        items : list of :class:`numerous.engine.system.Item`
             List of items to register in the subsystem.
         """
         if structure == ItemsStructure.LIST:
@@ -116,9 +116,9 @@ class Subsystem(ConnectorItem):
 
         Parameters
         ----------
-        item : :class:`numerous1.engine.system.Item`
+        item : :class:`numerous.engine.system.Item`
             Item to update variable path.
-        tail:  list of :class:`numerous1.engine.system.Item`
+        tail:  list of :class:`numerous.engine.system.Item`
             In case of nested subsystems we store them to correctly update the path.
 
         """
@@ -141,7 +141,7 @@ class Subsystem(ConnectorItem):
 
         Parameters
         ----------
-        item : :class:`numerous1.engine.system.Item`
+        item : :class:`numerous.engine.system.Item`
             Item to register in the subsystem.
         """
         if item.tag in [x.tag for x in self.registered_items.values()]:
