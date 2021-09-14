@@ -243,8 +243,16 @@ def test_callback_step_item_model(ms3, solver, use_llvm):
     def condition(time, states):
         return 500 - states['S3.3.t1.T']
 
+    def action2(time, variables):
+        if int(time) == 118:
+            raise ValueError("Overflow of state. time:119")
+
+    def condition2(time, states):
+        return 500 - states['S3.3.t1.T']
+
     m1 = Model(ms3, use_llvm=use_llvm)
     m1.add_event("simple", condition, action)
+    m1.add_event("simple2", condition2, action2)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
     with pytest.raises(ValueError, match=r".*time:119.*"):
         s1.solve()

@@ -131,7 +131,8 @@ class Model:
         self.callbacks = []
         self.historian_filter = historian_filter
         self.system = system
-        self.events = {}
+        self.event_function = None
+        self.condition_function = None
         self.derivatives = {}
         self.model_items = {}
         self.state_history = {}
@@ -521,7 +522,21 @@ class Model:
         condition.terminal = terminal
         condition.direction = direction
         action = self._replace_path_strings(action, "var")
-        self.events.update({key: [condition, action]})
+
+        @njit
+        def condition(t, states):
+            result = []
+            for _, cd, _ in events:
+                result.append(cd(t, states))
+            return np.array(result, np.float64)
+
+        @njit
+        def action(t, variables, a_idx):
+            for idx, (_, _, ac) in enumerate(events):
+                if a_idx == idx: ac(t, variables)
+
+
+        self.events.append((key, condition, action))
 
     def _get_var_idx(self, var, idx_type):
         if idx_type == "state":
