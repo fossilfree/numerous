@@ -522,21 +522,24 @@ class Model:
         condition.terminal = terminal
         condition.direction = direction
         action = self._replace_path_strings(action, "var")
-
-        @njit
-        def condition(t, states):
-            result = []
-            for _, cd, _ in events:
-                result.append(cd(t, states))
-            return np.array(result, np.float64)
-
-        @njit
-        def action(t, variables, a_idx):
-            for idx, (_, _, ac) in enumerate(events):
-                if a_idx == idx: ac(t, variables)
-
-
+        # njit_and_compile_function(func, self.imports.from_imports)
         self.events.append((key, condition, action))
+
+
+    # def compile_events(self):
+    #     @njit
+    #     def condition(t, states):
+    #         result = []
+    #         result.append(f_name(t, states))
+    #         result.append(f_name(t, states))
+    #         result.append(f_name(t, states))
+    #         result.append(f_name(t, states))
+    #         return np.array(result, np.float64)
+    #
+    #     @njit
+    #     def action(t, variables, a_idx):
+    #         for idx, (_, _, ac) in enumerate(events):
+    #             if a_idx == idx: ac(t, variables)
 
     def _get_var_idx(self, var, idx_type):
         if idx_type == "state":
@@ -550,7 +553,7 @@ class Model:
             if var_path in lines:
                 lines = lines.replace('[\'' + var_path + '\']', str(self._get_var_idx(var, idx_type)))
         func = ast.parse(lines.strip()).body[0]
-        return njit_and_compile_function(func, self.imports.from_imports)
+        return func
 
     def create_alias(self, variable_name, alias):
         """
