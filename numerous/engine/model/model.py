@@ -10,7 +10,8 @@ import uuid
 from numba.experimental import jitclass
 import pandas as pd
 
-from numerous.engine.model.utils import Imports, wrap_function, njit_and_compile_function
+from numerous.engine.model.utils import Imports, wrap_function, njit_and_compile_function, generate_event_condition_ast, \
+    generate_event_action_ast
 from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
 
 from numerous.utils.logger_levels import LoggerLevel
@@ -143,7 +144,7 @@ class Model:
         self.aliases = {}
         self.historian = historian
         self.vars_ordered_value = {}
-
+        self.events = []
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
 
@@ -522,24 +523,14 @@ class Model:
         condition.terminal = terminal
         condition.direction = direction
         action = self._replace_path_strings(action, "var")
-        # njit_and_compile_function(func, self.imports.from_imports)
+
         self.events.append((key, condition, action))
 
+    def generate_event_condition_ast(self):
+        generate_event_condition_ast(self.events,self.imports.from_imports)
 
-    # def compile_events(self):
-    #     @njit
-    #     def condition(t, states):
-    #         result = []
-    #         result.append(f_name(t, states))
-    #         result.append(f_name(t, states))
-    #         result.append(f_name(t, states))
-    #         result.append(f_name(t, states))
-    #         return np.array(result, np.float64)
-    #
-    #     @njit
-    #     def action(t, variables, a_idx):
-    #         for idx, (_, _, ac) in enumerate(events):
-    #             if a_idx == idx: ac(t, variables)
+    def generate_event_action_ast(self):
+        generate_event_action_ast(self.events, self.imports.from_imports)
 
     def _get_var_idx(self, var, idx_type):
         if idx_type == "state":
