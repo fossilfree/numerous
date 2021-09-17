@@ -58,7 +58,7 @@ class Simulation:
                 ##only for debug.
                 list_var = [v.value for v in self.model.path_to_variable.values()]
                 list(self.model.events.values())[event_id][1](t, list_var)
-                for i,var in enumerate(self.model.path_to_variable.values()):
+                for i, var in enumerate(self.model.path_to_variable.values()):
                     var.value = list_var[i]
                 self.model.update_all_variables()
                 solver.y0 = self.model.states_as_vector
@@ -77,7 +77,6 @@ class Simulation:
                         solver.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
                                                                 self.model.external_mappings.external_mappings_time)
 
-
         self.end_step = __end_step
         print("Generating Numba Model")
         generation_start = time.time()
@@ -89,13 +88,16 @@ class Simulation:
 
         if solver_type.value == SolverType.SOLVER_IVP.value:
             self.solver = IVP_solver(time_, delta_t, model, numba_model,
-                                     num_inner, max_event_steps, self.model.states_as_vector, events=self.model.events, **kwargs)
+                                     num_inner, max_event_steps, self.model.states_as_vector, events=self.model.events,
+                                     **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
+            event_function = model.generate_event_condition_ast()
+            action_function = model.generate_event_action_ast()
             self.solver = Numerous_solver(time_, delta_t, model, numba_model,
                                           num_inner, max_event_steps, self.model.states_as_vector,
                                           numba_compiled_solver=model.use_llvm,
-                                          events=self.model.events, **kwargs)
+                                          events=(event_function, action_function), **kwargs)
 
         self.solver.register_endstep(__end_step)
 
@@ -111,7 +113,6 @@ class Simulation:
         print("Compilation time: ", compilation_finished - compilation_start)
 
         self.compiled_model = numba_model
-
 
     def solve(self):
         self.reset()
