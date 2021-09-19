@@ -255,6 +255,7 @@ class Model:
         for v in self.variables.values():
             v.top_item = self.system.id
 
+        eq_used = []
         for ns in model_namespaces:
             ##will be false for empty namespaces. Ones without equations and variables.
             if ns[1]:
@@ -266,8 +267,8 @@ class Model:
 
                 parse_eq(model_namespace=ns[1][0], item_id=ns[0], mappings_graph=self.mappings_graph,
                          scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
-                         scoped_equations=self.scoped_equations, parsed_eq=self.equations_top)
-
+                         scoped_equations=self.scoped_equations, parsed_eq=self.equations_top, eq_used=eq_used)
+        self.eq_used = eq_used
         logging.info('parsing equations completed')
 
         # Process mappings add update the global graph
@@ -377,7 +378,7 @@ class Model:
         eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py", equation_graph=self.mappings_graph,
                                    scope_variables=self.variables, scoped_equations=self.scoped_equations,
                                    temporary_variables=tmp_vars, system_tag=self.system.tag, use_llvm=self.use_llvm,
-                                   imports=self.imports)
+                                   imports=self.imports, eq_used=self.eq_used)
 
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.variables, \
         self.state_idx, self.derivatives_idx = \

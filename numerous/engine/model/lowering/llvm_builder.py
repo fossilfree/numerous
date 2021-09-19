@@ -99,7 +99,7 @@ class LLVMBuilder:
 
         f_c = cfunc(sig=signature)(function)
         name = function.__qualname__
-
+        print('fname_llvm: ', name)
         f_c_sym = llvm.add_symbol(name, f_c.address)
         llvm_signature = np.tile(ll.DoubleType(), number_of_args).tolist()
         for i in target_ids:

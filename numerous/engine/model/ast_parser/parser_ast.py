@@ -56,7 +56,7 @@ def qualify(s, prefix):
     return prefix + '.' + s.replace('scope.', '')
 
 
-def qualify_equation(prefix, g, tag_vars):
+def qualify_equation(prefix, g, tag_vars, self, eq_current, eq_used):
     def q(s):
         return qualify(s, prefix)
 
@@ -71,7 +71,28 @@ def qualify_equation(prefix, g, tag_vars):
     for i in range(g_qual.node_counter):
         g_qual.nodes[i].scope_var = scope_vars_qual[i]
 
-    return g_qual
+    replacements = {}
+    import inspect, hashlib, json
+    for n in g.nodes:
+        print(n)
+        if (f := n.func) is not None and hasattr(f, 'value'):
+            if f.value.id == 'self':
+                #            refer_to_self = True
+                print('self:: ', self)
+                obj = getattr(self.__self__, f.attr)
+                replacements[f.value.id + '_' + f.attr] = obj
+
+    closure_vars = inspect.getclosurevars(self)
+
+    func_ = closure_vars.nonlocals['func']
+    closure_vars_func = inspect.getclosurevars(func_)
+    replacements.update(closure_vars_func.globals)
+    replacements_id = {k: id(o) for k, o in replacements.items()}
+    refer_to_self = len(replacements)>0
+    eq_key = 'var_'+eq_current+'_'+hashlib.sha256(json.dumps(replacements_id).encode('UTF-8')).hexdigest()
+
+
+    return g_qual, refer_to_self, eq_key, replacements
 
 
 def _generate_equation_key(equation_id: str, is_set: bool) -> str:
@@ -83,7 +104,7 @@ def _generate_equation_key(equation_id: str, is_set: bool) -> str:
 
 
 def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
-             parsed_eq_branches, scoped_equations, parsed_eq):
+             parsed_eq_branches, scoped_equations, parsed_eq, eq_used):
     for m in model_namespace.equation_dict.values():
         for eq in m:
             ns_path = model_namespace.full_tag
@@ -148,22 +169,39 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
             g = parsed_eq_branches[eq_key][2]
 
             eq_path = ns_path + '.' + eq_key
-            equation_graph = qualify_equation(ns_path, g, scope_variables)
+            g_qualified, refer_to_self, eq_key_, replacements = qualify_equation(ns_path, g, scope_variables, eq, eq_key, eq_used)
+
+            if refer_to_self:
+                print('eq_key old: ', eq_key)
+                print('p: ', parsed_eq_branches[eq_key])
+                parsed_eq_branches[eq_key_] = (
+                parsed_eq_branches[eq_key][0], parsed_eq_branches[eq_key][1], parsed_eq_branches[eq_key][2], {}, replacements)
+                eq_key = eq_key_
+
+            eq_used.append(eq_key)
 
             # make equation graph
             eq_name = ('EQ_' + eq_path).replace('.', '_')
 
             scoped_equations[eq_name] = eq_key
+            print('eq_K: ', eq_key)
+            #eq_n = mappings_graph.add_node(Node(key=eq_name,
+            #                               node_type=NodeTypes.EQUATION,
+            #                               name=eq_name, file=eq_name, ln=0, label=eq_name,
+            #                               ast_type=ast.Call,
+            #                               vectorized=is_set,
+            #                               item_id=item_id,
+            #                               func=ast.Name(id=eq_key.replace('.', '_'))))
 
             node = Node(key=eq_name,
-                                                       node_type=NodeTypes.EQUATION,
-                                                       name=eq_name, file=eq_name, ln=0, label=parsed_eq[eq_key],
-                                                       ast_type=ast.Call,
-                                                       vectorized=is_set,
-                                                       item_id=item_id,
-                                                       func=ast.Name(id=eq_key.replace('.', '_')))
+                       node_type=NodeTypes.EQUATION,
+                       name=eq_name, file=eq_name, ln=0, label=eq_name,
+                       ast_type=ast.Call,
+                       vectorized=is_set,
+                       item_id=item_id,
+                       func=ast.Name(id=eq_key.replace('.', '_')))
 
-            connect_equation_node(equation_graph, mappings_graph, node, is_set)
+            connect_equation_node(g_qualified, mappings_graph, node, is_set)
 
             if not is_parsed_eq:
                 for sv in scope_variables:

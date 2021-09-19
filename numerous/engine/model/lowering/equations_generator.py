@@ -20,7 +20,7 @@ from numerous.utils.string_utils import d_u
 
 class EquationGenerator:
     def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations,
-                 temporary_variables, system_tag="", use_llvm=True, imports=None):
+                 temporary_variables, system_tag="", use_llvm=True, imports=None, eq_used=[]):
         self.filename = filename
         self.imports = imports
         self.system_tag = system_tag
@@ -92,7 +92,19 @@ class EquationGenerator:
 
         self.eq_vardefs = {}
         # Loop over equation functions and generate code for each equation.
-        self._parse_equations(equations)
+        print('_parse_eq: ')
+        for e in equations:
+            print(e)
+
+        used_eq = {}
+        print(':::')
+        print(eq_used)
+
+        for eq_key, eq in equations.items():
+            #print(eq[0])
+            if eq_key in eq_used:
+                used_eq[eq_key]=eq
+        self._parse_equations(used_eq)
 
         self.all_targeted = []
         self.all_read = []
@@ -130,25 +142,35 @@ class EquationGenerator:
 
     def _parse_equations(self, equations):
         logging.info('make equations for compilation')
+        print('????')
+        print(equations)
         for eq_key, eq in equations.items():
             vardef = Vardef(llvm=self.llvm)
-
+            print('kkkk: ', eq_key)
             eq[2].lower_graph = None
             if self.llvm:
+                print('low: ', eq)
                 func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(
                     eq[2],
                     imports=self.imports,
                     var_def_=Vardef(llvm=self.llvm),
-                    compiled_function=True
+                    compiled_function=True,
+                    replacements=eq[4] if len(eq) > 4 else {},
+                    replace_name=eq_key
                 )
+                print('fllvm: ',func_llvm)
                 self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
+                name_key = func_llvm.__qualname__
             else:
                 func, args, target_ids = function_from_graph_generic(eq[2],
                                                                      var_def_=vardef, arg_metadata=eq[2].arg_metadata)
                 self.generated_program.add_external_function(func, None, len(args), target_ids)
 
+                name_key = func.__qualname__
+
             vardef.llvm_target_ids = target_ids
             vardef.args_order = args
+            print('eq_vard: ', eq_key)
             self.eq_vardefs[eq_key] = vardef
 
     def search_in_item_scope(self, var_id, item_id):

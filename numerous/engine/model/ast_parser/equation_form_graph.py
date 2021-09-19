@@ -177,8 +177,8 @@ def function_body_from_graph(g, var_def_, lineno_count=1):
 
 
 def compiled_function_from_graph_generic_llvm(g: Graph, var_def_, imports,
-                                              compiled_function=False):
-    func, signature, fname, r_args, r_targets = function_from_graph_generic_llvm(g, var_def_)
+                                              compiled_function=False, replacements={}, replace_name=None):
+    func, signature, fname, r_args, r_targets = function_from_graph_generic_llvm(g, var_def_, replace_name=replace_name)
     if not compiled_function:
         return func, signature, r_args, r_targets
 
@@ -191,21 +191,40 @@ def compiled_function_from_graph_generic_llvm(g: Graph, var_def_, imports,
                            level=0))
     body.append(func)
     body.append(ast.Return(value=ast.Name(id=fname, ctx=ast.Load(), lineno=0, col_offset=0), lineno=0, col_offset=0))
+    wrapper_name = fname + '1'
 
     func = wrap_function(fname + '1', body, decorators=[],
                          args=ast.arguments(posonlyargs=[], args=[], vararg=None, defaults=[],
                                             kwonlyargs=[], kw_defaults=[],lineno=0, kwarg=None))
-    module_func = ast.Module(body=[func], type_ignores=[])
+    import astor
+    f1 = astor.to_source(func)
+    # print('code: ', f1)
+    print('rep: ', replacements)
+    # bound_funcs = {}
+    # for r in list(replacements):
+    f1 = f1.replace('self.', 'self_')
+    #    bound_funcs[r[1]] = r[2]
+    print(f1)
+    # bound_funcs = dot_dict(**bound_funcs)
+    # print('fname: ', fname)
+    # print('f1: ', f1)
+    tree = ast.parse(f1, mode='exec')
+
+    module_func = ast.Module(body=[tree], type_ignores=[])
     code = compile(ast.parse(ast.unparse(module_func)), filename='llvm_equations_storage', mode='exec')
-    namespace = {}
+    namespace = replacements
     exec(code, namespace)
-    compiled_func = list(namespace.values())[1]()
+    compiled_func = namespace[wrapper_name]()
 
     return compiled_func, signature, r_args, r_targets
 
 
-def function_from_graph_generic_llvm(g: Graph, var_def_):
-    fname = g.label + '_llvm'
+def function_from_graph_generic_llvm(g: Graph, var_def_, replace_name=None):
+    if replace_name is None:
+        fname = g.label + '_llvm'
+    else:
+        fname = replace_name + '_llvm'
+
     body = function_body_from_graph(g, var_def_)
     var_def_.order_variables(g.arg_metadata)
     args = ast.arguments(posonlyargs=[], args=var_def_.get_order_args(), vararg=None, defaults=[],
