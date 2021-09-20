@@ -29,22 +29,9 @@ class Numerous_solver(BaseSolver):
     def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps, y0, numba_compiled_solver, events,
                  **kwargs):
         super().__init__()
-        # if events:
-        #
-        #
-        # else:
-        #     ##dummy event condition
-        #     @njit
-        #     def condition(t, states):
-        #        return np.array([-1.0])
-        #
-        #     ##dummy event action
-        #     @njit
-        #     def action(t, variables,ix):
-        #        pass
 
-        self.events = condition
-        self.actions = action
+        self.events = events[0]
+        self.actions = events[1]
         # events value
         self.g = self.events(time[0], y0)
         self.time = time
