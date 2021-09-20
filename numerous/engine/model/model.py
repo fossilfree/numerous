@@ -10,8 +10,8 @@ import uuid
 from numba.experimental import jitclass
 import pandas as pd
 
-from numerous.engine.model.utils import Imports, wrap_function, njit_and_compile_function, generate_event_condition_ast, \
-    generate_event_action_ast
+from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast
+from numerous.engine.model.utils import Imports
 from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
 
 from numerous.utils.logger_levels import LoggerLevel
@@ -527,10 +527,10 @@ class Model:
         self.events.append((key, condition, action))
 
     def generate_event_condition_ast(self):
-        generate_event_condition_ast(self.events,self.imports.from_imports)
+        return generate_event_condition_ast(self.events,self.imports.from_imports)
 
     def generate_event_action_ast(self):
-        generate_event_action_ast(self.events, self.imports.from_imports)
+        return generate_event_action_ast(self.events, self.imports.from_imports)
 
     def _get_var_idx(self, var, idx_type):
         if idx_type == "state":
