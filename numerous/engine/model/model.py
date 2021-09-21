@@ -7,6 +7,7 @@ import time
 import inspect
 import uuid
 
+from numba import njit
 from numba.experimental import jitclass
 import pandas as pd
 
@@ -528,9 +529,15 @@ class Model:
 
         self.events.append((key, condition, action))
 
-    def generate_event_condition_ast(self,is_numerous_solver):
+    def generate_event_condition_ast(self, is_numerous_solver):
+        @njit()
+        def cond(t, v):
+            return np.array([1.0])
+
+        if len(self.events) == 0 and is_numerous_solver:
+            return cond
         if is_numerous_solver:
-            return generate_event_condition_ast(self.events,self.imports.from_imports)
+            return generate_event_condition_ast(self.events, self.imports.from_imports)
         else:
             result = []
             for event in self.events:
@@ -540,7 +547,13 @@ class Model:
                 result.append(compiled_event)
             return result
 
-    def generate_event_action_ast(self,is_numerous_solver):
+    def generate_event_action_ast(self, is_numerous_solver):
+        @njit()
+        def action(t, v, i):
+            pass
+
+        if len(self.events) == 0 and is_numerous_solver:
+            return action
         if is_numerous_solver:
             return generate_event_action_ast(self.events, self.imports.from_imports)
         else:

@@ -34,6 +34,7 @@ class Numerous_solver(BaseSolver):
         self.actions = events[1]
         # events value
         self.g = self.events(time[0], y0)
+
         self.time = time
         self.model = model
         self.num_inner = num_inner
