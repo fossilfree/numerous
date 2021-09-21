@@ -47,7 +47,7 @@ class Simulation:
         self.time = time_
         self.model = model
 
-        def __end_step(solver, y, t, event_id=None):
+        def __end_step(solver, y, t,events_action, event_id=None):
             """
 
             """
@@ -55,9 +55,9 @@ class Simulation:
 
             if event_id is not None:
                 self.model.update_local_variables()
-                ##only for debug.
+                ## slow code
                 list_var = [v.value for v in self.model.path_to_variable.values()]
-                list(self.model.events.values())[event_id][1](t, list_var)
+                events_action[event_id](t, list_var)
                 for i, var in enumerate(self.model.path_to_variable.values()):
                     var.value = list_var[i]
                 self.model.update_all_variables()
@@ -87,13 +87,15 @@ class Simulation:
         print("Generation time: ", generation_finish - generation_start)
 
         if solver_type.value == SolverType.SOLVER_IVP.value:
+            event_function = model.generate_event_condition_ast(False)
+            action_function = model.generate_event_action_ast(False)
             self.solver = IVP_solver(time_, delta_t, model, numba_model,
-                                     num_inner, max_event_steps, self.model.states_as_vector, events=self.model.events,
+                                     num_inner, max_event_steps, self.model.states_as_vector, events=(event_function, action_function),
                                      **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
-            event_function = model.generate_event_condition_ast()
-            action_function = model.generate_event_action_ast()
+            event_function = model.generate_event_condition_ast(True)
+            action_function = model.generate_event_action_ast(True)
             self.solver = Numerous_solver(time_, delta_t, model, numba_model,
                                           num_inner, max_event_steps, self.model.states_as_vector,
                                           numba_compiled_solver=model.use_llvm,
@@ -127,7 +129,7 @@ class Simulation:
         self.__init_step()
         self.model.numba_model.historian_reinit()
 
-        self.end_step(self.solver, self.model.numba_model.get_states(), 0)
+        self.end_step(self.solver, self.model.numba_model.get_states(), 0, [])
 
     def step(self, dt):
         try:

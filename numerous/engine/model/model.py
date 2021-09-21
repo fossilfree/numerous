@@ -11,7 +11,7 @@ from numba.experimental import jitclass
 import pandas as pd
 
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast
-from numerous.engine.model.utils import Imports
+from numerous.engine.model.utils import Imports, njit_and_compile_function
 from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
 
 from numerous.utils.logger_levels import LoggerLevel
@@ -528,11 +528,27 @@ class Model:
 
         self.events.append((key, condition, action))
 
-    def generate_event_condition_ast(self):
-        return generate_event_condition_ast(self.events,self.imports.from_imports)
+    def generate_event_condition_ast(self,is_numerous_solver):
+        if is_numerous_solver:
+            return generate_event_condition_ast(self.events,self.imports.from_imports)
+        else:
+            result = []
+            for event in self.events:
+                compiled_event = njit_and_compile_function(event[1], self.imports.from_imports)
+                compiled_event.terminal = event[1].terminal
+                compiled_event.direction = event[1].direction
+                result.append(compiled_event)
+            return result
 
-    def generate_event_action_ast(self):
-        return generate_event_action_ast(self.events, self.imports.from_imports)
+    def generate_event_action_ast(self,is_numerous_solver):
+        if is_numerous_solver:
+            return generate_event_action_ast(self.events, self.imports.from_imports)
+        else:
+            result = []
+            for event in self.events:
+                compiled_event = njit_and_compile_function(event[2], self.imports.from_imports)
+                result.append(compiled_event)
+            return result
 
     def _get_var_idx(self, var, idx_type):
         if idx_type == "state":

@@ -233,8 +233,8 @@ def test_1_item_model(ms1):
     assert item.t1.P.value == 100
 
 
-@pytest.mark.parametrize("solver", [SolverType.NUMEROUS])
-@pytest.mark.parametrize("use_llvm", [False])
+@pytest.mark.parametrize("solver", solver_types)
+@pytest.mark.parametrize("use_llvm", [True, False])
 def test_callback_step_item_model(ms3, solver, use_llvm):
     def action(time, variables):
         if int(time) == 119:

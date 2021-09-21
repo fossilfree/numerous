@@ -51,6 +51,7 @@ def njit_and_compile_function(func, from_imports):
         body.append(
             ast.ImportFrom(module=module, names=[ast.alias(name=label, asname=None)], lineno=0, col_offset=0,
                            level=0))
+    body.append(ast.Import(names=[ast.alias(name='numpy', asname='np')]))
     body.append(func)
     body.append(
         ast.Return(value=ast.Name(id=fname, ctx=ast.Load(), lineno=0, col_offset=0), lineno=0, col_offset=0))
