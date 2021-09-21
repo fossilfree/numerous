@@ -41,7 +41,7 @@ class Numerous_solver(BaseSolver):
         self.numba_model = numba_model
         self.diff_function = numba_model.func
         self.numba_compiled_solver = numba_compiled_solver
-        self.number_of_events = 1
+        self.number_of_events = len(self.g)
 
         self.f0 = numba_model.func(time[0], y0)
         self.max_event_steps = max_event_steps
@@ -235,7 +235,7 @@ class Numerous_solver(BaseSolver):
                     e_l = event_fun(t_l, y_l)[ix]
                     t_r = t
                     y_r = y
-                    e_r = event_fun(t_r, y_r)
+                    e_r = event_fun(t_r, y_r)[ix]
                     status = 0
                     if np.sign(e_l) == np.sign(e_r):
                         return status, t, y

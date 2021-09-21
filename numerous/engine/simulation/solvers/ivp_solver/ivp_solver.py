@@ -18,9 +18,11 @@ class IVP_solver(BaseSolver):
         self.model = model
         self.time = time
         self.eventf = []
-        for event in events.values():
-            self.eventf.append(event[0])
-        self.events = events
+        self.event_a = []
+        for event_cond in events[0]:
+            self.eventf.append(event_cond)
+        for event_action in events[1]:
+            self.event_a.append(event_action)
         self.y0 = y0
         self.num_inner = num_inner
         self.delta_t = delta_t
@@ -93,10 +95,10 @@ class IVP_solver(BaseSolver):
                     stop_condition = True
                 current_timestamp = self.sol.t_events[event_id][0]
                 step_not_finished = True
-                self.__end_step(self, self.sol.y, current_timestamp, event_id=event_id)
+                self.__end_step(self, self.sol.y, current_timestamp,self.event_a, event_id=event_id)
             else:
                 if self.sol.success:
-                    self.__end_step(self, self.sol.y[:, -1], current_timestamp)
+                    self.__end_step(self, self.sol.y[:, -1], current_timestamp,self.event_a)
                 else:
                     self.result_status = self.sol.message
             if stop_condition:

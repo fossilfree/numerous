@@ -4,13 +4,14 @@ from numerous.engine.model.utils import njit_and_compile_function
 
 
 def generate_event_condition_ast(event_functions, from_imports):
-    body = [ast.Assign(targets=[ast.Name(id="results")], lineno=0,
+    array_label = "result"
+    body = [ast.Assign(targets=[ast.Name(id=array_label)], lineno=0,
                        value=ast.List(elts=[], ctx=ast.Load()))]
 
     for _, cond_fun, _ in event_functions:
         body.append(cond_fun)
         body.append(ast.Expr(value=ast.Call(
-            func=ast.Attribute(value=ast.Name(id='result', ctx=ast.Load()), attr='append', ctx=ast.Load()),
+            func=ast.Attribute(value=ast.Name(id=array_label, ctx=ast.Load()), attr='append', ctx=ast.Load()),
             args=[ast.Call(func=ast.Name(id=cond_fun.name, ctx=ast.Load()),
                            args=[ast.Name(id='t', ctx=ast.Load()), ast.Name(id='states', ctx=ast.Load())],
                            keywords=[])], keywords=[])))
@@ -18,7 +19,7 @@ def generate_event_condition_ast(event_functions, from_imports):
     body.append(ast.Return(value=ast.Call(func=ast.Attribute(value=ast.Name(id='np',
                                                                             ctx=ast.Load()), attr='array',
                                                              ctx=ast.Load()),
-                                          args=[ast.Name(id='result', ctx=ast.Load()),
+                                          args=[ast.Name(id=array_label, ctx=ast.Load()),
                                                 ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='float64',
                                                               ctx=ast.Load())],
                                           keywords=[])))
