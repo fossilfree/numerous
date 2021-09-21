@@ -58,7 +58,7 @@ class Item(Node):
         >>> print(dn.item is None )
         False
         """
-        return VariableNamespace(DEFAULT_NAMESPACE, is_connector=isinstance(self, Connector))
+        return VariableNamespace(self, DEFAULT_NAMESPACE, is_connector=isinstance(self, Connector))
 
     def create_namespace(self, tag):
         """
@@ -156,6 +156,17 @@ class Item(Node):
             return self
         else:
             return None
+
+    def __getattr__(self, name):
+        if DEFAULT_NAMESPACE not in self.registered_namespaces.keys():
+            self.create_namespace(DEFAULT_NAMESPACE)
+
+        namespace = getattr(self, DEFAULT_NAMESPACE)
+
+        if name == DEFAULT_NAMESPACE:
+            return namespace
+
+        return getattr(namespace, name)
 
     def set_logger_level(self, logger_level=None):
         self.logger_level = logger_level
