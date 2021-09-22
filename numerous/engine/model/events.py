@@ -28,6 +28,7 @@ def generate_event_condition_ast(event_functions, from_imports):
                                                 kwonlyargs=[], kw_defaults=[], defaults=[]),
                              body=body, decorator_list=[], lineno=0)
 
+
     return njit_and_compile_function(body_r, from_imports)
 
 
@@ -40,8 +41,10 @@ def generate_event_action_ast(event_functions, from_imports):
                                             comparators=[ast.Constant(value=idx)]),
                            body=[ast.Expr(value=ast.Call(func=ast.Name(id=action_fun.name, ctx=ast.Load()),
                                                          args=[ast.Name(id='t', ctx=ast.Load()),
-                                                               ast.Name(id='variables', ctx=ast.Load())],
+                                                               ast.Name(id='states', ctx=ast.Load())],
                                                          keywords=[]))], orelse=[]))
+
+    body.append(ast.Return(value=ast.Name(id='states', ctx=ast.Load())))
 
     body_r = ast.FunctionDef(name='action_list',
                              args=ast.arguments(posonlyargs=[], args=[ast.arg(arg='t'), ast.arg(arg='states'),

@@ -291,6 +291,8 @@ class Numerous_solver(BaseSolver):
                     actions(t_event, numba_model.read_variables(), event_ix)
                     y_previous = y_event
                     t_previous = t_event
+                    g = 1
+
 
             return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
                         dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
