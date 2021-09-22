@@ -293,7 +293,7 @@ class Numerous_solver(BaseSolver):
                     modified_variables = actions(t_event, numba_model.read_variables(), event_ix)
                     modified_mask = (modified_variables != numba_model.read_variables())
                     for idx in np.argwhere(modified_mask):
-                        numba_model.write_variables(modified_variables[idx], idx)
+                        numba_model.write_variables(modified_variables[idx[0]], idx[0])
                     y_previous = numba_model.get_states()
                     t_previous = t_event
 

@@ -209,8 +209,6 @@ def hitground_event_callback_fun(t, variables):
     variables['S1.ball.t1.t_hit'] = t
 
 
-# %%
-
 model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
 
 
@@ -218,7 +216,7 @@ model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
 
 
 def solve_model_system_event_fun(model_system):
-    m1 = Model(model_system,use_llvm=False)
+    m1 = Model(model_system,use_llvm=True)
 
     m1.add_event("hitground_event", hitground_event_fun, hitground_event_callback_fun)
 
