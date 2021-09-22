@@ -162,7 +162,7 @@ class Numerous_solver(BaseSolver):
                     te_array[0] = t + dt
                 else:  # event
                     te_array[0] = t_event
-                    y_previous = y_event
+
 
                 # Determine new test - it should be the smallest value requested by events, eval, step
                 t_new_test = np.min(te_array)
@@ -276,6 +276,7 @@ class Numerous_solver(BaseSolver):
                     event_ix = np.argmin(t_events)
                     t_event = t_events[event_ix]
                     y_event = y_events[:, event_ix]
+                    g = events(t_event, y_event)
 
                 if not event_trigger and step_converged:
                     y_previous = y
@@ -288,11 +289,12 @@ class Numerous_solver(BaseSolver):
                         return Info(status=SolveStatus.Running, event_id=SolveEvent.ExternalDataUpdate,
                                     step_info=step_info, dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
                 if event_trigger:
+                    numba_model.set_states(y_event)
                     modified_variables = actions(t_event, numba_model.read_variables(), event_ix)
                     modified_mask = (modified_variables != numba_model.read_variables())
                     for idx in np.argwhere(modified_mask):
                         numba_model.write_variables(modified_variables[idx], idx)
-                    y_previous = y_event
+                    y_previous = numba_model.get_states()
                     t_previous = t_event
 
 

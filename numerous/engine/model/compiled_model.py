@@ -102,6 +102,10 @@ class CompiledModel:
     def get_states(self):
         return self.read_variables()[self.state_idx]
 
+    def set_states(self, states):
+        for i in range(len(states)):
+            self.write_variables(states[i],self.state_idx[i])
+
     def is_store_required(self):
         if self.historian_ix >= self.historian_max_size:
             return True
