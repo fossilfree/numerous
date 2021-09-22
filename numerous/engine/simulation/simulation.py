@@ -94,12 +94,12 @@ class Simulation:
                                      **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
-            event_function = model.generate_event_condition_ast(True)
+            event_function, event_directions = model.generate_event_condition_ast(True)
             action_function = model.generate_event_action_ast(True)
             self.solver = Numerous_solver(time_, delta_t, model, numba_model,
                                           num_inner, max_event_steps, self.model.states_as_vector,
                                           numba_compiled_solver=model.use_llvm,
-                                          events=(event_function, action_function), **kwargs)
+                                          events=(event_function, action_function), event_directions=event_directions, **kwargs)
 
         self.solver.register_endstep(__end_step)
 

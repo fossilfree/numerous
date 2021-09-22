@@ -533,6 +533,7 @@ class Model:
             return np.array([1.0])
 
         if len(self.events) == 0 and is_numerous_solver:
+            cond.direction = -1
             return cond
         if is_numerous_solver:
             return generate_event_condition_ast(self.events, self.imports.from_imports)

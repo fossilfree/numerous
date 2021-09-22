@@ -1,14 +1,18 @@
 import ast
 
+import numpy as np
+
 from numerous.engine.model.utils import njit_and_compile_function
 
 
 def generate_event_condition_ast(event_functions, from_imports):
     array_label = "result"
+    directions_array = []
     body = [ast.Assign(targets=[ast.Name(id=array_label)], lineno=0,
                        value=ast.List(elts=[], ctx=ast.Load()))]
 
     for _, cond_fun, _ in event_functions:
+        directions_array.append(cond_fun.direction)
         body.append(cond_fun)
         body.append(ast.Expr(value=ast.Call(
             func=ast.Attribute(value=ast.Name(id=array_label, ctx=ast.Load()), attr='append', ctx=ast.Load()),
@@ -29,7 +33,7 @@ def generate_event_condition_ast(event_functions, from_imports):
                              body=body, decorator_list=[], lineno=0)
 
 
-    return njit_and_compile_function(body_r, from_imports)
+    return njit_and_compile_function(body_r, from_imports), np.array(directions_array)
 
 
 def generate_event_action_ast(event_functions, from_imports):
