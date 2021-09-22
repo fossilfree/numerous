@@ -288,7 +288,10 @@ class Numerous_solver(BaseSolver):
                         return Info(status=SolveStatus.Running, event_id=SolveEvent.ExternalDataUpdate,
                                     step_info=step_info, dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
                 if event_trigger:
-                    actions(t_event, numba_model.read_variables(), event_ix)
+                    modified_variables = actions(t_event, numba_model.read_variables(), event_ix)
+                    modified_mask = (modified_variables != numba_model.read_variables())
+                    for idx in np.argwhere(modified_mask):
+                        numba_model.write_variables(modified_variables[idx], idx)
                     y_previous = y_event
                     t_previous = t_event
                     g = 1
