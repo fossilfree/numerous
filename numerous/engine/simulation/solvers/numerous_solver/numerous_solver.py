@@ -294,7 +294,6 @@ class Numerous_solver(BaseSolver):
                         numba_model.write_variables(modified_variables[idx], idx)
                     y_previous = y_event
                     t_previous = t_event
-                    g = 1
 
 
             return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
