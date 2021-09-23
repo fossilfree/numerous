@@ -534,7 +534,7 @@ class Model:
 
         if len(self.events) == 0 and is_numerous_solver:
             cond.direction = -1
-            return cond
+            return cond, np.array([cond.direction])
         if is_numerous_solver:
             return generate_event_condition_ast(self.events, self.imports.from_imports)
         else:
@@ -549,7 +549,7 @@ class Model:
     def generate_event_action_ast(self, is_numerous_solver):
         @njit()
         def action(t, v, i):
-            pass
+            return np.array([1.0])
 
         if len(self.events) == 0 and is_numerous_solver:
             return action
