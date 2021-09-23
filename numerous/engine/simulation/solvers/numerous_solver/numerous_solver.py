@@ -264,13 +264,12 @@ class Numerous_solver(BaseSolver):
                     up = (g <= 0) & (g_new >= 0) & (event_directions == 1)
                     down = (g >= 0) & (g_new <= 0) & (event_directions == -1)
                     g = g_new
-                    for direction in [up, down]:
-                        for ix, active in enumerate(direction):
-                            if active:
-                                status, t_event, y_event = check_event(events, ix,
+
+                    for ix in np.concatenate((np.argwhere(up), np.argwhere(down))):
+                                status, t_event, y_event = check_event(events, ix[0],
                                                                        t_previous, y_previous, t, y, t_next_eval)
-                                t_events[ix] = t_event
-                                y_events[:, ix] = y_event
+                                t_events[ix[0]] = t_event
+                                y_events[:, ix[0]] = y_event
 
                 if min(t_events) < t:
                     event_trigger = True
