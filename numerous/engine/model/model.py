@@ -576,7 +576,10 @@ class Model:
         for (var_path, var) in self.path_to_variable.items():
             if var_path in lines:
                 lines = lines.replace('[\'' + var_path + '\']', str(self._get_var_idx(var, idx_type)))
-        func = ast.parse(lines.strip()).body[0]
+        lines = lines.split("\n")
+        lines[0] = lines[0].strip()
+        lines[1] = lines[1].strip()
+        func = ast.parse("\n".join(lines).strip()).body[0]
         return func
 
     def create_alias(self, variable_name, alias):
