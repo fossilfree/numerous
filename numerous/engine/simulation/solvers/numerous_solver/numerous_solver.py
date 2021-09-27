@@ -31,7 +31,7 @@ class Numerous_solver(BaseSolver):
                  event_directions, **kwargs):
         super().__init__()
 
-        self.events = events[0]
+        self.events = events[0][0]
         self.event_directions = event_directions
         self.actions = events[1][0]
         # events value

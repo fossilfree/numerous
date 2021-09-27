@@ -47,7 +47,7 @@ class Simulation:
         self.time = time_
         self.model = model
 
-        def __end_step(solver, y, t,events_action, event_id=None):
+        def __end_step(solver, y, t, events_action, event_id=None):
             """
 
             """
@@ -87,10 +87,11 @@ class Simulation:
         print("Generation time: ", generation_finish - generation_start)
 
         if solver_type.value == SolverType.SOLVER_IVP.value:
-            event_function = model.generate_event_condition_ast(False)
+            event_function, _ = model.generate_event_condition_ast(False)
             action_function = model.generate_event_action_ast(False)
             self.solver = IVP_solver(time_, delta_t, model, numba_model,
-                                     num_inner, max_event_steps, self.model.states_as_vector, events=(event_function, action_function),
+                                     num_inner, max_event_steps, self.model.states_as_vector,
+                                     events=(event_function, action_function),
                                      **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
@@ -99,7 +100,8 @@ class Simulation:
             self.solver = Numerous_solver(time_, delta_t, model, numba_model,
                                           num_inner, max_event_steps, self.model.states_as_vector,
                                           numba_compiled_solver=model.use_llvm,
-                                          events=(event_function, action_function), event_directions=event_directions, **kwargs)
+                                          events=(event_function, action_function), event_directions=event_directions,
+                                          **kwargs)
 
         self.solver.register_endstep(__end_step)
 

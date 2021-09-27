@@ -7,7 +7,7 @@ import time
 import inspect
 import uuid
 
-from numba import njit
+import numpy.typing as npt
 from numba.core.registry import CPUDispatcher
 from numba.experimental import jitclass
 import pandas as pd
@@ -532,24 +532,27 @@ class Model:
     def generate_mock_event(self) -> None:
         def condition(t, v):
             return 1.0
+
         def action(t, v):
-            i=1
+            i = 1
 
         self.add_event("mock", condition, action)
 
-    def generate_event_condition_ast(self, is_numerous_solver: bool):
+    def generate_event_condition_ast(self, is_numerous_solver: bool) -> tuple[list[CPUDispatcher], npt.ArrayLike]:
         if len(self.events) == 0 and is_numerous_solver:
             self.generate_mock_event()
         if is_numerous_solver:
             return generate_event_condition_ast(self.events, self.imports.from_imports)
         else:
             result = []
+            directions = []
             for event in self.events:
                 compiled_event = njit_and_compile_function(event[1], self.imports.from_imports)
                 compiled_event.terminal = event[1].terminal
                 compiled_event.direction = event[1].direction
+                directions.append(event[1].direction)
                 result.append(compiled_event)
-            return result
+            return result, np.array(directions)
 
     def generate_event_action_ast(self, is_numerous_solver: bool) -> list[CPUDispatcher]:
         if len(self.events) == 0 and is_numerous_solver:
