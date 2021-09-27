@@ -132,7 +132,7 @@ class RK45(BaseMethod):
                 return tnew, y, True, 1, _solve_state, max_factor
 
             k = np.zeros((rk_steps+2, len(y)))
-            k[0,:] = f0*dt#dt*nm.func(t, y)#
+            k[0,:] = f0*dt
 
             for i in range(1,rk_steps+1):
                 dy = np.dot(k[:i].T, a[i,:i])
