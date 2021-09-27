@@ -530,12 +530,10 @@ class Model:
         self.events.append((key, condition, action))
 
     def generate_mock_event(self) -> None:
-        @njit()
         def condition(t, v):
-            return np.array([1.0])
-        @njit()
-        def action(t, v, i):
-            return np.array([1.0])
+            return 1.0
+        def action(t, v):
+            i=1
 
         self.add_event("mock", condition, action)
 
@@ -576,10 +574,7 @@ class Model:
         for (var_path, var) in self.path_to_variable.items():
             if var_path in lines:
                 lines = lines.replace('[\'' + var_path + '\']', str(self._get_var_idx(var, idx_type)))
-        lines = lines.split("\n")
-        lines[0] = lines[0].strip()
-        lines[1] = lines[1].strip()
-        func = ast.parse("\n".join(lines).strip()).body[0]
+        func = ast.parse(lines.strip()).body[0]
         return func
 
     def create_alias(self, variable_name, alias):
