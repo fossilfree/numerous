@@ -645,7 +645,8 @@ class Model:
 
         NM_instance = CompiledModel_instance(self.init_values, self.derivatives_idx, self.state_idx,
                                              self.global_vars, number_of_timesteps, start_time,
-                                             self.historian.get_historian_max_size(number_of_timesteps),
+                                             self.historian.get_historian_max_size(number_of_timesteps,
+                                                                                   len(self.events)),
                                              self.historian.need_to_correct(),
                                              self.external_mappings.external_mappings_time,
                                              self.number_of_external_mappings,

@@ -189,7 +189,6 @@ class Numerous_solver(BaseSolver):
                         if not step_converged:
                             print("step not converged, but historian updated")
                         numba_model.historian_update(t)
-                        # numba_model.run_callbacks_with_updates(t)
                         if strict_eval:
                             te_array[1] = t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                         else:
@@ -296,6 +295,7 @@ class Numerous_solver(BaseSolver):
                         numba_model.write_variables(modified_variables[idx[0]], idx[0])
                     y_previous = numba_model.get_states()
                     t_previous = t_event
+                    numba_model.historian_update(t_event)
 
             return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
                         dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
