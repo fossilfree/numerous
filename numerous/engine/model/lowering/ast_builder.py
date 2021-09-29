@@ -1,5 +1,7 @@
 from __future__ import print_function
 
+import types
+
 from numerous.engine.model.utils import wrap_function
 from numerous import config
 import numpy as np
@@ -66,7 +68,7 @@ class ASTBuilder:
 
     def add_external_function(self, function, signature, number_of_args, target_ids):
         self.functions.append(function)
-        self.defined_functions.append(function.name)
+        self.defined_functions.append(function.__name__)
 
     def generate(self, imports,  external_functions_source=False, save_to_file=False):
         kernel = wrap_function('global_kernel', self.read_args_section + self.body + self.return_section, decorators=[],
@@ -77,9 +79,22 @@ class ASTBuilder:
         variable_names_print = []
         for key, value in self.variable_names.items():
             variable_names_print.append('#' + str(key) + ' : ' + str(value))
-        return generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel], self.kernel_filename, imports,
-                           external_functions_source=external_functions_source,
-                           names='\n'.join(variable_names_print) + '\n')
+        #generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel], self.kernel_filename, imports,
+        #                   external_functions_source=external_functions_source,
+        #                   names='\n'.join(variable_names_print) + '\n')
+
+        code = self.generated_program.generate(self.imports)
+        kernel_module = types.ModuleType('python_kernel')
+
+        exec(code, kernel_module.__dict__)
+
+        def var_func():
+            return kernel_module.kernel_variables
+
+        def var_write(value, idx):
+            np.put(kernel_module.kernel_variables, [idx], value)
+
+        return kernel_module.global_kernel, var_func, var_write
 
     def detailed_print(self, *args, sep=' ', end='\n', file=None):
         if config.PRINT_LLVM:
