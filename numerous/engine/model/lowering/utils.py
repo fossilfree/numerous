@@ -14,7 +14,7 @@ class VarTypes(IntEnum):
 
 
 def wrap_module(body):
-    mod = ast.Module()
+    mod = ast.AST()
     mod.body = body
     mod.type_ignores=[]
     return mod
