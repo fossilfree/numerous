@@ -7,6 +7,8 @@ from numerous import config
 import numpy as np
 import ast
 
+
+
 from numerous.engine.model.lowering.utils import generate_code_file
 
 GLOBAL_ARRAY = ast.Name(id="kernel_variables")
@@ -79,11 +81,11 @@ class ASTBuilder:
         variable_names_print = []
         for key, value in self.variable_names.items():
             variable_names_print.append('#' + str(key) + ' : ' + str(value))
-        #generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel], self.kernel_filename, imports,
-        #                   external_functions_source=external_functions_source,
-        #                   names='\n'.join(variable_names_print) + '\n')
+        code = generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel], self.kernel_filename, imports,
+                           external_functions_source=external_functions_source,
+                           names='\n'.join(variable_names_print) + '\n')
 
-        code = self.generated_program.generate(self.imports)
+        #code = self.generated_program.generate(self.imports)
         kernel_module = types.ModuleType('python_kernel')
 
         exec(code, kernel_module.__dict__)
