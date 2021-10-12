@@ -68,7 +68,7 @@ def hitground_event_callback_fun(t, variables):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-@pytest.mark.parametrize("use_llvm", [True, False])
+@pytest.mark.parametrize("use_llvm",  [True, False])
 def test_bouncing_ball(solver, use_llvm):
     model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
     m1 = Model(model_system_2, use_llvm=use_llvm)

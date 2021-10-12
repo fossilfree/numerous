@@ -265,10 +265,10 @@ class Numerous_solver(BaseSolver):
                     g = g_new
 
                     for ix in np.concatenate((np.argwhere(up), np.argwhere(down))):
-                                status, t_event, y_event = check_event(events, ix[0],
-                                                                       t_previous, y_previous, t, y, t_next_eval)
-                                t_events[ix[0]] = t_event
-                                y_events[:, ix[0]] = y_event
+                        status, t_event, y_event = check_event(events, ix[0],
+                                                               t_previous, y_previous, t, y, t_next_eval)
+                        t_events[ix[0]] = t_event
+                        y_events[:, ix[0]] = y_event
 
                 if min(t_events) < t:
                     event_trigger = True
@@ -280,13 +280,7 @@ class Numerous_solver(BaseSolver):
                 if not event_trigger and step_converged:
                     y_previous = y
                     t_previous = t
-                    numba_model.map_external_data(t)
-                    if numba_model.is_store_required():
-                        return Info(status=SolveStatus.Running, event_id=SolveEvent.Historian, step_info=step_info,
-                                    dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
-                    if numba_model.is_external_data_update_needed(t):
-                        return Info(status=SolveStatus.Running, event_id=SolveEvent.ExternalDataUpdate,
-                                    step_info=step_info, dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
+
                 if event_trigger:
                     numba_model.set_states(y_event)
                     modified_variables = actions(t_event, numba_model.read_variables(), event_ix)
@@ -296,6 +290,15 @@ class Numerous_solver(BaseSolver):
                     y_previous = numba_model.get_states()
                     t_previous = t_event
                     numba_model.historian_update(t_event)
+
+                if step_converged:
+                    numba_model.map_external_data(t)
+                    if numba_model.is_store_required():
+                        return Info(status=SolveStatus.Running, event_id=SolveEvent.Historian, step_info=step_info,
+                                    dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
+                    if numba_model.is_external_data_update_needed(t):
+                        return Info(status=SolveStatus.Running, event_id=SolveEvent.ExternalDataUpdate,
+                                    step_info=step_info, dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
 
             return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
                         dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
@@ -456,11 +459,11 @@ class Numerous_solver(BaseSolver):
         info = self._solve(self.numba_model,
                            solve_state, initial_step, order, strict_eval, outer_itermax, min_step,
                            max_step, step_integrate_, self.events, self.actions, self.g,
-                           self.number_of_events,self.event_directions, t_start, t_end, self.time)
+                           self.number_of_events, self.event_directions, t_start, t_end, self.time)
 
         while info.status == SolveStatus.Running:
             if info.event_id == 1:
-                self.model.store_history(self.numba_model.historian_data)
+                self.model.create_historian_df()
                 self.numba_model.historian_reinit()
             if info.event_id == 2:
                 is_external_data = self.model.external_mappings.load_new_external_data_batch(info.t)
@@ -468,11 +471,12 @@ class Numerous_solver(BaseSolver):
                 external_mappings_time = self.model.external_mappings.external_mappings_time
                 self.numba_model.is_external_data = is_external_data
                 self.numba_model.update_external_data(external_mappings_numpy, external_mappings_time)
-
+            time_idx =np.argmax((self.time - info.t)>0)
             info = self._solve(self.numba_model,
                                solve_state, info.dt, order, strict_eval, outer_itermax, min_step,
-                               max_step, step_integrate_,
-                               info.t, t_end, self.time)
+                               max_step, step_integrate_, self.events, self.actions, self.g,
+                               self.number_of_events, self.event_directions,
+                               info.t, t_end, self.time[time_idx:])
 
         print("finished")
         return self.sol, self.result_status
@@ -511,7 +515,8 @@ class Numerous_solver(BaseSolver):
 
         info = self._solve(self.numba_model,
                            solve_state, dt, order, strict_eval, outer_itermax, min_step,
-                           max_step, step_integrate_,
+                           max_step, step_integrate_,self.events, self.actions, self.g,
+                           self.number_of_events,self.event_directions,
                            t_start, t_end, time_span)
 
         if info.event_id == 1:

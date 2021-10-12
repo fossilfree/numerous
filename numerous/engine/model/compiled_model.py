@@ -38,7 +38,7 @@ def step_approximation(t, time_array, data_array):
 class CompiledModel:
     def __init__(self, init_vars, deriv_idx, state_idx,
                  global_vars, number_of_timesteps, start_time, historian_max_size,
-                 in_memory_history_correction, external_mappings_time, number_of_external_mappings,
+                 external_mappings_time, number_of_external_mappings,
                  external_mappings_numpy, external_df_idx, interpolation_info,
                  is_external_data, t_max, external_idx):
         self.external_idx = external_idx
@@ -60,9 +60,8 @@ class CompiledModel:
         self.historian_ix = 0
         self.init_vars = init_vars
         self.historian_max_size = historian_max_size
-        self.in_memory_history_correction = in_memory_history_correction
         self.historian_data = np.empty(
-            (len(init_vars) + 1, self.historian_max_size - self.in_memory_history_correction), dtype=np.float64)
+            (len(init_vars) + 1, self.historian_max_size), dtype=np.float64)
         self.historian_data.fill(np.nan)
 
     def vectorizedfulljacobian(self, t, y, dt):
@@ -114,7 +113,7 @@ class CompiledModel:
 
     def historian_reinit(self):
         self.historian_data = np.empty(
-            (len(self.init_vars) + 1, self.historian_max_size - self.in_memory_history_correction), dtype=np.float64)
+            (len(self.init_vars) + 1, self.historian_max_size), dtype=np.float64)
         self.historian_data.fill(np.nan)
         self.historian_ix = 0
 

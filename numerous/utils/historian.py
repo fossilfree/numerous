@@ -15,18 +15,12 @@ class Historian:
     def store(self, df):
         pass
 
-    def need_to_correct(self):
-        return False
 
 
 class InMemoryHistorian(Historian):
 
     def __init__(self):
         super().__init__(None)
-
-    ## REQUIRED WHEN max_size ARE None
-    def need_to_correct(self):
-        return True
 
 
 class LocalHistorian(Historian):
