@@ -600,7 +600,6 @@ class Model:
             set_namespace = isinstance(namespace, SetNamespace)
             model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag, namespace.items,
                                              namespace.path, set_namespace, '.'.join(item.path))
-            # model_namespace.mappings = namespace.mappings
             model_namespace.variable_scope = namespace.get_flat_variables()
             model_namespace.set_variables = namespace.set_variables
 
@@ -645,8 +644,8 @@ class Model:
 
         NM_instance = CompiledModel_instance(self.init_values, self.derivatives_idx, self.state_idx,
                                              self.global_vars, number_of_timesteps, start_time,
-                                             self.historian.get_historian_max_size(number_of_timesteps),
-                                             self.historian.need_to_correct(),
+                                             self.historian.get_historian_max_size(number_of_timesteps,
+                                                                                   len(self.events)),
                                              self.external_mappings.external_mappings_time,
                                              self.number_of_external_mappings,
                                              self.external_mappings.external_mappings_numpy,
@@ -675,8 +674,22 @@ class Model:
         data.update({'time': time})
         return data
 
+    def generate_not_nan_history_array(self):
+        return self.numba_model.historian_data[:, ~np.isnan(self.numba_model.historian_data).any(axis=0)]
+
     def create_historian_df(self):
-        self.historian_df = self._generate_history_df(self.numba_model.historian_data, rename_columns=False)
+        if self.historian_df is not None:
+            import pandas as pd
+            self.historian_df = AliasedDataFrame(pd.concat([self.historian_df,
+                                                            self._generate_history_df(
+                                                                self.generate_not_nan_history_array(),
+                                                                rename_columns=False)],
+                                                           axis=0, sort=False, ignore_index=True),
+                                                 aliases=self.aliases, rename_columns=True)
+
+        else:
+            self.historian_df = self._generate_history_df(self.generate_not_nan_history_array(),
+                                                          rename_columns=False)
         self.historian.store(self.historian_df)
 
     def _generate_history_df(self, historian_data, rename_columns=True):
