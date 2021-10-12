@@ -674,19 +674,21 @@ class Model:
         data.update({'time': time})
         return data
 
+    def generate_not_nan_history_array(self):
+        return self.numba_model.historian_data[:, ~np.isnan(self.numba_model.historian_data).any(axis=0)]
+
     def create_historian_df(self):
         if self.historian_df is not None:
             import pandas as pd
-            self.historian_df =AliasedDataFrame(pd.concat([self.historian_df,
-                                                           self._generate_history_df(self.numba_model.historian_data[:,
-                                                          ~np.isnan(self.numba_model.historian_data).any(axis=0)],
-                                                                                     rename_columns=False)],
-                                                          axis=0, sort=False, ignore_index=True),
-                                                aliases=self.aliases, rename_columns=True)
+            self.historian_df = AliasedDataFrame(pd.concat([self.historian_df,
+                                                            self._generate_history_df(
+                                                                self.generate_not_nan_history_array(),
+                                                                rename_columns=False)],
+                                                           axis=0, sort=False, ignore_index=True),
+                                                 aliases=self.aliases, rename_columns=True)
 
         else:
-            self.historian_df = self._generate_history_df(self.numba_model.historian_data[:,
-                                                          ~np.isnan(self.numba_model.historian_data).any(axis=0)],
+            self.historian_df = self._generate_history_df(self.generate_not_nan_history_array(),
                                                           rename_columns=False)
         self.historian.store(self.historian_df)
 
