@@ -144,7 +144,7 @@ def test_ast_1_function():
     ast_program.add_call(eval_ast.__qualname__,
                           ["oscillator1.mechanics.x", "oscillator1.mechanics.y", "oscillator1.mechanics.x_dot",
                            "oscillator1.mechanics.y_dot"],
-                          target_ids=[6, 7])
+                          target_ids=[2, 3])
 
     diff, var_func, _ = ast_program.generate(imports)
 
@@ -158,7 +158,7 @@ def test_ast_nested_function_and_mapping():
     ast_program.add_external_function(nested, nested_signature, number_of_args=1, target_ids=[])
     ast_program.add_call(eval_ast2.__qualname__,
                           ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
-                           "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"], target_ids=[3, 7])
+                           "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"], target_ids=[2, 3])
 
     ast_program.add_mapping(args=["oscillator1.mechanics.a"],
                              targets=["oscillator1.mechanics.x_dot"])
@@ -175,7 +175,7 @@ def test_ast_1_function_and_mapping():
 
     ast_program.add_call(eval_ast.__qualname__,
                           ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
-                           "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"], target_ids=[3, 7])
+                           "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"], target_ids=[2, 3])
 
     ast_program.add_mapping(["oscillator1.mechanics.a"], ["oscillator1.mechanics.x_dot"])
 
@@ -268,7 +268,7 @@ def test_ast_loop_seq():
 
 def test_ast_loop_mix():
     ast_program = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
-    ast_program.add_external_function(eval_ast_mix, eval_ast_mix_signature, number_of_args=4, target_ids=[2, 3])
+    ast_program.add_external_function(eval_ast_mix, eval_ast_mix_signature, number_of_args=4, target_ids=[1, 3])
 
     ast_program.add_set_call(eval_ast_mix.__qualname__, [
         ["oscillator1.mechanics.y", "oscillator1.mechanics.z", "oscillator1.mechanics.a", "oscillator1.mechanics.b"],
@@ -277,12 +277,8 @@ def test_ast_loop_mix():
                               targets_ids=[1, 3])
 
     diff, var_func, _ = ast_program.generate(imports)
-    x = approx(var_func())
     assert approx(diff(np.array([2.6, 2.2, 2.3]))) == np.array([50, 8, -50])
-
-    x=approx(var_func())
-
-    assert approx(var_func()) == np.array([2.6, 2.2, 2.3, 4, -50., 6., 50, 8., -50.])
+    assert approx(var_func()) == np.array([2.6, 2.2, 50, 4, -50., 6., 50, 8., -50.])
 
 
 def test_ast_idx_write():

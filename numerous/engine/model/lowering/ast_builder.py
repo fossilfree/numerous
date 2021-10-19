@@ -103,19 +103,18 @@ class ASTBuilder:
     def store_variable(self, variable_name):
         pass
 
-    def add_call(self, external_function_name, args, target_ids):
+    def add_call(self, external_function_name, input_args, target_ids):
 
-        arg_ids = np.arange(len(args))
-        start_idx = self.variable_names[args[0]]
+        arg_ids = map(lambda arg: self.variable_names[arg], input_args)
         targets = []
         args = []
         for target_id in target_ids:
             targets.append(
-                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=target_id + start_idx)),
+                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=self.variable_names[input_args[target_id]])),
                               ctx=ast.Store()))
         for arg_id in arg_ids:
             args.append(
-                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=arg_id + start_idx)),
+                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=arg_id)),
                               ctx=ast.Load))
         if len(targets) > 1:
             self.body.append(ast.Assign(targets=[ast.Tuple(elts=targets)],
