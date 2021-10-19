@@ -73,11 +73,11 @@ class ASTBuilder:
         self.defined_functions.append(function.__name__)
 
     def generate(self, imports,  external_functions_source=False, save_to_file=False):
+
         kernel = wrap_function('global_kernel', self.read_args_section + self.body + self.return_section, decorators=[],
                                args=ast.arguments(posonlyargs=[], args=[ast.arg(arg="states",
                                                                 annotation=None)], vararg=None, defaults=[],
                                                   kwarg=None, kwonlyargs=[]))
-
         variable_names_print = []
         for key, value in self.variable_names.items():
             variable_names_print.append('#' + str(key) + ' : ' + str(value))
@@ -85,9 +85,7 @@ class ASTBuilder:
                            external_functions_source=external_functions_source,
                            names='\n'.join(variable_names_print) + '\n')
 
-        #code = self.generated_program.generate(self.imports)
         kernel_module = types.ModuleType('python_kernel')
-
         exec(code, kernel_module.__dict__)
 
         def var_func():
@@ -95,7 +93,7 @@ class ASTBuilder:
 
         def var_write(value, idx):
             np.put(kernel_module.kernel_variables, [idx], value)
-
+        print(code)
         return kernel_module.global_kernel, var_func, var_write
 
     def detailed_print(self, *args, sep=' ', end='\n', file=None):
@@ -128,32 +126,34 @@ class ASTBuilder:
                                         value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
                                                        args=args, keywords=[]), lineno=0))
 
-    def add_mapping(self, args, target):
-        if len(target) > 1:
-            raise ValueError("Only mapping to single target is supported")
-        arg_idxs = []
-        for arg in args:
-            arg_idxs.append(self.variable_names[arg])
-        target_idx = self.variable_names[target[0]]
-        print(target_idx)
-        if len(args) == 1:
-            self.body.append(ast.Assign(targets=[ast.Subscript(value=GLOBAL_ARRAY,
-                                                               slice=ast.Index(
-                                                                   value=ast.Constant(value=target_idx, kind=None)))],
-                                        value=ast.Subscript(value=GLOBAL_ARRAY,
-                                                            slice=ast.Index(
-                                                                value=ast.Constant(value=arg_idxs[0], kind=None)))
-                                        , lineno=0))
-        else:
-            self.body.append(ast.Assign(targets=[ast.Subscript(value=GLOBAL_ARRAY,
-                                                               slice=ast.Index(
-                                                                   value=ast.Constant(value=target_idx, kind=None)))],
-                                        value=ast.BinOp(left=self._generate_sum_left(arg_idxs[1:]), op=ast.Add(),
-                                                        right=ast.Subscript(value=GLOBAL_ARRAY,
-                                                                            slice=ast.Index(
-                                                                                value=ast.Constant(value=arg_idxs[0],
-                                                                                                   kind=None))))
-                                        , lineno=0))
+    def add_mapping(self, args, targets):
+        for target in targets:
+            target=[target]
+            if len(target) > 1:
+                raise ValueError("Only mapping to single target is supported")
+            arg_idxs = []
+            for arg in args:
+                arg_idxs.append(self.variable_names[arg])
+            target_idx = self.variable_names[target[0]]
+            print(target_idx)
+            if len(args) == 1:
+                self.body.append(ast.Assign(targets=[ast.Subscript(value=GLOBAL_ARRAY,
+                                                                   slice=ast.Index(
+                                                                       value=ast.Constant(value=target_idx, kind=None)))],
+                                            value=ast.Subscript(value=GLOBAL_ARRAY,
+                                                                slice=ast.Index(
+                                                                    value=ast.Constant(value=arg_idxs[0], kind=None)))
+                                            , lineno=0))
+            else:
+                self.body.append(ast.Assign(targets=[ast.Subscript(value=GLOBAL_ARRAY,
+                                                                   slice=ast.Index(
+                                                                       value=ast.Constant(value=target_idx, kind=None)))],
+                                            value=ast.BinOp(left=self._generate_sum_left(arg_idxs[1:]), op=ast.Add(),
+                                                            right=ast.Subscript(value=GLOBAL_ARRAY,
+                                                                                slice=ast.Index(
+                                                                                    value=ast.Constant(value=arg_idxs[0],
+                                                                                                       kind=None))))
+                                            , lineno=0))
 
     def _generate_sum_left(self, arg_idxs):
         if len(arg_idxs) > 0:
