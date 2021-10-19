@@ -93,7 +93,6 @@ class ASTBuilder:
 
         def var_write(value, idx):
             np.put(kernel_module.kernel_variables, [idx], value)
-        print(code)
         return kernel_module.global_kernel, var_func, var_write
 
     def detailed_print(self, *args, sep=' ', end='\n', file=None):

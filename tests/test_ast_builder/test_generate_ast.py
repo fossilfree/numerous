@@ -1,5 +1,4 @@
 import pytest
-from numba import carray, njit
 from pytest import approx
 import ast
 
@@ -26,10 +25,8 @@ eval_ast_signature = 'void(float64, float64, CPointer(float64), CPointer(float64
 
 
 eval_ast=ast.parse('''def eval_ast(s_x1, s_x2, s_x2_dot, s_x3_dot):
-    print(s_x1,s_x2,s_x2_dot,s_x3_dot)
     s_x2_dot = -100 if s_x1 > s_x2 else 50
     s_x3_dot = -s_x2_dot
-    print(s_x2_dot,s_x3_dot)
     return s_x2_dot,s_x3_dot''')
 setattr(eval_ast, "__name__", "eval_ast")
 setattr(eval_ast, "__qualname__", "eval_ast")
@@ -49,10 +46,8 @@ eval_ast2_signature = 'void(float64, float64, CPointer(float64), CPointer(float6
 
 
 eval_ast2 = ast.parse('''def eval_ast2(s_x1, s_x2, s_x2_dot, s_x3_dot):
-    print(s_x1,s_x2,s_x2_dot, s_x3_dot)
     s_x2_dot = nested(-100) if s_x1 > s_x2 else 50
     s_x3_dot = -s_x2_dot
-    print(s_x2_dot,s_x3_dot)
     return s_x2_dot,s_x3_dot''')
 setattr(eval_ast2, "__name__", "eval_ast2")
 setattr(eval_ast2, "__qualname__", "eval_ast2")
@@ -195,7 +190,7 @@ def test_ast_unordered_vars():
 
 def test_ast_1_function_and_mapping_unordered_vars():
     ast_program = ASTBuilder(initial_values, variable_distributed, STATES, DERIVATIVES)
-    ast_program.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[0, 1])
+    ast_program.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
 
     ast_program.add_call(eval_ast.__qualname__,
                           ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
@@ -241,7 +236,6 @@ def test_ast_2_function_and_mappings():
     ast_program.add_call(eval_ast.__qualname__, ["oscillator1.mechanics.b", "oscillator1.mechanics.y",
                                                    "oscillator1.mechanics.a", "oscillator1.mechanics.y_dot"],
                           target_ids=[2, 3])
-
     diff, var_func, _ = ast_program.generate(imports)
 
     assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([7., 100., 9.])
