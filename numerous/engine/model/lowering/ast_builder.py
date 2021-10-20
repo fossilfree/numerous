@@ -70,7 +70,7 @@ class ASTBuilder:
 
     def add_external_function(self, function: ast.FunctionDef, signature: str, number_of_args: int, target_ids: list[int]):
         self.functions.append(function)
-        self.defined_functions.append(function.__name__)
+        self.defined_functions.append(function.name)
 
     def generate(self, imports,  external_functions_source=False, save_to_file=False):
 
