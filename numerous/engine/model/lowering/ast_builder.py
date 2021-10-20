@@ -1,13 +1,12 @@
 from __future__ import print_function
 
+import os
 import types
 
 from numerous.engine.model.utils import wrap_function
 from numerous import config
 import numpy as np
 import ast
-
-
 
 from numerous.engine.model.lowering.utils import generate_code_file
 
@@ -68,31 +67,51 @@ class ASTBuilder:
                                                               ],
                            keywords=[]))]
 
-    def add_external_function(self, function: ast.FunctionDef, signature: str, number_of_args: int, target_ids: list[int]):
+    def add_external_function(self, function: ast.FunctionDef, signature: str, number_of_args: int,
+                              target_ids: list[int]):
         self.functions.append(function)
         self.defined_functions.append(function.name)
 
-    def generate(self, imports,  external_functions_source=False, save_to_file=False):
+    def generate(self, imports, system_tag, external_functions_source=False, save_to_file=False):
 
         kernel = wrap_function('global_kernel', self.read_args_section + self.body + self.return_section, decorators=[],
                                args=ast.arguments(posonlyargs=[], args=[ast.arg(arg="states",
-                                                                annotation=None)], vararg=None, defaults=[],
+                                                                                annotation=None)], vararg=None,
+                                                  defaults=[],
                                                   kwarg=None, kwonlyargs=[]))
         variable_names_print = []
         for key, value in self.variable_names.items():
             variable_names_print.append('#' + str(key) + ' : ' + str(value))
-        code = generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel], self.kernel_filename, imports,
-                           external_functions_source=external_functions_source,
-                           names='\n'.join(variable_names_print) + '\n')
+        code = generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel], self.kernel_filename,
+                                  imports,
+                                  external_functions_source=external_functions_source,
+                                  names='\n'.join(variable_names_print) + '\n')
 
         kernel_module = types.ModuleType('python_kernel')
-        exec(code, kernel_module.__dict__)
+        if save_to_file:
+            os.makedirs(os.path.dirname(self.kernel_filename), exist_ok=True)
+            with open(self.kernel_filename, 'w') as f:
+                f.write(code)
+            exec('from tmp.listings.' + system_tag + '_kernel import *', globals())
 
-        def var_func():
-            return kernel_module.kernel_variables
+            def var_func():
+                return kernel_variables
 
-        def var_write(value, idx):
-            np.put(kernel_module.kernel_variables, [idx], value)
+            def var_write(value, idx):
+                np.put(kernel_variables, [idx], value)
+
+            return global_kernel, var_func, var_write
+        else:
+            exec(code, kernel_module.__dict__)
+
+            def var_func():
+                return kernel_module.kernel_variables
+
+            def var_write(value, idx):
+                np.put(kernel_module.kernel_variables, [idx], value)
+
+            return kernel_module.global_kernel, var_func, var_write,
+
         return kernel_module.global_kernel, var_func, var_write
 
     def detailed_print(self, *args, sep=' ', end='\n', file=None):
@@ -109,7 +128,8 @@ class ASTBuilder:
         args = []
         for target_id in target_ids:
             targets.append(
-                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=self.variable_names[input_args[target_id]])),
+                ast.Subscript(value=GLOBAL_ARRAY,
+                              slice=ast.Index(value=ast.Constant(value=self.variable_names[input_args[target_id]])),
                               ctx=ast.Store()))
         for arg_id in arg_ids:
             args.append(
@@ -126,7 +146,7 @@ class ASTBuilder:
 
     def add_mapping(self, args, targets):
         for target in targets:
-            target=[target]
+            target = [target]
             if len(target) > 1:
                 raise ValueError("Only mapping to single target is supported")
             arg_idxs = []
@@ -137,7 +157,8 @@ class ASTBuilder:
             if len(args) == 1:
                 self.body.append(ast.Assign(targets=[ast.Subscript(value=GLOBAL_ARRAY,
                                                                    slice=ast.Index(
-                                                                       value=ast.Constant(value=target_idx, kind=None)))],
+                                                                       value=ast.Constant(value=target_idx,
+                                                                                          kind=None)))],
                                             value=ast.Subscript(value=GLOBAL_ARRAY,
                                                                 slice=ast.Index(
                                                                     value=ast.Constant(value=arg_idxs[0], kind=None)))
@@ -145,12 +166,14 @@ class ASTBuilder:
             else:
                 self.body.append(ast.Assign(targets=[ast.Subscript(value=GLOBAL_ARRAY,
                                                                    slice=ast.Index(
-                                                                       value=ast.Constant(value=target_idx, kind=None)))],
+                                                                       value=ast.Constant(value=target_idx,
+                                                                                          kind=None)))],
                                             value=ast.BinOp(left=self._generate_sum_left(arg_idxs[1:]), op=ast.Add(),
                                                             right=ast.Subscript(value=GLOBAL_ARRAY,
                                                                                 slice=ast.Index(
-                                                                                    value=ast.Constant(value=arg_idxs[0],
-                                                                                                       kind=None))))
+                                                                                    value=ast.Constant(
+                                                                                        value=arg_idxs[0],
+                                                                                        kind=None))))
                                             , lineno=0))
 
     def _generate_sum_left(self, arg_idxs):
