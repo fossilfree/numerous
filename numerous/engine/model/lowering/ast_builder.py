@@ -68,7 +68,7 @@ class ASTBuilder:
                                                               ],
                            keywords=[]))]
 
-    def add_external_function(self, function, signature, number_of_args, target_ids):
+    def add_external_function(self, function: ast.FunctionDef, signature: str, number_of_args: int, target_ids: list[int]):
         self.functions.append(function)
         self.defined_functions.append(function.__name__)
 
