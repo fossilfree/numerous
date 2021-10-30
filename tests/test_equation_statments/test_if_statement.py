@@ -45,9 +45,6 @@ class IfTest2(EquationBase, Item):
             scope.T_i2 = scope.T1
             scope.T_i4 = scope.T2 -100
 
-import numpy as np
-
-
 class IfTest3(EquationBase, Item):
     def __init__(self, tag="tm"):
         super(IfTest3, self).__init__(tag)
@@ -107,6 +104,3 @@ def test_external_if_statement_if_body_skipped(solver, use_llvm):
     s.solve()
     expected_ti4 = 0
     assert s.model.historian_df['if_system2.tm1.test_nm.T_i4'][1] == expected_ti4
-
-
-
