@@ -6,6 +6,7 @@ from numerous import Variable
 from numerous.engine.model.ast_parser.ast_visitor import ast_to_graph, connect_equation_node
 from numerous.engine.model.graph_representation import Graph, EdgeType, Node, Edge
 from numerous.engine.model.utils import NodeTypes
+from copy import deepcopy
 
 
 def attr_ast(attr):
@@ -56,7 +57,7 @@ def qualify(s, prefix):
     return prefix + '.' + s.replace('scope.', '')
 
 
-def qualify_equation(prefix, g, tag_vars, self, eq_current, eq_used):
+def qualify_equation(prefix, g, tag_vars, self, eq_current):
     def q(s):
         return qualify(s, prefix)
 
@@ -72,25 +73,41 @@ def qualify_equation(prefix, g, tag_vars, self, eq_current, eq_used):
         g_qual.nodes[i].scope_var = scope_vars_qual[i]
 
     replacements = {}
+    refer_to_self = False
     import inspect, hashlib, json
-    for n in g.nodes:
-        print(n)
-        if (f := n.func) is not None and hasattr(f, 'value'):
-            if f.value.id == 'self':
-                #            refer_to_self = True
-                print('self:: ', self)
-                obj = getattr(self.__self__, f.attr)
-                replacements[f.value.id + '_' + f.attr] = obj
 
     closure_vars = inspect.getclosurevars(self)
 
     func_ = closure_vars.nonlocals['func']
     closure_vars_func = inspect.getclosurevars(func_)
     replacements.update(closure_vars_func.globals)
-    replacements_id = {k: id(o) for k, o in replacements.items()}
-    refer_to_self = len(replacements)>0
-    eq_key = 'var_'+eq_current+'_'+hashlib.sha256(json.dumps(replacements_id).encode('UTF-8')).hexdigest()
+    closure_globs =  closure_vars_func.globals
+    print('glob: ', closure_globs)
 
+    import random,string
+    eq_prefix = ''.join(random.choice(string.ascii_letters) for i in range(4))
+
+
+    for n in g.nodes:
+
+        if (f := n.func) is not None and hasattr(f, 'value'):
+            if f.value.id == 'self':
+                refer_to_self = True
+                obj = getattr(self.__self__, f.attr)
+                #replacements[f.value.id + '_' + f.attr] = obj
+                replacements[n.id] = obj
+        elif n.id in replacements:
+            n_id = eq_prefix + n.id
+
+            #replacements[n_id] = replacements[n.id]
+            #replacements.pop(n.id)
+
+
+
+    replacements_id = {k: id(o) for k, o in replacements.items()}
+
+    eq_key = 'var_'+eq_current+'_'+hashlib.sha256(json.dumps(replacements_id).encode('UTF-8')).hexdigest()
+    print(replacements)
 
     return g_qual, refer_to_self, eq_key, replacements
 
@@ -133,7 +150,6 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
                 branches_ = set()
                 [branches_.update(b.branches.keys()) for b in g.edges_c[:g.edge_counter] if b.branches]
                 all_branches = [{}]
-                from copy import deepcopy
                 for b in branches_:
 
                     for a in all_branches:
@@ -169,14 +185,18 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
             g = parsed_eq_branches[eq_key][2]
 
             eq_path = ns_path + '.' + eq_key
-            g_qualified, refer_to_self, eq_key_, replacements = qualify_equation(ns_path, g, scope_variables, eq, eq_key, eq_used)
+            g_qualified, refer_to_self, eq_key_, replacements = qualify_equation(ns_path, g, scope_variables, eq, eq_key)
 
-            if refer_to_self:
-                print('eq_key old: ', eq_key)
-                print('p: ', parsed_eq_branches[eq_key])
-                parsed_eq_branches[eq_key_] = (
+            if len(replacements)>0:
+                if refer_to_self:
+                    eq_key__ = eq_key_
+                else:
+                    eq_key__ = eq_key
+
+                parsed_eq_branches[eq_key__] = (
                 parsed_eq_branches[eq_key][0], parsed_eq_branches[eq_key][1], parsed_eq_branches[eq_key][2], {}, replacements)
-                eq_key = eq_key_
+
+                eq_key = eq_key__
 
             eq_used.append(eq_key)
 
@@ -184,14 +204,6 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
             eq_name = ('EQ_' + eq_path).replace('.', '_')
 
             scoped_equations[eq_name] = eq_key
-            print('eq_K: ', eq_key)
-            #eq_n = mappings_graph.add_node(Node(key=eq_name,
-            #                               node_type=NodeTypes.EQUATION,
-            #                               name=eq_name, file=eq_name, ln=0, label=eq_name,
-            #                               ast_type=ast.Call,
-            #                               vectorized=is_set,
-            #                               item_id=item_id,
-            #                               func=ast.Name(id=eq_key.replace('.', '_'))))
 
             node = Node(key=eq_name,
                        node_type=NodeTypes.EQUATION,

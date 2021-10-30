@@ -15,6 +15,7 @@ class Function(object):
     def __call__(self, func):
         return njit(func)
 
+numerous_func = njit
 
 class Equation(object):
 

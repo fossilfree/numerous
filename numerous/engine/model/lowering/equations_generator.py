@@ -142,11 +142,11 @@ class EquationGenerator:
 
     def _parse_equations(self, equations):
         logging.info('make equations for compilation')
-        print('????')
-        print(equations)
+
+
         for eq_key, eq in equations.items():
             vardef = Vardef(llvm=self.llvm)
-            print('kkkk: ', eq_key)
+
             eq[2].lower_graph = None
             if self.llvm:
                 print('low: ', eq)
@@ -160,13 +160,14 @@ class EquationGenerator:
                 )
                 print('fllvm: ',func_llvm)
                 self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
-                name_key = func_llvm.__qualname__
+
             else:
                 func, args, target_ids = function_from_graph_generic(eq[2],
-                                                                     var_def_=vardef, arg_metadata=eq[2].arg_metadata)
+                                                                     var_def_=vardef, arg_metadata=eq[2].arg_metadata,
+                                                                     )
                 self.generated_program.add_external_function(func, None, len(args), target_ids)
 
-                name_key = func.__qualname__
+
 
             vardef.llvm_target_ids = target_ids
             vardef.args_order = args
@@ -439,12 +440,13 @@ class EquationGenerator:
                 deriv_idx, dtype=np.int64)
         else:
             code = self.generated_program.generate(self.imports)
+            context = asdads
             kernel_module = types.ModuleType('python_kernel')
             if save_to_file:
                 os.makedirs(os.path.dirname(self.generated_program.kernel_filename), exist_ok=True)
                 with open(self.generated_program.kernel_filename, 'w') as f:
                     f.write(code)
-                exec('from tmp.listings.' + self.system_tag + '_kernel import *', globals())
+                exec('from tmp.listings.' + self.system_tag + '_kernel import *', globals(context))
 
                 def var_func():
                     return kernel_variables

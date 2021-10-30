@@ -119,8 +119,8 @@ def generate_return_statement(var_def_, g):
     elif l == 1:
         return_ = ast.Return(value=var_def_.get_order_trgs()[0])
     else:
-        g.as_graphviz('noret', force=True)
-        raise IndexError(f'Function {g.lablel} should have return, no?')
+        #g.as_graphviz('noret', force=True)
+        raise IndexError(f'Function {g.label} should have return, no?')
     return return_
 
 
@@ -197,17 +197,19 @@ def compiled_function_from_graph_generic_llvm(g: Graph, var_def_, imports,
                          args=ast.arguments(posonlyargs=[], args=[], vararg=None, defaults=[],
                                             kwonlyargs=[], kw_defaults=[],lineno=0, kwarg=None))
     import astor
+    import random, string
+    eq_prefix = ''.join(random.choice(string.ascii_letters) for i in range(4))+'_'
+
     f1 = astor.to_source(func)
-    # print('code: ', f1)
-    print('rep: ', replacements)
-    # bound_funcs = {}
-    # for r in list(replacements):
-    f1 = f1.replace('self.', 'self_')
-    #    bound_funcs[r[1]] = r[2]
-    print(f1)
-    # bound_funcs = dot_dict(**bound_funcs)
-    # print('fname: ', fname)
-    # print('f1: ', f1)
+    keys = list(replacements.keys())
+    for key in keys:
+        eq_key = (eq_prefix+key).replace('.', '_')
+        print(eq_key)
+        f1 = f1.replace(key, eq_key)
+        replacements[eq_key] = replacements[key]
+        replacements.pop(key)
+    #sdfsdf=sdfsfdsfd
+    #f1 = f1.replace('self.', 'self_')
     tree = ast.parse(f1, mode='exec')
 
     module_func = ast.Module(body=[tree], type_ignores=[])
