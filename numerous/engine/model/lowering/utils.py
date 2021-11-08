@@ -19,7 +19,6 @@ def wrap_module(body):
         if not hasattr(i, "_fields"):
             setattr(i, "_fields", [])
     mod.body = body
-    #print(mod.body)
     mod.type_ignores=[]
     setattr(mod, "_fields", [])
     return mod

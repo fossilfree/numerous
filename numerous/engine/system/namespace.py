@@ -11,13 +11,13 @@ class VariableNamespaceBase:
 
     """
 
-    def __init__(self, item, tag, disable, is_connector=False, _id=uuid.uuid1()):
+    def __init__(self, item, tag, disable=False, is_connector=False, _id=uuid.uuid1()):
         self.items = [item.id]
         self.is_connector = is_connector
         self.item = item
         self.set_variables = []
         self.id = str(_id)
-        self.disable=disable
+        self.disable = disable
         # self.variable_scope = []
         ## -1 outgoing
         ## 0 no mapping
@@ -30,7 +30,7 @@ class VariableNamespaceBase:
         self.variables = _DictWrapper(self.__dict__, Variable)
         self.variable_scope = [self.variables]
         self.registered = False
-        self.part_of_set=False
+        self.part_of_set = False
         ## if it is part of set it will be ignored during assembly.
         # print('creating ns with tag: ',tag)
 
@@ -160,8 +160,8 @@ class VariableNamespaceBase:
                     if create_variables:
                         any(self.create_variable_from_desc(variable_description)
                             for variable_description in eq.variables_descriptions)
-                    eq.set_equation = set_equation
-                    self.associated_equations.update({eq.tag: eq})
+                eq.set_equation = set_equation
+                self.associated_equations.update({eq.tag: eq})
 
 
 class VariableNamespace(VariableNamespaceBase):
@@ -190,7 +190,7 @@ class SetNamespace(VariableNamespace):
         flat_variables = []
         for set_of_variables in self.set_variables.values():
             flat_variables.append(set_of_variables)
-        return  flat_variables
+        return flat_variables
 
 
 class _BindingVariable(Variable):
@@ -201,7 +201,7 @@ class _BindingVariable(Variable):
 
 class _ShadowVariableNamespace(VariableNamespaceBase):
     def __init__(self, item, tag, binding, is_connector=False, _id=uuid.uuid1()):
-        super().__init__(item, tag, is_connector, _id)
+        super().__init__(item, tag, is_connector=is_connector, _id=_id)
         self.binding = binding
 
     def register_variable(self, variable):
