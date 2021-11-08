@@ -11,12 +11,13 @@ class VariableNamespaceBase:
 
     """
 
-    def __init__(self, item, tag, is_connector=False, _id=uuid.uuid1()):
+    def __init__(self, item, tag, disable, is_connector=False, _id=uuid.uuid1()):
         self.items = [item.id]
         self.is_connector = is_connector
         self.item = item
         self.set_variables = []
         self.id = str(_id)
+        self.disable=disable
         # self.variable_scope = []
         ## -1 outgoing
         ## 0 no mapping
@@ -151,14 +152,16 @@ class VariableNamespaceBase:
 
 
         """
-        if update_bindings and self.is_connector:
-            self.item.update_bindings(list_of_equations, self.tag)
-        for eq in list_of_equations:
-            if create_variables:
-                any(self.create_variable_from_desc(variable_description)
-                    for variable_description in eq.variables_descriptions)
-            eq.set_equation = set_equation
-            self.associated_equations.update({eq.tag: eq})
+        if not self.disable:
+            if update_bindings and self.is_connector:
+                self.item.update_bindings(list_of_equations, self.tag)
+            for eq in list_of_equations:
+                if not eq.disable:
+                    if create_variables:
+                        any(self.create_variable_from_desc(variable_description)
+                            for variable_description in eq.variables_descriptions)
+                    eq.set_equation = set_equation
+                    self.associated_equations.update({eq.tag: eq})
 
 
 class VariableNamespace(VariableNamespaceBase):
@@ -166,7 +169,7 @@ class VariableNamespace(VariableNamespaceBase):
 
 
 class SetNamespace(VariableNamespace):
-    def __init__(self, item, tag, item_indcs):
+    def __init__(self, item, tag, disable, item_indcs):
         super().__init__(item, tag)
         self.tag = tag
         self.items_id = item_indcs

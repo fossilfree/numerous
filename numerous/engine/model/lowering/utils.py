@@ -15,8 +15,13 @@ class VarTypes(IntEnum):
 
 def wrap_module(body):
     mod = ast.Module()
+    for i in body:
+        if not hasattr(i, "_fields"):
+            setattr(i, "_fields", [])
     mod.body = body
+    #print(mod.body)
     mod.type_ignores=[]
+    setattr(mod, "_fields", [])
     return mod
 
 
@@ -32,8 +37,6 @@ def generate_code_file(mod_body, file, imports, external_functions_source=False,
     mod = wrap_module(mod_body)
     print('Generating Source')
     source = names + ast.unparse(mod)
-
-
     return source
 
 

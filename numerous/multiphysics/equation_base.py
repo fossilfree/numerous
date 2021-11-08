@@ -52,10 +52,11 @@ class EquationBase:
      are defined in classes extending the :class:`numerous.multiphysics.Equation`.
 
     """
-    def __init__(self, tag=None):
+    def __init__(self, disable=False, tag=None):
         if tag:
             self.tag = tag
         self.equations = []
+        self.disable=disable
         self.variables_descriptions = VariableDescriptionMap(self)
         super(EquationBase, self).__init__()
         method_list = [func for func in dir(self) if callable(getattr(self, func)) and not func.startswith("__")]

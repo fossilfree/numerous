@@ -214,7 +214,6 @@ class Model:
         -  _3d 
 
         """
-
         def __get_mapping__idx(variable):
             if variable.mapping:
                 return __get_mapping__idx(variable.mapping)
