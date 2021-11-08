@@ -1,6 +1,5 @@
 import logging
 import uuid
-import inspect
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.variables import Variable, VariableDescription, _VariableFactory, OverloadAction, SetOfVariables
 
@@ -12,7 +11,7 @@ class VariableNamespaceBase:
     """
 
     def __init__(self, item, tag, disable=False, is_connector=False, _id=uuid.uuid1()):
-        self.items = [item.id]
+        self.items = [item]
         self.is_connector = is_connector
         self.item = item
         self.set_variables = []
