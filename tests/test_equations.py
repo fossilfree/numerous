@@ -4,8 +4,8 @@ from numerous import EquationBase, Equation
 class TestEq_input(EquationBase):
     __test__ = False
 
-    def __init__(self, disable=False, P=10, T=0, R=1):
-        super().__init__(disable=disable, tag='input_eq')
+    def __init__(self, P=10, T=0, R=1):
+        super().__init__(tag='input_eq')
         self.add_parameter('P', P)
         self.add_parameter('T_o', 0)
         self.add_state('T', T)
@@ -35,8 +35,8 @@ class Test_Eq(EquationBase):
 class TestEq_ground(EquationBase):
     __test__ = False
 
-    def __init__(self, TG=10, RG=2, disable=False):
-        super().__init__(tag='ground_eq', disable=disable)
+    def __init__(self, TG=10, RG=2):
+        super().__init__(tag='ground_eq')
         self.add_constant('T', TG)
         self.add_constant('R', RG)
 

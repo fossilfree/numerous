@@ -60,7 +60,7 @@ class Item(Node):
         """
         return VariableNamespace(self, DEFAULT_NAMESPACE, is_connector=isinstance(self, Connector))
 
-    def create_namespace(self, tag, disable=False):
+    def create_namespace(self, tag):
         """
         Creating a namespace.
 
@@ -75,10 +75,8 @@ class Item(Node):
             Empty namespace with given name
 
         """
-
-        new_namespace = VariableNamespace(self, tag, disable, is_connector=isinstance(self, Connector))
+        new_namespace = VariableNamespace(self, tag, is_connector=isinstance(self, Connector))
         self.register_namespace(new_namespace)
-        self.disable=disable
         return new_namespace
 
     def register_namespace(self, namespace):
