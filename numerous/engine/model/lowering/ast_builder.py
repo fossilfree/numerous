@@ -7,6 +7,7 @@ from numerous.engine.model.utils import wrap_function
 from numerous import config
 import numpy as np
 import ast
+from copy import deepcopy as copy
 
 from numerous.engine.model.lowering.utils import generate_code_file
 
@@ -45,6 +46,7 @@ class ASTBuilder:
         self.defined_functions = []
         self.body = []
         self.kernel_filename = LISTING_FILEPATH + system_tag + LISTINGFILENAME
+        self.cnd_calls={}
 
         self.read_args_section = [ast.Expr(value=ast.Call(func=ast.Name(id='np.put'),
                                                           args=[GLOBAL_ARRAY,
@@ -74,7 +76,14 @@ class ASTBuilder:
 
     def generate(self, imports, system_tag="", external_functions_source=False, save_to_file=False):
 
-        kernel = wrap_function('global_kernel', self.read_args_section + self.body + self.return_section, decorators=[],
+        body_complete = copy(self.body)
+        for i in self.cnd_calls.keys():
+            call = self.cnd_calls[i]
+
+            if call['active']:
+                body_complete+=copy(call['assignment'])
+
+        kernel = wrap_function('global_kernel', self.read_args_section + body_complete + self.return_section, decorators=[],
                                args=ast.arguments(posonlyargs=[], args=[ast.arg(arg="states",
                                                                                 annotation=None)], vararg=None,
                                                   defaults=[],
@@ -114,12 +123,70 @@ class ASTBuilder:
 
         return kernel_module.global_kernel, var_func, var_write
 
+    def unparse(self, imports, system_tag="", external_functions_source=False):
+        body_complete = copy(self.body)
+        for i in self.cnd_calls.keys():
+            call = self.cnd_calls[i]
+
+            if call['active']:
+                body_complete += copy(call['assignment'])
+
+        kernel = wrap_function('global_kernel', self.read_args_section + body_complete + self.return_section,
+                               decorators=[],
+                               args=ast.arguments(posonlyargs=[], args=[ast.arg(arg="states",
+                                                                                annotation=None)], vararg=None,
+                                                  defaults=[],
+                                                  kwarg=None, kwonlyargs=[]))
+        variable_names_print = []
+        for key, value in self.variable_names.items():
+            variable_names_print.append('#' + str(key) + ' : ' + str(value))
+        code = generate_code_file([x for x in self.functions] + self.body_init_set_var + [kernel], self.kernel_filename,
+                                  imports,
+                                  external_functions_source=external_functions_source,
+                                  names='\n'.join(variable_names_print) + '\n')
+
+        return code
+
     def detailed_print(self, *args, sep=' ', end='\n', file=None):
         if config.PRINT_LLVM:
             print(*args, sep, end, file)
 
     def store_variable(self, variable_name):
         pass
+
+    def add_conditional_call(self,external_function_name, input_args, target_ids, tag, active=True):
+
+        active=active
+        arg_ids = map(lambda arg: self.variable_names[arg], input_args)
+        targets = []
+        args = []
+        for target_id in target_ids:
+            targets.append(
+                ast.Subscript(value=GLOBAL_ARRAY,
+                              slice=ast.Index(value=ast.Constant(value=self.variable_names[input_args[target_id]])),
+                              ctx=ast.Store()))
+        for arg_id in arg_ids:
+            args.append(
+                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=arg_id)),
+                              ctx=ast.Load))
+
+        temp_assignments=[]
+        if len(targets) > 1:
+            temp_assignments.append(ast.Assign(targets=[ast.Tuple(elts=targets)],
+                                        value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
+                                                       args=args, keywords=[]), lineno=0))
+        else:
+            temp_assignments.append(ast.Assign(targets=[targets[0]],
+                                        value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
+                                                       args=args, keywords=[]), lineno=0))
+        temp={'assignment':temp_assignments,'active':active}
+        self.cnd_calls.update({tag:temp})
+
+    def get_call_enabled(self, tag):
+        return self.cnd_calls[tag]['active']
+
+    def set_call_enabled(self, tag, enabled):
+        self.cnd_calls[tag]['active']=enabled
 
     def add_call(self, external_function_name, input_args, target_ids):
 
