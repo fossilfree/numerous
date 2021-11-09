@@ -1,8 +1,7 @@
-from numerous.engine.model.lowering.ast_builder import ASTBuilder
-import numpy as np
 import ast
+import numpy as np
+from numerous.engine.model.lowering.ast_builder import ASTBuilder
 from numerous.engine.model.utils import Imports
-import pytest
 
 initial_values = np.arange(1, 10, dtype=np.float64)
 number_of_derivatives = 3
@@ -32,27 +31,27 @@ variable_distributed = {
 DERIVATIVES = ["oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot", "oscillator1.mechanics.z_dot"]
 STATES = ["oscillator1.mechanics.x", "oscillator1.mechanics.y", "oscillator1.mechanics.z"]
 eval_ast_signature = 'void(float64, float64, CPointer(float64), CPointer(float64))'
-eval_ast=ast.parse('''def eval_ast(s_x1, s_x2, s_x2_dot, s_x3_dot):
+eval_ast = ast.parse('''def eval_ast(s_x1, s_x2, s_x2_dot, s_x3_dot):
     s_x2_dot = -100 if s_x1 > s_x2 else 50
     s_x3_dot = -s_x2_dot
     return s_x2_dot,s_x3_dot''').body[0]
 imports = Imports()
 imports.add_as_import("numpy", "np")
 
+
 def test_ast_set_unset():
     ast_program = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
     ast_program.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
 
     ast_program.add_conditional_call(eval_ast.name,
-                          ["oscillator1.mechanics.x", "oscillator1.mechanics.y", "oscillator1.mechanics.x_dot",
-                           "oscillator1.mechanics.y_dot"],
-                            [2, 3],
-                            'call_1')
-    assert ast_program.get_call_enabled('call_1')==True
+                                     ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
+                                      "oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot"],
+                                     [2, 3],
+                                     'call_1')
+    assert ast_program.get_call_enabled('call_1')
     ast_program.set_call_enabled('call_1', False)
-    assert ast_program.get_call_enabled('call_1')==False
-    ast_program.set_call_enabled('call_1', True)
-    assert ast_program.get_call_enabled('call_1')==True
+    assert not ast_program.get_call_enabled('call_1')
+
 
 def test_ast_added():
     ast_program = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
@@ -67,4 +66,4 @@ def test_ast_added():
 
     assert '= eval_ast' in ast_program.unparse(imports)
     ast_program.set_call_enabled('call_1', False)
-    assert not '= eval_ast' in ast_program.unparse(imports)
+    assert '= eval_ast' not in ast_program.unparse(imports)
