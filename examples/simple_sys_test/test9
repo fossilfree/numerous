@@ -1,9 +1,0 @@
-digraph {
-	EQ_system_SET_simples_mechanics_EQ_2d5a3b41_3a55_11eb_95a8_5c80b6733b64system_SET_simples_mechanics [label=EQ_system_SET_simples_mechanics_EQ_2d5a3b41_3a55_11eb_95a8_5c80b6733b64system_SET_simples_mechanics]
-	SETc942dfe8_8c8f_4a9c_a3a4_8ec7489d6a1e [label="system.SET_simples.mechanics.k"]
-	SETdef90e69_183f_48d1_b4b8_c7aec371fe35 [label="system.SET_simples.mechanics.x"]
-	SETba08dae6_5e48_4c18_8ae5_536cfe1e9d79 [label="system.SET_simples.mechanics.x_dot"]
-	SETc942dfe8_8c8f_4a9c_a3a4_8ec7489d6a1e -> EQ_system_SET_simples_mechanics_EQ_2d5a3b41_3a55_11eb_95a8_5c80b6733b64system_SET_simples_mechanics [label="EdgeType.ARGUMENT"]
-	SETdef90e69_183f_48d1_b4b8_c7aec371fe35 -> EQ_system_SET_simples_mechanics_EQ_2d5a3b41_3a55_11eb_95a8_5c80b6733b64system_SET_simples_mechanics [label="EdgeType.ARGUMENT"]
-	EQ_system_SET_simples_mechanics_EQ_2d5a3b41_3a55_11eb_95a8_5c80b6733b64system_SET_simples_mechanics -> SETba08dae6_5e48_4c18_8ae5_536cfe1e9d79 [label="EdgeType.TARGET"]
-}

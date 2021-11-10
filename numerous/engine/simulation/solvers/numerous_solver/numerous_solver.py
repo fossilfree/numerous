@@ -26,18 +26,27 @@ class SolveEvent(IntEnum):
 
 class Numerous_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps, y0, numba_compiled_solver,
-                 **kwargs):
+    def __init__(self, time_, delta_t, model, numba_model, num_inner, max_event_steps, y0, numba_compiled_solver,
+                 events,
+                 event_directions, **kwargs):
         super().__init__()
-        self.time = time
+
+        self.events = events[0][0]
+        self.event_directions = event_directions
+        self.actions = events[1][0]
+        # events value
+        self.g = self.events(time_[0], y0)
+
+        self.time = time_
         self.model = model
         self.num_inner = num_inner
         self.delta_t = delta_t
         self.numba_model = numba_model
         self.diff_function = numba_model.func
         self.numba_compiled_solver = numba_compiled_solver
+        self.number_of_events = len(self.g)
 
-        self.f0 = numba_model.func(time[0], y0)
+        self.f0 = numba_model.func(time_[0], y0)
         self.max_event_steps = max_event_steps
         self.options = kwargs
         self.info = None
@@ -70,9 +79,10 @@ class Numerous_solver(BaseSolver):
 
     def generate_solver(self):
         def _solve(numba_model, _solve_state, initial_step, order, strict_eval, outer_itermax,
-                   min_step, max_step, step_integrate_,
+                   min_step, max_step, step_integrate_, events, actions, g, number_of_events, event_directions,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
             # Init t to t0
+            imax = 100
             step_info = 0
             t = t0
             dt = initial_step
@@ -98,8 +108,11 @@ class Numerous_solver(BaseSolver):
             roller_ix = -1
 
             def add_ring_buffer(t_, y_, rb, o):
+
                 if o == order:
                     y_temp = rb[2][:, :]
+                    t_temp = rb[1]
+                    rb[1][0:order - 1] = t_temp[1:order]
                     rb[2][0:order - 1, :] = y_temp[1:order, :]
 
                 o = min(o + 1, order)
@@ -127,6 +140,10 @@ class Numerous_solver(BaseSolver):
 
             terminate = False
             step_converged = True
+            event_trigger = False
+            event_ix = -1
+            t_event = t
+            y_event = y
             dt_last = -1
             j_i = 0
             progress_c = t_eval.shape[0]
@@ -139,11 +156,13 @@ class Numerous_solver(BaseSolver):
                         raise ValueError('dt shortened below min_dt')
                     decrease = True
                     te_array[0] = t_previous + dt
-                else:
+                elif step_converged and not event_trigger:
                     dt = min(max_step, dt)
                     decrease = False
 
                     te_array[0] = t + dt
+                else:  # event
+                    te_array[0] = t_event
 
                 # Determine new test - it should be the smallest value requested by events, eval, step
                 t_new_test = np.min(te_array)
@@ -170,7 +189,6 @@ class Numerous_solver(BaseSolver):
                         if not step_converged:
                             print("step not converged, but historian updated")
                         numba_model.historian_update(t)
-                        # numba_model.run_callbacks_with_updates(t)
                         if strict_eval:
                             te_array[1] = t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                         else:
@@ -198,20 +216,92 @@ class Numerous_solver(BaseSolver):
                                                                                         _solve_state)
 
                 dt *= factor
+                event_trigger = False
+                t_events = np.zeros(number_of_events) + t
+                y_events = np.zeros((len(y), number_of_events))
+
+                def sol(t, t_r, y_r):
+                    yi = np.zeros(len(y))
+                    tv = np.append(roller[1][0:order], t_r)
+                    yv = np.append(roller[2][0:order], y_r)
+                    yv = yv.reshape(order + 1, len(y)).T
+                    for i, yvi in enumerate(yv):
+                        yi[i] = np.interp(t, tv, yvi)
+                    return yi
+
+                def check_event(event_fun, ix, t_previous, y_previous, t, y, t_next_eval):
+                    t_l = t_previous
+                    y_l = y_previous
+                    e_l = event_fun(t_l, y_l)[ix]
+                    t_r = t
+                    y_r = y
+                    e_r = event_fun(t_r, y_r)[ix]
+                    status = 0
+                    if np.sign(e_l) == np.sign(e_r):
+                        return status, t, y
+                    i = 0
+                    t_m = (t_l + t_r) / 2
+                    y_m = sol(t_m, t, y)
+
+                    while status == 0:  # bisection method
+                        e_m = event_fun(t_m, y_m)[ix]
+                        if np.sign(e_l) != np.sign(e_m):
+                            t_r = t_m
+                        elif np.sign(e_r) != np.sign(e_m):
+                            t_l = t_m
+                        if abs(e_m) < 1e-6:
+                            status = 1
+                        if i > imax:
+                            status = -1
+                        t_m = (t_l + t_r) / 2
+                        y_m = sol(t_m, t, y)
+
+                    return status, t_m, y_m
 
                 if step_converged:
+                    g_new = events(t, y)
+                    up = (g <= 0) & (g_new >= 0) & (event_directions == 1)
+                    down = (g >= 0) & (g_new <= 0) & (event_directions == -1)
+                    g = g_new
+
+                    for ix in np.concatenate((np.argwhere(up), np.argwhere(down))):
+                        status, t_event, y_event = check_event(events, ix[0],
+                                                               t_previous, y_previous, t, y, t_next_eval)
+                        t_events[ix[0]] = t_event
+                        y_events[:, ix[0]] = y_event
+
+                if min(t_events) < t:
+                    event_trigger = True
+                    event_ix = np.argmin(t_events)
+                    t_event = t_events[event_ix]
+                    y_event = y_events[:, event_ix]
+                    g = events(t_event, y_event)
+
+                if not event_trigger and step_converged:
                     y_previous = y
                     t_previous = t
+
+                if event_trigger:
+                    numba_model.set_states(y_event)
+                    modified_variables = actions(t_event, numba_model.read_variables(), event_ix)
+                    modified_mask = (modified_variables != numba_model.read_variables())
+                    for idx in np.argwhere(modified_mask):
+                        numba_model.write_variables(modified_variables[idx[0]], idx[0])
+                    y_previous = numba_model.get_states()
+                    t_previous = t_event
+                    numba_model.historian_update(t_event)
+
+                if step_converged:
                     numba_model.map_external_data(t)
                     if numba_model.is_store_required():
                         return Info(status=SolveStatus.Running, event_id=SolveEvent.Historian, step_info=step_info,
-                                    dt=dt, t=t, y=y, order=order)
+                                    dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
                     if numba_model.is_external_data_update_needed(t):
                         return Info(status=SolveStatus.Running, event_id=SolveEvent.ExternalDataUpdate,
-                                    step_info=step_info, dt=dt, t=t, y=y, order=order)
+                                    step_info=step_info, dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
 
             return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
-                        dt=dt, t=t, y=y, order=order)
+                        dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
 
         return _solve
 
@@ -237,6 +327,11 @@ class Numerous_solver(BaseSolver):
                 self._method.get_solver_state(len(self.y0)), initial_step,
                 order, strict_eval, outer_itermax, min_step,
                 max_step, step_integrate_,
+                self.events,
+                self.actions,
+                self.g,
+                self.number_of_events,
+                self.event_directions,
                 self.time[0],
                 self.time[-1],
                 self.time)
@@ -363,12 +458,12 @@ class Numerous_solver(BaseSolver):
 
         info = self._solve(self.numba_model,
                            solve_state, initial_step, order, strict_eval, outer_itermax, min_step,
-                           max_step, step_integrate_,
-                           t_start, t_end, self.time)
+                           max_step, step_integrate_, self.events, self.actions, self.g,
+                           self.number_of_events, self.event_directions, t_start, t_end, self.time)
 
         while info.status == SolveStatus.Running:
             if info.event_id == 1:
-                self.model.store_history(self.numba_model.historian_data)
+                self.model.create_historian_df()
                 self.numba_model.historian_reinit()
             if info.event_id == 2:
                 is_external_data = self.model.external_mappings.load_new_external_data_batch(info.t)
@@ -376,11 +471,12 @@ class Numerous_solver(BaseSolver):
                 external_mappings_time = self.model.external_mappings.external_mappings_time
                 self.numba_model.is_external_data = is_external_data
                 self.numba_model.update_external_data(external_mappings_numpy, external_mappings_time)
-
+            time_idx =np.argmax((self.time - info.t)>0)
             info = self._solve(self.numba_model,
                                solve_state, info.dt, order, strict_eval, outer_itermax, min_step,
-                               max_step, step_integrate_,
-                               info.t, t_end, self.time)
+                               max_step, step_integrate_, self.events, self.actions, self.g,
+                               self.number_of_events, self.event_directions,
+                               info.t, t_end, self.time[time_idx:])
 
         print("finished")
         return self.sol, self.result_status
@@ -419,7 +515,8 @@ class Numerous_solver(BaseSolver):
 
         info = self._solve(self.numba_model,
                            solve_state, dt, order, strict_eval, outer_itermax, min_step,
-                           max_step, step_integrate_,
+                           max_step, step_integrate_,self.events, self.actions, self.g,
+                           self.number_of_events,self.event_directions,
                            t_start, t_end, time_span)
 
         if info.event_id == 1:
