@@ -202,7 +202,6 @@ class Numerous_solver(BaseSolver):
                 if step_converged:
                     y_previous = y
                     t_previous = t
-                    #print(t_end-t)
                     numba_model.map_external_data(t)
                     if numba_model.is_store_required():
                         return Info(status=SolveStatus.Running, event_id=SolveEvent.Historian, step_info=step_info,
@@ -351,11 +350,8 @@ class Numerous_solver(BaseSolver):
 
         order = self._method.order
 
-
-
         initial_step = self.select_initial_step(self.numba_model, t_start, y0, 1, order - 1, rtol,
                                                 atol)  # np.min([100000000*min_step, max_step])
-        print("initial step", initial_step)
 
         strict_eval = self.method_options.get('strict_eval')
         outer_itermax = self.method_options.get('outer_itermax')
