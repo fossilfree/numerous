@@ -27,6 +27,17 @@ class SingleAssign(Item, EquationBase):
     def eval(self, scope):
         scope.x_dot = 1
 
+class AssignWithoutNamespace(Item, EquationBase):
+    def __init__(self, tag='item1'):
+        super(AssignWithoutNamespace, self).__init__(tag)
+        self.add_state('x', 0)
+        # call without namespace specification
+        self.add_equations([self])
+
+    @Equation()
+    def eval(self, scope):
+        scope.x_dot = 1
+
 
 class TupleToTupleAssign(Item, EquationBase):
     def __init__(self, tag='item2'):
@@ -114,6 +125,7 @@ def test_single_assign(solver, use_llvm):
     assert approx(historian_df['system1.item1.t1.x'][2]) == 2
 
 
+
 @pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_tuple_assign(solver, use_llvm):
@@ -181,3 +193,13 @@ def test_single_unary_operator_local_variables_are_not_shared(solver, use_llvm):
     historian_df = s.model.historian_df
     assert approx(historian_df['system7.item7.t1.x'][2]) == 4
     assert approx(historian_df['system7.item8.t1.x'][2]) == 12
+
+@pytest.mark.parametrize("solver", solver_types)
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_single_assign(solver, use_llvm):
+    m = System(tag='system8', item=AssignWithoutNamespace(tag='item9'))
+    model = Model(m, use_llvm=use_llvm, generate_graph_pdf=False)
+    s = simulation.Simulation(model, solver_type=solver, t_start=0, t_stop=2.0, num=2, num_inner=2)
+    s.solve()
+    historian_df = s.model.historian_df
+    assert approx(historian_df['system8.item9.default.x'][2]) == 2

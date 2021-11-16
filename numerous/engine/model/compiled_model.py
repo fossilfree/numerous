@@ -1,5 +1,6 @@
 from numba import int32, float64, boolean, int64, njit, types, typed
 import numpy as np
+import numpy.typing as npt
 
 # key and value types
 kv_ty = (types.unicode_type, float64)
@@ -37,10 +38,10 @@ def step_approximation(t, time_array, data_array):
 class CompiledModel:
     def __init__(self, init_vars, deriv_idx, state_idx,
                  global_vars, number_of_timesteps, start_time, historian_max_size,
-                 in_memory_history_correction, external_mappings_time, number_of_external_mappings,
+                 external_mappings_time, number_of_external_mappings,
                  external_mappings_numpy, external_df_idx, interpolation_info,
-                 is_external_data, t_max,external_idx):
-        self.external_idx=external_idx
+                 is_external_data, t_max, external_idx):
+        self.external_idx = external_idx
         self.external_mappings_time = external_mappings_time
         self.number_of_external_mappings = number_of_external_mappings
         self.external_mappings_numpy = external_mappings_numpy
@@ -59,9 +60,8 @@ class CompiledModel:
         self.historian_ix = 0
         self.init_vars = init_vars
         self.historian_max_size = historian_max_size
-        self.in_memory_history_correction = in_memory_history_correction
         self.historian_data = np.empty(
-            (len(init_vars) + 1, self.historian_max_size - self.in_memory_history_correction), dtype=np.float64)
+            (len(init_vars) + 1, self.historian_max_size), dtype=np.float64)
         self.historian_data.fill(np.nan)
 
     def vectorizedfulljacobian(self, t, y, dt):
@@ -84,10 +84,10 @@ class CompiledModel:
             df_indx = self.external_df_idx[i][0]
             var_idx = self.external_df_idx[i][1]
             value = np.interp(t, self.external_mappings_time[df_indx],
-                                                        self.external_mappings_numpy[df_indx, :, var_idx]) if \
+                              self.external_mappings_numpy[df_indx, :, var_idx]) if \
                 self.approximation_type[i] else \
                 step_approximation(t, self.external_mappings_time[df_indx],
-                                  self.external_mappings_numpy[df_indx, :, var_idx])
+                                   self.external_mappings_numpy[df_indx, :, var_idx])
             self.write_variables(value, self.external_idx[i])
 
     def update_external_data(self, external_mappings_numpy, external_mappings_time):
@@ -102,6 +102,10 @@ class CompiledModel:
     def get_states(self):
         return self.read_variables()[self.state_idx]
 
+    def set_states(self, states: npt.ArrayLike) -> None:
+        for i in range(len(states)):
+            self.write_variables(states[i], self.state_idx[i])
+
     def is_store_required(self):
         if self.historian_ix >= self.historian_max_size:
             return True
@@ -109,7 +113,7 @@ class CompiledModel:
 
     def historian_reinit(self):
         self.historian_data = np.empty(
-            (len(self.init_vars) + 1, self.historian_max_size - self.in_memory_history_correction), dtype=np.float64)
+            (len(self.init_vars) + 1, self.historian_max_size), dtype=np.float64)
         self.historian_data.fill(np.nan)
         self.historian_ix = 0
 
