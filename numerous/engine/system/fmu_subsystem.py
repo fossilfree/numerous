@@ -8,11 +8,11 @@ from fmpy.fmi2 import FMU2Model, fmi2CallbackFunctions, fmi2CallbackLoggerTYPE, 
 from fmpy.simulation import apply_start_values, Input
 from fmpy.util import auto_interval
 
-from numerous import EquationBase
-from numerous.engine.system import Subsystem
+from numerous import EquationBase, Equation
+from numerous.engine.model import Model
+from numerous.engine.system import Subsystem, Item
 from numba import cfunc, carray
 import numpy as np
-
 
 class FMU_Subsystem(Subsystem, EquationBase):
     """
@@ -110,7 +110,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
         getreal = getattr(fmu.dll, "fmi2GetReal")
         component = fmu.component
 
-
         getreal.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p]
         getreal.restype = ctypes.c_uint
 
@@ -123,7 +122,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         fmi2SetReal.restype = ctypes.c_uint
 
         completedIntegratorStep = getattr(fmu.dll, "fmi2CompletedIntegratorStep")
-        completedIntegratorStep.argtypes = [ctypes.c_uint, ctypes.c_uint, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+        completedIntegratorStep.argtypes = [ctypes.c_uint, ctypes.c_uint, ctypes.POINTER(ctypes.c_int),
+                                            ctypes.POINTER(ctypes.c_int)]
         completedIntegratorStep.restype = ctypes.c_uint
 
         eval_llvm_signature = 'void(CPointer(int32),CPointer(int32),CPointer(float64),CPointer(float64),CPointer(float64),CPointer(float64),CPointer(' \
@@ -151,11 +151,42 @@ class FMU_Subsystem(Subsystem, EquationBase):
         fmu.enterContinuousTimeMode()
 
         equation_call = cfunc(sig=eval_llvm_signature)(eval_llvm)
-        equation_call.compiled = True
+        equation_call.FMU = True
+        self.equations.append(equation_call)
+        self.t1 = self.create_namespace('t1')
+        self.t1.add_equations([self])
+
+class Test_Eq(EquationBase):
+    __test__ = False
+
+    def __init__(self, T=0, R=1):
+        super().__init__(tag='T_eq')
+        self.add_state('Q', T)
+        self.add_parameter('R', R)
+
+    @Equation()
+    def eval(self, scope):
+        scope.Q_dot = scope.R + 9
 
 
-fmu_filename = 'bouncingBall.fmu'
-fmu_subsystem = FMU_Subsystem(fmu_filename, "BouncingBall")
+class G(Item):
+    def __init__(self, tag, TG, RG):
+        super().__init__(tag)
+        t1 = self.create_namespace('t1')
+        t1.add_equations([Test_Eq(T=TG, R=RG)])
+
+
+class S3(Subsystem):
+    def __init__(self, tag):
+        super().__init__(tag)
+
+        fmu_filename = 'bouncingBall.fmu'
+        fmu_subsystem = FMU_Subsystem(fmu_filename, "BouncingBall")
+        item_t = G('test', TG=10, RG=2)
+        item_t.t1.R = fmu_subsystem.t1.h
+        self.register_items([fmu_subsystem, item_t])
+
+
+subsystem1 = S3('q1')
+m1 = Model(subsystem1, use_llvm=False)
 print("finished")
-
-

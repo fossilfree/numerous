@@ -82,96 +82,129 @@ def _generate_equation_key(equation_id: str, is_set: bool) -> str:
     return eq_key
 
 
+def connect_FMU_equation_node(variables, mappings_graph, node, is_set):
+    eq_node_idx = mappings_graph.add_node(node)
+    for variable in variables.values():
+        sv = variable
+        neq = mappings_graph.add_node(Node(key=sv.id, node_type=NodeTypes.VAR, scope_var=sv,
+                                           is_set_var=is_set, label=sv.get_path_dot()),
+                                      ignore_existing=True)
+
+        if sv.derivative:
+            mappings_graph.add_edge(Edge(start=eq_node_idx, end=neq, e_type=EdgeType.TARGET, arg_local=sv.id))
+        else:
+            mappings_graph.add_edge(Edge(neq, eq_node_idx, e_type=EdgeType.ARGUMENT, arg_local=sv.id))
+
+
 def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
              parsed_eq_branches, scoped_equations, parsed_eq):
-    for m in model_namespace.equation_dict.values():
+    for e_k, m in model_namespace.equation_dict.items():
         for eq in m:
-            ns_path = model_namespace.full_tag
-            is_set = model_namespace.is_set
-            eq_key = _generate_equation_key(eq.id, is_set)
-            is_parsed_eq = eq_key in parsed_eq
-            ast_tree = None
-            if not is_parsed_eq:
-                dsource = eq.lines
+            if eq.FMU:
+                eq_key = "FMU_" + e_k
+                parsed_eq_branches[eq_key] = (eq, None, None, {})
+                parsed_eq[eq_key] = 'FMU_EQ_' + e_k
+                is_parsed_eq = eq_key in parsed_eq
+                is_set = False
+                node = Node(key=eq_key,
+                            node_type=NodeTypes.FMU_EQUATION,
+                            name=eq_key, file=eq_key, ln=0, label=parsed_eq[eq_key],
+                            ast_type=ast.Call,
+                            vectorized=is_set,
+                            item_id=item_id,
+                            func=ast.Name(id=eq_key.replace('.', '_')))
 
-                tries = 0
-                while tries < 10:
-                    try:
-                        dsource = dedent(dsource)
-                        ast_tree = ast.parse(dsource)
-                        break
-                    except IndentationError:
+                connect_FMU_equation_node(scope_variables, mappings_graph, node, is_set)
 
-                        tries += 1
-                        if tries > 10 - 1:
-                            print(dsource)
-                            raise
+            else:
+                ns_path = model_namespace.full_tag
+                is_set = model_namespace.is_set
+                eq_key = _generate_equation_key(eq.id, is_set)
+                is_parsed_eq = eq_key in parsed_eq
+                ast_tree = None
+                if not is_parsed_eq:
+                    dsource = eq.lines
 
-                g = ast_to_graph(ast_tree, eq_key, eq.file, eq.lineno, scope_variables)
-                # Create branched versions of graph
-                branches_ = set()
-                [branches_.update(b.branches.keys()) for b in g.edges_c[:g.edge_counter] if b.branches]
-                all_branches = [{}]
-                from copy import deepcopy
-                for b in branches_:
+                    tries = 0
+                    while tries < 10:
+                        try:
+                            dsource = dedent(dsource)
+                            ast_tree = ast.parse(dsource)
+                            break
+                        except IndentationError:
 
-                    for a in all_branches:
-                        a.update({b: True})
+                            tries += 1
+                            if tries > 10 - 1:
+                                print(dsource)
+                                raise
 
-                    all_branches += deepcopy(all_branches)
-                    for a in all_branches[int(len(all_branches) / 2):]:
-                        a[b] = False
+                    g = ast_to_graph(ast_tree, eq_key, eq.file, eq.lineno, scope_variables)
+                    # Create branched versions of graph
+                    branches_ = set()
+                    [branches_.update(b.branches.keys()) for b in g.edges_c[:g.edge_counter] if b.branches]
+                    all_branches = [{}]
+                    from copy import deepcopy
+                    for b in branches_:
 
-                if len(all_branches) > 1:
-                    branch_graphs = []
-                    for a in all_branches:
+                        for a in all_branches:
+                            a.update({b: True})
 
-                        gb = g.clone()
+                        all_branches += deepcopy(all_branches)
+                        for a in all_branches[int(len(all_branches) / 2):]:
+                            a[b] = False
 
-                        for i, b in enumerate(gb.edges_attr['branches'][:g.edge_counter]):
+                    if len(all_branches) > 1:
+                        branch_graphs = []
+                        for a in all_branches:
 
-                            for ak in a.keys():
-                                if ak in b and b[ak] != a[ak]:
-                                    gb.remove_edge(i)
+                            gb = g.clone()
 
-                        gb = gb.clean()
-                        branch_graphs.append((a, gb, eq_key + '_' + postfix_from_branches(a)))
+                            for i, b in enumerate(gb.edges_attr['branches'][:g.edge_counter]):
 
-                    for branch in branch_graphs:
-                        parsed_eq_branches[branch[2]] = (eq, dsource, branch[1], branch[0])
+                                for ak in a.keys():
+                                    if ak in b and b[ak] != a[ak]:
+                                        gb.remove_edge(i)
 
-                else:
-                    parsed_eq_branches[eq_key] = (eq, dsource, g, {})
+                            gb = gb.clean()
+                            branch_graphs.append((a, gb, eq_key + '_' + postfix_from_branches(a)))
 
-                parsed_eq[eq_key] = 'EQ_' + ns_path + '.' + eq.name
+                        for branch in branch_graphs:
+                            parsed_eq_branches[branch[2]] = (eq, dsource, branch[1], branch[0])
 
-            g = parsed_eq_branches[eq_key][2]
+                    else:
+                        parsed_eq_branches[eq_key] = (eq, dsource, g, {})
 
-            eq_path = ns_path + '.' + eq_key
-            equation_graph = qualify_equation(ns_path, g, scope_variables)
+                    parsed_eq[eq_key] = 'EQ_' + ns_path + '.' + eq.name
 
-            # make equation graph
-            eq_name = ('EQ_' + eq_path).replace('.', '_')
+                g = parsed_eq_branches[eq_key][2]
 
-            scoped_equations[eq_name] = eq_key
+                eq_path = ns_path + '.' + eq_key
+                equation_graph = qualify_equation(ns_path, g, scope_variables)
 
-            node = Node(key=eq_name,
-                                                       node_type=NodeTypes.EQUATION,
-                                                       name=eq_name, file=eq_name, ln=0, label=parsed_eq[eq_key],
-                                                       ast_type=ast.Call,
-                                                       vectorized=is_set,
-                                                       item_id=item_id,
-                                                       func=ast.Name(id=eq_key.replace('.', '_')))
+                # make equation graph
+                eq_name = ('EQ_' + eq_path).replace('.', '_')
 
-            connect_equation_node(equation_graph, mappings_graph, node, is_set)
+                scoped_equations[eq_name] = eq_key
+
+                node = Node(key=eq_name,
+                            node_type=NodeTypes.EQUATION,
+                            name=eq_name, file=eq_name, ln=0, label=parsed_eq[eq_key],
+                            ast_type=ast.Call,
+                            vectorized=is_set,
+                            item_id=item_id,
+                            func=ast.Name(id=eq_key.replace('.', '_')))
+
+                connect_equation_node(equation_graph, mappings_graph, node, is_set)
 
             if not is_parsed_eq:
                 for sv in scope_variables:
                     if scope_variables[sv].used_in_equation_graph:
-                        g.arg_metadata.append((sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
+                        g.arg_metadata.append(
+                            (sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
                         scope_variables[sv].used_in_equation_graph = False
                     else:
-                        g.arg_metadata.append((sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
+                        g.arg_metadata.append(
+                            (sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
 
 
 def process_mappings(mappings, mappings_graph: Graph, scope_vars):

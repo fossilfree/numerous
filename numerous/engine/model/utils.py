@@ -33,6 +33,7 @@ class NodeTypes(IntEnum):
     TMP = 5
     ASSIGNTUPLE = 6
     IF = 7
+    FMU_EQUATION = 8
 
 
 def recurse_Attribute(attr, sep='.'):
