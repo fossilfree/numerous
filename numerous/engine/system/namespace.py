@@ -124,6 +124,8 @@ class VariableNamespaceBase:
             logging.warning("Variable {0} is already in namespace {1} of item {2}".format(variable.tag,
                                                                                           self.tag, self.item.tag))
             # we overwrite constant < parameters < state
+            print(self.variables[variable.tag].value)
+            print(variable.value)
             if self.variables[variable.tag].value < variable.value:
                 self.variables[variable.tag] = variable
                 variable.extend_path(self.tag)
@@ -153,6 +155,8 @@ class VariableNamespaceBase:
         """
         if update_bindings and self.is_connector:
             self.item.update_bindings(list_of_equations, self.tag)
+
+        print('lioe: ',list_of_equations)
         for eq in list_of_equations:
             if create_variables:
                 any(self.create_variable_from_desc(variable_description)

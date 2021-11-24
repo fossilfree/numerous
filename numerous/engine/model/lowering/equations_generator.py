@@ -440,7 +440,6 @@ class EquationGenerator:
                 deriv_idx, dtype=np.int64)
         else:
             code = self.generated_program.generate(self.imports)
-            context = asdads
             kernel_module = types.ModuleType('python_kernel')
             if save_to_file:
                 os.makedirs(os.path.dirname(self.generated_program.kernel_filename), exist_ok=True)

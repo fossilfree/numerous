@@ -58,7 +58,8 @@ class Item(Node):
         >>> print(dn.item is None )
         False
         """
-        return VariableNamespace(self, DEFAULT_NAMESPACE, is_connector=isinstance(self, Connector))
+        #return VariableNamespace(self, DEFAULT_NAMESPACE, is_connector=isinstance(self, Connector))
+        return self.create_namespace(DEFAULT_NAMESPACE)
 
     def create_namespace(self, tag):
         """

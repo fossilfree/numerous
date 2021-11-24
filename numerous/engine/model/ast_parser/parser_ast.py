@@ -179,7 +179,7 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
 
                 else:
                     parsed_eq_branches[eq_key] = (eq, dsource, g, {})
-
+                print(eq)
                 parsed_eq[eq_key] = 'EQ_' + ns_path + '.' + eq.name
 
             g = parsed_eq_branches[eq_key][2]

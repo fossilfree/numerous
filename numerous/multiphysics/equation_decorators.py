@@ -66,7 +66,7 @@ def dedent_code(code):
 class InlineEquation(Equation):
 
     def __call__(self, func_name, func_source, namespace = {}):
-
+        self.name = func_name
         tries = 0
         while tries < 10:
             try:
@@ -84,7 +84,7 @@ class InlineEquation(Equation):
         @wraps(func)
         def wrapper(self,scope):
             func(self, scope)
-
+        wrapper.name = func_name
         wrapper._equation = True
         wrapper.lines = func_source
         wrapper.id = self.id
