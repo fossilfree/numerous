@@ -215,7 +215,7 @@ class ASTBuilder:
             target_idx = self.variable_names[target[0]]
             print(target_idx)
             if len(args) == 1:
-                self.body.append(ast.Assign(targets=[ast.Subscript(value=GLOBAL_ARRAY,
+                temp=(ast.Assign(targets=[ast.Subscript(value=GLOBAL_ARRAY,
                                                                    slice=ast.Index(
                                                                        value=ast.Constant(value=target_idx,
                                                                                           kind=None)))],
@@ -224,7 +224,7 @@ class ASTBuilder:
                                                                     value=ast.Constant(value=arg_idxs[0], kind=None)))
                                             , lineno=0))
             else:
-                self.body.append(ast.Assign(targets=[ast.Subscript(value=GLOBAL_ARRAY,
+                temp=(ast.Assign(targets=[ast.Subscript(value=GLOBAL_ARRAY,
                                                                    slice=ast.Index(
                                                                        value=ast.Constant(value=target_idx,
                                                                                           kind=None)))],
@@ -235,6 +235,9 @@ class ASTBuilder:
                                                                                         value=arg_idxs[0],
                                                                                         kind=None))))
                                             , lineno=0))
+            setattr(temp, 'cnd', False)
+
+            self.body.append(temp)
 
     def _generate_sum_left(self, arg_idxs):
         if len(arg_idxs) > 0:
@@ -247,7 +250,7 @@ class ASTBuilder:
             return ast.Constant(value=0, kind=None)
 
     def add_set_call(self, external_function_name, variable_name_arg_and_trg, targets_ids):
-        self.body.append(ast.For(target=ast.Name(id='i', ctx=ast.Store()),
+        temp=(ast.For(target=ast.Name(id='i', ctx=ast.Store()),
                                  iter=ast.Call(func=ast.Name(id='range', ctx=ast.Load()), args=
                                  [ast.Constant(value=len(variable_name_arg_and_trg))], keywords=[]),
                                  body=[self._generate_set_call_body(external_function_name,
@@ -256,7 +259,8 @@ class ASTBuilder:
                                                                         variable_name_arg_and_trg[0][0]],
                                                                     targets_ids)],
                                  orelse=[], lineno=0))
-
+        setattr(temp, 'cnd', False)
+        self.body.append(temp)
     def _generate_set_call_body(self, external_function_name, arg_length, strart_idx, target_ids):
         arg_ids = np.arange(arg_length)
         targets = []
