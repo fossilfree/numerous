@@ -132,20 +132,23 @@ class EquationGenerator:
         logging.info('make equations for compilation')
         for eq_key, eq in equations.items():
             vardef = Vardef(llvm=self.llvm)
-
-            eq[2].lower_graph = None
-            if self.llvm:
-                func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(
-                    eq[2],
-                    imports=self.imports,
-                    var_def_=Vardef(llvm=self.llvm),
-                    compiled_function=True
-                )
-                self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
-            else:
-                func, args, target_ids = function_from_graph_generic(eq[2],
-                                                                     var_def_=vardef, arg_metadata=eq[2].arg_metadata)
+            if eq[0].FMU:
+                func, args, target_ids =1,1,1
                 self.generated_program.add_external_function(func, None, len(args), target_ids)
+            else:
+                eq[2].lower_graph = None
+                if self.llvm:
+                    func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(
+                        eq[2],
+                        imports=self.imports,
+                        var_def_=Vardef(llvm=self.llvm),
+                        compiled_function=True
+                    )
+                    self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
+                else:
+                    func, args, target_ids = function_from_graph_generic(eq[2],
+                                                                         var_def_=vardef, arg_metadata=eq[2].arg_metadata)
+                    self.generated_program.add_external_function(func, None, len(args), target_ids)
 
             vardef.llvm_target_ids = target_ids
             vardef.args_order = args

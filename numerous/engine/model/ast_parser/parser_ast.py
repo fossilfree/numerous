@@ -2,7 +2,7 @@ import ast
 import logging
 from textwrap import dedent
 
-from numerous import Variable
+from numerous import Variable, VariableType
 from numerous.engine.model.ast_parser.ast_visitor import ast_to_graph, connect_equation_node
 from numerous.engine.model.graph_representation import Graph, EdgeType, Node, Edge
 from numerous.engine.model.utils import NodeTypes
@@ -90,7 +90,7 @@ def connect_FMU_equation_node(variables, mappings_graph, node, is_set):
                                            is_set_var=is_set, label=sv.get_path_dot()),
                                       ignore_existing=True)
 
-        if sv.derivative:
+        if sv.type == VariableType.DERIVATIVE:
             mappings_graph.add_edge(Edge(start=eq_node_idx, end=neq, e_type=EdgeType.TARGET, arg_local=sv.id))
         else:
             mappings_graph.add_edge(Edge(neq, eq_node_idx, e_type=EdgeType.ARGUMENT, arg_local=sv.id))

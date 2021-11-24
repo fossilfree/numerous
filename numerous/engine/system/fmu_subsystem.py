@@ -126,12 +126,12 @@ class FMU_Subsystem(Subsystem, EquationBase):
                                             ctypes.POINTER(ctypes.c_int)]
         completedIntegratorStep.restype = ctypes.c_uint
 
-        eval_llvm_signature = 'void(CPointer(int32),CPointer(int32),CPointer(float64),CPointer(float64),CPointer(float64),CPointer(float64),CPointer(' \
+        eval_llvm_signature = 'list(CPointer(float64))(CPointer(int32),CPointer(int32),CPointer(float64),CPointer(float64),CPointer(float64),CPointer(float64),CPointer(' \
                               'float64),CPointer(float64),float64,float64,float64,float64,float64,float64,float64) '
         len_q = 6
 
-        term_1 = ctypes.byref(ctypes.c_int(0))
-        event_1 = ctypes.byref(ctypes.c_int(0))
+        self.term_1 = ctypes.byref(ctypes.c_int(0))
+        self.event_1 = ctypes.byref(ctypes.c_int(0))
 
         def eval_llvm(event, term, a0, a1, a2, a3, a4, a5, a_i_0, a_i_1, a_i_2, a_i_3, a_i_4, a_i_5, t):
             vr = np.arange(0, len_q, 1, dtype=np.uint32)
@@ -147,14 +147,32 @@ class FMU_Subsystem(Subsystem, EquationBase):
             carray(a3, (1,))[0] = value[3]
             carray(a4, (1,))[0] = value[4]
             carray(a5, (1,))[0] = value[5]
+            return  np.array([a1,a3], dtype=np.float64)
 
         fmu.enterContinuousTimeMode()
 
-        equation_call = cfunc(sig=eval_llvm_signature)(eval_llvm)
-        equation_call.FMU = True
-        self.equations.append(equation_call)
+        self.equation_call = cfunc(sig=eval_llvm_signature)(eval_llvm)
+
         self.t1 = self.create_namespace('t1')
         self.t1.add_equations([self])
+
+    @Equation()
+    def eval(self, scope):
+        a0 = np.array([scope.e])
+        a4 = np.array([scope.g])
+        a3 = np.array([scope.h])
+        a2 = np.array([scope.v])
+        a1 = np.array([0.0])
+        a5 = np.array([0.0])
+        a1,a3=self.equation_call(self.event_1, self.term_1, a0.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                           a1.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                           a2.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                           a3.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                           a4.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                           a5.ctypes.data_as(ctypes.POINTER(ctypes.c_double)), scope.h, 0.0, scope.v, 0.0, scope.g, scope.e,
+                           0.1)
+        scope.h_dot = a1
+        scope.v_dot = a3
 
 class Test_Eq(EquationBase):
     __test__ = False
