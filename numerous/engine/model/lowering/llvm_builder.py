@@ -112,7 +112,7 @@ class LLVMBuilder:
 
         self.ext_funcs[name] = f_llvm
 
-    def generate(self, save_to_file=False):
+    def generate(self, imports=None, system_tag=None, save_to_file=False):
 
         self.builder.position_at_end(self.bb_loop)
 
