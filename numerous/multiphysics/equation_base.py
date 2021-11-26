@@ -57,7 +57,7 @@ class EquationBase:
             self.tag = tag
         self.equations = []
         self.variables_descriptions = VariableDescriptionMap(self)
-        #super(EquationBase, self).__init__()
+        super(EquationBase, self).__init__()
         method_list = [func for func in dir(self) if callable(getattr(self, func)) and not func.startswith("__")]
         for method in method_list:
             method_call = getattr(self, method)

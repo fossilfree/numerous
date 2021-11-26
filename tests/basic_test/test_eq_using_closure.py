@@ -44,7 +44,7 @@ class SelfTest(EquationBase, Item):
 
 
 @numerous_func
-def test_closure_func(x):
+def closure_func(x):
     return x**2
 
 class ClosureFuncTest(EquationBase, Item):
@@ -63,7 +63,7 @@ class ClosureFuncTest(EquationBase, Item):
     @Equation()
     def eval(self, scope):
 
-        scope.x = test_closure_func(5)
+        scope.x = closure_func(5)
 
 test_closure_var = 44.0
 
