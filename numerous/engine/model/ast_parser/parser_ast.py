@@ -81,11 +81,6 @@ def qualify_equation(prefix, g, tag_vars, self, eq_current):
     func_ = closure_vars.nonlocals['func']
     closure_vars_func = inspect.getclosurevars(func_)
     replacements.update(closure_vars_func.globals)
-    closure_globs =  closure_vars_func.globals
-    print('glob: ', closure_globs)
-
-    import random,string
-    eq_prefix = ''.join(random.choice(string.ascii_letters) for i in range(4))
 
 
     for n in g.nodes:
@@ -94,20 +89,11 @@ def qualify_equation(prefix, g, tag_vars, self, eq_current):
             if f.value.id == 'self':
                 refer_to_self = True
                 obj = getattr(self.__self__, f.attr)
-                #replacements[f.value.id + '_' + f.attr] = obj
                 replacements[n.id] = obj
-        elif n.id in replacements:
-            n_id = eq_prefix + n.id
-
-            #replacements[n_id] = replacements[n.id]
-            #replacements.pop(n.id)
-
-
 
     replacements_id = {k: id(o) for k, o in replacements.items()}
 
-    eq_key = 'var_'+eq_current+'_'+hashlib.sha256(json.dumps(replacements_id).encode('UTF-8')).hexdigest()
-    print(replacements)
+    eq_key = 'var_' + eq_current + '_' + hashlib.sha256(json.dumps(replacements_id).encode('UTF-8')).hexdigest()
 
     return g_qual, refer_to_self, eq_key, replacements
 
@@ -142,7 +128,6 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
 
                         tries += 1
                         if tries > 10 - 1:
-                            print(dsource)
                             raise
 
                 g = ast_to_graph(ast_tree, eq_key, eq.file, eq.lineno, scope_variables)
@@ -179,22 +164,23 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
 
                 else:
                     parsed_eq_branches[eq_key] = (eq, dsource, g, {})
-                print(eq)
                 parsed_eq[eq_key] = 'EQ_' + ns_path + '.' + eq.name
 
             g = parsed_eq_branches[eq_key][2]
 
             eq_path = ns_path + '.' + eq_key
-            g_qualified, refer_to_self, eq_key_, replacements = qualify_equation(ns_path, g, scope_variables, eq, eq_key)
+            g_qualified, refer_to_self, eq_key_, replacements = qualify_equation(ns_path, g, scope_variables, eq,
+                                                                                 eq_key)
 
-            if len(replacements)>0:
+            if len(replacements) > 0:
                 if refer_to_self:
                     eq_key__ = eq_key_
                 else:
                     eq_key__ = eq_key
 
                 parsed_eq_branches[eq_key__] = (
-                parsed_eq_branches[eq_key][0], parsed_eq_branches[eq_key][1], parsed_eq_branches[eq_key][2], {}, replacements)
+                    parsed_eq_branches[eq_key][0], parsed_eq_branches[eq_key][1], parsed_eq_branches[eq_key][2], {},
+                    replacements)
 
                 eq_key = eq_key__
 
@@ -206,12 +192,12 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
             scoped_equations[eq_name] = eq_key
 
             node = Node(key=eq_name,
-                       node_type=NodeTypes.EQUATION,
-                       name=eq_name, file=eq_name, ln=0, label=eq_name,
-                       ast_type=ast.Call,
-                       vectorized=is_set,
-                       item_id=item_id,
-                       func=ast.Name(id=eq_key.replace('.', '_')))
+                        node_type=NodeTypes.EQUATION,
+                        name=eq_name, file=eq_name, ln=0, label=eq_name,
+                        ast_type=ast.Call,
+                        vectorized=is_set,
+                        item_id=item_id,
+                        func=ast.Name(id=eq_key.replace('.', '_')))
 
             connect_equation_node(g_qualified, mappings_graph, node, is_set)
 
