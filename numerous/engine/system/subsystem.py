@@ -144,7 +144,6 @@ class Subsystem(ConnectorItem):
         item : :class:`numerous.engine.system.Item`
             Item to register in the subsystem.
         """
-        print(item.tag)
         if item.tag in [x.tag for x in self.registered_items.values()]:
             raise ValueError('Item with tag {} is already registered in system {}'.format(item.tag, self.tag))
         item._increase_level()

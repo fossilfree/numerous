@@ -9,6 +9,17 @@ from numerous.engine.model.utils import NodeTypes
 from copy import deepcopy
 
 
+class ParsedEquation:
+    def __init__(self, eq, dsource, graph, t, replacements=None):
+        if replacements is None:
+            replacements = {}
+        self.eq = eq
+        self.dsource = dsource
+        self.graph = graph
+        self.t = t
+        self.replacements = replacements
+
+
 def attr_ast(attr):
     attr_ = attr.split('.')
     if len(attr_) > 1:
@@ -81,7 +92,6 @@ def qualify_equation(prefix, g, tag_vars, self, eq_current):
     func_ = closure_vars.nonlocals['func']
     closure_vars_func = inspect.getclosurevars(func_)
     replacements.update(closure_vars_func.globals)
-
 
     for n in g.nodes:
 
@@ -160,13 +170,13 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
                         branch_graphs.append((a, gb, eq_key + '_' + postfix_from_branches(a)))
 
                     for branch in branch_graphs:
-                        parsed_eq_branches[branch[2]] = (eq, dsource, branch[1], branch[0])
+                        parsed_eq_branches[branch[2]] = ParsedEquation(eq, dsource, branch[1], branch[0])
 
                 else:
-                    parsed_eq_branches[eq_key] = (eq, dsource, g, {})
+                    parsed_eq_branches[eq_key] = ParsedEquation(eq, dsource, g, {})
                 parsed_eq[eq_key] = 'EQ_' + ns_path + '.' + eq.name
 
-            g = parsed_eq_branches[eq_key][2]
+            g = parsed_eq_branches[eq_key].graph
 
             eq_path = ns_path + '.' + eq_key
             g_qualified, refer_to_self, eq_key_, replacements = qualify_equation(ns_path, g, scope_variables, eq,
@@ -178,8 +188,8 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
                 else:
                     eq_key__ = eq_key
 
-                parsed_eq_branches[eq_key__] = (
-                    parsed_eq_branches[eq_key][0], parsed_eq_branches[eq_key][1], parsed_eq_branches[eq_key][2], {},
+                parsed_eq_branches[eq_key__] = ParsedEquation(
+                    parsed_eq_branches[eq_key].eq, parsed_eq_branches[eq_key].dsource, parsed_eq_branches[eq_key].graph, {},
                     replacements)
 
                 eq_key = eq_key__

@@ -147,14 +147,14 @@ class EquationGenerator:
         for eq_key, eq in equations.items():
             vardef = Vardef(llvm=self.llvm)
 
-            eq[2].lower_graph = None
+            eq.graph.lower_graph = None
             if self.llvm:
                 func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(
-                    eq[2],
+                    eq.graph,
                     imports=self.imports,
                     var_def_=Vardef(llvm=self.llvm),
                     compiled_function=True,
-                    replacements=eq[4] if len(eq) > 4 else {},
+                    replacements=eq.replacements,
                     replace_name=eq_key
                 )
                 self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
