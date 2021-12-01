@@ -124,7 +124,7 @@ def generate_return_statement(var_def_, g):
     return return_
 
 
-def function_from_graph_generic(g: MappingsGraph, var_def_, arg_metadata):
+def function_from_graph_generic(g: MappingsGraph, var_def_, arg_metadata, replacements=None, replace_name=None):
     decorators = []
     body = function_body_from_graph(g, var_def_)
     var_def_.order_variables(arg_metadata)
@@ -177,7 +177,7 @@ def function_body_from_graph(g, var_def_, lineno_count=1):
 
 
 def compiled_function_from_graph_generic_llvm(g: Graph, var_def_, imports,
-                                              compiled_function=False, replacements={}, replace_name=None):
+                                              compiled_function=False, replacements=None, replace_name=None):
     func, signature, fname, r_args, r_targets = function_from_graph_generic_llvm(g, var_def_, replace_name=replace_name)
     if not compiled_function:
         return func, signature, r_args, r_targets

@@ -160,7 +160,10 @@ class EquationGenerator:
                 self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids)
             else:
                 func, args, target_ids = function_from_graph_generic(eq.graph,
-                                                                     var_def_=vardef, arg_metadata=eq.graph.arg_metadata)
+                                                                     var_def_=vardef, arg_metadata=eq.graph.arg_metadata,
+                                                                     replacements=eq.replacements,
+                                                                     replace_name=eq_key
+                                                                     )
                 self.generated_program.add_external_function(func, None, len(args), target_ids)
 
             vardef.llvm_target_ids = target_ids

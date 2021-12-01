@@ -11,8 +11,6 @@ from copy import deepcopy
 
 class ParsedEquation:
     def __init__(self, eq, dsource, graph, t, replacements=None):
-        if replacements is None:
-            replacements = {}
         self.eq = eq
         self.dsource = dsource
         self.graph = graph
