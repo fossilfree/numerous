@@ -53,7 +53,7 @@ def test_ast_set_unset():
     assert not ast_program.get_call_enabled('call_1')
 
 
-def test_ast_defaults():
+def test_ast_added():
     ast_program = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
     ast_program.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
 
@@ -64,6 +64,6 @@ def test_ast_defaults():
                                      [2, 3],
                                      'call_1')
 
-    assert 'def global_kernel(states, eval_ast_flag=True):' in ast_program.unparse(imports)
+    assert '= eval_ast' in ast_program.unparse(imports)
     ast_program.set_call_enabled('call_1', False)
-    assert 'def global_kernel(states, eval_ast_flag=False):' in ast_program.unparse(imports)
+    assert '= eval_ast' not in ast_program.unparse(imports)

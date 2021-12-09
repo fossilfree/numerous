@@ -8,7 +8,7 @@ from numba import njit
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
 from .solver_methods import BaseMethod, RK45
 
-Info = namedtuple('Info', ['status', 'event_id', 'step_info', 'dt', 't', 'y', 'order'])
+Info = namedtuple('Info', ['status', 'event_id', 'step_info', 'dt', 't', 'y', 'order_', 'roller', 'solve_state'])
 
 
 @unique
@@ -78,7 +78,7 @@ class Numerous_solver(BaseSolver):
             self._solve = self.generate_solver()
 
     def generate_solver(self):
-        def _solve(numba_model, _solve_state, initial_step, order, strict_eval, outer_itermax,
+        def _solve(numba_model, _solve_state, initial_step, order, order_, roller, strict_eval, outer_itermax,
                    min_step, max_step, step_integrate_, events, actions, g, number_of_events, event_directions,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
             # Init t to t0
@@ -93,19 +93,13 @@ class Numerous_solver(BaseSolver):
                     numba_model.historian_update(t)
                     numba_model.map_external_data(t)
                 return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
-                            dt=dt, t=t, y=y, order=order)
+                            dt=dt, t=t, y=y, order_=order_, roller=roller, solve_state=_solve_state)
             t_start = t
             t_previous = t0
             y_previous = np.copy(y)
 
-            order_ = 0
             len_y = numba_model.get_states().shape[0]
-            n = order + 2
-            rb0 = np.zeros((n, len(y)))
 
-            roller = (n, np.zeros(n), rb0)
-
-            roller_ix = -1
 
             def add_ring_buffer(t_, y_, rb, o):
 
@@ -295,13 +289,15 @@ class Numerous_solver(BaseSolver):
                     numba_model.map_external_data(t)
                     if numba_model.is_store_required():
                         return Info(status=SolveStatus.Running, event_id=SolveEvent.Historian, step_info=step_info,
-                                    dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
+                                    dt=dt, t=t, y=np.ascontiguousarray(y), order_=order_, roller=roller,
+                                    solve_state=_solve_state)
                     if numba_model.is_external_data_update_needed(t):
                         return Info(status=SolveStatus.Running, event_id=SolveEvent.ExternalDataUpdate,
-                                    step_info=step_info, dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
+                                    step_info=step_info, dt=dt, t=t, y=np.ascontiguousarray(y), order_=order_,
+                                    roller=roller, solve_state=_solve_state)
 
             return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
-                        dt=dt, t=t, y=np.ascontiguousarray(y), order=order)
+                        dt=dt, t=t, y=np.ascontiguousarray(y), order_=order_, roller=roller, solve_state=_solve_state)
 
         return _solve
 
@@ -322,10 +318,12 @@ class Numerous_solver(BaseSolver):
         initial_step = min_step
 
         step_integrate_ = self._method.step_func
+        roller = self._init_roller(order)
+        order_ = 0
 
         args = (self.numba_model,
                 self._method.get_solver_state(len(self.y0)), initial_step,
-                order, strict_eval, outer_itermax, min_step,
+                order, order_, roller, strict_eval, outer_itermax, min_step,
                 max_step, step_integrate_,
                 self.events,
                 self.actions,
@@ -413,6 +411,12 @@ class Numerous_solver(BaseSolver):
 
         return min(100 * h0, h1)
 
+    def _init_roller(self, order):
+        n = order + 2
+        rb0 = np.zeros((n, len(self.y0)))
+        roller = (n, np.zeros(n), rb0)
+        return roller
+
     def solve(self):
         """
         solve the model.
@@ -456,8 +460,11 @@ class Numerous_solver(BaseSolver):
         # figure out solve_state init
         solve_state = self._method.get_solver_state(len(y0))
 
+        roller = self._init_roller(order)
+        order_ = 0
+
         info = self._solve(self.numba_model,
-                           solve_state, initial_step, order, strict_eval, outer_itermax, min_step,
+                           solve_state, initial_step, order, order_, roller, strict_eval, outer_itermax, min_step,
                            max_step, step_integrate_, self.events, self.actions, self.g,
                            self.number_of_events, self.event_directions, t_start, t_end, self.time)
 
@@ -496,14 +503,19 @@ class Numerous_solver(BaseSolver):
         min_step = self.method_options.get('min_step')
         rtol = self.method_options.get('rtol')
         atol = self.method_options.get('atol')
-
+        order = self._method.order
         if self.info is not None:
             dt = self.info.dt  # internal solver step size
-            order = self.info.order
+            order_ = self.info.order_
+            roller = self.info.roller
+            solve_state = self.info.solve_state
+
             assert self.info.t == t_start, f"solver time {self.info.t} does not match external time " \
                                            f"{t_start}"
         else:
-            order = self._method.order
+            roller = self._init_roller(order)
+            order_ = 0
+
             dt = self.select_initial_step(self.numba_model, t_start, self.y0, 1, order - 1, rtol,
                                           atol)
 
@@ -514,7 +526,7 @@ class Numerous_solver(BaseSolver):
         step_integrate_ = self._method.step_func
 
         info = self._solve(self.numba_model,
-                           solve_state, dt, order, strict_eval, outer_itermax, min_step,
+                           solve_state, dt, order, order_, roller, strict_eval, outer_itermax, min_step,
                            max_step, step_integrate_,self.events, self.actions, self.g,
                            self.number_of_events,self.event_directions,
                            t_start, t_end, time_span)
