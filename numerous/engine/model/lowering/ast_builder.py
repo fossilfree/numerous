@@ -79,7 +79,7 @@ class ASTBuilder:
         defaults=[]
 
         for i in self.body:
-            if i.cnd:
+            if hasattr(i, 'cnd') and i.cnd:
                 arguments.append(ast.arg(arg=i.body[0].value.func.id+'_flag', annotation=None))
                 defaults.append(ast.Constant(i.active))
 
@@ -128,7 +128,7 @@ class ASTBuilder:
         defaults=[]
 
         for i in self.body:
-            if i.cnd:
+            if hasattr(i, 'cnd') and i.cnd:
                 arguments.append(ast.arg(arg=i.body[0].value.func.id+'_flag', annotation=None))
                 defaults.append(ast.Constant(i.active))
 
