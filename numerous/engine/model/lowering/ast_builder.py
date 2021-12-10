@@ -196,6 +196,11 @@ class ASTBuilder:
                 ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=arg_id)),
                               ctx=ast.Load))
 
+        if len(targets) > 1:
+            targets=[ast.Tuple(elts=targets)]
+        else:
+            targets=[targets[0]]
+
         ast_condition = ast.Name(id=external_function_name + '_flag', ctx=ast.Load())
 
         temp=ast.If(test=ast_condition, body=[
