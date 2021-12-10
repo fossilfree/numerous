@@ -74,27 +74,16 @@ def test_ast_defaults():
 
 def test_diff_results():
     #create two identical systems
-    ast_program_without = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
-    ast_program_without.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
-    ast_program_without.add_conditional_call(eval_ast.name,
+    ast_program = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
+    ast_program.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
+    ast_program.add_conditional_call(eval_ast.name,
                             ["oscillator1.mechanics.x", "oscillator1.mechanics.y", "oscillator1.mechanics.x_dot",
                             "oscillator1.mechanics.y_dot"],
                             target_ids=[2, 3], tag='eval_ast')
 
-    ast_program_with = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
-    ast_program_with.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
-    ast_program_with.add_conditional_call(eval_ast.name,
-                                             ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
-                                              "oscillator1.mechanics.x_dot",
-                                              "oscillator1.mechanics.y_dot"],
-                                             target_ids=[2, 3], tag='eval_ast')
-
     #generate both kernels
-    diff1, _, _ = ast_program_without.generate(imports)
-
-    diff2, _, _ = ast_program_with.generate(imports)
-
+    diff, _, _ = ast_program.generate(imports)
     #test without
-    assert approx(diff1(np.array([2.1, 2.2, 2.3]), eval_ast_flag=False)) == np.array([7.,8.,9.])
+    assert approx(diff(np.array([2.1, 2.2, 2.3]), eval_ast_flag=False)) == np.array([7.,8.,9.])
     #test with
-    assert approx(diff2(np.array([2.1, 2.2, 2.3]))) == np.array([50.,-50.,9.])
+    assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([50.,-50.,9.])
