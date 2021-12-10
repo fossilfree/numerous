@@ -188,12 +188,13 @@ def function_body_from_graph(g, var_def_, lineno_count=1):
 
 def replace_closure_function(func,replacements,eq_prefix):
     f1 = ast.unparse(func)
-    keys = list(replacements.keys())
-    for key in keys:
-        eq_key = (eq_prefix+key).replace('.', '_')
-        f1 = f1.replace(key, eq_key)
-        replacements[eq_key] = replacements[key]
-        replacements.pop(key)
+    if replacements:
+        keys = list(replacements.keys())
+        for key in keys:
+            eq_key = (eq_prefix+key).replace('.', '_')
+            f1 = f1.replace(key, eq_key)
+            replacements[eq_key] = replacements[key]
+            replacements.pop(key)
     return f1
 
 def compiled_function_from_graph_generic_llvm(g: Graph, var_def_, imports,

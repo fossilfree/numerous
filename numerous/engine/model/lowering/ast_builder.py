@@ -72,8 +72,9 @@ class ASTBuilder:
 
     def add_external_function(self, function: ast.FunctionDef, signature: str, number_of_args: int,
                               target_ids: list[int], replacements=None,replace_name=None):
-        self.replacements.append(replacements)
-        self.replace_name.append(replace_name)
+        if replacements is not None:
+            self.replacements.append(replacements)
+            self.replace_name.append(replace_name)
         self.functions.append(function)
         self.defined_functions.append(function.name)
 
@@ -93,8 +94,9 @@ class ASTBuilder:
                                   names='\n'.join(variable_names_print) + '\n')
 
         kernel_module = types.ModuleType('python_kernel')
-        local_replacments = {k: v for d in self.replacements for k, v in d.items()}
-        kernel_module.__dict__.update(local_replacments)
+        if self.replacements:
+            local_replacments = {k: v for d in self.replacements for k, v in d.items()}
+            kernel_module.__dict__.update(local_replacments)
         if save_to_file:
             os.makedirs(os.path.dirname(self.kernel_filename), exist_ok=True)
             with open(self.kernel_filename, 'w') as f:
