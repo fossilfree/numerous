@@ -92,16 +92,10 @@ class EquationGenerator:
 
         self.eq_vardefs = {}
         # Loop over equation functions and generate code for each equation.
-        print('_parse_eq: ')
-        for e in equations:
-            print(e)
 
         used_eq = {}
-        print(':::')
-        print(eq_used)
 
         for eq_key, eq in equations.items():
-            #print(eq[0])
             if eq_key in eq_used:
                 used_eq[eq_key]=eq
         self._parse_equations(used_eq)
@@ -142,7 +136,6 @@ class EquationGenerator:
 
     def _parse_equations(self, equations):
         logging.info('make equations for compilation')
-
 
         for eq_key, eq in equations.items():
             vardef = Vardef(llvm=self.llvm)

@@ -75,7 +75,6 @@ class ModelAssembler:
         tag, namespaces = input_namespace
         variables_ = {}
         for namespace in namespaces:
-            print(namespace.equation_dict)
             for i, (eq_tag, eq_methods) in enumerate(namespace.equation_dict.items()):
                 scope_id = "{0}_{1}_{2}".format(eq_tag, namespace.tag, tag, str(uuid.uuid4()))
                 equation_dict.update({scope_id: (eq_methods, namespace.outgoing_mappings)})
@@ -605,11 +604,9 @@ class Model:
 
             equation_dict = {}
             eq_variables_ids = []
-            print('nsaeq: ', namespace.associated_equations)
             for eq in namespace.associated_equations.values():
                 equations = []
                 ids = []
-                print('eqs: ', eq.equations)
                 for equation in eq.equations:
                     equations.append(equation)
                 for vardesc in eq.variables_descriptions:
@@ -618,8 +615,6 @@ class Model:
                             variable = item.registered_namespaces[namespace.tag].get_variable(vardesc.tag)
                             ids.append(variable.id)
                     else:
-                        print(vardesc)
-                        print(namespace.tag)
                         variable = namespace.get_variable(vardesc.tag)
                         ids.append(variable.id)
                 equation_dict.update({eq.tag: equations})
