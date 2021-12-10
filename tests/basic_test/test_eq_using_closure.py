@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from numerous.multiphysics.equation_decorators import Equation, numerous_func
+from numerous.multiphysics.equation_decorators import Equation, NumerousFunction
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
 from numerous.engine.system import Subsystem
@@ -27,7 +27,7 @@ class SelfTest(EquationBase, Item):
 
         data = np.arange(100)
 
-        @numerous_func
+        @NumerousFunction()
         def test_self(t):
             return data[int(t)] + offset
 
@@ -42,7 +42,7 @@ class SelfTest(EquationBase, Item):
         scope.x = self.test_self(scope.t)
 
 
-@numerous_func
+@NumerousFunction()
 def closure_func(x):
     return x ** 2
 
@@ -89,9 +89,9 @@ class IfSystem(Subsystem):
         self.register_items(items)
 
 
-@pytest.mark.parametrize("solver", solver_types[0:1])
+@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [False, True])
-def test_external_if_statement(solver, use_llvm):
+def test_external_closure(solver, use_llvm):
     model_ = model.Model(
         IfSystem('m_system', SelfTest('tm1', 1), SelfTest('tm11', 2), ClosureFuncTest('tm2'), ClosureVarTest('tm3')),
         use_llvm=use_llvm)

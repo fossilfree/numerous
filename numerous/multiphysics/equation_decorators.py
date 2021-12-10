@@ -6,16 +6,19 @@ import inspect
 from textwrap import dedent
 from numba import njit
 
-class Function(object):
+class NumerousFunction(object):
     def __init__(self, signature=None):
         self.id =str(uuid.uuid4())
         self.signature = signature
-    # self.func = func
 
     def __call__(self, func):
-        return njit(func)
+        njited_func = njit(func)
+        return njited_func
 
-numerous_func = njit
+
+
+
+
 
 class Equation(object):
 

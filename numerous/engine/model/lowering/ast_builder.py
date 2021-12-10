@@ -42,8 +42,11 @@ class ASTBuilder:
         self.states = states
         self.derivatives = derivatives
         self.functions = []
+        self.local_functions = {}
         self.defined_functions = []
         self.body = []
+        self.replacements = []
+        self.replace_name = []
         self.kernel_filename = LISTING_FILEPATH + system_tag + LISTINGFILENAME
 
         self.read_args_section = [ast.Expr(value=ast.Call(func=ast.Name(id='np.put'),
@@ -68,7 +71,9 @@ class ASTBuilder:
                            keywords=[]))]
 
     def add_external_function(self, function: ast.FunctionDef, signature: str, number_of_args: int,
-                              target_ids: list[int]):
+                              target_ids: list[int], replacements=None,replace_name=None):
+        self.replacements.append(replacements)
+        self.replace_name.append(replace_name)
         self.functions.append(function)
         self.defined_functions.append(function.name)
 
@@ -88,6 +93,8 @@ class ASTBuilder:
                                   names='\n'.join(variable_names_print) + '\n')
 
         kernel_module = types.ModuleType('python_kernel')
+        local_replacments = {k: v for d in self.replacements for k, v in d.items()}
+        kernel_module.__dict__.update(local_replacments)
         if save_to_file:
             os.makedirs(os.path.dirname(self.kernel_filename), exist_ok=True)
             with open(self.kernel_filename, 'w') as f:

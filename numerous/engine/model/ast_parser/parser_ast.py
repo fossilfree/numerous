@@ -66,7 +66,7 @@ def qualify(s, prefix):
     return prefix + '.' + s.replace('scope.', '')
 
 
-def qualify_equation(prefix, g, tag_vars, self, eq_current):
+def qualify_equation(prefix, g, tag_vars, eq_class, eq_current):
     def q(s):
         return qualify(s, prefix)
 
@@ -85,7 +85,7 @@ def qualify_equation(prefix, g, tag_vars, self, eq_current):
     refer_to_self = False
     import inspect, hashlib, json
 
-    closure_vars = inspect.getclosurevars(self)
+    closure_vars = inspect.getclosurevars(eq_class)
 
     func_ = closure_vars.nonlocals['func']
     closure_vars_func = inspect.getclosurevars(func_)
@@ -96,7 +96,7 @@ def qualify_equation(prefix, g, tag_vars, self, eq_current):
         if (f := n.func) is not None and hasattr(f, 'value'):
             if f.value.id == 'self':
                 refer_to_self = True
-                obj = getattr(self.__self__, f.attr)
+                obj = getattr(eq_class.__self__, f.attr)
                 replacements[n.id] = obj
 
     replacements_id = {k: id(o) for k, o in replacements.items()}
