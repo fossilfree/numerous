@@ -1,8 +1,7 @@
 import logging
 import uuid
-import inspect
 from numerous.utils.dict_wrapper import _DictWrapper
-from numerous.engine.variables import Variable, VariableDescription, _VariableFactory, OverloadAction, SetOfVariables
+from numerous.engine.variables import Variable, VariableDescription, _VariableFactory, SetOfVariables
 
 
 class VariableNamespaceBase:
