@@ -39,6 +39,10 @@ eval_ast = ast.parse('''def eval_ast(s_x1, s_x2, s_x2_dot, s_x3_dot):
     s_x2_dot = -100 if s_x1 > s_x2 else 50
     s_x3_dot = -s_x2_dot
     return s_x2_dot,s_x3_dot''').body[0]
+
+other_signature = 'void(float64, float64, CPointer(float64), CPointer(float64))'
+other = ast.parse('''def other(s_x1, s_x2, s_x2_dot, s_x3_dot):
+    return s_x2_dot,s_x3_dot''').body[0]
 imports = Imports()
 imports.add_as_import("numpy", "np")
 
@@ -73,7 +77,6 @@ def test_ast_defaults():
     assert 'def global_kernel(states, eval_ast_flag=False):' in ast_program.unparse(imports)
 
 def test_diff_results():
-    #create two identical systems
     ast_program = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
     ast_program.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
     ast_program.add_conditional_call(eval_ast.name,
@@ -81,9 +84,40 @@ def test_diff_results():
                             "oscillator1.mechanics.y_dot"],
                             target_ids=[2, 3], tag='eval_ast')
 
-    #generate both kernels
     diff, _, _ = ast_program.generate(imports)
-    #test without
     assert approx(diff(np.array([2.1, 2.2, 2.3]), eval_ast_flag=False)) == np.array([7.,8.,9.])
-    #test with
     assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([50.,-50.,9.])
+
+def test_arguments():
+    ast_program = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
+    ast_program.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
+    ast_program.add_conditional_call(eval_ast.name,
+                                     ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
+                                      "oscillator1.mechanics.x_dot",
+                                      "oscillator1.mechanics.y_dot"],
+                                     target_ids=[2, 3], tag='eval_ast')
+    ast_program.add_external_function(other, other_signature, number_of_args=4, target_ids=[2, 3])
+    ast_program.add_conditional_call(other.name,
+                                     ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
+                                      "oscillator1.mechanics.x_dot",
+                                      "oscillator1.mechanics.y_dot"],
+                                     target_ids=[2, 3], tag='other')
+
+
+def test_multifunction_default():
+    ast_program = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
+    ast_program.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
+    ast_program.add_conditional_call(eval_ast.name,
+                                     ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
+                                      "oscillator1.mechanics.x_dot",
+                                      "oscillator1.mechanics.y_dot"],
+                                     target_ids=[2, 3], tag='eval_ast')
+    ast_program.add_external_function(other, other_signature, number_of_args=4, target_ids=[2, 3])
+    ast_program.add_conditional_call(other.name,
+                                     ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
+                                      "oscillator1.mechanics.x_dot",
+                                      "oscillator1.mechanics.y_dot"],
+                                     target_ids=[2, 3], tag='other')
+    assert 'def global_kernel(states, eval_ast_flag=True, other_flag=True):' in ast_program.unparse(imports)
+    ast_program.set_call_enabled('other', False)
+    assert 'def global_kernel(states, eval_ast_flag=True, other_flag=False):' in ast_program.unparse(imports)
