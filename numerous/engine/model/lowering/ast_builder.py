@@ -81,22 +81,18 @@ class ASTBuilder:
         self.defined_functions.append(function.name)
 
     def generate(self, imports, system_tag="", external_functions_source=False, save_to_file=False):
+        arguments = [ast.arg(arg="states", annotation=None)]
+        defaults=[]
 
-
-        body_conditioned = []
         for i in self.body:
-            if i.cnd:
-                if i.active:
-                    body_conditioned.append(copy(i))
-                else:
-                    pass
-            else:
-                body_conditioned.append(copy(i))
+            if hasattr(i, 'cnd') and i.cnd:
+                arguments.append(ast.arg(arg=i.body[0].value.func.id+'_flag', annotation=None))
+                defaults.append(ast.Constant(i.active))
 
-        kernel = wrap_function('global_kernel', self.read_args_section + body_conditioned + self.return_section, decorators=[],
-                               args=ast.arguments(posonlyargs=[], args=[ast.arg(arg="states",
-                                                                                annotation=None)], vararg=None,
-                                                  defaults=[],
+        kernel = wrap_function('global_kernel', self.read_args_section + self.body + self.return_section,
+                               decorators=[],
+                               args=ast.arguments(posonlyargs=[], args=arguments, vararg=None,
+                                                  defaults=defaults,
                                                   kwarg=None, kwonlyargs=[]))
         variable_names_print = []
         for key, value in self.variable_names.items():
@@ -137,21 +133,18 @@ class ASTBuilder:
         return kernel_module.global_kernel, var_func, var_write
 
     def unparse(self, imports, system_tag="", external_functions_source=False):
-        body_conditioned=[]
-        for i in self.body:
-            if i.cnd:
-                if i.active:
-                    body_conditioned.append(copy(i))
-                else:
-                    pass
-            else:
-                body_conditioned.append(copy(i))
+        arguments = [ast.arg(arg="states", annotation=None)]
+        defaults=[]
 
-        kernel = wrap_function('global_kernel', self.read_args_section + body_conditioned + self.return_section,
+        for i in self.body:
+            if hasattr(i, 'cnd') and i.cnd:
+                arguments.append(ast.arg(arg=i.body[0].value.func.id+'_flag', annotation=None))
+                defaults.append(ast.Constant(i.active))
+
+        kernel = wrap_function('global_kernel', self.read_args_section + self.body + self.return_section,
                                decorators=[],
-                               args=ast.arguments(posonlyargs=[], args=[ast.arg(arg="states",
-                                                                                annotation=None)], vararg=None,
-                                                  defaults=[],
+                               args=ast.arguments(posonlyargs=[], args=arguments, vararg=None,
+                                                  defaults=defaults,
                                                   kwarg=None, kwonlyargs=[]))
         variable_names_print = []
         for key, value in self.variable_names.items():
@@ -166,7 +159,7 @@ class ASTBuilder:
     def detailed_print(self, *args, sep=' ', end='\n', file=None):
         if config.PRINT_LLVM:
             print(*args, sep, end, file)
-
+    
     def store_variable(self, variable_name):
         pass
 
@@ -196,7 +189,38 @@ class ASTBuilder:
 
     def add_conditional_call(self,external_function_name, input_args, target_ids, tag, active=True):
         active=active
-        temp = self._create_assignments(external_function_name,input_args,target_ids)
+
+        arg_ids = map(lambda arg: self.variable_names[arg], input_args)
+        targets=[]
+        args=[]
+
+        for target_id in target_ids:
+            targets.append(
+                ast.Subscript(value=GLOBAL_ARRAY,
+                              slice=ast.Index(value=ast.Constant(value=self.variable_names[input_args[target_id]])),
+                              ctx=ast.Store()))
+
+        for arg_id in arg_ids:
+            args.append(
+                ast.Subscript(value=GLOBAL_ARRAY, slice=ast.Index(value=ast.Constant(value=arg_id)),
+                              ctx=ast.Load))
+
+        if len(targets) > 1:
+            targets=[ast.Tuple(elts=targets)]
+        else:
+            targets=[targets[0]]
+
+        ast_condition = ast.Name(id=external_function_name + '_flag', ctx=ast.Load())
+
+        temp=ast.If(test=ast_condition, body=[
+            ast.Assign(targets=targets, value=
+                ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
+                                               args=args, keywords=[]),
+                lineno=0)],
+            orelse=[])
+
+
+
         setattr(temp, 'cnd', True)
         setattr(temp, 'active', active)
         self.cnd_calls.update({tag: len(self.body)})
