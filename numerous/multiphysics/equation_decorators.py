@@ -6,22 +6,24 @@ import inspect
 from textwrap import dedent
 from numba import njit
 
-
-class Function(object):
+class NumerousFunction(object):
     def __init__(self, signature=None):
-        self.id = str(uuid.uuid4())
+        self.id =str(uuid.uuid4())
         self.signature = signature
 
-    # self.func = func
-
     def __call__(self, func):
-        return njit(func)
+        njited_func = njit(func)
+        return njited_func
+
+
+
+
 
 
 class Equation(object):
 
     def __init__(self):
-        self.id = str(uuid.uuid4())
+        self.id =str(uuid.uuid4())
 
     def __call__(self, func):
         @wraps(func)
@@ -34,8 +36,7 @@ class Equation(object):
         wrapper._equation = True
         wrapper.lines = inspect.getsource(func)
         wrapper.id = self.id
-        wrapper.FMU = False
-        # a = inspect.getsourcelines(func)
+        #a = inspect.getsourcelines(func)
         wrapper.lineno = inspect.getsourcelines(func)[1]
         wrapper.file = inspect.getfile(func)
         wrapper.name = func.__name__
@@ -44,6 +45,7 @@ class Equation(object):
 
 
 def add_equation(host, func):
+
     eq = Equation()
     eq_func = eq(func)
 
@@ -64,11 +66,10 @@ def dedent_code(code):
                 print(dsource)
                 raise
 
-
 class InlineEquation(Equation):
 
-    def __call__(self, func_name, func_source, namespace={}):
-
+    def __call__(self, func_name, func_source, namespace = {}):
+        self.name = func_name
         tries = 0
         while tries < 10:
             try:
@@ -83,15 +84,14 @@ class InlineEquation(Equation):
                     raise
 
         func = namespace[func_name]
-
         @wraps(func)
-        def wrapper(self, scope):
+        def wrapper(self,scope):
             func(self, scope)
-
+        wrapper.name = func_name
         wrapper._equation = True
         wrapper.lines = func_source
         wrapper.id = self.id
-        # a = inspect.getsourcelines(func)
+        #a = inspect.getsourcelines(func)
         wrapper.lineno = 0
         wrapper.file = 'dynamic.py'
         # wrapper.i = self.i

@@ -72,6 +72,18 @@ class ConnectorTwoWay(ConnectorItem):
         for bn in self.binding_names:
             self.create_binding(bn)
 
+class ConnectorMultiWay(ConnectorItem):
+    """
+        Special case of  a connector item with 2 predefined bindings.
+
+    """
+
+    def __init__(self, tag, binding_names=[]):
+        super(ConnectorMultiWay, self).__init__(tag=tag)
+        self.binding_names = binding_names
+        for bn in self.binding_names:
+            self.create_binding(bn)
+
 class ConnectorOneWay(ConnectorItem):
     """
         Special case of  a connector item with 2 predefined bindings.
@@ -90,10 +102,9 @@ class ConnectorMultiWay(ConnectorItem):
 
     """
 
-    def __init__(self, tag):
+    def __init__(self, tag, binding_names=[]):
         super(ConnectorMultiWay, self).__init__(tag=tag)
 
-    def create_bindings(self, binding_names):
         self.binding_names = binding_names
         for bn in self.binding_names:
             self.create_binding(bn)
