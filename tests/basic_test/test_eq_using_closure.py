@@ -29,7 +29,7 @@ class SelfTest(EquationBase, Item):
 
         @NumerousFunction()
         def test_self(t):
-            return data[int(t)] + offset
+            return data[round(t)] + offset
 
         self.test_self = test_self
 
@@ -101,17 +101,6 @@ def test_external_closure_0(solver, use_llvm):
     assert s.model.historian_df['m_system.tm1.test_nm.x'][1] == expected
 
 
-@pytest.mark.parametrize("solver", solver_types)
-@pytest.mark.parametrize("use_llvm", [False, True])
-def test_external_closure_1(solver, use_llvm):
-    model_ = model.Model(
-        IfSystem('m_system', SelfTest('tm1', 1), SelfTest('tm11', 2), ClosureFuncTest('tm2'), ClosureVarTest('tm3')),
-        use_llvm=use_llvm)
-    s = simulation.Simulation(model_, solver_type=solver, t_start=0, t_stop=3, num=1, num_inner=1)
-    s.solve()
-    expected = 3.0
-    assert s.model.historian_df['m_system.tm1.test_nm.x'][1] == expected
-
 
 @pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [False, True])
@@ -121,7 +110,7 @@ def test_external_closure_2(solver, use_llvm):
         use_llvm=use_llvm)
     s = simulation.Simulation(model_, solver_type=solver, t_start=0, t_stop=3, num=1, num_inner=1)
     s.solve()
-    expected = 4.0
+    expected = 5.0
     assert s.model.historian_df['m_system.tm11.test_nm.x'][1] == expected
 
 
