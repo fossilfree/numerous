@@ -163,8 +163,9 @@ def compare_expresion_from_graph(g, var_def_, lineno_count=1):
     return body
 
 
-def function_body_from_graph(g, var_def_, lineno_count=1):
-    top_nodes = g.topological_nodes(ignore_cyclic=True)
+def function_body_from_graph(g, var_def_, lineno_count=1, level=0):
+    g.topological_nodes(ignore_cyclic=True) # give warning if cyclic, but ignore sorting
+    top_nodes = range(0,len(g.nodes))
     var_def = var_def_.var_def
     body = []
     targets = []
@@ -179,7 +180,7 @@ def function_body_from_graph(g, var_def_, lineno_count=1):
                                             g, var_def, value_ast, at, targets))
         if (g.get(n, 'ast_type')) == ast.If:
             func_body = function_body_from_graph(g.nodes[n].subgraph_body, var_def_,
-                                                 lineno_count=lineno_count)
+                                                 lineno_count=lineno_count, level=level+1)
             func_test = compare_expresion_from_graph(g.nodes[n].subgraph_test, var_def_,
                                                      lineno_count=lineno_count)
             body.append(process_if_node(func_body, func_test))
