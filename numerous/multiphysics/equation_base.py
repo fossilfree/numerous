@@ -93,7 +93,7 @@ class EquationBase:
             self.equations.append(integrate_source_)
 
 
-    def add_parameters(self, parameters:dict):
+    def add_parameters(self, parameters:dict or list):
         if isinstance(parameters, dict):
             for p, v in parameters.items():
                 if isinstance(v,numbers.Number):

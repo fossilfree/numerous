@@ -1,8 +1,7 @@
 import logging
 import uuid
-import inspect
 from numerous.utils.dict_wrapper import _DictWrapper
-from numerous.engine.variables import Variable, VariableDescription, _VariableFactory, OverloadAction, SetOfVariables
+from numerous.engine.variables import Variable, VariableDescription, _VariableFactory, SetOfVariables
 
 
 class VariableNamespaceBase:
@@ -43,9 +42,6 @@ class VariableNamespaceBase:
         if isinstance(value, Variable):
 
             self.outgoing_mappings += 1
-            # curframe = inspect.currentframe()
-            # calframe = inspect.getouterframes(curframe, 2)
-            # print(name,' mapped to: ', value, ' by ',calframe[1][3])
             self[name].add_mapping(value)
         else:
             object.__setattr__(self, name, value)
@@ -153,6 +149,7 @@ class VariableNamespaceBase:
         """
         if update_bindings and self.is_connector:
             self.item.update_bindings(list_of_equations, self.tag)
+
         for eq in list_of_equations:
             if create_variables:
                 any(self.create_variable_from_desc(variable_description)
