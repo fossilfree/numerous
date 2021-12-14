@@ -209,6 +209,11 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         self.fmu_eval = fmu_eval
 
+
+        # fmu.enterEventMode()
+        # fmu.newDiscreteStates()
+        # fmu.enterContinuousTimeMode()
+
     @Equation()
     def eval(self, scope):
         scope.h_dot, scope.v_dot = self.fmu_eval(scope.e, scope.g, scope.h, scope.v)
