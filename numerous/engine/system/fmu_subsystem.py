@@ -53,9 +53,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         stop_time = float(stop_time)
 
-        if relative_tolerance is None and experiment is not None:
-            relative_tolerance = experiment.tolerance
-
         if step_size is None:
             total_time = stop_time - start_time
             step_size = 10 ** (np.round(np.log10(total_time)) - 3)
@@ -82,8 +79,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
         fmu = FMU2Model(**fmu_args)
         fmu.instantiate(visible=visible, callbacks=callbacks, loggingOn=debug_logging)
 
-        if relative_tolerance is None:
-            relative_tolerance = 1e-5
         if output_interval is None:
             if step_size is None:
                 output_interval = auto_interval(stop_time - start_time)
@@ -130,13 +125,14 @@ class FMU_Subsystem(Subsystem, EquationBase):
                                             ctypes.c_void_p]
         completedIntegratorStep.restype = ctypes.c_uint
 
-        eval_llvm_signature = 'void(CPointer(int32),CPointer(int32),CPointer(float64),CPointer(float64),CPointer(float64),CPointer(float64),CPointer(float64),CPointer(float64),float64,float64,float64,float64,float64,float64,float64) '
         len_q = 6
 
-        def eval_llvm(event, term, a0, a1, a2, a3, a4, a5, a_i_0, a_i_1, a_i_2, a_i_3, a_i_4, a_i_5, t):
+        def eval_llvm(event, term, a0, a1, a2, a3, a4, a5, a_i_0, a_i_2, a_i_4, a_i_5, t):
             vr = np.arange(0, len_q, 1, dtype=np.uint32)
             value = np.zeros(len_q, dtype=np.float64)
-            value1 = np.array([a_i_0, a_i_1, a_i_2, a_i_3, a_i_4, a_i_5], dtype=np.float64)
+            ## we are reading derivatives from FMI
+            getreal(component, vr.ctypes, len_q, value.ctypes)
+            value1 = np.array([a_i_0, value[1], a_i_2,  value[3], a_i_4, a_i_5], dtype=np.float64)
             fmi2SetReal(component, vr.ctypes, len_q, value1.ctypes)
             set_time(component, t)
             completedIntegratorStep(component, 1, event, term)
@@ -154,8 +150,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         self.t1.add_equations([self])
         equation_call = cfunc(types.void(types.voidptr, types.voidptr, types.voidptr, types.voidptr, types.voidptr
                                          , types.voidptr, types.voidptr, types.voidptr, types.float64, types.float64,
-                                         types.float64,
-                                         types.float64, types.float64, types.float64, types.float64))(eval_llvm)
+                                         types.float64, types.float64, types.float64))(eval_llvm)
 
         term_1 = np.array([0], dtype=np.int32)
         term_1_ptr = term_1.ctypes.data
@@ -193,10 +188,10 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         @NumerousFunction()
         def fmu_eval(e, g, h, v):
-            carray(address_as_void_pointer(a0_ptr), a0.shape, dtype=a0.dtype)[0] = e
-            carray(address_as_void_pointer(a4_ptr), a4.shape, dtype=a0.dtype)[0] = g
-            carray(address_as_void_pointer(a3_ptr), a3.shape, dtype=a0.dtype)[0] = h
-            carray(address_as_void_pointer(a2_ptr), a3.shape, dtype=a0.dtype)[0] = v
+            carray(address_as_void_pointer(a0_ptr), a0.shape, dtype=a0.dtype)[0] = 0
+            carray(address_as_void_pointer(a4_ptr), a4.shape, dtype=a0.dtype)[0] = 0
+            carray(address_as_void_pointer(a3_ptr), a3.shape, dtype=a0.dtype)[0] = 0
+            carray(address_as_void_pointer(a2_ptr), a3.shape, dtype=a0.dtype)[0] = 0
             carray(address_as_void_pointer(a1_ptr), a3.shape, dtype=a0.dtype)[0] = 0
             carray(address_as_void_pointer(a5_ptr), a3.shape, dtype=a0.dtype)[0] = 0
             equation_call(address_as_void_pointer(event_1_ptr),
@@ -206,18 +201,17 @@ class FMU_Subsystem(Subsystem, EquationBase):
                           address_as_void_pointer(a2_ptr),
                           address_as_void_pointer(a3_ptr),
                           address_as_void_pointer(a4_ptr),
-                          address_as_void_pointer(a5_ptr), h, 0.0, v, 0.0, g, e,
+                          address_as_void_pointer(a5_ptr), h,  v, g, e,
                           0.1)
 
-            return carray(address_as_void_pointer(a1_ptr), (1,), dtype=np.float64)[0], \
-                   carray(address_as_void_pointer(a5_ptr), (1,), dtype=np.float64)[0]
+            return carray(address_as_void_pointer(a1_ptr), (1,), dtype=np.float64)[0],\
+                   carray(address_as_void_pointer(a3_ptr), (1,), dtype=np.float64)[0]
 
         self.fmu_eval = fmu_eval
 
     @Equation()
     def eval(self, scope):
         scope.h_dot, scope.v_dot = self.fmu_eval(scope.e, scope.g, scope.h, scope.v)
-
 
 class Test_Eq(EquationBase):
     __test__ = False
@@ -248,7 +242,6 @@ class S3(Subsystem):
         fmu_filename = 'bouncingBall.fmu'
         fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2")
         fmu_subsystem.t1.v = fmu_subsystem2.t1.v
-        self.register_items([fmu_subsystem, fmu_subsystem2])
         item_t = G('test', TG=10, RG=2)
         item_t.t1.R = fmu_subsystem.t1.h
         self.register_items([fmu_subsystem, fmu_subsystem2, item_t])
