@@ -387,7 +387,6 @@ class Model:
         self.info.update({"Number of equations": len(self.compiled_eq)})
         self.info.update({"Solver": {}})
 
-
     def lower_model_codegen(self, tmp_vars):
 
         logging.info('lowering model')
@@ -660,8 +659,8 @@ class Model:
         from numerous.engine.system.subsystem import Subsystem
         system_, logger_level, external_mappings, imports, use_llvm, vars_ordered_values, variables, state_idx, \
         derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(open(param, "rb"))
-        if isinstance(external_mappings,EmptyMapping):
-            external_mappings=None
+        if isinstance(external_mappings, EmptyMapping):
+            external_mappings = None
         model = Model(system=system_, assemble=False, logger_level=logger_level, external_mappings=external_mappings,
                       use_llvm=use_llvm)
         model.variables = variables
