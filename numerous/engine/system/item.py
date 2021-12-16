@@ -1,3 +1,5 @@
+# from numerous.engine.model.events import NumerousEvent
+from numerous.engine.numerous_event import NumerousEvent
 from numerous.engine.system.connector import Connector
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.system.namespace import VariableNamespace, VariableNamespaceBase
@@ -24,7 +26,7 @@ class Item(Node):
 
     def __init__(self, tag=None, logger_level=None):
         self.registered_namespaces = _DictWrapper(self.__dict__, VariableNamespaceBase)
-        self.callbacks = []
+        self.events = []
         self.level = 1
         self.parent_item = None
         self.registered = False
@@ -120,16 +122,11 @@ class Item(Node):
                 variables_result.append((variable, vn))
         return variables_result
 
-    def add_callback(self, callback):
-        """
-        Parameters
-        ----------
-        callback : func
-            function to be run after each solver step.
-        """
-
-        self.callbacks.append(callback)
-
+    def add_event(self, key, condition, action, terminal=True, direction=-1,compiled=False):
+        condition = condition
+        action =  action
+        event = NumerousEvent(key, condition, action, compiled,terminal,direction)
+        self.events.append(event)
 
     def _increase_level(self):
         self.level = self.level+1

@@ -1,10 +1,8 @@
-import ast
 import itertools
 from copy import copy
 
 import numpy as np
 import time
-import inspect
 import uuid
 
 import numpy.typing as npt
@@ -12,9 +10,10 @@ from numba.core.registry import CPUDispatcher
 from numba.experimental import jitclass
 import pandas as pd
 
-from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast
+from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
 from numerous.engine.model.utils import Imports, njit_and_compile_function
 from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
+from numerous.engine.numerous_event import NumerousEvent
 
 from numerous.utils.logger_levels import LoggerLevel
 
@@ -177,9 +176,6 @@ class Model:
         model_namespaces = []
         if item.id in self.model_items:
             return model_namespaces
-
-        if item.callbacks:
-            self.callbacks.append(item.callbacks)
 
         self.model_items.update({item.id: item})
         model_namespaces.append((item.id, self.create_model_namespaces(item)))
@@ -367,6 +363,16 @@ class Model:
         self.external_idx = np.array(external_idx, dtype=np.int64)
         self.generate_path_to_varaible()
 
+
+        ##check for item level events
+        for item in self.model_items.values():
+            if item.events:
+                for event in item.events:
+                    event.condition = _replace_path_strings(self, event.condition, "state",item.path)
+                    event.action = _replace_path_strings(self, event.action, "var",item.path)
+                    self.events.append(event)
+
+
         assemble_finish = time.time()
         print("Assemble time: ", assemble_finish - assemble_start)
         self.info.update({"Assemble time": assemble_finish - assemble_start})
@@ -519,14 +525,12 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
-    def add_event(self, key, condition, action, terminal=True, direction=-1):
-        condition = self._replace_path_strings(condition, "state")
+    def add_event(self, key, condition, action, terminal=True, direction=-1, compiled=False):
+        condition = _replace_path_strings(self, condition, "state")
 
-        condition.terminal = terminal
-        condition.direction = direction
-        action = self._replace_path_strings(action, "var")
-
-        self.events.append((key, condition, action))
+        action = _replace_path_strings(self, action, "var")
+        event = NumerousEvent(key, condition, action, compiled,terminal,direction)
+        self.events.append(event)
 
     def generate_mock_event(self) -> None:
         def condition(t, v):
@@ -546,10 +550,13 @@ class Model:
             result = []
             directions = []
             for event in self.events:
-                compiled_event = njit_and_compile_function(event[1], self.imports.from_imports)
-                compiled_event.terminal = event[1].terminal
-                compiled_event.direction = event[1].direction
-                directions.append(event[1].direction)
+                if event.compiled:
+                    compiled_event = event
+                else:
+                    compiled_event = njit_and_compile_function(event.condition, self.imports.from_imports)
+                compiled_event.terminal = event.terminal
+                compiled_event.direction = event.direction
+                directions.append(event.direction)
                 result.append(compiled_event)
             return result, np.array(directions)
 
@@ -561,7 +568,7 @@ class Model:
         else:
             result = []
             for event in self.events:
-                compiled_event = njit_and_compile_function(event[2], self.imports.from_imports)
+                compiled_event = njit_and_compile_function(event.action, self.imports.from_imports)
                 result.append(compiled_event)
             return result
 
@@ -571,13 +578,7 @@ class Model:
         if idx_type == "var":
             return [var.llvm_idx]
 
-    def _replace_path_strings(self, function, idx_type):
-        lines = inspect.getsource(function)
-        for (var_path, var) in self.path_to_variable.items():
-            if var_path in lines:
-                lines = lines.replace('[\'' + var_path + '\']', str(self._get_var_idx(var, idx_type)))
-        func = ast.parse(lines.strip()).body[0]
-        return func
+
 
     def create_alias(self, variable_name, alias):
         """
