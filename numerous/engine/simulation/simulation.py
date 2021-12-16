@@ -57,7 +57,7 @@ class Simulation:
                 self.model.update_local_variables()
                 ## slow code
                 list_var = [v.value for v in self.model.path_to_variable.values()]
-                events_action[event_id](t, list_var)
+                events_action[event_id](t, np.array(list_var))
                 for i, var in enumerate(self.model.path_to_variable.values()):
                     var.value = list_var[i]
                 self.model.update_all_variables()

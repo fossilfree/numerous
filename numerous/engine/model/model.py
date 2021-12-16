@@ -368,8 +368,11 @@ class Model:
         for item in self.model_items.values():
             if item.events:
                 for event in item.events:
-                    event.condition = _replace_path_strings(self, event.condition, "state",item.path)
-                    event.action = _replace_path_strings(self, event.action, "var",item.path)
+                    if event.compiled:
+                        pass
+                    else:
+                        event.condition = _replace_path_strings(self, event.condition, "state",item.path)
+                        event.action = _replace_path_strings(self, event.action, "var",item.path)
                     self.events.append(event)
 
 
@@ -551,7 +554,7 @@ class Model:
             directions = []
             for event in self.events:
                 if event.compiled:
-                    compiled_event = event
+                    compiled_event = event.condition
                 else:
                     compiled_event = njit_and_compile_function(event.condition, self.imports.from_imports)
                 compiled_event.terminal = event.terminal
@@ -568,8 +571,11 @@ class Model:
         else:
             result = []
             for event in self.events:
-                compiled_event = njit_and_compile_function(event.action, self.imports.from_imports)
-                result.append(compiled_event)
+                if event.compiled:
+                    result.append(event.action)
+                else:
+                    compiled_event = njit_and_compile_function(event.action, self.imports.from_imports)
+                    result.append(compiled_event)
             return result
 
     def _get_var_idx(self, var, idx_type):
