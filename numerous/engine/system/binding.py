@@ -41,6 +41,9 @@ class Binding:
             for bv in namespace.variables:
                 if bv.mapping:
                     self.binded_item.registered_namespaces[namespace.tag].variables[bv.tag].add_mapping(bv.mapping)
+                if bv.sum_mapping:
+                    for v in bv.sum_mapping:
+                        self.binded_item.registered_namespaces[namespace.tag].variables[bv.tag].add_sum_mapping(v)
 
     def __merge_namespaces(self):
         for namespace in self.ns:
