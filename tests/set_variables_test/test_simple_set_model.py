@@ -26,7 +26,7 @@ class Simple(EquationBase, Item):
 
     @Equation()
     def eval(self, scope):
-        scope.x_dot = scope.k + 0*scope.x
+        scope.x_dot = scope.k
 
 
 class SimpleSystem(Subsystem):
