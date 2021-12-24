@@ -438,7 +438,8 @@ class Model:
 
         self.info.update({"Solver": {}})
         if self.export_model:
-            filename = "export_model/" + self.system.tag + ".numerous"
+            path = os.environ.get("EXPORT_MODEL_PATH", 'export_model')
+            filename = os.path.join(path, f'{self.system.tag}.numerous')
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             with open(filename, 'wb') as handle:
                 pickle.dump((self.system, self.logger_level, self.external_mappings,
@@ -656,7 +657,6 @@ class Model:
 
     @classmethod
     def from_file(cls, param):
-        from numerous.engine.system.subsystem import Subsystem
         system_, logger_level, external_mappings, imports, use_llvm, vars_ordered_values, variables, state_idx, \
         derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(open(param, "rb"))
         if isinstance(external_mappings, EmptyMapping):
