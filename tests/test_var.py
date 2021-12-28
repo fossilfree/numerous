@@ -4,11 +4,6 @@ from numerous.engine.variables import _VariableFactory, OverloadAction, Variable
 from numerous import VariableDescription
 from tests.test_equations import *
 
-@pytest.fixture(autouse=True)
-def run_before_and_after_tests():
-    import shutil
-    shutil.rmtree('./tmp', ignore_errors=True)
-    yield
 
 
 @pytest.fixture

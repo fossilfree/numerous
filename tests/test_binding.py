@@ -3,11 +3,6 @@ import pytest
 from numerous.engine.system import ConnectorTwoWay, Item
 from numerous import VariableDescription, VariableType
 
-@pytest.fixture(autouse=True)
-def run_before_and_after_tests():
-    import shutil
-    shutil.rmtree('./tmp', ignore_errors=True)
-    yield
 
 
 @pytest.fixture
