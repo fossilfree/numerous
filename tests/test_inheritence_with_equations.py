@@ -68,11 +68,6 @@ def ms3():
             self.register_items([Child_eq("test1"), Child_eq("test2"), Child_eq("test3")])
     return S2('S3_inh')
 
-@pytest.fixture(autouse=True)
-def run_before_and_after_tests():
-    import shutil
-    shutil.rmtree('./tmp', ignore_errors=True)
-    yield
 
 
 @pytest.mark.parametrize("solver", solver_types)

@@ -9,11 +9,6 @@ from numerous.multiphysics.equation_base import EquationBase
 from numerous.multiphysics.equation_decorators import Equation
 
 
-@pytest.fixture(autouse=True)
-def run_before_and_after_tests():
-    import shutil
-    shutil.rmtree('./tmp', ignore_errors=True)
-    yield
 
 
 class SingleAssign(Item, EquationBase):

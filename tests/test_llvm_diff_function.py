@@ -119,11 +119,6 @@ def ms2():
 
     return S2('S2_diff')
 
-@pytest.fixture(autouse=True)
-def run_before_and_after_tests():
-    import shutil
-    shutil.rmtree('./tmp', ignore_errors=True)
-    yield
 
 
 @pytest.fixture
