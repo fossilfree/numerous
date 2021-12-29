@@ -27,6 +27,7 @@ class EquationGenerator:
         self.scope_variables = scope_variables
         self.set_variables = {}
         self.states = []
+        self.llvm_names = {}
         self.deriv = []
 
         for ix, (sv_id, sv) in enumerate(self.scope_variables.items()):
@@ -132,7 +133,7 @@ class EquationGenerator:
         return ext_func
 
     def _llvm_func_name(self, ext_func):
-        return ext_func + '_llvm1.<locals>.' + ext_func + '_llvm'
+        return self.llvm_names[ext_func + '_llvm1.<locals>.' + ext_func + '_llvm']
 
     def _parse_equations(self, equations):
         logging.info('make equations for compilation')
@@ -150,8 +151,9 @@ class EquationGenerator:
                     replacements=eq.replacements,
                     replace_name=eq_key
                 )
-                self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids,
-                                                             replacements=eq.replacements,replace_name=eq_key)
+                self.llvm_names.update(self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids,
+                                                             replacements=eq.replacements,replace_name=eq_key))
+
             else:
                 func, args, target_ids = function_from_graph_generic(eq.graph,
                                                                      var_def_=vardef, arg_metadata=eq.graph.arg_metadata,
@@ -399,7 +401,7 @@ class EquationGenerator:
             for k, v in mapping_dict.items():
                 self.generated_program.add_mapping(v, [k])
 
-    def generate_equations(self, save_to_file=False):
+    def generate_equations(self, export_model=False):
         logging.info('Generate kernel')
         # Generate the ast for the python kernel
         for n in self.topo_sorted_nodes:
@@ -426,15 +428,16 @@ class EquationGenerator:
             logging.info('generating llvm')
             diff, var_func, var_write = self.generated_program.generate(imports=self.imports,
                                                                         system_tag=self.system_tag,
-                                                                        save_to_file=save_to_file)
+                                                                        save_to_file=export_model)
 
             return diff, var_func, var_write, self.values_order, self.scope_variables, np.array(state_idx,
                                                                                                 dtype=np.int64), \
                    np.array(
                        deriv_idx, dtype=np.int64)
         else:
+
             global_kernel, var_func, var_write = self.generated_program.generate(self.imports,
                                                                                  system_tag=self.system_tag,
-                                                                                 save_to_file=save_to_file)
+                                                                                 save_to_file=export_model)
             return global_kernel, var_func, var_write, self.values_order, self.scope_variables, \
                    np.array(state_idx, dtype=np.int64), np.array(deriv_idx, dtype=np.int64)
