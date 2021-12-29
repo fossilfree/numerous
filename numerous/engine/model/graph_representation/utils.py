@@ -38,6 +38,7 @@ class EdgeType(IntEnum):
     ORELSE = 10
     TEST = 11
     COMP = 12
+    DEP = 13
 
 
 def str_to_edgetype(a):

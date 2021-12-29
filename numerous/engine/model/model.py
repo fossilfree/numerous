@@ -8,12 +8,18 @@ import numpy as np
 import time
 import uuid
 
+
 from numba import njit, carray
+import numpy.typing as npt
+from numba.core.registry import CPUDispatcher
+
 from numba.experimental import jitclass
 import pandas as pd
 
-from numerous.engine.model.utils import Imports
+from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
+from numerous.engine.model.utils import Imports, njit_and_compile_function
 from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
+from numerous.engine.numerous_event import NumerousEvent
 
 from numerous.utils.logger_levels import LoggerLevel
 
@@ -85,7 +91,6 @@ class ModelAssembler:
         tag, namespaces = input_namespace
         variables_ = {}
         for namespace in namespaces:
-
             for i, (eq_tag, eq_methods) in enumerate(namespace.equation_dict.items()):
                 scope_id = "{0}_{1}_{2}".format(eq_tag, namespace.tag, tag, str(uuid.uuid4()))
                 equation_dict.update({scope_id: (eq_methods, namespace.outgoing_mappings)})
@@ -112,8 +117,10 @@ class Model:
 
     def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
                  external_mappings=None, data_loader=None, imports=None, historian=InMemoryHistorian(),
-                 use_llvm=True, generate_graph_pdf=False, export_model=False):
+                 use_llvm=True, save_to_file=False, generate_graph_pdf=False, export_model=False):
 
+
+        self.path_to_variable = {}
         self.generate_graph_pdf = generate_graph_pdf
         self.export_model = export_model
         if logger_level == None:
@@ -122,13 +129,9 @@ class Model:
             self.logger_level = logger_level
 
         self.is_external_data = True if external_mappings else False
-        self.external_mappings = ExternalMapping(external_mappings,
-                                                 data_loader) if (external_mappings and not
-        isinstance(external_mappings, EmptyMapping)) \
-            else EmptyMapping()
-
+        self.external_mappings = ExternalMapping(external_mappings,data_loader) if external_mappings else EmptyMapping()
         self.use_llvm = use_llvm
-
+        self.save_to_file = save_to_file
         self.imports = Imports()
         self.imports.add_as_import("numpy", "np")
         self.imports.add_from_import("numba", "njit")
@@ -146,7 +149,8 @@ class Model:
         self.callbacks = []
         self.historian_filter = historian_filter
         self.system = system
-        self.events = {}
+        self.event_function = None
+        self.condition_function = None
         self.derivatives = {}
         self.model_items = {}
         self.state_history = {}
@@ -157,7 +161,7 @@ class Model:
         self.aliases = {}
         self.historian = historian
         self.vars_ordered_value = {}
-
+        self.events = []
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
 
@@ -189,9 +193,6 @@ class Model:
         model_namespaces = []
         if item.id in self.model_items:
             return model_namespaces
-
-        if item.callbacks:
-            self.callbacks.append(item.callbacks)
 
         self.model_items.update({item.id: item})
         model_namespaces.append((item.id, self.create_model_namespaces(item)))
@@ -225,7 +226,6 @@ class Model:
         -  _3d 
 
         """
-
         def __get_mapping__idx(variable):
             if variable.mapping:
                 return __get_mapping__idx(variable.mapping)
@@ -273,6 +273,7 @@ class Model:
         for v in self.variables.values():
             v.top_item = self.system.id
 
+        eq_used = []
         for ns in model_namespaces:
             ##will be false for empty namespaces. Ones without equations and variables.
             if ns[1]:
@@ -284,8 +285,8 @@ class Model:
 
                 parse_eq(model_namespace=ns[1][0], item_id=ns[0], mappings_graph=self.mappings_graph,
                          scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
-                         scoped_equations=self.scoped_equations, parsed_eq=self.equations_top)
-
+                         scoped_equations=self.scoped_equations, parsed_eq=self.equations_top, eq_used=eq_used)
+        self.eq_used = eq_used
         logging.info('parsing equations completed')
 
         # Process mappings add update the global graph
@@ -380,6 +381,17 @@ class Model:
         self.number_of_external_mappings = number_of_external_mappings
         self.external_mappings.store_mappings()
         self.external_idx = np.array(external_idx, dtype=np.int64)
+        self.generate_path_to_varaible()
+
+
+        ##check for item level events
+        for item in self.model_items.values():
+            if item.events:
+                for event in item.events:
+                    event.condition = _replace_path_strings(self, event.condition, "state",item.path)
+                    event.action = _replace_path_strings(self, event.action, "var",item.path)
+                    self.events.append(event)
+
 
         self.info.update({"Number of items": len(self.model_items)})
         self.info.update({"Number of variables": len(self.variables)})
@@ -395,11 +407,20 @@ class Model:
                                    equation_graph=self.mappings_graph,
                                    scope_variables=self.variables, scoped_equations=self.scoped_equations,
                                    temporary_variables=tmp_vars, system_tag=self.system.tag, use_llvm=self.use_llvm,
-                                   imports=self.imports)
+                                   imports=self.imports, eq_used=self.eq_used)
 
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.variables, \
         self.state_idx, self.derivatives_idx = \
             eq_gen.generate_equations(export_model=self.export_model)
+
+        for varname, ix in self.vars_ordered_values.items():
+            var = self.variables[varname]
+            var.llvm_idx = ix
+            var.model = self
+            if getattr(var, 'logger_level',
+                       None) is None:  # added to temporary variables - maybe put in generate_equations?
+                setattr(var, 'logger_level', LoggerLevel.ALL)
+
 
         def c1(self, array_):
             return compiled_compute(array_)
@@ -418,8 +439,7 @@ class Model:
         self.init_values = np.ascontiguousarray(
             [self.variables[k].value for k in self.vars_ordered_values.keys()],
             dtype=np.float64)
-        for k, v in self.vars_ordered_values.items():
-            self.var_write(self.variables[k].value, v)
+        self.update_all_variables()
 
         # values of all model variables in specific order: self.vars_ordered_values
         # full tags of all variables in the model in specific order: self.vars_ordered
@@ -457,6 +477,19 @@ class Model:
             if getattr(var, 'logger_level',
                        None) is None:  # added to temporary variables - maybe put in generate_equations?
                 setattr(var, 'logger_level', LoggerLevel.ALL)
+
+    def generate_path_to_varaible(self):
+        for k, v in self.aliases.items():
+            self.path_to_variable[k] = self.variables[v]
+
+    def update_all_variables(self):
+        for k, v in self.vars_ordered_values.items():
+            self.var_write(self.variables[k].value, v)
+
+    def update_local_variables(self):
+        vars = self.numba_model.read_variables()
+        for k, v in self.vars_ordered_values.items():
+            self.variables[k].value = vars[v]
 
     def get_states(self):
         """
@@ -530,6 +563,61 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
+    def add_event(self, key, condition, action, terminal=True, direction=-1, compiled=False):
+        condition = _replace_path_strings(self, condition, "state")
+
+        action = _replace_path_strings(self, action, "var")
+        event = NumerousEvent(key, condition, action, compiled,terminal,direction)
+        self.events.append(event)
+
+    def generate_mock_event(self) -> None:
+        def condition(t, v):
+            return 1.0
+
+        def action(t, v):
+            i = 1
+
+        self.add_event("mock", condition, action)
+
+    def generate_event_condition_ast(self, is_numerous_solver: bool) -> tuple[list[CPUDispatcher], npt.ArrayLike]:
+        if len(self.events) == 0 and is_numerous_solver:
+            self.generate_mock_event()
+        if is_numerous_solver:
+            return generate_event_condition_ast(self.events, self.imports.from_imports)
+        else:
+            result = []
+            directions = []
+            for event in self.events:
+                if event.compiled:
+                    compiled_event = event
+                else:
+                    compiled_event = njit_and_compile_function(event.condition, self.imports.from_imports)
+                compiled_event.terminal = event.terminal
+                compiled_event.direction = event.direction
+                directions.append(event.direction)
+                result.append(compiled_event)
+            return result, np.array(directions)
+
+    def generate_event_action_ast(self, is_numerous_solver: bool) -> list[CPUDispatcher]:
+        if len(self.events) == 0 and is_numerous_solver:
+            self.generate_mock_event()
+        if is_numerous_solver:
+            return [generate_event_action_ast(self.events, self.imports.from_imports)]
+        else:
+            result = []
+            for event in self.events:
+                compiled_event = njit_and_compile_function(event.action, self.imports.from_imports)
+                result.append(compiled_event)
+            return result
+
+    def _get_var_idx(self, var, idx_type):
+        if idx_type == "state":
+            return np.where(self.state_idx == var.llvm_idx)[0]
+        if idx_type == "var":
+            return [var.llvm_idx]
+
+
+
     def create_alias(self, variable_name, alias):
         """
 
@@ -550,7 +638,6 @@ class Model:
             set_namespace = isinstance(namespace, SetNamespace)
             model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag, namespace.items,
                                              namespace.path, set_namespace, '.'.join(item.path))
-            # model_namespace.mappings = namespace.mappings
             model_namespace.variable_scope = namespace.get_flat_variables()
             model_namespace.set_variables = namespace.set_variables
 
@@ -595,8 +682,8 @@ class Model:
 
         NM_instance = CompiledModel_instance(self.init_values, self.derivatives_idx, self.state_idx,
                                              self.global_vars, number_of_timesteps, start_time,
-                                             self.historian.get_historian_max_size(number_of_timesteps),
-                                             self.historian.need_to_correct(),
+                                             self.historian.get_historian_max_size(number_of_timesteps,
+                                                                                   len(self.events)),
                                              self.external_mappings.external_mappings_time,
                                              self.number_of_external_mappings,
                                              self.external_mappings.external_mappings_numpy,
@@ -647,8 +734,23 @@ class Model:
         data.update({'time': time})
         return data
 
+
+    def generate_not_nan_history_array(self):
+        return self.numba_model.historian_data[:, ~np.isnan(self.numba_model.historian_data).any(axis=0)]
+
     def create_historian_df(self):
-        self.historian_df = self._generate_history_df(self.numba_model.historian_data, rename_columns=False)
+        if self.historian_df is not None:
+            import pandas as pd
+            self.historian_df = AliasedDataFrame(pd.concat([self.historian_df,
+                                                            self._generate_history_df(
+                                                                self.generate_not_nan_history_array(),
+                                                                rename_columns=False)],
+                                                           axis=0, sort=False, ignore_index=True),
+                                                 aliases=self.aliases, rename_columns=True)
+
+        else:
+            self.historian_df = self._generate_history_df(self.generate_not_nan_history_array(),
+                                                          rename_columns=False)
         self.historian.store(self.historian_df)
 
     def _generate_history_df(self, historian_data, rename_columns=True):
@@ -718,7 +820,6 @@ class Model:
 
         model.set_functions(compiled_compute, var_func, var_write)
         return model
-
 
 class AliasedDataFrame(pd.DataFrame):
     _metadata = ['aliases']

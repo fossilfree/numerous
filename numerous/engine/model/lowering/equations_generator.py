@@ -20,7 +20,7 @@ from numerous.utils.string_utils import d_u
 
 class EquationGenerator:
     def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations,
-                 temporary_variables, system_tag="", use_llvm=True, imports=None):
+                 temporary_variables, system_tag="", use_llvm=True, imports=None, eq_used=[]):
         self.filename = filename
         self.imports = imports
         self.system_tag = system_tag
@@ -93,7 +93,13 @@ class EquationGenerator:
 
         self.eq_vardefs = {}
         # Loop over equation functions and generate code for each equation.
-        self._parse_equations(equations)
+
+        used_eq = {}
+
+        for eq_key, eq in equations.items():
+            if eq_key in eq_used:
+                used_eq[eq_key]=eq
+        self._parse_equations(used_eq)
 
         self.all_targeted = []
         self.all_read = []
@@ -131,23 +137,31 @@ class EquationGenerator:
 
     def _parse_equations(self, equations):
         logging.info('make equations for compilation')
+
         for eq_key, eq in equations.items():
             vardef = Vardef(llvm=self.llvm)
 
-            eq[2].lower_graph = None
+            eq.graph.lower_graph = None
             if self.llvm:
                 func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(
-                    eq[2],
+                    eq.graph,
                     imports=self.imports,
                     var_def_=Vardef(llvm=self.llvm),
-                    compiled_function=True
+                    compiled_function=True,
+                    replacements=eq.replacements,
+                    replace_name=eq_key
                 )
-                self.llvm_names.update(self.generated_program.add_external_function(func_llvm,
-                                                                                    signature, len(args), target_ids))
+                self.llvm_names.update(self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids,
+                                                             replacements=eq.replacements,replace_name=eq_key))
+
             else:
-                func, args, target_ids = function_from_graph_generic(eq[2],
-                                                                     var_def_=vardef, arg_metadata=eq[2].arg_metadata)
-                self.generated_program.add_external_function(func, None, len(args), target_ids)
+                func, args, target_ids = function_from_graph_generic(eq.graph,
+                                                                     var_def_=vardef, arg_metadata=eq.graph.arg_metadata,
+                                                                     replacements=eq.replacements,
+                                                                     replace_name=eq_key
+                                                                     )
+                self.generated_program.add_external_function(func, None, len(args), target_ids,
+                                                             replacements=eq.replacements,replace_name=eq_key)
 
             vardef.llvm_target_ids = target_ids
             vardef.args_order = args
@@ -412,28 +426,18 @@ class EquationGenerator:
                 state_idx.append(v)
         if self.llvm:
             logging.info('generating llvm')
-            diff, var_func, var_write = self.generated_program.generate(save_to_file=export_model)
+            diff, var_func, var_write = self.generated_program.generate(imports=self.imports,
+                                                                        system_tag=self.system_tag,
+                                                                        save_to_file=export_model)
 
             return diff, var_func, var_write, self.values_order, self.scope_variables, np.array(state_idx,
-                                                                                                dtype=np.int64), np.array(
-                deriv_idx, dtype=np.int64)
+                                                                                                dtype=np.int64), \
+                   np.array(
+                       deriv_idx, dtype=np.int64)
         else:
-            code = self.generated_program.generate(self.imports)
-            kernel_module = types.ModuleType('python_kernel')
-            if export_model:
-                os.makedirs(os.path.dirname(self.generated_program.kernel_filename), exist_ok=True)
-                with open(self.generated_program.kernel_filename, 'w') as f:
-                    f.write(code)
-            exec(code, kernel_module.__dict__)
 
-
-            def var_func():
-                return kernel_module.kernel_variables
-
-            def var_write(value, idx):
-                np.put(kernel_module.kernel_variables, [idx], value)
-
-            return kernel_module.global_kernel, var_func, var_write, self.values_order, self.scope_variables, np.array(
-                state_idx,
-                dtype=np.int64), np.array(
-                deriv_idx, dtype=np.int64)
+            global_kernel, var_func, var_write = self.generated_program.generate(self.imports,
+                                                                                 system_tag=self.system_tag,
+                                                                                 save_to_file=save_to_file)
+            return global_kernel, var_func, var_write, self.values_order, self.scope_variables, \
+                   np.array(state_idx, dtype=np.int64), np.array(deriv_idx, dtype=np.int64)

@@ -288,7 +288,7 @@ class Graph:
 
         return cg
 
-    def topological_nodes(self):
+    def topological_nodes(self, ignore_cyclic=True):
         logging.info('Starting topological sort')
         if not self.lower_graph:
             self.make_lower_graph()
@@ -296,16 +296,20 @@ class Graph:
         self.lower_graph.topological_sort()
 
         if self.lower_graph.cyclic_dependency >= 0:
+
             unsorted_nodes = set(self.lower_graph.nodes).difference(set(self.lower_graph.topological_sorted_nodes))
             self.cyclic_path = self.lower_graph.cyclic_path
-            cg = self.graph_from_path(self.cyclic_path)
-            cg.as_graphviz('cyclic', force=True)
-            for n in self.cyclic_path:
-                print(" ".join([str(self.key_map[n]), '          ' + str(
-                    self.get(n, 'file'))]))
+            if not ignore_cyclic:
+                cg = self.graph_from_path(self.cyclic_path)
+                cg.as_graphviz('cyclic', force=True)
+                for n in self.cyclic_path:
+                    print(" ".join([str(self.key_map[n]), '          ' + str(
+                        self.get(n, 'file'))]))
 
-            self.cyclic_dependency = self.lower_graph.cyclic_dependency
-            raise ValueError('Cyclic path detected: ', self.cyclic_path)
+                self.cyclic_dependency = self.lower_graph.cyclic_dependency
+                raise ValueError('Cyclic path detected: ', self.cyclic_path)
+            else:
+                self.lower_graph.topological_sorted_nodes[-len(unsorted_nodes):] = list(unsorted_nodes)
         return self.lower_graph.topological_sorted_nodes
 
     def get_dependants_graph(self, node):

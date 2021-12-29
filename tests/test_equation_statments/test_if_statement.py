@@ -45,7 +45,6 @@ class IfTest2(EquationBase, Item):
             scope.T_i2 = scope.T1
             scope.T_i4 = scope.T2 -100
 
-
 class IfTest3(EquationBase, Item):
     def __init__(self, tag="tm"):
         super(IfTest3, self).__init__(tag)

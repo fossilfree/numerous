@@ -98,7 +98,7 @@ class RK45(BaseMethod):
         else:
             raise Exception("incorrect submethod specified")
 
-        self.f0 = numerous_solver.f0
+        self.f0 = np.ascontiguousarray(numerous_solver.f0)
         self.a = a
         self.b = b
         self.c = c
@@ -132,7 +132,7 @@ class RK45(BaseMethod):
                 return tnew, y, True, 1, _solve_state, max_factor
 
             k = np.zeros((rk_steps+2, len(y)))
-            k[0,:] = f0*dt#dt*nm.func(t, y)#
+            k[0,:] = f0*dt
 
             for i in range(1,rk_steps+1):
                 dy = np.dot(k[:i].T, a[i,:i])
@@ -165,7 +165,7 @@ class RK45(BaseMethod):
                 factor = max(0.2,
                              0.95 * e_norm ** error_exponent)
 
-            _new_solve_state = (c, a, b, max_factor, atol, rtol, f0, rk_steps, order, error_exponent, converged)
+            _new_solve_state = (c, a, b, max_factor, atol, rtol, np.ascontiguousarray(f0), rk_steps, order, error_exponent, converged)
 
             return tnew, ynew, converged, step_info, _new_solve_state, factor
 

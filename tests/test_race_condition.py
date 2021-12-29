@@ -8,11 +8,6 @@ from numerous.engine.system import Subsystem, Item
 from numerous.multiphysics import EquationBase, Equation
 
 
-@pytest.fixture(autouse=True)
-def run_before_and_after_tests():
-    import shutil
-    shutil.rmtree('./tmp', ignore_errors=True)
-    yield
 
 
 class Item1(Item, EquationBase):

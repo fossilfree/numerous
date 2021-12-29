@@ -9,11 +9,6 @@ from numerous.engine.system import ConnectorItem, ConnectorTwoWay, Item, Subsyst
 from numerous.engine.simulation.solvers.base_solver import solver_types
 from tests.test_equations import TestEq_input, Test_Eq, TestEq_ground
 
-@pytest.fixture(autouse=True)
-def run_before_and_after_tests():
-    import shutil
-    shutil.rmtree('./tmp', ignore_errors=True)
-    yield
 
 
 class I(ConnectorItem):

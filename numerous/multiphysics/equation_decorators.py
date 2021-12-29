@@ -6,14 +6,18 @@ import inspect
 from textwrap import dedent
 from numba import njit
 
-class Function(object):
+class NumerousFunction(object):
     def __init__(self, signature=None):
         self.id =str(uuid.uuid4())
         self.signature = signature
-    # self.func = func
 
     def __call__(self, func):
-        return njit(func)
+        njited_func = njit(func)
+        return njited_func
+
+
+
+
 
 
 class Equation(object):
@@ -65,7 +69,7 @@ def dedent_code(code):
 class InlineEquation(Equation):
 
     def __call__(self, func_name, func_source, namespace = {}):
-
+        self.name = func_name
         tries = 0
         while tries < 10:
             try:
@@ -83,7 +87,7 @@ class InlineEquation(Equation):
         @wraps(func)
         def wrapper(self,scope):
             func(self, scope)
-
+        wrapper.name = func_name
         wrapper._equation = True
         wrapper.lines = func_source
         wrapper.id = self.id

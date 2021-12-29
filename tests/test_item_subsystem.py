@@ -1,13 +1,8 @@
 import pytest
 
-from numerous.engine.system import Connector, Item
+from numerous.engine.system import Connector, Item, namespace
 from numerous import VariableDescription, VariableType
 
-@pytest.fixture(autouse=True)
-def run_before_and_after_tests():
-    import shutil
-    shutil.rmtree('./tmp', ignore_errors=True)
-    yield
 
 
 @pytest.fixture
@@ -59,3 +54,22 @@ def test_add_mapping(item_with_namespace):
 
     test_namespace.A_parameter.value = 20
     assert test_namespace.B_state.get_value() == 10
+
+
+def test_item_without_namespace():
+
+    item = Item('item_without_namespace')
+
+    default_namespace = item.default
+    assert default_namespace
+
+    with pytest.raises(AttributeError, match=r".*object has no attribute '.*'"):
+        item.t1
+        item.not_implemented_method
+
+    item.create_namespace('t1')
+    assert item.t1
+
+    with pytest.raises(ValueError, match=r".*is already registered in item item_without_namespace"):
+        item.create_namespace('default')
+        item.create_namespace('t1')

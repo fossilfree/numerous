@@ -1,5 +1,3 @@
-from abc import ABC
-
 import pytest
 from numerous.engine.model.external_mappings import ExternalMappingElement
 
@@ -16,11 +14,6 @@ from numerous.engine.simulation.solvers.base_solver import solver_types
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 
 
-@pytest.fixture(autouse=True)
-def run_before_and_after_tests():
-    import shutil
-    shutil.rmtree('./tmp', ignore_errors=True)
-    yield
 
 
 @pytest.fixture
@@ -234,25 +227,27 @@ def test_1_item_model(ms1):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-@pytest.mark.skip(reason="Functionality not implemented in current version")
-def test_callback_step_item_model(ms1, solver):
-    class SimpleCallback(NumbaCallbackBase):
-        def finalize(self, var_list):
-            pass
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_callback_step_item_model(ms3, solver, use_llvm):
+    def action(time, variables):
+        if int(time) == 119:
+            raise ValueError("Overflow of state. time:119")
 
-        @NumbaCallback(method_type=CallbackMethodType.INITIALIZE)
-        def initialize(self, var_count, number_of_timesteps):
-            pass
+    def condition(time, states):
+        return 500 - states['S3.3.t1.T']
 
-        @NumbaCallback(method_type=CallbackMethodType.UPDATE, run_after_init=True)
-        def update(self, time, variables):
-            if variables['S1.test_item.t1.T2'] > 1000:
-                raise ValueError("Overflow of state2")
+    def action2(time, variables):
+        if int(time) == 118:
+            raise ValueError("Overflow of state. time:119")
 
-    m1 = Model(ms1)
-    m1.add_callback(SimpleCallback())
+    def condition2(time, states):
+        return 500 - states['S3.3.t1.T']
+
+    m1 = Model(ms3, use_llvm=use_llvm)
+    m1.add_event("simple", condition, action)
+    m1.add_event("simple2", condition2, action2)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
-    with pytest.raises(ValueError, match=r".*Overflow of state2.*"):
+    with pytest.raises(ValueError, match=r".*time:119.*"):
         s1.solve()
 
 
@@ -266,7 +261,7 @@ def test_add_item_twice_with_same_tag(ms2):
 
 
 @pytest.mark.parametrize("solver", solver_types)
-@pytest.mark.parametrize("use_llvm", [True,False])
+@pytest.mark.parametrize("use_llvm", [True, False])
 def test_chain_item_model(ms2, solver, use_llvm):
     m1 = Model(ms2, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
