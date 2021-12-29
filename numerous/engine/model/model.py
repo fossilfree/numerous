@@ -1,6 +1,7 @@
 import itertools
 import os
 import pickle
+import sys
 from copy import copy
 from ctypes import CFUNCTYPE, c_int64, POINTER, c_double, c_void_p
 
@@ -416,7 +417,6 @@ class Model:
         for varname, ix in self.vars_ordered_values.items():
             var = self.variables[varname]
             var.llvm_idx = ix
-            var.model = self
             if getattr(var, 'logger_level',
                        None) is None:  # added to temporary variables - maybe put in generate_equations?
                 setattr(var, 'logger_level', LoggerLevel.ALL)
@@ -462,6 +462,7 @@ class Model:
             filename = os.path.join(path, f'{self.system.tag}.numerous')
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             with open(filename, 'wb') as handle:
+                sys.setrecursionlimit(100000)
                 pickle.dump((self.system, self.logger_level, self.external_mappings,
                              self.imports, self.use_llvm, self.vars_ordered_values, self.variables,
                              self.state_idx, self.derivatives_idx, self.init_values, self.aliases,
