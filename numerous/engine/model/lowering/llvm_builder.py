@@ -20,7 +20,6 @@ ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
 
 LISTING_FILEPATH = "tmp/listings/"
 LISTINGFILENAME = "_llvm_listing.ll"
-LLVMOPTLISTING_FILENAME = "tmp/listings/llvm_listing_opt.ll"
 
 class LLVMBuilder:
     """
@@ -52,7 +51,8 @@ class LLVMBuilder:
         self.fnty.args[0].name = "y"
         self.system_tag = system_tag
         self.variable_names = {}
-
+        self.equations_llvm = []
+        self.equations_llvm_opt = []
         for k, v in variable_names.items():
             self.variable_names[k] = v
             self.variable_names[v] = k
@@ -92,14 +92,14 @@ class LLVMBuilder:
         self.builder.branch(self.bb_loop)
         self.builder.position_at_end(self.bb_loop)
 
-    def add_external_function(self, function, signature, number_of_args, target_ids):
+    def add_external_function(self, function, signature, number_of_args, target_ids,replacements=None,replace_name=None):
         """
         Wrap the function and make it available in the LLVM module
         """
-
         f_c = cfunc(sig=signature)(function)
-        name = function.__qualname__
-        print('fname_llvm: ', name)
+        name = f_c.native_name
+        self.equations_llvm.append(f_c.inspect_llvm())
+
         f_c_sym = llvm.add_symbol(name, f_c.address)
         llvm_signature = np.tile(ll.DoubleType(), number_of_args).tolist()
         for i in target_ids:
@@ -111,8 +111,9 @@ class LLVMBuilder:
         f_llvm = ll.Function(self.module, fnty_c_func, name=name)
 
         self.ext_funcs[name] = f_llvm
+        return {function.__qualname__:name}
 
-    def generate(self, save_to_file=False):
+    def generate(self, imports=None, system_tag=None, save_to_file=False):
 
         self.builder.position_at_end(self.bb_loop)
 
@@ -139,7 +140,16 @@ class LLVMBuilder:
         self._build_var_w()
 
         if save_to_file:
-            self.save_module(LISTING_FILEPATH+self.system_tag+LISTINGFILENAME)
+            self.equations_llvm.append(str(self.module))
+            for i, ll_code in enumerate(self.equations_llvm):
+                llmod_saved = llvm.parse_assembly(ll_code)
+                pmb = llvm.create_pass_manager_builder()
+                pmb.opt_level = 3
+                pm = llvm.create_module_pass_manager()
+                pmb.populate(pm)
+                pm.run(llmod_saved)
+                self.equations_llvm_opt.append(str(llmod_saved))
+
 
         llmod = llvm.parse_assembly(str(self.module))
 
@@ -147,12 +157,7 @@ class LLVMBuilder:
         pmb.opt_level = 1
         pm = llvm.create_module_pass_manager()
         pmb.populate(pm)
-
         pm.run(llmod)
-        os.makedirs(os.path.dirname(LLVMOPTLISTING_FILENAME), exist_ok=True)
-        if save_to_file:
-            with open(LLVMOPTLISTING_FILENAME, 'w') as f:
-                f.write(str(llmod))
 
         ee.add_module(llmod)
 
@@ -172,14 +177,12 @@ class LLVMBuilder:
         vars_w = CFUNCTYPE(c_void_p, c_double, c_int64)(cfptr_var_w)
 
         n_deriv = self.n_deriv
-
         @njit('float64[:](float64[:])')
         def diff(y):
             deriv_pointer = diff_(y.ctypes)
             return carray(deriv_pointer, (n_deriv,)).copy()
 
         max_var = self.max_var
-
         @njit('float64[:]()')
         def read_variables():
             variables_pointer = vars_r(0)

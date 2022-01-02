@@ -14,11 +14,6 @@ from numerous.engine.simulation.solvers.base_solver import solver_types
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 
 
-@pytest.fixture(autouse=True)
-def run_before_and_after_tests():
-    import shutil
-    shutil.rmtree('./tmp', ignore_errors=True)
-    yield
 
 
 @pytest.fixture

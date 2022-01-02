@@ -1,8 +1,13 @@
 import ast
-from numerous.engine.model.graph_representation.utils import EdgeType
+
 from numerous.engine.model.graph_representation import MappingsGraph, Graph
+from numerous.engine.model.graph_representation.utils import EdgeType
 from numerous.engine.model.utils import wrap_function
 
+
+def get_eq_prefix():
+    import random, string
+    return ''.join(random.choice(string.ascii_letters) for i in range(4)) + '_'
 
 def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
     nk = g.key_map[n]
@@ -124,8 +129,12 @@ def generate_return_statement(var_def_, g):
     return return_
 
 
-def function_from_graph_generic(g: MappingsGraph, var_def_, arg_metadata):
+def function_from_graph_generic(g: MappingsGraph, var_def_, arg_metadata, replacements=None, replace_name=None):
     decorators = []
+    if replace_name is None:
+        fname = g.label
+    else:
+        fname = replace_name
     body = function_body_from_graph(g, var_def_)
     var_def_.order_variables(arg_metadata)
     body.append(generate_return_statement(var_def_, g))
@@ -133,13 +142,14 @@ def function_from_graph_generic(g: MappingsGraph, var_def_, arg_metadata):
     args = ast.arguments(posonlyargs=[], args=var_def_.get_order_args(), vararg=None, defaults=[], kwonlyargs=[],
                          kwarg=None)
 
-    func = wrap_function(g.label, body, decorators=decorators, args=args)
-
+    func = wrap_function(fname, body, decorators=decorators, args=args)
+    tree = replace_closure_function(func, replacements, get_eq_prefix())
+    func_result = ast.parse(tree, mode='exec').body[0]
     target_ids = []
     for i, arg in enumerate(var_def_.args_order):
         if arg in var_def_.targets:
             target_ids.append(i)
-    return func, var_def_.args_order, target_ids
+    return func_result, var_def_.args_order, target_ids
 
 
 def compare_expresion_from_graph(g, var_def_, lineno_count=1):
@@ -153,8 +163,9 @@ def compare_expresion_from_graph(g, var_def_, lineno_count=1):
     return body
 
 
-def function_body_from_graph(g, var_def_, lineno_count=1):
-    top_nodes = g.topological_nodes(ignore_cyclic=True)
+def function_body_from_graph(g, var_def_, lineno_count=1, level=0):
+    g.topological_nodes(ignore_cyclic=True) # give warning if cyclic, but ignore sorting
+    top_nodes = range(0,len(g.nodes))
     var_def = var_def_.var_def
     body = []
     targets = []
@@ -169,16 +180,29 @@ def function_body_from_graph(g, var_def_, lineno_count=1):
                                             g, var_def, value_ast, at, targets))
         if (g.get(n, 'ast_type')) == ast.If:
             func_body = function_body_from_graph(g.nodes[n].subgraph_body, var_def_,
-                                                 lineno_count=lineno_count)
+                                                 lineno_count=lineno_count, level=level+1)
             func_test = compare_expresion_from_graph(g.nodes[n].subgraph_test, var_def_,
                                                      lineno_count=lineno_count)
             body.append(process_if_node(func_body, func_test))
     return body
 
 
+def replace_closure_function(func,replacements,eq_prefix):
+    f1 = ast.unparse(func)
+    if replacements:
+        keys = list(replacements.keys())
+        for key in keys:
+            eq_key = (eq_prefix+key).replace('.', '_')
+            f1 = f1.replace(key, eq_key)
+            replacements[eq_key] = replacements[key]
+            replacements.pop(key)
+    return f1
+
 def compiled_function_from_graph_generic_llvm(g: Graph, var_def_, imports,
-                                              compiled_function=False, replacements={}, replace_name=None):
+                                              compiled_function=False, replacements=None, replace_name=None):
     func, signature, fname, r_args, r_targets = function_from_graph_generic_llvm(g, var_def_, replace_name=replace_name)
+    if replacements is None:
+        replacements = {}
     if not compiled_function:
         return func, signature, r_args, r_targets
 
@@ -193,25 +217,13 @@ def compiled_function_from_graph_generic_llvm(g: Graph, var_def_, imports,
     body.append(ast.Return(value=ast.Name(id=fname, ctx=ast.Load(), lineno=0, col_offset=0), lineno=0, col_offset=0))
     wrapper_name = fname + '1'
 
-    func = wrap_function(fname + '1', body, decorators=[],
+    func = wrap_function(wrapper_name, body, decorators=[],
                          args=ast.arguments(posonlyargs=[], args=[], vararg=None, defaults=[],
                                             kwonlyargs=[], kw_defaults=[],lineno=0, kwarg=None))
-    import astor
-    import random, string
-    eq_prefix = ''.join(random.choice(string.ascii_letters) for i in range(4))+'_'
 
-    f1 = astor.to_source(func)
-    keys = list(replacements.keys())
-    for key in keys:
-        eq_key = (eq_prefix+key).replace('.', '_')
-        print(eq_key)
-        f1 = f1.replace(key, eq_key)
-        replacements[eq_key] = replacements[key]
-        replacements.pop(key)
-    #sdfsdf=sdfsfdsfd
-    #f1 = f1.replace('self.', 'self_')
-    tree = ast.parse(f1, mode='exec')
 
+    tree =replace_closure_function(func, replacements, get_eq_prefix())
+    tree = ast.parse(tree, mode='exec')
     module_func = ast.Module(body=[tree], type_ignores=[])
     code = compile(ast.parse(ast.unparse(module_func)), filename='llvm_equations_storage', mode='exec')
     namespace = replacements
