@@ -40,6 +40,8 @@ class Connector(Node):
         else:
             self.bindings[binding_name] = Connector.create_new_binding(binding_name)
 
+        return self.bindings[binding_name]
+
     def _create_shadow_namespace(self, param):
         self.__update_bindings_namespace(param)
 
