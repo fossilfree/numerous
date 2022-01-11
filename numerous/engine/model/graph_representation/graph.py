@@ -310,6 +310,8 @@ class Graph:
                 raise ValueError('Cyclic path detected: ', self.cyclic_path)
             else:
                 self.lower_graph.topological_sorted_nodes[-len(unsorted_nodes):] = list(unsorted_nodes)
+
+        logging.info("Topological sort finished")
         return self.lower_graph.topological_sorted_nodes
 
     def get_dependants_graph(self, node):

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 import time
 import numpy as np
@@ -78,13 +79,13 @@ class Simulation:
                                                                 self.model.external_mappings.external_mappings_time)
 
         self.end_step = __end_step
-        print("Generating Numba Model")
+        logging.info("Generating Numba Model")
         generation_start = time.time()
-        print('Len time steps: ', len(self.time))
+        logging.info(f'Number of steps: {len(self.time)}')
         numba_model = model.generate_compiled_model(t_start, len(self.time))
 
         generation_finish = time.time()
-        print("Generation time: ", generation_finish - generation_start)
+        logging.info(f"Numba model generation finished, generation time: {generation_finish - generation_start}")
 
         if solver_type.value == SolverType.SOLVER_IVP.value:
             event_function, _ = model.generate_event_condition_ast(False)
@@ -95,7 +96,6 @@ class Simulation:
                                      **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
-
             event_function, event_directions = model.generate_event_condition_ast(True)
             action_function = model.generate_event_action_ast(True)
             self.solver = Numerous_solver(time_, delta_t, model, numba_model,
@@ -104,19 +104,19 @@ class Simulation:
                                           events=(event_function, action_function), event_directions=event_directions,
                                           **kwargs)
 
-
         self.solver.register_endstep(__end_step)
 
         self.start_datetime = start_datetime
         self.info = model.info["Solver"]
         self.info["Number of Equation Calls"] = 0
 
-        print("Compiling Numba equations and initializing historian")
+        logging.info("Compiling Numba equations and initializing historian")
         compilation_start = time.time()
         numba_model.func(t_start, numba_model.get_states())
         numba_model.historian_update(t_start)
         compilation_finished = time.time()
-        print("Compilation time: ", compilation_finished - compilation_start)
+        logging.info(
+            f"Numba equations compiled, historian initizalized, compilation time: {compilation_finished - compilation_start}")
 
         self.compiled_model = numba_model
 

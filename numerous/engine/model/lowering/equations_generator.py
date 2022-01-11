@@ -136,7 +136,7 @@ class EquationGenerator:
         return self.llvm_names[ext_func + '_llvm1.<locals>.' + ext_func + '_llvm']
 
     def _parse_equations(self, equations):
-        logging.info('make equations for compilation')
+        logging.info('Making equations for compilation')
 
         for eq_key, eq in equations.items():
             vardef = Vardef(llvm=self.llvm)
@@ -425,7 +425,7 @@ class EquationGenerator:
             if k in self.states:
                 state_idx.append(v)
         if self.llvm:
-            logging.info('generating llvm')
+            logging.info('Generating llvm')
             diff, var_func, var_write = self.generated_program.generate(imports=self.imports,
                                                                         system_tag=self.system_tag,
                                                                         save_to_file=export_model)
