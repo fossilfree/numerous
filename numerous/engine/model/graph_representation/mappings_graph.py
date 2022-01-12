@@ -74,7 +74,7 @@ class MappingsGraph(Graph):
             target_edges_indcs_edge_type_mapping, target_edges_edge_type_mapping = self.get_edges_for_node_filter(
                 end_node=target, attr='e_type', val=EdgeType.MAPPING)
             target_edges_indcs = target_edges_indcs_edge_type_target + target_edges_indcs_edge_type_mapping
-            target_edges = target_edges_edge_type_target+target_edges_edge_type_mapping
+            target_edges = target_edges_edge_type_target + target_edges_edge_type_mapping
             for edge, edge_ix in zip(target_edges, target_edges_indcs):
 
                 if not target in self.vars_assignments:
@@ -98,7 +98,8 @@ class MappingsGraph(Graph):
     def create_assignments(self, variables):
         from tqdm import tqdm
         temp_variables = {}
-        for ii, n in tqdm(enumerate(self.get_where_node_attr('node_type', NodeTypes.EQUATION))):
+        for ii, n in tqdm(enumerate(self.get_where_node_attr('node_type', NodeTypes.EQUATION)),
+                          desc="Creating assigments"):
             for i, e in self.get_edges_for_node(start_node=n):
                 va = e[1].copy()
                 if va in self.vars_assignments and len(self.vars_assignments[va]) > 1:

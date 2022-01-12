@@ -1,3 +1,4 @@
+import logging
 import time
 from collections import namedtuple
 from enum import IntEnum, unique
@@ -303,7 +304,7 @@ class Numerous_solver(BaseSolver):
 
     def compile_solver(self):
 
-        print("Compiling Numerous Solver")
+        logging.info("Compiling Numerous Solver")
         generation_start = time.time()
 
         argtypes = []
@@ -340,7 +341,7 @@ class Numerous_solver(BaseSolver):
         _solve = self._non_compiled_solve.compile(tuple(argtypes))
 
         generation_finish = time.time()
-        print("Compiling time: ", generation_finish - generation_start)
+        logging.info(f"Solver compiled, compilation time: {generation_finish - generation_start}")
 
         return _solve
 
@@ -429,7 +430,7 @@ class Numerous_solver(BaseSolver):
         """
         self.result_status = "Success"
         self.sol = None
-
+        logging.info('Solve started')
         # try:
         t_start = self.time[0]
         t_end = self.time[-1]
@@ -485,7 +486,7 @@ class Numerous_solver(BaseSolver):
                                self.number_of_events, self.event_directions,
                                info.t, t_end, self.time[time_idx:])
 
-        print("finished")
+        logging.info("Solve finished")
         return self.sol, self.result_status
 
     def solver_step(self, t, delta_t=None):
