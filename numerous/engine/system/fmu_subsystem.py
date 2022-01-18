@@ -9,6 +9,7 @@ from fmpy.simulation import apply_start_values, Input
 from fmpy.util import auto_interval
 from llvmlite.ir import DoubleType, IntType
 from numba.core.extending import intrinsic
+from numba.typed import Dict
 
 from numerous import EquationBase, Equation, NumerousFunction
 from numerous.engine.model import Model
@@ -33,7 +34,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
         start_values = {}
         validate = False
         step_size = None
-        relative_tolerance = None
         output_interval = None
         start_values = start_values
         apply_default_start_values = False
@@ -216,21 +216,32 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_n = 1
 
         # returns position to find zero crossing using root finding algorithm of scipy solver
-        def hitground_event_fun(event_indicators):
-            value = np.zeros(event_n, dtype=np.float64)
-            get_event_indicators(component, value.ctypes, event_n)
-            carray(event_indicators, (1,), dtype=np.float64)[0] = value[0]
+        def hitground_event_fun(event_indicators,t):
+            vr = np.arange(0, len_q, 1, dtype=np.uint32)
+            value_event = np.zeros(event_n, dtype=np.float64)
+            value = np.zeros(len_q, dtype=np.float64)
+            ## we are reading derivatives from FMI
+            getreal(component, vr.ctypes, len_q, value.ctypes)
+            value1 = np.array([0., value[1], 1., value[3], value[4], value[5]], dtype=np.float64)
+            fmi2SetReal(component, vr.ctypes, len_q, value1.ctypes)
+            set_time(component, t)
+            get_event_indicators(component, value_event.ctypes, event_n)
+            carray(event_indicators, (1,), dtype=np.float64)[0] = value_event[0]
 
-        event_ind_call = cfunc(types.void(types.voidptr))(hitground_event_fun)
+        event_ind_call_1 = cfunc(types.void(types.voidptr, types.float64))(hitground_event_fun)
 
         c = np.array([0], dtype=np.float64)
         c_ptr = a3.ctypes.data
 
+
+
         @njit
-        def event_cond(x, y):
-            carray(address_as_void_pointer(c_ptr), a0.shape, dtype=a0.dtype)[0] = 0
-            event_ind_call(address_as_void_pointer(c_ptr))
-            return carray(address_as_void_pointer(c_ptr), (1,), dtype=np.float64)[0]
+        def event_cond(t, y):
+            temp_addr = address_as_void_pointer(c_ptr)
+            carray(temp_addr, a0.shape, dtype=a0.dtype)[0] = 0
+            event_ind_call_1(temp_addr,t)
+            result = carray(temp_addr, (1,), dtype=np.float64)[0]
+            return result
 
         enter_event_mode = getattr(fmu.dll, "fmi2EnterEventMode")
 
@@ -251,12 +262,13 @@ class FMU_Subsystem(Subsystem, EquationBase):
             newDiscreteStates(component, q)
             enter_cont_mode(component)
 
-
         eventInfo = fmi2EventInfo()
         event_ind_call = cfunc(types.void(types.voidptr))(hitground_event_callback_fun)
         q_ptr = ctypes.addressof(eventInfo)
+
         @njit
         def event_action(x, y):
+
             event_ind_call(address_as_void_pointer(q_ptr))
 
         self.add_event("hitground_event", event_cond, event_action, compiled=True)
