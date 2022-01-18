@@ -216,16 +216,20 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_n = 1
 
         # returns position to find zero crossing using root finding algorithm of scipy solver
-        def hitground_event_fun(event_indicators,t):
-            vr = np.arange(0, len_q, 1, dtype=np.uint32)
+        def hitground_event_fun(event_indicators, t):
+
             value_event = np.zeros(event_n, dtype=np.float64)
+
+            vr = np.arange(0, len_q, 1, dtype=np.uint32)
             value = np.zeros(len_q, dtype=np.float64)
-            ## we are reading derivatives from FMI
             getreal(component, vr.ctypes, len_q, value.ctypes)
             value1 = np.array([0., value[1], 1., value[3], value[4], value[5]], dtype=np.float64)
             fmi2SetReal(component, vr.ctypes, len_q, value1.ctypes)
             set_time(component, t)
             get_event_indicators(component, value_event.ctypes, event_n)
+            value2 = np.array([value[0], value[1], value[2], value[3], value[4], value[5]], dtype=np.float64)
+            fmi2SetReal(component, vr.ctypes, len_q, value2.ctypes)
+
             carray(event_indicators, (1,), dtype=np.float64)[0] = value_event[0]
 
         event_ind_call_1 = cfunc(types.void(types.voidptr, types.float64))(hitground_event_fun)
@@ -233,15 +237,17 @@ class FMU_Subsystem(Subsystem, EquationBase):
         c = np.array([0], dtype=np.float64)
         c_ptr = a3.ctypes.data
 
-
-
         @njit
         def event_cond(t, y):
             temp_addr = address_as_void_pointer(c_ptr)
             carray(temp_addr, a0.shape, dtype=a0.dtype)[0] = 0
-            event_ind_call_1(temp_addr,t)
+            event_ind_call_1(temp_addr, t)
             result = carray(temp_addr, (1,), dtype=np.float64)[0]
             return result
+
+        def event_cond_2(t, variables):
+            q = np.array([variables['t1.h'], variables['t1.v']])
+            return event_cond(t, q)
 
         enter_event_mode = getattr(fmu.dll, "fmi2EnterEventMode")
 
@@ -271,7 +277,12 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
             event_ind_call(address_as_void_pointer(q_ptr))
 
-        self.add_event("hitground_event", event_cond, event_action, compiled=True)
+        def event_action_2(t, variables):
+            q = np.array([variables['t1.h'], variables['t1.v']])
+            event_action(t, q)
+
+        self.add_event("hitground_event", event_cond_2, event_action_2, compiled_functions={"event_cond": event_cond,
+                                                                                            "event_action": event_action})
 
     @Equation()
     def eval(self, scope):

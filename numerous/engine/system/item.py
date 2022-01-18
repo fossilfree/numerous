@@ -60,7 +60,7 @@ class Item(Node):
         >>> print(dn.item is None )
         False
         """
-        #return VariableNamespace(self, DEFAULT_NAMESPACE, is_connector=isinstance(self, Connector))
+        # return VariableNamespace(self, DEFAULT_NAMESPACE, is_connector=isinstance(self, Connector))
         return self.create_namespace(DEFAULT_NAMESPACE)
 
     def create_namespace(self, tag):
@@ -102,7 +102,7 @@ class Item(Node):
                                  .format(namespace.tag, self.tag))
             else:
                 self.registered_namespaces.update({namespace.tag: namespace})
-            namespace.registered=True
+            namespace.registered = True
         else:
             raise ValueError(f'Cannot register namespace {namespace.tag} more than once!')
 
@@ -122,14 +122,15 @@ class Item(Node):
                 variables_result.append((variable, vn))
         return variables_result
 
-    def add_event(self, key, condition, action, terminal=True, direction=-1,compiled=False):
+    def add_event(self, key, condition, action, compiled_functions=None, terminal=True, direction=-1, compiled=False):
         condition = condition
-        action =  action
-        event = NumerousEvent(key, condition, action, compiled,terminal,direction)
+        action = action
+        event = NumerousEvent(key, condition, action, compiled, terminal, direction,
+                              compiled_functions=compiled_functions)
         self.events.append(event)
 
     def _increase_level(self):
-        self.level = self.level+1
+        self.level = self.level + 1
 
     def get_item(self, item_path):
         """
@@ -149,7 +150,7 @@ class Item(Node):
         current_item = item_path.get_top_item()
         next_item_path = item_path.get_next_item_path()
         if self.tag == current_item and next_item_path:
-                return None
+            return None
         elif self.tag == current_item and next_item_path is None:
             return self
         else:

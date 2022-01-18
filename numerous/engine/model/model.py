@@ -556,7 +556,7 @@ class Model:
                 if event.compiled:
                     compiled_event = event.condition
                 else:
-                    compiled_event = njit_and_compile_function(event.condition, self.imports.from_imports)
+                    compiled_event = njit_and_compile_function(event.condition, self.imports.from_imports,compiled_functions=event.compiled_functions)
                 compiled_event.terminal = event.terminal
                 compiled_event.direction = event.direction
                 directions.append(event.direction)

@@ -45,7 +45,7 @@ def recurse_Attribute(attr, sep='.'):
         return recurse_Attribute(attr.value) + sep + attr.attr
 
 
-def njit_and_compile_function(func: ast.FunctionDef, from_imports: list[(str, str)]) -> CPUDispatcher:
+def njit_and_compile_function(func: ast.FunctionDef, from_imports: list[(str, str)], compiled_functions:list[CPUDispatcher] = None) -> CPUDispatcher:
     fname = func.name
     njit_decorator = ast.Name(id='njit', ctx=ast.Load())
     func.decorator_list = [njit_decorator]
@@ -58,15 +58,18 @@ def njit_and_compile_function(func: ast.FunctionDef, from_imports: list[(str, st
     body.append(func)
     body.append(
         ast.Return(value=ast.Name(id=fname, ctx=ast.Load(), lineno=0, col_offset=0), lineno=0, col_offset=0))
-
+    wrapper_name = fname + '1'
     func = wrap_function(fname + '1', body, decorators=[],
                          args=ast.arguments(posonlyargs=[], args=[], vararg=None, defaults=[],
                                             kwonlyargs=[], kw_defaults=[], lineno=0, kwarg=None))
     module_func = ast.Module(body=[func], type_ignores=[])
     code = compile(ast.parse(ast.unparse(module_func)), filename='event_storage', mode='exec')
-    namespace = {}
+    if compiled_functions:
+        namespace = compiled_functions
+    else:
+        namespace = {}
     exec(code, namespace)
-    compiled_func = list(namespace.values())[1]()
+    compiled_func = namespace[wrapper_name]()
     return compiled_func
 
 
