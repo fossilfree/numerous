@@ -78,6 +78,5 @@ def generate_event_action_ast(event_functions: list[NumerousEvent],
                                                 kwonlyargs=[], kw_defaults=[], defaults=[]),
                              body=body, decorator_list=[], lineno=0)
 
-    print(ast.unparse(body_r))
 
     return njit_and_compile_function(body_r, from_imports, compiled_functions=compiled_functions)

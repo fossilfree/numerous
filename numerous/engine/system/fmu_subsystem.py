@@ -662,11 +662,11 @@ class S3(Subsystem):
         # fmu_subsystem3 = FMU_Subsystem(fmu_filename, "BouncingBall3", h=1.5)
         # item_t = G('test', TG=10, RG=2)
         # item_t.t1.R = fmu_subsystem.t1.h
-        self.register_items([fmu_subsystem,fmu_subsystem2])
+        self.register_items([fmu_subsystem2,fmu_subsystem])
 
 
 subsystem1 = S3('q1')
-m1 = Model(subsystem1, use_llvm=True)
+m1 = Model(subsystem1, use_llvm=False)
 s = Simulation(
     m1, t_start=0, t_stop=1.0, num=500, num_inner=100, max_step=.1, solver_type=SolverType.NUMEROUS)
 s.solve()
