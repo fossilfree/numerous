@@ -100,7 +100,6 @@ class Numerous_solver(BaseSolver):
 
             len_y = numba_model.get_states().shape[0]
 
-
             def add_ring_buffer(t_, y_, rb, o):
 
                 if o == order:
@@ -478,7 +477,7 @@ class Numerous_solver(BaseSolver):
                 external_mappings_time = self.model.external_mappings.external_mappings_time
                 self.numba_model.is_external_data = is_external_data
                 self.numba_model.update_external_data(external_mappings_numpy, external_mappings_time)
-            time_idx =np.argmax((self.time - info.t)>0)
+            time_idx = np.argmax((self.time - info.t) > 0)
             info = self._solve(self.numba_model,
                                solve_state, info.dt, order, strict_eval, outer_itermax, min_step,
                                max_step, step_integrate_, self.events, self.actions, self.g,
@@ -527,8 +526,8 @@ class Numerous_solver(BaseSolver):
 
         info = self._solve(self.numba_model,
                            solve_state, dt, order, order_, roller, strict_eval, outer_itermax, min_step,
-                           max_step, step_integrate_,self.events, self.actions, self.g,
-                           self.number_of_events,self.event_directions,
+                           max_step, step_integrate_, self.events, self.actions, self.g,
+                           self.number_of_events, self.event_directions,
                            t_start, t_end, time_span)
 
         if info.event_id == 1:
