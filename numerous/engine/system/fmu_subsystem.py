@@ -23,11 +23,11 @@ class FMU_Subsystem(Subsystem, EquationBase):
     """
     """
 
-    def __init__(self, fmu_filename: str, tag: str):
+    def __init__(self, fmu_filename: str, tag: str, h:int):
         super().__init__(tag)
         self.add_parameter('e', 0.7)
         self.add_constant('g', 9.81)
-        self.add_state('h', 1)
+        self.add_state('h', h)
         self.add_state('v', 0)
         input = None
         fmi_call_logger = None
@@ -216,14 +216,14 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_n = 1
 
         # returns position to find zero crossing using root finding algorithm of scipy solver
-        def hitground_event_fun(event_indicators, t):
+        def hitground_event_fun(event_indicators, t, y1, y2):
 
             value_event = np.zeros(event_n, dtype=np.float64)
 
             vr = np.arange(0, len_q, 1, dtype=np.uint32)
             value = np.zeros(len_q, dtype=np.float64)
             getreal(component, vr.ctypes, len_q, value.ctypes)
-            value1 = np.array([0., value[1], 1., value[3], value[4], value[5]], dtype=np.float64)
+            value1 = np.array([y1, value[1], y2, value[3], value[4], value[5]], dtype=np.float64)
             fmi2SetReal(component, vr.ctypes, len_q, value1.ctypes)
             set_time(component, t)
             get_event_indicators(component, value_event.ctypes, event_n)
@@ -232,7 +232,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
             carray(event_indicators, (1,), dtype=np.float64)[0] = value_event[0]
 
-        event_ind_call_1 = cfunc(types.void(types.voidptr, types.float64))(hitground_event_fun)
+        event_ind_call_1 = cfunc(types.void(types.voidptr, types.float64, types.float64, types.float64))(
+            hitground_event_fun)
 
         c = np.array([0], dtype=np.float64)
         c_ptr = a3.ctypes.data
@@ -241,7 +242,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         def event_cond(t, y):
             temp_addr = address_as_void_pointer(c_ptr)
             carray(temp_addr, a0.shape, dtype=a0.dtype)[0] = 0
-            event_ind_call_1(temp_addr, t)
+            event_ind_call_1(temp_addr, t, y[0], y[1])
             result = carray(temp_addr, (1,), dtype=np.float64)[0]
             return result
 
@@ -263,23 +264,32 @@ class FMU_Subsystem(Subsystem, EquationBase):
         newDiscreteStates.restype = ctypes.c_uint
 
         # change direction of movement upon event detection and reduce velocity
-        def hitground_event_callback_fun(q):
+        def hitground_event_callback_fun(q, a_e):
             enter_event_mode(component)
             newDiscreteStates(component, q)
             enter_cont_mode(component)
+            vr = np.arange(0, len_q, 1, dtype=np.uint32)
+            value = np.zeros(len_q, dtype=np.float64)
+            getreal(component, vr.ctypes, len_q, value.ctypes)
+            carray(a_e, (1,), dtype=np.float64)[0] = value[2]
 
         eventInfo = fmi2EventInfo()
-        event_ind_call = cfunc(types.void(types.voidptr))(hitground_event_callback_fun)
+        event_ind_call = cfunc(types.void(types.voidptr, types.voidptr))(hitground_event_callback_fun)
         q_ptr = ctypes.addressof(eventInfo)
+
+        a_e = np.array([0], dtype=np.float64)
+        a_e_ptr = a_e.ctypes.data
 
         @njit
         def event_action(x, y):
-
-            event_ind_call(address_as_void_pointer(q_ptr))
+            carray(address_as_void_pointer(a_e_ptr), a_e.shape, dtype=a0.dtype)[0] = 0
+            event_ind_call(address_as_void_pointer(q_ptr), address_as_void_pointer(a_e_ptr))
+            return carray(address_as_void_pointer(a_e_ptr), (1,), dtype=np.float64)[0]
 
         def event_action_2(t, variables):
             q = np.array([variables['t1.h'], variables['t1.v']])
-            event_action(t, q)
+            velocity = event_action(t, q)
+            variables['t1.v'] = velocity
 
         self.add_event("hitground_event", event_cond_2, event_action_2, compiled_functions={"event_cond": event_cond,
                                                                                             "event_action": event_action})
@@ -314,10 +324,10 @@ class S3(Subsystem):
         super().__init__(tag)
 
         fmu_filename = 'bouncingBall.fmu'
-        fmu_subsystem = FMU_Subsystem(fmu_filename, "BouncingBall")
+        fmu_subsystem = FMU_Subsystem(fmu_filename, "BouncingBall",h=1)
         fmu_filename = 'bouncingBall.fmu'
-        fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2")
-        fmu_subsystem.t1.v = fmu_subsystem2.t1.v
+        fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2",h=2)
+        # fmu_subsystem.t1.v = fmu_subsystem2.t1.v
         item_t = G('test', TG=10, RG=2)
         item_t.t1.R = fmu_subsystem.t1.h
         self.register_items([fmu_subsystem, fmu_subsystem2, item_t])
@@ -326,6 +336,19 @@ class S3(Subsystem):
 subsystem1 = S3('q1')
 m1 = Model(subsystem1, use_llvm=False)
 s = Simulation(
-    m1, t_start=0, t_stop=1.0, num=10, num_inner=10, max_step=.1, solver_type=SolverType.SOLVER_IVP)
+    m1, t_start=0, t_stop=1.0, num=100, num_inner=100, max_step=.1, solver_type=SolverType.SOLVER_IVP)
 s.solve()
-print("finished")
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots()
+t = np.linspace(0, 1.0, 100 + 1)
+y = np.array(m1.historian_df["q1.test.t1.R"])
+y2 = np.array(m1.historian_df["q1.BouncingBall2.t1.h"])
+ax.plot(t, y)
+ax.plot(t, y2)
+
+ax.set(xlabel='time (s)', ylabel='h',
+       title='BB')
+ax.grid()
+
+plt.show()

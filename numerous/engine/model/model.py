@@ -574,7 +574,7 @@ class Model:
                 if event.compiled:
                     result.append(event.action)
                 else:
-                    compiled_event = njit_and_compile_function(event.action, self.imports.from_imports)
+                    compiled_event = njit_and_compile_function(event.action, self.imports.from_imports,compiled_functions=event.compiled_functions)
                     result.append(compiled_event)
             return result
 

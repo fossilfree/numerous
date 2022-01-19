@@ -57,9 +57,10 @@ class Simulation:
                 self.model.update_local_variables()
                 ## slow code
                 list_var = [v.value for v in self.model.path_to_variable.values()]
-                events_action[event_id](t, np.array(list_var))
+                q = np.array(list_var)
+                events_action[event_id](t, q)
                 for i, var in enumerate(self.model.path_to_variable.values()):
-                    var.value = list_var[i]
+                    var.value = q[i]
                 self.model.update_all_variables()
                 solver.y0 = self.model.states_as_vector
 
