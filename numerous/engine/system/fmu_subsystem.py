@@ -1,5 +1,8 @@
 import ctypes
+import os
+from typing import List
 
+from attr import attrs, attrib, Factory
 from fmpy import read_model_description, extract
 
 from fmpy.fmi1 import printLogMessage
@@ -17,16 +20,28 @@ from numba import cfunc, carray, types, njit
 import numpy as np
 
 
+
+@attrs(eq=False)
+class ScalarVariable:
+    name = attrib(type=str)
+    variability = attrib(type=str, default=None, repr=False)
+    initial = attrib(type=str, default=None, repr=False)
+
+
+@attrs(eq=False)
+class ModelDescription(object):
+    modelVariables = attrib(type=List[ScalarVariable], default=Factory(list), repr=False)
 class FMU_Subsystem(Subsystem, EquationBase):
     """
     """
 
     def __init__(self, fmu_filename: str, tag: str, h: float):
         super().__init__(tag)
-        self.add_parameter('e', 0.7)
-        self.add_constant('g', 9.81)
-        self.add_state('h', h)
-        self.add_state('v', 0)
+        # self.add_parameter('e', 0.7)
+        # self.add_constant('g', 9.81)
+        # self.add_state('h', h)
+        # self.add_state('v', 0)
+        self.model_description = None
         input = None
         fmi_call_logger = None
         start_values = {}
@@ -39,6 +54,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         debug_logging = False
         visible = False
         model_description = read_model_description(fmu_filename, validate=validate)
+        self.model_description = self.read_model_description(fmu_filename)
+        self.set_variables(self.model_description)
         required_paths = ['resources', 'binaries/']
         tempdir = extract(fmu_filename, include=lambda n: n.startswith(tuple(required_paths)))
         unzipdir = tempdir
@@ -308,6 +325,71 @@ class FMU_Subsystem(Subsystem, EquationBase):
     def eval(self, scope):
         scope.h_dot, scope.v_dot = self.fmu_eval(scope.e, scope.g, scope.h, scope.v)
 
+    def set_variables(self, model_description):
+        for variable in model_description.modelVariables:
+            if variable.initial == 'exact':
+                if variable.variability == 'fixed':
+                    self.add_constant(variable.name, float(variable.start))
+                if variable.variability == 'continuous':
+                    self.add_state(variable.name, float(variable.start))
+                if variable.variability == 'tunable':
+                    self.add_parameter(variable.name, float(variable.start))
+
+    @staticmethod
+    def read_model_description(filename):
+        import zipfile
+        from lxml import etree
+
+        # remember the original filename
+        _filename = filename
+        if isinstance(filename, str) and os.path.isdir(filename):  # extracted FMU
+            filename = os.path.join(filename, 'modelDescription.xml')
+            tree = etree.parse(filename)
+        elif isinstance(filename, str) and os.path.isfile(filename) and filename.lower().endswith('.xml'):  # XML file
+            tree = etree.parse(filename)
+        else:  # FMU as path or file like object
+            with zipfile.ZipFile(filename, 'r') as zf:
+                xml = zf.open('modelDescription.xml')
+                tree = etree.parse(xml)
+
+        root = tree.getroot()
+
+        fmiVersion = root.get('fmiVersion')
+
+        is_fmi1 = fmiVersion == '1.0'
+        is_fmi2 = fmiVersion == '2.0'
+        is_fmi3 = fmiVersion.startswith('3.0')
+
+        if not is_fmi1 and not is_fmi2 and not is_fmi3:
+            raise Exception("Unsupported FMI version: %s" % fmiVersion)
+
+        modelDescription = ModelDescription()
+        for variable in root.find('ModelVariables'):
+            if variable.get("name") is None:
+                continue
+
+            sv = ScalarVariable(name=variable.get('name'))
+            sv.variability = variable.get('variability')
+            sv.initial = variable.get('initial')
+
+            if fmiVersion in ['1.0', '2.0']:
+                # get the nested "value" element
+                for child in variable.iterchildren():
+                    if child.tag in {'Real', 'Integer', 'Boolean', 'String', 'Enumeration'}:
+                        value = child
+                        break
+            else:
+                value = variable
+
+            if variable.tag == 'String':
+                # handle <Start> element of String variables in FMI 3
+                sv.start = variable.find('Start').get('value')
+            else:
+                sv.start = value.get('start')
+
+            modelDescription.modelVariables.append(sv)
+        return modelDescription
+
 
 class Test_Eq(EquationBase):
     __test__ = False
@@ -338,8 +420,9 @@ class S3(Subsystem):
         fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2", h=2)
         # fmu_subsystem3 = FMU_Subsystem(fmu_filename, "BouncingBall3", h=1.5)
         # item_t = G('test', TG=10, RG=2)
-        # item_t.t1.R = fmu_subsystem.t1.hу
-        self.register_items([fmu_subsystem2, fmu_subsystem])
+        # item_t.t1.R = fmu_subsystem.t1.h
+        self.register_items([fmu_subsystem, fmu_subsystem2])
+
 
 
 subsystem1 = S3('q1')
