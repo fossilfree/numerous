@@ -17,7 +17,6 @@ from numba import cfunc, carray, types, njit
 import numpy as np
 
 
-
 class FMU_Subsystem(Subsystem, EquationBase):
     """
     """
@@ -124,6 +123,15 @@ class FMU_Subsystem(Subsystem, EquationBase):
                                             ctypes.c_void_p]
         completedIntegratorStep.restype = ctypes.c_uint
 
+        get_event_indicators = getattr(fmu.dll, "fmi2GetEventIndicators")
+
+        get_event_indicators.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
+        get_event_indicators.restype = ctypes.c_uint
+
+
+
+
+
         len_q = 6
 
         def eval_llvm(event, term, a0, a1, a2, a3, a4, a5, a_i_0, a_i_2, a_i_4, a_i_5, t):
@@ -145,8 +153,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         fmu.enterContinuousTimeMode()
 
-        self.t1 = self.create_namespace('t1')
-        self.t1.add_equations([self])
+
         equation_call = cfunc(types.void(types.voidptr, types.voidptr, types.voidptr, types.voidptr, types.voidptr
                                          , types.voidptr, types.voidptr, types.voidptr, types.float64, types.float64,
                                          types.float64, types.float64, types.float64))(eval_llvm)
@@ -208,10 +215,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         self.fmu_eval = fmu_eval
 
-        get_event_indicators = getattr(fmu.dll, "fmi2GetEventIndicators")
 
-        get_event_indicators.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
-        get_event_indicators.restype = ctypes.c_uint
         event_n = 1
 
         # returns position to find zero crossing using root finding algorithm of scipy solver
@@ -234,8 +238,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_ind_call_1 = cfunc(types.void(types.voidptr, types.float64, types.float64, types.float64))(
             hitground_event_fun)
 
-        c = np.array([0], dtype=np.float64)
-        c_ptr = a3.ctypes.data
+        с = np.array([0], dtype=np.float64)
+        c_ptr = с.ctypes.data
 
         @njit
         def event_cond(t, y):
@@ -287,9 +291,16 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         def event_action_2(t, variables):
             q = np.array([variables['t1.h'], variables['t1.v']])
-            velocity =  event_action(t, q)
+            velocity = event_action(t, q)
             variables['t1.v'] = velocity
 
+
+
+
+
+
+        self.t1 = self.create_namespace('t1')
+        self.t1.add_equations([self])
         self.add_event("hitground_event", event_cond_2, event_action_2, compiled_functions={"event_cond": event_cond,
                                                                                             "event_action": event_action})
 
@@ -327,8 +338,8 @@ class S3(Subsystem):
         fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2", h=2)
         # fmu_subsystem3 = FMU_Subsystem(fmu_filename, "BouncingBall3", h=1.5)
         # item_t = G('test', TG=10, RG=2)
-        # item_t.t1.R = fmu_subsystem.t1.h
-        self.register_items([fmu_subsystem,fmu_subsystem2])
+        # item_t.t1.R = fmu_subsystem.t1.hу
+        self.register_items([fmu_subsystem2, fmu_subsystem])
 
 
 subsystem1 = S3('q1')
@@ -353,3 +364,10 @@ ax.set(xlabel='time (s)', ylabel='h',
 ax.grid()
 
 plt.show()
+
+
+
+
+
+
+
