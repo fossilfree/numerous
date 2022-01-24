@@ -1,3 +1,9 @@
+"""
+Adapted from: https://github.com/CATIA-Systems/FMPy/tree/master/fmpy
+:copyright:2017-2020 Dassault Systemes..
+:license: BSD, see LICENSE for more details.
+"""
+
 import ctypes
 import os
 from typing import List
@@ -35,12 +41,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
     """
     """
 
-    def __init__(self, fmu_filename: str, tag: str, h: float):
+    def __init__(self, fmu_filename: str, tag: str):
         super().__init__(tag)
-        # self.add_parameter('e', 0.7)
-        # self.add_constant('g', 9.81)
-        # self.add_state('h', h)
-        # self.add_state('v', 0)
         self.model_description = None
         input = None
         fmi_call_logger = None
@@ -144,11 +146,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         get_event_indicators.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
         get_event_indicators.restype = ctypes.c_uint
-
-
-
-
-
         len_q = 6
 
         def eval_llvm(event, term, a0, a1, a2, a3, a4, a5, a_i_0, a_i_2, a_i_4, a_i_5, t):
