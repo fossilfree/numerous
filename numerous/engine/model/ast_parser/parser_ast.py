@@ -75,8 +75,28 @@ def qualify_equation(prefix, g, tag_vars, eq_class, eq_current):
     g_qual.node_map = {q(k): v for k, v in g_qual.node_map.items()}
     g_qual.key_map = {k: q(v) for k, v in g_qual.key_map.items()}
 
-    scope_vars_qual = [tag_vars[sv.tag] if isinstance(sv := g.get(n, 'scope_var'), Variable) else sv
-                       for n in g.node_map.values()]
+    #scope_vars_qual = [tag_vars[sv.tag] if isinstance(sv := g.get(n, 'scope_var'), Variable) else sv
+    #                   for n in g.node_map.values()]
+    scope_vars_qual = []
+    for n in g.node_map.values():
+        if isinstance(sv := g.get(n, 'scope_var'), Variable):
+
+            if not g.get(n, 'foreign_scope_var'):
+                scope_vars_qual.append(tag_vars[sv.tag])
+            else:
+                node = g.nodes[n]
+                path = node.key.split('.')
+                obj_ = eq_class.__self__
+                for p in path[1:-1]:
+                    obj_ = getattr(obj_, p)
+
+                tag_vars = {v.tag: v for k, v in obj_.model_namespace.variables.items()}
+                sv = tag_vars[path[-1]]
+                sv.tag = "_".join(path)
+                scope_vars_qual.append(sv)
+                g.arg_metadata.append((sv.tag, sv.id, sv.used_in_equation_graph))
+        else:
+            scope_vars_qual.append(sv)
 
     for i in range(g_qual.node_counter):
         g_qual.nodes[i].scope_var = scope_vars_qual[i]
@@ -138,7 +158,7 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
                         if tries > 10 - 1:
                             raise
 
-                g = ast_to_graph(ast_tree, eq_key, eq.file, eq.lineno, scope_variables)
+                g = ast_to_graph(ast_tree, eq_key, eq.file, eq.lineno, scope_variables, model_namespace.item)
                 # Create branched versions of graph
                 branches_ = set()
                 [branches_.update(b.branches.keys()) for b in g.edges_c[:g.edge_counter] if b.branches]
@@ -212,11 +232,10 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
 
             if not is_parsed_eq:
                 for sv in scope_variables:
+                    g.arg_metadata.append((sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
                     if scope_variables[sv].used_in_equation_graph:
-                        g.arg_metadata.append((sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
                         scope_variables[sv].used_in_equation_graph = False
-                    else:
-                        g.arg_metadata.append((sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
+
 
 
 def process_mappings(mappings, mappings_graph: Graph, scope_vars):

@@ -53,7 +53,7 @@ ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
 
 class ModelNamespace:
 
-    def __init__(self, tag, outgoing_mappings, item_tag, item_indcs, path, pos, item_path):
+    def __init__(self, tag, outgoing_mappings, item_tag, item_indcs, path, pos, item_path, item):
         self.tag = tag
         self.item_tag = item_tag
         self.outgoing_mappings = outgoing_mappings
@@ -65,7 +65,7 @@ class ModelNamespace:
         self.mappings = []
         self.full_tag = item_path + '.' + tag
         self.item_indcs = item_indcs
-
+        self.item = item
         self.path = path
         self.is_set = pos
 
@@ -641,7 +641,8 @@ class Model:
         for namespace in item.registered_namespaces.values():
             set_namespace = isinstance(namespace, SetNamespace)
             model_namespace = ModelNamespace(namespace.tag, namespace.outgoing_mappings, item.tag, namespace.items,
-                                             namespace.path, set_namespace, '.'.join(item.path))
+                                             namespace.path, set_namespace, '.'.join(item.path), item)
+            namespace.model_namespace = model_namespace
             model_namespace.variable_scope = namespace.get_flat_variables()
             model_namespace.set_variables = namespace.set_variables
 

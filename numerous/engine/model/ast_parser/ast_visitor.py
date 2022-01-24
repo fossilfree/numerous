@@ -14,15 +14,15 @@ def get_op_sym(op):
     return op_sym_map[type(op)]
 
 
-def ast_to_graph(ast_tree, eq_key, eq_file, eq_lineno, scope_variables):
-    parser = AstVisitor(eq_key, eq_file, eq_lineno, scope_variables)
+def ast_to_graph(ast_tree, eq_key, eq_file, eq_lineno, scope_variables, item):
+    parser = AstVisitor(eq_key, eq_file, eq_lineno, scope_variables, item)
     parser.visit(ast_tree)
     return parser.graph
 
 
 class AstVisitor(ast.NodeVisitor):
 
-    def __init__(self, eq_key, eq_file, eq_lineno, scope_variables):
+    def __init__(self, eq_key, eq_file, eq_lineno, scope_variables, item):
         self.graph = Graph(label=eq_key)
         self.CONSTANT_LABEL = 'c'
         self.SCOPE_LABEL = 'scope.'
@@ -35,6 +35,7 @@ class AstVisitor(ast.NodeVisitor):
         self.node_number_stack = []
         self.scope_variables = scope_variables
         self._supported_assign_target = (ast.Attribute, ast.Name, ast.Tuple)
+        self.item = item
 
     def traverse(self, node: ast.AST):
         if isinstance(node, list):
@@ -70,11 +71,11 @@ class AstVisitor(ast.NodeVisitor):
 
     def _process_named_node(self, node: ast.expr, ast_type: type, node_type: NodeTypes, static_key=False, func=None):
         source_id = recurse_Attribute(node)
-        scope_var, is_mapped = self._select_scope_var(source_id)
+        scope_var, is_mapped, is_foregin = self._select_scope_var(source_id)
         en = self.graph.add_node(
             Node(key=source_id if static_key else None, ao=node, file=self.eq_file, name=self.eq_key,
                  ln=self.eq_lineno, id=source_id, local_id=source_id, func=func,
-                 ast_type=ast_type, node_type=node_type, scope_var=scope_var),
+                 ast_type=ast_type, node_type=node_type, scope_var=scope_var, foreign_scope_var=is_foregin),
             ignore_existing=True)
         self.mapped_stack.append([is_mapped])
         self.node_number_stack.append([en])
@@ -119,14 +120,28 @@ class AstVisitor(ast.NodeVisitor):
 
     def _select_scope_var(self, source_id: str):
         scope_label_length = len(self.SCOPE_LABEL)
+        is_foreign = False
         if source_id[:scope_label_length] == self.SCOPE_LABEL:
             scope_var = self.scope_variables[source_id[scope_label_length:]]
             self.scope_variables[source_id[scope_label_length:]].used_in_equation_graph = True
             is_mapped = scope_var.sum_mapping or scope_var.mapping
+        elif source_id[:4]=='self':
+            path = source_id.split('.')
+
+            obj_ = self.item
+            for p in path[1:-1]:
+                obj_=getattr(obj_, p)
+
+            scope_variables = {v.tag: v for k, v in obj_.model_namespace.variables.items()}
+            scope_var = scope_variables[path[-1]]
+            scope_var.used_in_equation_graph = True
+            is_mapped = scope_var.sum_mapping or scope_var.mapping
+            is_foreign = True
+
         else:
             scope_var = None
             is_mapped = None
-        return scope_var, is_mapped
+        return scope_var, is_mapped, is_foreign
 
     def visit_Constant(self, node: ast.Constant):
         source_id = self.CONSTANT_LABEL + str(node.value)

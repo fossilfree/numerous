@@ -15,10 +15,10 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
     try:
         if (na := g.get(n, 'ast_type')) == ast.Attribute:
 
-            return var_def(nk, ctxread, read)
+            return var_def(nk, ctxread, g.nodes[n], read)
 
         elif na == ast.Name:
-            return var_def(nk, ctxread, read)
+            return var_def(nk, ctxread, g.nodes[n], read)
 
         elif na == ast.Num:
             return ast.Call(args=[ast.Num(value=g.get(n, 'value'),
@@ -226,7 +226,8 @@ def compiled_function_from_graph_generic_llvm(g: Graph, var_def_, imports,
     tree = replace_closure_function(func, replacements, get_eq_prefix())
     tree = ast.parse(tree, mode='exec')
     module_func = ast.Module(body=[tree], type_ignores=[])
-    code = compile(ast.parse(ast.unparse(module_func)), filename='llvm_equations_storage', mode='exec')
+    code_readable = ast.unparse(module_func)
+    code = compile(ast.parse(code_readable), filename='llvm_equations_storage', mode='exec')
     namespace = replacements
     exec(code, namespace)
     compiled_func = namespace[wrapper_name]()
@@ -242,7 +243,8 @@ def function_from_graph_generic_llvm(g: Graph, var_def_, replace_name=None):
 
     body = function_body_from_graph(g, var_def_)
     var_def_.order_variables(g.arg_metadata)
-    args = ast.arguments(posonlyargs=[], args=var_def_.get_order_args(), vararg=None, defaults=[],
+    args_ = var_def_.get_order_args()
+    args = ast.arguments(posonlyargs=[], args=args_, vararg=None, defaults=[],
                          kwonlyargs=[], kw_defaults=[], kwarg=None)
     signature = [f'void(']
     target_ids = []

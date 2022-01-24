@@ -195,7 +195,7 @@ class EquationGenerator:
         args_local = [self.equation_graph.key_map[ae[0]] for i, ae in zip(a_indcs, a_edges) if
                       not self.equation_graph.edges_c[i].arg_local == 'local']
 
-        # Determine the local arguments names
+        # Determine the non-local arguments names
         args_scope_var = [self.equation_graph.edges_c[i].arg_local for i, ae in zip(a_indcs, a_edges) if
                           not self.equation_graph.edges_c[i].arg_local == 'local']
 

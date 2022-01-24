@@ -14,7 +14,7 @@ class Node:
                  label=None, ast_type=None, vectorized=None, item_id=None, node_type=None, ops=None, func=None,
                  id=None, local_id=None, scope_var=None,
                  ast_op=None, value=None, is_set_var=None, set_var_ix=None, subgraph_test=None,
-                 subgraph_body=None):
+                 subgraph_body=None, foreign_scope_var=None):
         self.key = key
         self.ao = ao
         self.file = file
@@ -38,6 +38,7 @@ class Node:
         self.subgraph_test = subgraph_test
         self.subgraph_body = subgraph_body
         self.node_n = -1
+        self.foreign_scope_var = foreign_scope_var
 
 
 class Edge:
