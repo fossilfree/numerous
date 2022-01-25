@@ -25,6 +25,7 @@ from numerous.engine.system import Subsystem, Item
 from numba import cfunc, carray, types, njit
 import numpy as np
 
+from numerous.engine.system.fmu_system_generator.fmu_ast_generator import generate_fmu_eval
 
 
 @attrs(eq=False)
@@ -37,6 +38,8 @@ class ScalarVariable:
 @attrs(eq=False)
 class ModelDescription(object):
     modelVariables = attrib(type=List[ScalarVariable], default=Factory(list), repr=False)
+
+
 class FMU_Subsystem(Subsystem, EquationBase):
     """
     """
@@ -167,7 +170,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         fmu.enterContinuousTimeMode()
 
-
         equation_call = cfunc(types.void(types.voidptr, types.voidptr, types.voidptr, types.voidptr, types.voidptr
                                          , types.voidptr, types.voidptr, types.voidptr, types.float64, types.float64,
                                          types.float64, types.float64, types.float64))(eval_llvm)
@@ -206,29 +208,49 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
             return sig, codegen
 
-        @NumerousFunction()
-        def fmu_eval(e, g, h, v):
-            carray(address_as_void_pointer(a0_ptr), a0.shape, dtype=a0.dtype)[0] = 0
-            carray(address_as_void_pointer(a4_ptr), a4.shape, dtype=a0.dtype)[0] = 0
-            carray(address_as_void_pointer(a3_ptr), a3.shape, dtype=a0.dtype)[0] = 0
-            carray(address_as_void_pointer(a2_ptr), a3.shape, dtype=a0.dtype)[0] = 0
-            carray(address_as_void_pointer(a1_ptr), a3.shape, dtype=a0.dtype)[0] = 0
-            carray(address_as_void_pointer(a5_ptr), a3.shape, dtype=a0.dtype)[0] = 0
-            equation_call(address_as_void_pointer(event_1_ptr),
-                          address_as_void_pointer(term_1_ptr),
-                          address_as_void_pointer(a0_ptr),
-                          address_as_void_pointer(a1_ptr),
-                          address_as_void_pointer(a2_ptr),
-                          address_as_void_pointer(a3_ptr),
-                          address_as_void_pointer(a4_ptr),
-                          address_as_void_pointer(a5_ptr), h, v, g, e,
-                          0.1)
-
-            return carray(address_as_void_pointer(a1_ptr), (1,), dtype=np.float64)[0], \
-                   carray(address_as_void_pointer(a3_ptr), (1,), dtype=np.float64)[0]
-
-        self.fmu_eval = fmu_eval
-
+        # @NumerousFunction()
+        # def fmu_eval2(e, g, h, v):
+        #     carray(address_as_void_pointer(a0_ptr), a0.shape, dtype=a0.dtype)[0] = 0
+        #     carray(address_as_void_pointer(a4_ptr), a4.shape, dtype=a0.dtype)[0] = 0
+        #     carray(address_as_void_pointer(a3_ptr), a3.shape, dtype=a0.dtype)[0] = 0
+        #     carray(address_as_void_pointer(a2_ptr), a3.shape, dtype=a0.dtype)[0] = 0
+        #     carray(address_as_void_pointer(a1_ptr), a3.shape, dtype=a0.dtype)[0] = 0
+        #     carray(address_as_void_pointer(a5_ptr), a3.shape, dtype=a0.dtype)[0] = 0
+        #     equation_call(address_as_void_pointer(event_1_ptr),
+        #                   address_as_void_pointer(term_1_ptr),
+        #                   address_as_void_pointer(a0_ptr),
+        #                   address_as_void_pointer(a1_ptr),
+        #                   address_as_void_pointer(a2_ptr),
+        #                   address_as_void_pointer(a3_ptr),
+        #                   address_as_void_pointer(a4_ptr),
+        #                   address_as_void_pointer(a5_ptr), h, v, g, e,
+        #                   0.1)
+        #
+        #     return carray(address_as_void_pointer(a1_ptr), (1,), dtype=np.float64)[0], \
+        #            carray(address_as_void_pointer(a3_ptr), (1,), dtype=np.float64)[0]
+        q = generate_fmu_eval(['h', 'v', 'g', 'e'], [('a0_ptr', 'a0'), ('a1_ptr', 'a1'), ('a2_ptr', 'a2'),
+                                                     ('a3_ptr', 'a3'), ('a4_ptr', 'a4'), ('a5_ptr', 'a5')],
+                              [('a1_ptr', 'a1'), ('a3_ptr', 'a3')])
+        import ast
+        module_func = ast.Module(body=[q], type_ignores=[])
+        code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
+        namespace = {"NumerousFunction": NumerousFunction, "carray": carray, "a0_ptr": a0_ptr, "a1_ptr": a1_ptr,
+                     "a2_ptr": a2_ptr,
+                     "a3_ptr": a3_ptr,
+                     "a4_ptr": a4_ptr,
+                     "a5_ptr": a5_ptr, "address_as_void_pointer": address_as_void_pointer,
+                     "a0": a0, "a1": a1,
+                     "a2": a2,
+                     "a3": a3,
+                     "a4": a4,
+                     "a5": a5,
+                     "equation_call": equation_call,
+                     "event_1_ptr": event_1_ptr,
+                     "term_1_ptr": term_1_ptr
+                     }
+        exec(code, namespace)
+        compiled_func = namespace["fmu_eval"]
+        self.fmu_eval = compiled_func
 
         event_n = 1
 
@@ -308,11 +330,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
             velocity = event_action(t, q)
             variables['t1.v'] = velocity
 
-
-
-
-
-
         self.t1 = self.create_namespace('t1')
         self.t1.add_equations([self])
         self.add_event("hitground_event", event_cond_2, event_action_2, compiled_functions={"event_cond": event_cond,
@@ -320,7 +337,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
     @Equation()
     def eval(self, scope):
-        scope.h_dot, scope.v_dot = self.fmu_eval(scope.e, scope.g, scope.h, scope.v)
+        scope.h_dot, scope.v_dot = self.fmu_eval(scope.h, scope.v, scope.g, scope.e)
 
     def set_variables(self, model_description):
         for variable in model_description.modelVariables:
@@ -413,17 +430,16 @@ class S3(Subsystem):
         super().__init__(tag)
 
         fmu_filename = 'bouncingBall.fmu'
-        fmu_subsystem = FMU_Subsystem(fmu_filename, "BouncingBall", h=1.6)
-        fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2", h=2)
+        fmu_subsystem = FMU_Subsystem(fmu_filename, "BouncingBall")
+        # fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2")
         # fmu_subsystem3 = FMU_Subsystem(fmu_filename, "BouncingBall3", h=1.5)
         # item_t = G('test', TG=10, RG=2)
         # item_t.t1.R = fmu_subsystem.t1.h
-        self.register_items([fmu_subsystem, fmu_subsystem2])
-
+        self.register_items([fmu_subsystem])
 
 
 subsystem1 = S3('q1')
-m1 = Model(subsystem1, use_llvm=True)
+m1 = Model(subsystem1, use_llvm=False)
 s = Simulation(
     m1, t_start=0, t_stop=1.0, num=500, num_inner=100, max_step=.1, solver_type=SolverType.NUMEROUS)
 s.solve()
@@ -432,11 +448,11 @@ import matplotlib.pyplot as plt
 fig, ax = plt.subplots()
 # t = np.linspace(0, 1.0, 100 + 1)
 y = np.array(m1.historian_df["q1.BouncingBall.t1.h"])
-y2 = np.array(m1.historian_df["q1.BouncingBall2.t1.h"])
+# y2 = np.array(m1.historian_df["q1.BouncingBall2.t1.h"])
 # y3 = np.array(m1.historian_df["q1.BouncingBall3.t1.h"])
 t = np.array(m1.historian_df["time"])
 ax.plot(t, y)
-ax.plot(t, y2)
+# ax.plot(t, y2)
 # ax.plot(t, y3)
 
 ax.set(xlabel='time (s)', ylabel='h',
@@ -444,10 +460,3 @@ ax.set(xlabel='time (s)', ylabel='h',
 ax.grid()
 
 plt.show()
-
-
-
-
-
-
-
