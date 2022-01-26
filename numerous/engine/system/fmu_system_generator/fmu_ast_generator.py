@@ -1,29 +1,5 @@
 import ast
 
-# @NumerousFunction()
-# all non derivatives in order
-# def fmu_eval(e, g, h, v):
-# all variables
-#     carray(address_as_void_pointer(a0_ptr), a0.shape, dtype=a0.dtype)[0] = 0
-#     carray(address_as_void_pointer(a4_ptr), a4.shape, dtype=a0.dtype)[0] = 0
-#     carray(address_as_void_pointer(a3_ptr), a3.shape, dtype=a0.dtype)[0] = 0
-#     carray(address_as_void_pointer(a2_ptr), a3.shape, dtype=a0.dtype)[0] = 0
-#     carray(address_as_void_pointer(a1_ptr), a3.shape, dtype=a0.dtype)[0] = 0
-#     carray(address_as_void_pointer(a5_ptr), a3.shape, dtype=a0.dtype)[0] = 0
-#     equation_call(address_as_void_pointer(event_1_ptr),
-#                   address_as_void_pointer(term_1_ptr),
-#                   address_as_void_pointer(a0_ptr),
-#                   address_as_void_pointer(a1_ptr),
-#                   address_as_void_pointer(a2_ptr),
-#                   address_as_void_pointer(a3_ptr),
-#                   address_as_void_pointer(a4_ptr),
-#                   address_as_void_pointer(a5_ptr), h, v, g, e,
-#                   0.1)
-# # all derivatives in order
-#     return carray(address_as_void_pointer(a1_ptr), (1,), dtype=np.float64)[0], \
-#            carray(address_as_void_pointer(a3_ptr), (1,), dtype=np.float64)[0]
-
-
 CARRAY = 'carray'
 DTYPE = 'dtype'
 SHAPE = 'shape'

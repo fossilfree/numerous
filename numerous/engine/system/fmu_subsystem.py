@@ -16,7 +16,6 @@ from fmpy.fmi2 import FMU2Model, fmi2CallbackFunctions, fmi2CallbackLoggerTYPE, 
     fmi2CallbackFreeMemoryTYPE, allocateMemory, freeMemory, fmi2EventInfo
 from fmpy.simulation import apply_start_values, Input
 from fmpy.util import auto_interval
-from numba.core.extending import intrinsic
 
 from numerous import EquationBase, Equation, NumerousFunction
 from numerous.engine.model import Model
@@ -26,6 +25,7 @@ from numba import cfunc, carray, types, njit
 import numpy as np
 
 from numerous.engine.system.fmu_system_generator.fmu_ast_generator import generate_fmu_eval
+from numerous.engine.system.fmu_system_generator.utils import address_as_void_pointer
 
 
 @attrs(eq=False)
@@ -197,37 +197,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         a5 = np.array([0], dtype=np.float64)
         a5_ptr = a5.ctypes.data
 
-        @intrinsic
-        def address_as_void_pointer(typingctx, src):
-            """ returns a void pointer from a given memory address """
-            from numba.core import types, cgutils
-            sig = types.voidptr(src)
 
-            def codegen(cgctx, builder, sig, args):
-                return builder.inttoptr(args[0], cgutils.voidptr_t)
 
-            return sig, codegen
-
-        # @NumerousFunction()
-        # def fmu_eval2(e, g, h, v):
-        #     carray(address_as_void_pointer(a0_ptr), a0.shape, dtype=a0.dtype)[0] = 0
-        #     carray(address_as_void_pointer(a4_ptr), a4.shape, dtype=a0.dtype)[0] = 0
-        #     carray(address_as_void_pointer(a3_ptr), a3.shape, dtype=a0.dtype)[0] = 0
-        #     carray(address_as_void_pointer(a2_ptr), a3.shape, dtype=a0.dtype)[0] = 0
-        #     carray(address_as_void_pointer(a1_ptr), a3.shape, dtype=a0.dtype)[0] = 0
-        #     carray(address_as_void_pointer(a5_ptr), a3.shape, dtype=a0.dtype)[0] = 0
-        #     equation_call(address_as_void_pointer(event_1_ptr),
-        #                   address_as_void_pointer(term_1_ptr),
-        #                   address_as_void_pointer(a0_ptr),
-        #                   address_as_void_pointer(a1_ptr),
-        #                   address_as_void_pointer(a2_ptr),
-        #                   address_as_void_pointer(a3_ptr),
-        #                   address_as_void_pointer(a4_ptr),
-        #                   address_as_void_pointer(a5_ptr), h, v, g, e,
-        #                   0.1)
-        #
-        #     return carray(address_as_void_pointer(a1_ptr), (1,), dtype=np.float64)[0], \
-        #            carray(address_as_void_pointer(a3_ptr), (1,), dtype=np.float64)[0]
         q = generate_fmu_eval(['h', 'v', 'g', 'e'], [('a0_ptr', 'a0'), ('a1_ptr', 'a1'), ('a2_ptr', 'a2'),
                                                      ('a3_ptr', 'a3'), ('a4_ptr', 'a4'), ('a5_ptr', 'a5')],
                               [('a1_ptr', 'a1'), ('a3_ptr', 'a3')])
@@ -249,8 +220,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                      "term_1_ptr": term_1_ptr
                      }
         exec(code, namespace)
-        compiled_func = namespace["fmu_eval"]
-        self.fmu_eval = compiled_func
+        self.fmu_eval = namespace["fmu_eval"]
 
         event_n = 1
 
@@ -433,8 +403,8 @@ class S3(Subsystem):
         fmu_subsystem = FMU_Subsystem(fmu_filename, "BouncingBall")
         # fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2")
         # fmu_subsystem3 = FMU_Subsystem(fmu_filename, "BouncingBall3", h=1.5)
-        # item_t = G('test', TG=10, RG=2)
-        # item_t.t1.R = fmu_subsystem.t1.h
+        item_t = G('test', TG=10, RG=2)
+        item_t.t1.R = fmu_subsystem.t1.h
         self.register_items([fmu_subsystem])
 
 
