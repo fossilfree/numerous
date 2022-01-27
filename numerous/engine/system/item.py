@@ -1,4 +1,3 @@
-# from numerous.engine.model.events import NumerousEvent
 from numerous.engine.numerous_event import NumerousEvent
 from numerous.engine.system.connector import Connector
 from numerous.utils.dict_wrapper import _DictWrapper
@@ -60,8 +59,7 @@ class Item(Node):
         >>> print(dn.item is None )
         False
         """
-        #return VariableNamespace(self, DEFAULT_NAMESPACE, is_connector=isinstance(self, Connector))
-        return self.create_namespace(DEFAULT_NAMESPACE)
+        return VariableNamespace(self, DEFAULT_NAMESPACE, is_connector=isinstance(self, Connector))
 
     def create_namespace(self, tag):
         """
@@ -154,17 +152,6 @@ class Item(Node):
             return self
         else:
             return None
-
-    def __getattr__(self, name):
-        if DEFAULT_NAMESPACE not in self.registered_namespaces.keys():
-            self.create_namespace(DEFAULT_NAMESPACE)
-
-        namespace = getattr(self, DEFAULT_NAMESPACE)
-
-        if name == DEFAULT_NAMESPACE:
-            return namespace
-
-        return getattr(namespace, name)
 
     def set_logger_level(self, logger_level=None):
         self.logger_level = logger_level

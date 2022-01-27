@@ -13,11 +13,6 @@ import numpy as np
 from numerous.engine.simulation.solvers.base_solver import solver_types
 
 
-@pytest.fixture(autouse=True)
-def run_before_and_after_tests():
-    import shutil
-    shutil.rmtree('./tmp', ignore_errors=True)
-    yield
 
 
 class InitialValue(Item, EquationBase):

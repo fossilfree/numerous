@@ -9,6 +9,7 @@ def get_eq_prefix():
     import random, string
     return ''.join(random.choice(string.ascii_letters) for i in range(4)) + '_'
 
+
 def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
     nk = g.key_map[n]
     try:
@@ -124,7 +125,7 @@ def generate_return_statement(var_def_, g):
     elif l == 1:
         return_ = ast.Return(value=var_def_.get_order_trgs()[0])
     else:
-        #g.as_graphviz('noret', force=True)
+        # g.as_graphviz('noret', force=True)
         raise IndexError(f'Function {g.label} should have return, no?')
     return return_
 
@@ -164,8 +165,8 @@ def compare_expresion_from_graph(g, var_def_, lineno_count=1):
 
 
 def function_body_from_graph(g, var_def_, lineno_count=1, level=0):
-    g.topological_nodes(ignore_cyclic=True) # give warning if cyclic, but ignore sorting
-    top_nodes = range(0,len(g.nodes))
+    g.topological_nodes(ignore_cyclic=True)  # give warning if cyclic, but ignore sorting
+    top_nodes = range(0, len(g.nodes))
     var_def = var_def_.var_def
     body = []
     targets = []
@@ -180,23 +181,24 @@ def function_body_from_graph(g, var_def_, lineno_count=1, level=0):
                                             g, var_def, value_ast, at, targets))
         if (g.get(n, 'ast_type')) == ast.If:
             func_body = function_body_from_graph(g.nodes[n].subgraph_body, var_def_,
-                                                 lineno_count=lineno_count, level=level+1)
+                                                 lineno_count=lineno_count, level=level + 1)
             func_test = compare_expresion_from_graph(g.nodes[n].subgraph_test, var_def_,
                                                      lineno_count=lineno_count)
             body.append(process_if_node(func_body, func_test))
     return body
 
 
-def replace_closure_function(func,replacements,eq_prefix):
+def replace_closure_function(func, replacements, eq_prefix):
     f1 = ast.unparse(func)
     if replacements:
         keys = list(replacements.keys())
         for key in keys:
-            eq_key = (eq_prefix+key).replace('.', '_')
+            eq_key = (eq_prefix + key).replace('.', '_')
             f1 = f1.replace(key, eq_key)
             replacements[eq_key] = replacements[key]
             replacements.pop(key)
     return f1
+
 
 def compiled_function_from_graph_generic_llvm(g: Graph, var_def_, imports,
                                               compiled_function=False, replacements=None, replace_name=None):
@@ -219,10 +221,9 @@ def compiled_function_from_graph_generic_llvm(g: Graph, var_def_, imports,
 
     func = wrap_function(wrapper_name, body, decorators=[],
                          args=ast.arguments(posonlyargs=[], args=[], vararg=None, defaults=[],
-                                            kwonlyargs=[], kw_defaults=[],lineno=0, kwarg=None))
+                                            kwonlyargs=[], kw_defaults=[], lineno=0, kwarg=None))
 
-
-    tree =replace_closure_function(func, replacements, get_eq_prefix())
+    tree = replace_closure_function(func, replacements, get_eq_prefix())
     tree = ast.parse(tree, mode='exec')
     module_func = ast.Module(body=[tree], type_ignores=[])
     code = compile(ast.parse(ast.unparse(module_func)), filename='llvm_equations_storage', mode='exec')
