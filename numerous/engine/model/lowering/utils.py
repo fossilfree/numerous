@@ -1,3 +1,4 @@
+import logging
 from enum import IntEnum, unique
 
 import ast
@@ -34,7 +35,7 @@ def generate_code_file(mod_body, file, imports, external_functions_source=False,
                                           level=0))
 
     mod = wrap_module(mod_body)
-    print('Generating Source')
+    logging.info('Generating Source')
     source = names + ast.unparse(mod)
     return source
 

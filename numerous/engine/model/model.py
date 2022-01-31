@@ -9,7 +9,6 @@ import numpy as np
 import time
 import uuid
 
-
 from numba import njit, carray
 import numpy.typing as npt
 from numba.core.registry import CPUDispatcher
@@ -20,7 +19,7 @@ import pandas as pd
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
 from numerous.engine.model.utils import Imports, njit_and_compile_function
 from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
-from numerous.engine.numerous_event import NumerousEvent
+from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
 
 from numerous.utils.logger_levels import LoggerLevel
 
@@ -120,7 +119,6 @@ class Model:
                  external_mappings=None, data_loader=None, imports=None, historian=InMemoryHistorian(),
                  use_llvm=True, save_to_file=False, generate_graph_pdf=False, export_model=False):
 
-
         self.path_to_variable = {}
         self.generate_graph_pdf = generate_graph_pdf
         self.export_model = export_model
@@ -130,7 +128,8 @@ class Model:
             self.logger_level = logger_level
 
         self.is_external_data = True if external_mappings else False
-        self.external_mappings = ExternalMapping(external_mappings,data_loader) if external_mappings else EmptyMapping()
+        self.external_mappings = ExternalMapping(external_mappings,
+                                                 data_loader) if external_mappings else EmptyMapping()
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
         self.imports = Imports()
@@ -163,6 +162,7 @@ class Model:
         self.historian = historian
         self.vars_ordered_value = {}
         self.events = []
+        self.timestamp_events = []
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
 
@@ -227,6 +227,7 @@ class Model:
         -  _3d 
 
         """
+
         def __get_mapping__idx(variable):
             if variable.mapping:
                 return __get_mapping__idx(variable.mapping)
@@ -385,15 +386,13 @@ class Model:
         self.external_idx = np.array(external_idx, dtype=np.int64)
         self.generate_path_to_varaible()
 
-
         ##check for item level events
         for item in self.model_items.values():
             if item.events:
                 for event in item.events:
-                    event.condition = _replace_path_strings(self, event.condition, "state",item.path)
-                    event.action = _replace_path_strings(self, event.action, "var",item.path)
+                    event.condition = _replace_path_strings(self, event.condition, "state", item.path)
+                    event.action = _replace_path_strings(self, event.action, "var", item.path)
                     self.events.append(event)
-
 
         self.info.update({"Number of items": len(self.model_items)})
         self.info.update({"Number of variables": len(self.variables)})
@@ -421,7 +420,6 @@ class Model:
             if getattr(var, 'logger_level',
                        None) is None:  # added to temporary variables - maybe put in generate_equations?
                 setattr(var, 'logger_level', LoggerLevel.ALL)
-
 
         def c1(self, array_):
             return compiled_compute(array_)
@@ -571,8 +569,13 @@ class Model:
         condition = _replace_path_strings(self, condition, "state")
 
         action = _replace_path_strings(self, action, "var")
-        event = NumerousEvent(key, condition, action, compiled,terminal,direction)
+        event = NumerousEvent(key, condition, action, compiled, terminal, direction)
         self.events.append(event)
+
+    def add_timestamp_event(self, key, action, timestamps):
+        action = _replace_path_strings(self, action, "var")
+        event = TimestampEvent(key, action, timestamps)
+        self.timestamp_events.append(event)
 
     def generate_mock_event(self) -> None:
         def condition(t, v):
@@ -582,6 +585,11 @@ class Model:
             i = 1
 
         self.add_event("mock", condition, action)
+
+    def generate_mock_timestamp_event(self):
+        def action(t, v):
+            i = 1
+        self.add_timestamp_event("mock", action, [-1])
 
     def generate_event_condition_ast(self, is_numerous_solver: bool) -> tuple[list[CPUDispatcher], npt.ArrayLike]:
         if len(self.events) == 0 and is_numerous_solver:
@@ -602,14 +610,12 @@ class Model:
                 result.append(compiled_event)
             return result, np.array(directions)
 
-    def generate_event_action_ast(self, is_numerous_solver: bool) -> list[CPUDispatcher]:
-        if len(self.events) == 0 and is_numerous_solver:
-            self.generate_mock_event()
+    def generate_event_action_ast(self, events, is_numerous_solver: bool) -> list[CPUDispatcher]:
         if is_numerous_solver:
-            return [generate_event_action_ast(self.events, self.imports.from_imports)]
+            return [generate_event_action_ast(events, self.imports.from_imports)]
         else:
             result = []
-            for event in self.events:
+            for event in events:
                 compiled_event = njit_and_compile_function(event.action, self.imports.from_imports)
                 result.append(compiled_event)
             return result
@@ -619,8 +625,6 @@ class Model:
             return np.where(self.state_idx == var.llvm_idx)[0]
         if idx_type == "var":
             return [var.llvm_idx]
-
-
 
     def create_alias(self, variable_name, alias):
         """
@@ -738,7 +742,6 @@ class Model:
         data.update({'time': time})
         return data
 
-
     def generate_not_nan_history_array(self):
         return self.numba_model.historian_data[:, ~np.isnan(self.numba_model.historian_data).any(axis=0)]
 
@@ -824,6 +827,7 @@ class Model:
 
         model.set_functions(compiled_compute, var_func, var_write)
         return model
+
 
 class AliasedDataFrame(pd.DataFrame):
     _metadata = ['aliases']
