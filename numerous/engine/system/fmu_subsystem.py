@@ -5,6 +5,7 @@ Adapted from: https://github.com/CATIA-Systems/FMPy/tree/master/fmpy
 """
 
 import ctypes
+import ast
 import os
 from typing import List
 
@@ -24,7 +25,7 @@ from numerous.engine.system import Subsystem, Item
 from numba import cfunc, carray, types, njit
 import numpy as np
 
-from numerous.engine.system.fmu_system_generator.fmu_ast_generator import generate_fmu_eval
+from numerous.engine.system.fmu_system_generator.fmu_ast_generator import generate_fmu_eval, generate_eval_llvm
 from numerous.engine.system.fmu_system_generator.utils import address_as_void_pointer
 
 
@@ -151,6 +152,11 @@ class FMU_Subsystem(Subsystem, EquationBase):
         get_event_indicators.restype = ctypes.c_uint
         len_q = 6
 
+        q1 = generate_eval_llvm(['h', 'v', 'g', 'e'], [('a0_ptr', 'a0'), ('a1_ptr', 'a1'), ('a2_ptr', 'a2'),
+                                                     ('a3_ptr', 'a3'), ('a4_ptr', 'a4'), ('a5_ptr', 'a5')])
+        module_func = ast.Module(body=[q1], type_ignores=[])
+        code =ast.unparse(module_func)
+
         def eval_llvm(event, term, a0, a1, a2, a3, a4, a5, a_i_0, a_i_2, a_i_4, a_i_5, t):
             vr = np.arange(0, len_q, 1, dtype=np.uint32)
             value = np.zeros(len_q, dtype=np.float64)
@@ -202,7 +208,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
         q = generate_fmu_eval(['h', 'v', 'g', 'e'], [('a0_ptr', 'a0'), ('a1_ptr', 'a1'), ('a2_ptr', 'a2'),
                                                      ('a3_ptr', 'a3'), ('a4_ptr', 'a4'), ('a5_ptr', 'a5')],
                               [('a1_ptr', 'a1'), ('a3_ptr', 'a3')])
-        import ast
         module_func = ast.Module(body=[q], type_ignores=[])
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"NumerousFunction": NumerousFunction, "carray": carray, "a0_ptr": a0_ptr, "a1_ptr": a1_ptr,
