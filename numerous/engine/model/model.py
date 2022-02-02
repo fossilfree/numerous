@@ -393,6 +393,10 @@ class Model:
                     event.condition = _replace_path_strings(self, event.condition, "state", item.path)
                     event.action = _replace_path_strings(self, event.action, "var", item.path)
                     self.events.append(event)
+            if item.timestamp_events:
+                for event in item.timestamp_events:
+                    event.action = _replace_path_strings(self, event.action, "var", item.path)
+                    self.timestamp_events.append(event)
 
         self.info.update({"Number of items": len(self.model_items)})
         self.info.update({"Number of variables": len(self.variables)})
