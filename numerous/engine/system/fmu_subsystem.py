@@ -152,8 +152,9 @@ class FMU_Subsystem(Subsystem, EquationBase):
         get_event_indicators.restype = ctypes.c_uint
         len_q = 6
 
-        q1 = generate_eval_llvm(['h', 'v', 'g', 'e'], [('a0_ptr', 'a0'), ('a1_ptr', 'a1'), ('a2_ptr', 'a2'),
-                                                     ('a3_ptr', 'a3'), ('a4_ptr', 'a4'), ('a5_ptr', 'a5')])
+        q1 = generate_eval_llvm( [('a_i_0', 'a0'), ('a_i_1', 'a1'), ('a_i_2', 'a2'),
+                                                     ('a_i_3', 'a3'), ('a_i_4', 'a4'), ('a_i_5', 'a5')],
+                              [('a_i_1', 'a1'), ('a_i_3', 'a3')])
         module_func = ast.Module(body=[q1], type_ignores=[])
         code =ast.unparse(module_func)
 
