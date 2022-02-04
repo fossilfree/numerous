@@ -152,35 +152,17 @@ class FMU_Subsystem(Subsystem, EquationBase):
         get_event_indicators.restype = ctypes.c_uint
         len_q = 6
 
-        q1 = generate_eval_llvm( [('a_i_0', 'a0'), ('a_i_1', 'a1'), ('a_i_2', 'a2'),
-                                                     ('a_i_3', 'a3'), ('a_i_4', 'a4'), ('a_i_5', 'a5')],
-                              [('a_i_1', 'a1'), ('a_i_3', 'a3')])
-        module_func = ast.Module(body=[q1], type_ignores=[])
-        code =ast.unparse(module_func)
-
-        def eval_llvm(event, term, a0, a1, a2, a3, a4, a5, a_i_0, a_i_2, a_i_4, a_i_5, t):
-            vr = np.arange(0, len_q, 1, dtype=np.uint32)
-            value = np.zeros(len_q, dtype=np.float64)
-            ## we are reading derivatives from FMI
-            getreal(component, vr.ctypes, len_q, value.ctypes)
-            value1 = np.array([a_i_0, value[1], a_i_2, value[3], a_i_4, a_i_5], dtype=np.float64)
-            fmi2SetReal(component, vr.ctypes, len_q, value1.ctypes)
-            set_time(component, t)
-            completedIntegratorStep(component, 1, event, term)
-            getreal(component, vr.ctypes, len_q, value.ctypes)
-            carray(a0, (1,), dtype=np.float64)[0] = value[0]
-            carray(a1, (1,), dtype=np.float64)[0] = value[1]
-            carray(a2, (1,), dtype=np.float64)[0] = value[2]
-            carray(a3, (1,), dtype=np.float64)[0] = value[3]
-            carray(a4, (1,), dtype=np.float64)[0] = value[4]
-            carray(a5, (1,), dtype=np.float64)[0] = value[5]
-
+        q1, equation_call_wrapper = generate_eval_llvm([('a_i_0', 'a0'), ('a_i_1', 'a1'), ('a_i_2', 'a2'),
+                                                        ('a_i_3', 'a3'), ('a_i_4', 'a4'), ('a_i_5', 'a5')],
+                                                       [('a_i_1', 'a1'), ('a_i_3', 'a3')])
+        module_func = ast.Module(body=[q1, equation_call_wrapper], type_ignores=[])
+        code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
+        namespace = {"carray": carray, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q, "getreal": getreal,
+                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
+                     "completedIntegratorStep": completedIntegratorStep}
+        exec(code, namespace)
+        equation_call = namespace["equation_call"]
         fmu.enterContinuousTimeMode()
-
-        equation_call = cfunc(types.void(types.voidptr, types.voidptr, types.voidptr, types.voidptr, types.voidptr
-                                         , types.voidptr, types.voidptr, types.voidptr, types.float64, types.float64,
-                                         types.float64, types.float64, types.float64))(eval_llvm)
-
         term_1 = np.array([0], dtype=np.int32)
         term_1_ptr = term_1.ctypes.data
         event_1 = np.array([0], dtype=np.int32)
@@ -203,8 +185,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         a5 = np.array([0], dtype=np.float64)
         a5_ptr = a5.ctypes.data
-
-
 
         q = generate_fmu_eval(['h', 'v', 'g', 'e'], [('a0_ptr', 'a0'), ('a1_ptr', 'a1'), ('a2_ptr', 'a2'),
                                                      ('a3_ptr', 'a3'), ('a4_ptr', 'a4'), ('a5_ptr', 'a5')],
