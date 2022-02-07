@@ -86,22 +86,29 @@ class Simulation:
 
         generation_finish = time.time()
         logging.info(f"Numba model generation finished, generation time: {generation_finish - generation_start}")
-
         if solver_type.value == SolverType.SOLVER_IVP.value:
             event_function, _ = model.generate_event_condition_ast(False)
-            action_function = model.generate_event_action_ast(False)
+            action_function = model.generate_event_action_ast(model.events, False)
+            timestamp_action_function = model.generate_event_action_ast(model.timestamp_events, False)
+            timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
             self.solver = IVP_solver(time_, delta_t, model, numba_model,
                                      num_inner, max_event_steps, self.model.states_as_vector,
                                      events=(event_function, action_function),
+                                     timestamp_events=(timestamp_action_function, timestamps),
                                      **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
             event_function, event_directions = model.generate_event_condition_ast(True)
-            action_function = model.generate_event_action_ast(True)
+            action_function = model.generate_event_action_ast(model.events, True)
+            if len(model.timestamp_events) == 0:
+                model.generate_mock_timestamp_event()
+            timestamp_action_function = model.generate_event_action_ast(model.timestamp_events, True)
+            timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
             self.solver = Numerous_solver(time_, delta_t, model, numba_model,
                                           num_inner, max_event_steps, self.model.states_as_vector,
                                           numba_compiled_solver=model.use_llvm,
                                           events=(event_function, action_function), event_directions=event_directions,
+                                          timestamp_events=(timestamp_action_function, timestamps),
                                           **kwargs)
 
         self.solver.register_endstep(__end_step)
