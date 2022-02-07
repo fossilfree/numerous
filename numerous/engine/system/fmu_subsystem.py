@@ -3,7 +3,7 @@ Adapted from: https://github.com/CATIA-Systems/FMPy/tree/master/fmpy
 :copyright:2017-2020 Dassault Systemes..
 :license: BSD, see LICENSE for more details.
 """
-
+import matplotlib.pyplot as plt
 import ctypes
 import ast
 import os
@@ -21,7 +21,7 @@ from fmpy.util import auto_interval
 from numerous import EquationBase, Equation, NumerousFunction
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation, SolverType
-from numerous.engine.system import Subsystem, Item
+from numerous.engine.system import Subsystem, Item, ItemPath
 from numba import cfunc, carray, types, njit
 import numpy as np
 
@@ -98,6 +98,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         fmu_args['modelIdentifier'] = model_description.modelExchange.modelIdentifier
 
         fmu = FMU2Model(**fmu_args)
+        self.fmu = fmu
         fmu.instantiate(visible=visible, callbacks=callbacks, loggingOn=debug_logging)
 
         if output_interval is None:
@@ -114,10 +115,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             while step_size > max_step:
                 step_size /= 2
 
-        ##this call should happen at init at model.py
         fmu.setupExperiment(startTime=start_time, stopTime=stop_time)
-
-        ##
 
         input = Input(fmu, model_description, input)
 
@@ -152,17 +150,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
         get_event_indicators.restype = ctypes.c_uint
         len_q = 6
 
-        q1, equation_call_wrapper = generate_eval_llvm([('a_i_0', 'a0'), ('a_i_1', 'a1'), ('a_i_2', 'a2'),
-                                                        ('a_i_3', 'a3'), ('a_i_4', 'a4'), ('a_i_5', 'a5')],
-                                                       [('a_i_1', 'a1'), ('a_i_3', 'a3')])
-        module_func = ast.Module(body=[q1, equation_call_wrapper], type_ignores=[])
-        code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
-        namespace = {"carray": carray, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q, "getreal": getreal,
-                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
-                     "completedIntegratorStep": completedIntegratorStep}
-        exec(code, namespace)
-        equation_call = namespace["equation_call"]
-        fmu.enterContinuousTimeMode()
         term_1 = np.array([0], dtype=np.int32)
         term_1_ptr = term_1.ctypes.data
         event_1 = np.array([0], dtype=np.int32)
@@ -185,6 +172,19 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         a5 = np.array([0], dtype=np.float64)
         a5_ptr = a5.ctypes.data
+
+        fmu.enterContinuousTimeMode()
+
+        q1, equation_call_wrapper = generate_eval_llvm([('a_i_0', 'a0'), ('a_i_1', 'a1'), ('a_i_2', 'a2'),
+                                                        ('a_i_3', 'a3'), ('a_i_4', 'a4'), ('a_i_5', 'a5')],
+                                                       [('a_i_1', 'a1'), ('a_i_3', 'a3')])
+        module_func = ast.Module(body=[q1, equation_call_wrapper], type_ignores=[])
+        code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
+        namespace = {"carray": carray, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q, "getreal": getreal,
+                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
+                     "completedIntegratorStep": completedIntegratorStep}
+        exec(code, namespace)
+        equation_call = namespace["equation_call"]
 
         q = generate_fmu_eval(['h', 'v', 'g', 'e'], [('a0_ptr', 'a0'), ('a1_ptr', 'a1'), ('a2_ptr', 'a2'),
                                                      ('a3_ptr', 'a3'), ('a4_ptr', 'a4'), ('a5_ptr', 'a5')],
@@ -211,7 +211,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_n = 1
 
         # returns position to find zero crossing using root finding algorithm of scipy solver
-        def hitground_event_fun(event_indicators, t, y1, y2):
+        def event_fun(event_indicators, t, y1, y2):
 
             value_event = np.zeros(event_n, dtype=np.float64)
 
@@ -228,7 +228,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             carray(event_indicators, (1,), dtype=np.float64)[0] = value_event[0]
 
         event_ind_call_1 = cfunc(types.void(types.voidptr, types.float64, types.float64, types.float64))(
-            hitground_event_fun)
+            event_fun)
 
         с = np.array([0], dtype=np.float64)
         c_ptr = с.ctypes.data
@@ -387,32 +387,34 @@ class S3(Subsystem):
 
         fmu_filename = 'bouncingBall.fmu'
         fmu_subsystem = FMU_Subsystem(fmu_filename, "BouncingBall")
-        # fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2")
+        fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2")
         # fmu_subsystem3 = FMU_Subsystem(fmu_filename, "BouncingBall3", h=1.5)
         item_t = G('test', TG=10, RG=2)
         item_t.t1.R = fmu_subsystem.t1.h
-        self.register_items([fmu_subsystem])
+        self.register_items([fmu_subsystem, fmu_subsystem2])
 
 
 subsystem1 = S3('q1')
-m1 = Model(subsystem1, use_llvm=False)
+m1 = Model(subsystem1, use_llvm=True)
 s = Simulation(
     m1, t_start=0, t_stop=1.0, num=500, num_inner=100, max_step=.1, solver_type=SolverType.NUMEROUS)
+sub_S = m1.system.get_item(ItemPath("q1.BouncingBall"))
 s.solve()
-import matplotlib.pyplot as plt
+sub_S.fmu.terminate()
 
 fig, ax = plt.subplots()
 # t = np.linspace(0, 1.0, 100 + 1)
 y = np.array(m1.historian_df["q1.BouncingBall.t1.h"])
-# y2 = np.array(m1.historian_df["q1.BouncingBall2.t1.h"])
+y2 = np.array(m1.historian_df["q1.BouncingBall2.t1.h"])
 # y3 = np.array(m1.historian_df["q1.BouncingBall3.t1.h"])
 t = np.array(m1.historian_df["time"])
 ax.plot(t, y)
-# ax.plot(t, y2)
+ax.plot(t, y2)
 # ax.plot(t, y3)
 
-ax.set(xlabel='time (s)', ylabel='h',
-       title='BB')
+ax.set(xlabel='time (s)', ylabel='h', title='BB')
 ax.grid()
 
 plt.show()
+
+print("execution finished")
