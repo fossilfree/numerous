@@ -134,6 +134,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         get_event_indicators.restype = ctypes.c_uint
         len_q = 6
 
+
         term_1 = np.array([0], dtype=np.int32)
         term_1_ptr = term_1.ctypes.data
         event_1 = np.array([0], dtype=np.int32)
