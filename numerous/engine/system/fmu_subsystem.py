@@ -1,8 +1,3 @@
-"""
-Adapted from: https://github.com/CATIA-Systems/FMPy/tree/master/fmpy
-:copyright:2017-2020 Dassault Systemes..
-:license: BSD, see LICENSE for more details.
-"""
 import matplotlib.pyplot as plt
 import ctypes
 import ast
@@ -30,18 +25,6 @@ from numerous.engine.system.fmu_system_generator.fmu_ast_generator import genera
 from numerous.engine.system.fmu_system_generator.utils import address_as_void_pointer
 
 
-@attrs(eq=False)
-class ScalarVariable:
-    name = attrib(type=str)
-    variability = attrib(type=str, default=None, repr=False)
-    initial = attrib(type=str, default=None, repr=False)
-
-
-@attrs(eq=False)
-class ModelDescription(object):
-    modelVariables = attrib(type=List[ScalarVariable], default=Factory(list), repr=False)
-
-
 class FMU_Subsystem(Subsystem, EquationBase):
     """
     """
@@ -61,7 +44,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         debug_logging = False
         visible = False
         model_description = read_model_description(fmu_filename, validate=validate)
-        self.model_description = self.read_model_description(fmu_filename)
+        self.model_description = model_description
         self.set_variables(self.model_description)
         required_paths = ['resources', 'binaries/']
         tempdir = extract(fmu_filename, include=lambda n: n.startswith(tuple(required_paths)))
@@ -298,60 +281,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
                 if variable.variability == 'tunable':
                     self.add_parameter(variable.name, float(variable.start))
 
-    @staticmethod
-    def read_model_description(filename):
-        import zipfile
-        from lxml import etree
-
-        # remember the original filename
-        _filename = filename
-        if isinstance(filename, str) and os.path.isdir(filename):  # extracted FMU
-            filename = os.path.join(filename, 'modelDescription.xml')
-            tree = etree.parse(filename)
-        elif isinstance(filename, str) and os.path.isfile(filename) and filename.lower().endswith('.xml'):  # XML file
-            tree = etree.parse(filename)
-        else:  # FMU as path or file like object
-            with zipfile.ZipFile(filename, 'r') as zf:
-                xml = zf.open('modelDescription.xml')
-                tree = etree.parse(xml)
-
-        root = tree.getroot()
-
-        fmiVersion = root.get('fmiVersion')
-
-        is_fmi1 = fmiVersion == '1.0'
-        is_fmi2 = fmiVersion == '2.0'
-        is_fmi3 = fmiVersion.startswith('3.0')
-
-        if not is_fmi1 and not is_fmi2 and not is_fmi3:
-            raise Exception("Unsupported FMI version: %s" % fmiVersion)
-
-        modelDescription = ModelDescription()
-        for variable in root.find('ModelVariables'):
-            if variable.get("name") is None:
-                continue
-
-            sv = ScalarVariable(name=variable.get('name'))
-            sv.variability = variable.get('variability')
-            sv.initial = variable.get('initial')
-
-            if fmiVersion in ['1.0', '2.0']:
-                # get the nested "value" element
-                for child in variable.iterchildren():
-                    if child.tag in {'Real', 'Integer', 'Boolean', 'String', 'Enumeration'}:
-                        value = child
-                        break
-            else:
-                value = variable
-
-            if variable.tag == 'String':
-                # handle <Start> element of String variables in FMI 3
-                sv.start = variable.find('Start').get('value')
-            else:
-                sv.start = value.get('start')
-
-            modelDescription.modelVariables.append(sv)
-        return modelDescription
 
 
 class Test_Eq(EquationBase):
