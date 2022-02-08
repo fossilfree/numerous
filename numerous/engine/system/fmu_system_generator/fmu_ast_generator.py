@@ -295,12 +295,17 @@ def generate_njit_event_cond(states):
                                       args=[ast.Name(id='c_ptr', ctx=ast.Load())],
                                       keywords=[]), lineno=0),
             ast.Assign(targets=[ast.Subscript(value=ast.Call(func=ast.Name(id='carray', ctx=ast.Load()),
-                                                 args=[ast.Name(id='temp_addr', ctx=ast.Load()),
-                                                       ast.Tuple(elts=[ast.Constant(value=1)], ctx=ast.Load())],
-                                                 keywords=[ast.keyword(arg='dtype',
-                                                                   value=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()),
-                                                                                   attr='float64', ctx=ast.Load()))]),
-                                      slice=ast.Constant(value=0), ctx=ast.Store())], value=ast.Constant(value=0),lineno=0)]
+                                                             args=[ast.Name(id='temp_addr', ctx=ast.Load()),
+                                                                   ast.Tuple(elts=[ast.Constant(value=1)],
+                                                                             ctx=ast.Load())],
+                                                             keywords=[ast.keyword(arg='dtype',
+                                                                                   value=ast.Attribute(
+                                                                                       value=ast.Name(id='np',
+                                                                                                      ctx=ast.Load()),
+                                                                                       attr='float64',
+                                                                                       ctx=ast.Load()))]),
+                                              slice=ast.Constant(value=0), ctx=ast.Store())],
+                       value=ast.Constant(value=0), lineno=0)]
 
     args = [ast.Name(id='temp_addr', ctx=ast.Load()), ast.Name(id='t', ctx=ast.Load())]
 
@@ -355,3 +360,75 @@ def generate_njit_event_cond(states):
                                    decorator_list=[], lineno=0)
 
     return event_cond, event_cond_2
+
+
+def generate_eval_event(len_q):
+    args_lst = [ast.arg(arg="q")]
+    for id_ in range(len_q):
+        args_lst.append(ast.arg(arg="a_" + str(id_)))
+
+    args = ast.arguments(posonlyargs=[], args=args_lst, kwonlyargs=[],
+                         kw_defaults=[], defaults=[])
+
+    body = []
+    body.append(ast.Expr(value=ast.Call(func=ast.Name(id='enter_event_mode', ctx=ast.Load()),
+                                        args=[ast.Name(id='component', ctx=ast.Load())], keywords=[])))
+    body.append(ast.Expr(value=ast.Call(func=ast.Name(id='newDiscreteStates', ctx=ast.Load()),
+                                        args=[ast.Name(id='component', ctx=ast.Load()),
+                                              ast.Name(id='q', ctx=ast.Load())], keywords=[])))
+    body.append(ast.Expr(value=ast.Call(func=ast.Name(id='enter_cont_mode', ctx=ast.Load()),
+                                        args=[ast.Name(id='component', ctx=ast.Load())], keywords=[])))
+    body.append(ast.Assign(targets=[ast.Name(id='vr', ctx=ast.Store())],
+                           value=ast.Call(func=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()),
+                                                             attr='arange', ctx=ast.Load()),
+                                          args=[ast.Constant(value=0), ast.Name(id='len_q', ctx=ast.Load()),
+                                                ast.Constant(value=1)], keywords=[ast.keyword(arg='dtype',
+                                                                                              value=ast.Attribute(
+                                                                                                  value=ast.Name(
+                                                                                                      id='np',
+                                                                                                      ctx=ast.Load()),
+                                                                                                  attr='uint32',
+                                                                                                  ctx=ast.Load()))])))
+    body.append(ast.Assign(targets=[ast.Name(id='value', ctx=ast.Store())],
+                           value=ast.Call(func=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='zeros', ctx=ast.Load()),
+                                      args=[ast.Name(id='len_q', ctx=ast.Load())], keywords=[ast.keyword(arg='dtype',
+                                                                                             value=ast.Attribute(
+                                                                                                 value=ast.Name(id='np',
+                                                                                                            ctx=ast.Load()),
+                                                                                                 attr='float64',
+                                                                                                 ctx=ast.Load()))])))
+    body.append(ast.Expr(value=ast.Call(func=ast.Name(id='getreal', ctx=ast.Load()), args=[ast.Name(id='component', ctx=ast.Load()),
+                                                                           ast.Attribute(value=ast.Name(id='vr', ctx=ast.Load()),
+                                                                                     attr='ctypes', ctx=ast.Load()),
+                                                                           ast.Name(id='len_q', ctx=ast.Load()),
+                                                                           ast.Attribute(value=ast.Name(id='value', ctx=ast.Load()),
+                                                                                     attr='ctypes', ctx=ast.Load())],
+                                keywords=[])))
+
+    for i in range(len_q):
+        body.append(ast.Assign(targets=[ast.Subscript(
+            value=ast.Call(func=ast.Name(id='carray', ctx=ast.Load()), args=[ast.Name(id='a_' + str(i), ctx=ast.Load()),
+                                                                             ast.Tuple(elts=[ast.Constant(value=1)],
+                                                                                       ctx=ast.Load())], keywords=[
+                ast.keyword(arg='dtype', value=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='float64',
+                                                             ctx=ast.Load()))]),
+            slice=ast.Constant(value=0), ctx=ast.Store())],
+                               value=ast.Subscript(value=ast.Name(id='value', ctx=ast.Load()),
+                                                   slice=ast.Constant(value=i), ctx=ast.Load())))
+
+    wrapper_args = [_generate_pointer('voidptr')]
+
+    for _ in range(len_q):
+        wrapper_args.append(_generate_pointer('float64'))
+
+    wrapper = ast.Assign(targets=[ast.Name(id="event_ind_call", ctx=ast.Store())],
+                         value=ast.Call(func=ast.Call(func=ast.Name(id='cfunc', ctx=ast.Load()),
+                                                      args=[ast.Call(
+                                                          func=ast.Attribute(value=ast.Name(id='types', ctx=ast.Load()),
+                                                                             attr='void', ctx=ast.Load()),
+                                                          args=wrapper_args,
+                                                          keywords=[])], keywords=[]),
+                                        args=[ast.Name(id='event_callback_fun', ctx=ast.Load())],
+                                        keywords=[]), lineno=0)
+
+    return ast.FunctionDef(name='event_callback_fun', args=args, body=body, decorator_list=[], lineno=0), wrapper

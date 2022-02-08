@@ -132,8 +132,21 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         get_event_indicators.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
         get_event_indicators.restype = ctypes.c_uint
-        len_q = 6
 
+        enter_event_mode = getattr(fmu.dll, "fmi2EnterEventMode")
+
+        enter_event_mode.argtypes = [ctypes.c_uint]
+        enter_event_mode.restype = ctypes.c_uint
+
+        enter_cont_mode = getattr(fmu.dll, "fmi2EnterContinuousTimeMode")
+        enter_cont_mode.argtypes = [ctypes.c_uint]
+        enter_cont_mode.restype = ctypes.c_uint
+
+        newDiscreteStates = getattr(fmu.dll, "fmi2NewDiscreteStates")
+        newDiscreteStates.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+        newDiscreteStates.restype = ctypes.c_uint
+
+        len_q = len(model_description.modelVariables)
 
         term_1 = np.array([0], dtype=np.int32)
         term_1_ptr = term_1.ctypes.data
@@ -222,46 +235,64 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_cond = namespace["event_cond"]
         event_cond_2 = namespace["event_cond_2"]
         event_cond_2.lines = ast.unparse(ast.Module(body=[f2], type_ignores=[]))
-        enter_event_mode = getattr(fmu.dll, "fmi2EnterEventMode")
 
-        enter_event_mode.argtypes = [ctypes.c_uint]
-        enter_event_mode.restype = ctypes.c_uint
-
-        enter_cont_mode = getattr(fmu.dll, "fmi2EnterContinuousTimeMode")
-        enter_cont_mode.argtypes = [ctypes.c_uint]
-        enter_cont_mode.restype = ctypes.c_uint
-
-        newDiscreteStates = getattr(fmu.dll, "fmi2NewDiscreteStates")
-        newDiscreteStates.argtypes = [ctypes.c_uint, ctypes.c_void_p]
-        newDiscreteStates.restype = ctypes.c_uint
-
-        # change direction of movement upon event detection and reduce velocity
-        def hitground_event_callback_fun(q, a_e):
+        def hitground_event_callback_fun(q, a_0, a_1, a_2, a_3, a_4, a_5):
             enter_event_mode(component)
             newDiscreteStates(component, q)
             enter_cont_mode(component)
             vr = np.arange(0, len_q, 1, dtype=np.uint32)
             value = np.zeros(len_q, dtype=np.float64)
             getreal(component, vr.ctypes, len_q, value.ctypes)
-            carray(a_e, (1,), dtype=np.float64)[0] = value[2]
+            carray(a_0, (1,), dtype=np.float64)[0] = value[0]
+            carray(a_1, (1,), dtype=np.float64)[0] = value[1]
+            carray(a_2, (1,), dtype=np.float64)[0] = value[2]
+            carray(a_3, (1,), dtype=np.float64)[0] = value[3]
+            carray(a_4, (1,), dtype=np.float64)[0] = value[4]
+            carray(a_5, (1,), dtype=np.float64)[0] = value[5]
 
-        eventInfo = fmi2EventInfo()
-        event_ind_call = cfunc(types.void(types.voidptr, types.voidptr))(hitground_event_callback_fun)
-        q_ptr = ctypes.addressof(eventInfo)
+        event_ind_call = cfunc(types.void(types.voidptr, types.voidptr, types.voidptr, types.voidptr,
+                                          types.voidptr, types.voidptr, types.voidptr))(hitground_event_callback_fun)
 
-        a_e = np.array([0], dtype=np.float64)
-        a_e_ptr = a_e.ctypes.data
+        event_info = fmi2EventInfo()
+        q_ptr = ctypes.addressof(event_info)
+
+        a_e_0 = np.array([0], dtype=np.float64)
+        a_e_ptr_0 = a_e_0.ctypes.data
+
+        a_e_1 = np.array([0], dtype=np.float64)
+        a_e_ptr_1 = a_e_1.ctypes.data
+
+        a_e_2 = np.array([0], dtype=np.float64)
+        a_e_ptr_2 = a_e_2.ctypes.data
+
+        a_e_3 = np.array([0], dtype=np.float64)
+        a_e_ptr_3 = a_e_3.ctypes.data
+
+        a_e_4 = np.array([0], dtype=np.float64)
+        a_e_ptr_4 = a_e_4.ctypes.data
+
+        a_e_5 = np.array([0], dtype=np.float64)
+        a_e_ptr_5 = a_e_5.ctypes.data
 
         @njit
         def event_action(x, y):
-            carray(address_as_void_pointer(a_e_ptr), a_e.shape, dtype=a0.dtype)[0] = 0
-            event_ind_call(address_as_void_pointer(q_ptr), address_as_void_pointer(a_e_ptr))
-            return carray(address_as_void_pointer(a_e_ptr), (1,), dtype=np.float64)[0]
+            carray(address_as_void_pointer(a_e_ptr_0), a_e_0.shape, dtype=a0.dtype)[0] = 0
+            carray(address_as_void_pointer(a_e_ptr_1), a_e_1.shape, dtype=a0.dtype)[0] = 0
+            carray(address_as_void_pointer(a_e_ptr_2), a_e_2.shape, dtype=a0.dtype)[0] = 0
+            carray(address_as_void_pointer(a_e_ptr_3), a_e_3.shape, dtype=a0.dtype)[0] = 0
+            carray(address_as_void_pointer(a_e_ptr_4), a_e_4.shape, dtype=a0.dtype)[0] = 0
+            carray(address_as_void_pointer(a_e_ptr_5), a_e_4.shape, dtype=a0.dtype)[0] = 0
+            event_ind_call(address_as_void_pointer(q_ptr), address_as_void_pointer(a_e_ptr_0),
+                           address_as_void_pointer(a_e_ptr_1), address_as_void_pointer(a_e_ptr_2),
+                           address_as_void_pointer(a_e_ptr_3), address_as_void_pointer(a_e_ptr_4),
+                           address_as_void_pointer(a_e_ptr_5))
+            return carray(address_as_void_pointer(a_e_ptr_2), (1,), dtype=np.float64)[0]
 
         def event_action_2(t, variables):
             q = np.array([variables['t1.h'], variables['t1.v']])
             velocity = event_action(t, q)
             variables['t1.v'] = velocity
+            ## all local variables
 
         self.t1 = self.create_namespace('t1')
         self.t1.add_equations([self])
@@ -281,7 +312,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
                     self.add_state(variable.name, float(variable.start))
                 if variable.variability == 'tunable':
                     self.add_parameter(variable.name, float(variable.start))
-
 
 
 class Test_Eq(EquationBase):
