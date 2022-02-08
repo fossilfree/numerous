@@ -43,7 +43,11 @@ def generate_event_condition_ast(event_functions: list[NumerousEvent],
 
 
 def _replace_path_strings(model, function, idx_type, path_to_root=[]):
-    lines = inspect.getsource(function)
+    if hasattr(function, 'lines'):
+        lines = function.lines
+    else:
+        lines = inspect.getsource(function)
+
     path_to_root_str = ".".join(path_to_root) + "."
     path_to_root_str_len = len(path_to_root_str)
     for (var_path, var) in model.path_to_variable.items():

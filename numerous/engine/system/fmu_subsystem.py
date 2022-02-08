@@ -25,7 +25,8 @@ from numerous.engine.system import Subsystem, Item, ItemPath
 from numba import cfunc, carray, types, njit
 import numpy as np
 
-from numerous.engine.system.fmu_system_generator.fmu_ast_generator import generate_fmu_eval, generate_eval_llvm
+from numerous.engine.system.fmu_system_generator.fmu_ast_generator import generate_fmu_eval, generate_eval_llvm, \
+    generate_eval_event, generate_njit_event_cond
 from numerous.engine.system.fmu_system_generator.utils import address_as_void_pointer
 
 
@@ -210,41 +211,33 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         event_n = 1
 
-        # returns position to find zero crossing using root finding algorithm of scipy solver
-        def event_fun(event_indicators, t, y1, y2):
+        q, wrapper = generate_eval_event([0, 2], len_q)
+        module_func = ast.Module(body=[q, wrapper], type_ignores=[])
+        code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
+        namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
+                     "getreal": getreal,
+                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
+                     "get_event_indicators": get_event_indicators,
+                     "completedIntegratorStep": completedIntegratorStep}
+        exec(code, namespace)
+        event_ind_call_1 = namespace["event_ind_call_1"]
 
-            value_event = np.zeros(event_n, dtype=np.float64)
+        c = np.array([0], dtype=np.float64)
+        c_ptr = c.ctypes.data
 
-            vr = np.arange(0, len_q, 1, dtype=np.uint32)
-            value = np.zeros(len_q, dtype=np.float64)
-            getreal(component, vr.ctypes, len_q, value.ctypes)
-            value1 = np.array([y1, value[1], y2, value[3], value[4], value[5]], dtype=np.float64)
-            fmi2SetReal(component, vr.ctypes, len_q, value1.ctypes)
-            set_time(component, t)
-            get_event_indicators(component, value_event.ctypes, event_n)
-            value2 = np.array([value[0], value[1], value[2], value[3], value[4], value[5]], dtype=np.float64)
-            fmi2SetReal(component, vr.ctypes, len_q, value2.ctypes)
-
-            carray(event_indicators, (1,), dtype=np.float64)[0] = value_event[0]
-
-        event_ind_call_1 = cfunc(types.void(types.voidptr, types.float64, types.float64, types.float64))(
-            event_fun)
-
-        с = np.array([0], dtype=np.float64)
-        c_ptr = с.ctypes.data
-
-        @njit
-        def event_cond(t, y):
-            temp_addr = address_as_void_pointer(c_ptr)
-            carray(temp_addr, a0.shape, dtype=a0.dtype)[0] = 0
-            event_ind_call_1(temp_addr, t, y[0], y[1])
-            result = carray(temp_addr, (1,), dtype=np.float64)[0]
-            return result
-
-        def event_cond_2(t, variables):
-            q = np.array([variables['t1.h'], variables['t1.v']])
-            return event_cond(t, q)
-
+        f1, f2 = generate_njit_event_cond(['t1.h', 't1.v'])
+        module_func = ast.Module(body=[f1, f2], type_ignores=[])
+        code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval_2', mode='exec')
+        namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np,
+                     "event_ind_call_1": event_ind_call_1,
+                     "c_ptr": c_ptr,
+                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
+                     "njit": njit, "address_as_void_pointer": address_as_void_pointer,
+                     "completedIntegratorStep": completedIntegratorStep}
+        exec(code, namespace)
+        event_cond = namespace["event_cond"]
+        event_cond_2 = namespace["event_cond_2"]
+        event_cond_2.lines = ast.unparse(ast.Module(body=[f2], type_ignores=[]))
         enter_event_mode = getattr(fmu.dll, "fmi2EnterEventMode")
 
         enter_event_mode.argtypes = [ctypes.c_uint]
