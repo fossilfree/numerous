@@ -286,8 +286,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_action_2 = namespace["event_action_2"]
         event_action_2.lines = ast.unparse(ast.Module(body=[b1], type_ignores=[]))
         gec = generate_eq_call(deriv_names_ordered, var_names_ordered)
-        code = compile(ast.parse(ast.unparse(gec)),
-                       filename='fmu_eval', mode='exec')
+        code = compile(ast.parse(ast.unparse(gec)),filename='fmu_eval', mode='exec')
         namespace = {"Equation": Equation}
         exec(code, namespace)
         result = namespace["eval"]
