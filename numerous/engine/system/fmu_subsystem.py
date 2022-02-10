@@ -21,7 +21,7 @@ from numba import cfunc, carray, types, njit
 import numpy as np
 
 from numerous.engine.system.fmu_system_generator.fmu_ast_generator import generate_fmu_eval, generate_eval_llvm, \
-    generate_eval_event, generate_njit_event_cond
+    generate_eval_event, generate_njit_event_cond, generate_action_event, generate_event_action
 from numerous.engine.system.fmu_system_generator.utils import address_as_void_pointer
 
 
@@ -152,30 +152,20 @@ class FMU_Subsystem(Subsystem, EquationBase):
         term_1_ptr = term_1.ctypes.data
         event_1 = np.array([0], dtype=np.int32)
         event_1_ptr = event_1.ctypes.data
-
-        a0 = np.array([0], dtype=np.float64)
-        a0_ptr = a0.ctypes.data
-
-        a1 = np.array([0], dtype=np.float64)
-        a1_ptr = a1.ctypes.data
-
-        a2 = np.array([0], dtype=np.float64)
-        a2_ptr = a2.ctypes.data
-
-        a3 = np.array([0], dtype=np.float64)
-        a3_ptr = a3.ctypes.data
-
-        a4 = np.array([0], dtype=np.float64)
-        a4_ptr = a4.ctypes.data
-
-        a5 = np.array([0], dtype=np.float64)
-        a5_ptr = a5.ctypes.data
+        var_array = []
+        ptr_var_array = []
+        idx_tuple_array = []
+        ptr_tuple_array = []
+        for i in range(len_q):
+            a = np.array([0], dtype=np.float64)
+            var_array.append(a)
+            ptr_var_array.append(a.ctypes.data)
+            idx_tuple_array.append(("a_i_" + str(i), 'a' + str(i)))
+            ptr_tuple_array.append(("a" + str(i) + "_ptr", 'a' + str(i)))
 
         fmu.enterContinuousTimeMode()
 
-        q1, equation_call_wrapper = generate_eval_llvm([('a_i_0', 'a0'), ('a_i_1', 'a1'), ('a_i_2', 'a2'),
-                                                        ('a_i_3', 'a3'), ('a_i_4', 'a4'), ('a_i_5', 'a5')],
-                                                       [('a_i_1', 'a1'), ('a_i_3', 'a3')])
+        q1, equation_call_wrapper = generate_eval_llvm(idx_tuple_array, [('a_i_1', 'a1'), ('a_i_3', 'a3')])
         module_func = ast.Module(body=[q1, equation_call_wrapper], type_ignores=[])
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"carray": carray, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q, "getreal": getreal,
@@ -184,25 +174,20 @@ class FMU_Subsystem(Subsystem, EquationBase):
         exec(code, namespace)
         equation_call = namespace["equation_call"]
 
-        q = generate_fmu_eval(['h', 'v', 'g', 'e'], [('a0_ptr', 'a0'), ('a1_ptr', 'a1'), ('a2_ptr', 'a2'),
-                                                     ('a3_ptr', 'a3'), ('a4_ptr', 'a4'), ('a5_ptr', 'a5')],
+        q = generate_fmu_eval(['h', 'v', 'g', 'e'], ptr_tuple_array,
                               [('a1_ptr', 'a1'), ('a3_ptr', 'a3')])
         module_func = ast.Module(body=[q], type_ignores=[])
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
-        namespace = {"NumerousFunction": NumerousFunction, "carray": carray, "a0_ptr": a0_ptr, "a1_ptr": a1_ptr,
-                     "a2_ptr": a2_ptr,
-                     "a3_ptr": a3_ptr,
-                     "a4_ptr": a4_ptr,
-                     "a5_ptr": a5_ptr, "address_as_void_pointer": address_as_void_pointer,
-                     "a0": a0, "a1": a1,
-                     "a2": a2,
-                     "a3": a3,
-                     "a4": a4,
-                     "a5": a5,
+        namespace = {"NumerousFunction": NumerousFunction, "carray": carray,
+                     "address_as_void_pointer": address_as_void_pointer,
                      "equation_call": equation_call,
                      "event_1_ptr": event_1_ptr,
                      "term_1_ptr": term_1_ptr
                      }
+
+        for i in range(len_q):
+            namespace.update({"a" + str(i): var_array[i]})
+            namespace.update({"a" + str(i) + "_ptr": ptr_var_array[i]})
         exec(code, namespace)
         self.fmu_eval = namespace["fmu_eval"]
 
@@ -236,22 +221,17 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_cond_2 = namespace["event_cond_2"]
         event_cond_2.lines = ast.unparse(ast.Module(body=[f2], type_ignores=[]))
 
-        def hitground_event_callback_fun(q, a_0, a_1, a_2, a_3, a_4, a_5):
-            enter_event_mode(component)
-            newDiscreteStates(component, q)
-            enter_cont_mode(component)
-            vr = np.arange(0, len_q, 1, dtype=np.uint32)
-            value = np.zeros(len_q, dtype=np.float64)
-            getreal(component, vr.ctypes, len_q, value.ctypes)
-            carray(a_0, (1,), dtype=np.float64)[0] = value[0]
-            carray(a_1, (1,), dtype=np.float64)[0] = value[1]
-            carray(a_2, (1,), dtype=np.float64)[0] = value[2]
-            carray(a_3, (1,), dtype=np.float64)[0] = value[3]
-            carray(a_4, (1,), dtype=np.float64)[0] = value[4]
-            carray(a_5, (1,), dtype=np.float64)[0] = value[5]
-
-        event_ind_call = cfunc(types.void(types.voidptr, types.voidptr, types.voidptr, types.voidptr,
-                                          types.voidptr, types.voidptr, types.voidptr))(hitground_event_callback_fun)
+        a, b = generate_action_event(len_q)
+        module_func = ast.Module(body=[a, b], type_ignores=[])
+        code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
+        namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
+                     "getreal": getreal,
+                     "component": component, "enter_event_mode": enter_event_mode, "set_time": set_time,
+                     "get_event_indicators": get_event_indicators, "newDiscreteStates": newDiscreteStates,
+                     "enter_cont_mode": enter_cont_mode,
+                     "completedIntegratorStep": completedIntegratorStep}
+        exec(code, namespace)
+        event_ind_call = namespace["event_ind_call"]
 
         event_info = fmi2EventInfo()
         q_ptr = ctypes.addressof(event_info)
@@ -274,25 +254,34 @@ class FMU_Subsystem(Subsystem, EquationBase):
         a_e_5 = np.array([0], dtype=np.float64)
         a_e_ptr_5 = a_e_5.ctypes.data
 
-        @njit
-        def event_action(x, y):
-            carray(address_as_void_pointer(a_e_ptr_0), a_e_0.shape, dtype=a0.dtype)[0] = 0
-            carray(address_as_void_pointer(a_e_ptr_1), a_e_1.shape, dtype=a0.dtype)[0] = 0
-            carray(address_as_void_pointer(a_e_ptr_2), a_e_2.shape, dtype=a0.dtype)[0] = 0
-            carray(address_as_void_pointer(a_e_ptr_3), a_e_3.shape, dtype=a0.dtype)[0] = 0
-            carray(address_as_void_pointer(a_e_ptr_4), a_e_4.shape, dtype=a0.dtype)[0] = 0
-            carray(address_as_void_pointer(a_e_ptr_5), a_e_4.shape, dtype=a0.dtype)[0] = 0
-            event_ind_call(address_as_void_pointer(q_ptr), address_as_void_pointer(a_e_ptr_0),
-                           address_as_void_pointer(a_e_ptr_1), address_as_void_pointer(a_e_ptr_2),
-                           address_as_void_pointer(a_e_ptr_3), address_as_void_pointer(a_e_ptr_4),
-                           address_as_void_pointer(a_e_ptr_5))
-            return carray(address_as_void_pointer(a_e_ptr_2), (1,), dtype=np.float64)[0]
+        a1, b1 = generate_event_action(len_q, ['t1.h', 't1.v'],
+                                       ['t1.h', 't1.h_dot', 't1.v', 't1.v_dot', 't1.g', 't1.e'])
 
-        def event_action_2(t, variables):
-            q = np.array([variables['t1.h'], variables['t1.v']])
-            velocity = event_action(t, q)
-            variables['t1.v'] = velocity
-            ## all local variables
+        module_func = ast.Module(body=[a1, b1], type_ignores=[])
+        code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
+        namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
+                     "q_ptr": q_ptr,
+                     "component": component, "enter_event_mode": enter_event_mode, "set_time": set_time,
+                     "get_event_indicators": get_event_indicators, "event_ind_call": event_ind_call,
+                     "njit": njit,
+                     "address_as_void_pointer": address_as_void_pointer,
+                     "a_e_0": a_e_0,
+                     "a_e_1": a_e_1,
+                     "a_e_2": a_e_2,
+                     "a_e_3": a_e_3,
+                     "a_e_4": a_e_4,
+                     "a_e_5": a_e_5,
+                     "a_e_ptr_0": a_e_ptr_0,
+                     "a_e_ptr_1": a_e_ptr_1,
+                     "a_e_ptr_2": a_e_ptr_2,
+                     "a_e_ptr_3": a_e_ptr_3,
+                     "a_e_ptr_4": a_e_ptr_4,
+                     "a_e_ptr_5": a_e_ptr_5,
+                     "completedIntegratorStep": completedIntegratorStep}
+        exec(code, namespace)
+        event_action = namespace["event_action"]
+        event_action_2 = namespace["event_action_2"]
+        event_action_2.lines = ast.unparse(ast.Module(body=[b1], type_ignores=[]))
 
         self.t1 = self.create_namespace('t1')
         self.t1.add_equations([self])
