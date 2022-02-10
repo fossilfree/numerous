@@ -106,7 +106,7 @@ class MappingsGraph(Graph):
                     # Make new temp var
                     sv = self.get(e[1], 'scope_var')
                     tmp_key = sv.tag + str(self.key_map[va]) + '_tmp'
-                    tmp_label = sv.tag + variables[str(self.key_map[va])].path.primary_path + '_tmp'
+                    tmp_label = sv.tag + str(self.key_map[va]) + '_label' + '_tmp'
                     # Create fake scope variables for tmp setvar
                     fake_sv = {}
                     svf = None
