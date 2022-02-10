@@ -1,3 +1,5 @@
+import types as ptypes
+
 import matplotlib.pyplot as plt
 import ctypes
 import ast
@@ -21,8 +23,12 @@ from numba import cfunc, carray, types, njit
 import numpy as np
 
 from numerous.engine.system.fmu_system_generator.fmu_ast_generator import generate_fmu_eval, generate_eval_llvm, \
-    generate_eval_event, generate_njit_event_cond, generate_action_event, generate_event_action
+    generate_eval_event, generate_njit_event_cond, generate_action_event, generate_event_action, generate_eq_call
 from numerous.engine.system.fmu_system_generator.utils import address_as_void_pointer
+
+
+def _replace_name_str(str_v):
+    return str_v.replace(".", "_").replace("[", "_").replace("]", "_")
 
 
 class FMU_Subsystem(Subsystem, EquationBase):
@@ -41,6 +47,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         start_values = start_values
         apply_default_start_values = False
         input = input
+        namespace_ = "t1"
         debug_logging = False
         visible = False
         model_description = read_model_description(fmu_filename, validate=validate)
@@ -162,10 +169,24 @@ class FMU_Subsystem(Subsystem, EquationBase):
             ptr_var_array.append(a.ctypes.data)
             idx_tuple_array.append(("a_i_" + str(i), 'a' + str(i)))
             ptr_tuple_array.append(("a" + str(i) + "_ptr", 'a' + str(i)))
+        deriv_idx = []
+        var_names_ordered = []
+        var_states_ordered = []
+        var_names_ordered_ns = []
+        deriv_names_ordered = []
+        for idx, variable in enumerate(model_description.modelVariables):
+            if variable.derivative:
+                deriv_idx.append(idx)
+                var_names_ordered_ns.append(namespace_ + "." + _replace_name_str(variable.derivative.name) + "_dot")
+                deriv_names_ordered.append(_replace_name_str(variable.derivative.name) + "_dot")
+                var_states_ordered.append(namespace_ + "." + _replace_name_str(variable.derivative.name))
+            else:
+                var_names_ordered_ns.append(namespace_ + "." + _replace_name_str(variable.name))
+                var_names_ordered.append(_replace_name_str(variable.name))
 
         fmu.enterContinuousTimeMode()
 
-        q1, equation_call_wrapper = generate_eval_llvm(idx_tuple_array, [('a_i_1', 'a1'), ('a_i_3', 'a3')])
+        q1, equation_call_wrapper = generate_eval_llvm(idx_tuple_array, [idx_tuple_array[i] for i in deriv_idx])
         module_func = ast.Module(body=[q1, equation_call_wrapper], type_ignores=[])
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"carray": carray, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q, "getreal": getreal,
@@ -174,8 +195,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         exec(code, namespace)
         equation_call = namespace["equation_call"]
 
-        q = generate_fmu_eval(['h', 'v', 'g', 'e'], ptr_tuple_array,
-                              [('a1_ptr', 'a1'), ('a3_ptr', 'a3')])
+        q = generate_fmu_eval(var_names_ordered, ptr_tuple_array,
+                              [ptr_tuple_array[i] for i in deriv_idx])
         module_func = ast.Module(body=[q], type_ignores=[])
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"NumerousFunction": NumerousFunction, "carray": carray,
@@ -190,7 +211,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             namespace.update({"a" + str(i) + "_ptr": ptr_var_array[i]})
         exec(code, namespace)
         self.fmu_eval = namespace["fmu_eval"]
-
+        ## only 1 event allowed in current version
         event_n = 1
 
         q, wrapper = generate_eval_event([0, 2], len_q)
@@ -207,7 +228,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         c = np.array([0], dtype=np.float64)
         c_ptr = c.ctypes.data
 
-        f1, f2 = generate_njit_event_cond(['t1.h', 't1.v'])
+        f1, f2 = generate_njit_event_cond(var_states_ordered)
         module_func = ast.Module(body=[f1, f2], type_ignores=[])
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval_2', mode='exec')
         namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np,
@@ -236,26 +257,15 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_info = fmi2EventInfo()
         q_ptr = ctypes.addressof(event_info)
 
-        a_e_0 = np.array([0], dtype=np.float64)
-        a_e_ptr_0 = a_e_0.ctypes.data
+        ae_vars = []
+        ae_ptrs = []
 
-        a_e_1 = np.array([0], dtype=np.float64)
-        a_e_ptr_1 = a_e_1.ctypes.data
+        for i in range(len_q):
+            a_e = np.array([0], dtype=np.float64)
+            ae_vars.append(a_e)
+            ae_ptrs.append(a_e.ctypes.data)
 
-        a_e_2 = np.array([0], dtype=np.float64)
-        a_e_ptr_2 = a_e_2.ctypes.data
-
-        a_e_3 = np.array([0], dtype=np.float64)
-        a_e_ptr_3 = a_e_3.ctypes.data
-
-        a_e_4 = np.array([0], dtype=np.float64)
-        a_e_ptr_4 = a_e_4.ctypes.data
-
-        a_e_5 = np.array([0], dtype=np.float64)
-        a_e_ptr_5 = a_e_5.ctypes.data
-
-        a1, b1 = generate_event_action(len_q, ['t1.h', 't1.v'],
-                                       ['t1.h', 't1.h_dot', 't1.v', 't1.v_dot', 't1.g', 't1.e'])
+        a1, b1 = generate_event_action(len_q, var_states_ordered, var_names_ordered_ns)
 
         module_func = ast.Module(body=[a1, b1], type_ignores=[])
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
@@ -265,42 +275,43 @@ class FMU_Subsystem(Subsystem, EquationBase):
                      "get_event_indicators": get_event_indicators, "event_ind_call": event_ind_call,
                      "njit": njit,
                      "address_as_void_pointer": address_as_void_pointer,
-                     "a_e_0": a_e_0,
-                     "a_e_1": a_e_1,
-                     "a_e_2": a_e_2,
-                     "a_e_3": a_e_3,
-                     "a_e_4": a_e_4,
-                     "a_e_5": a_e_5,
-                     "a_e_ptr_0": a_e_ptr_0,
-                     "a_e_ptr_1": a_e_ptr_1,
-                     "a_e_ptr_2": a_e_ptr_2,
-                     "a_e_ptr_3": a_e_ptr_3,
-                     "a_e_ptr_4": a_e_ptr_4,
-                     "a_e_ptr_5": a_e_ptr_5,
                      "completedIntegratorStep": completedIntegratorStep}
+
+        for i in range(len_q):
+            namespace.update({"a_e_" + str(i): ae_vars[i]})
+            namespace.update({"a_e_ptr_" + str(i): ae_ptrs[i]})
+
         exec(code, namespace)
         event_action = namespace["event_action"]
         event_action_2 = namespace["event_action_2"]
         event_action_2.lines = ast.unparse(ast.Module(body=[b1], type_ignores=[]))
-
-        self.t1 = self.create_namespace('t1')
+        gec = generate_eq_call(deriv_names_ordered, var_names_ordered)
+        code = compile(ast.parse(ast.unparse(gec)),
+                       filename='fmu_eval', mode='exec')
+        namespace = {"Equation": Equation}
+        exec(code, namespace)
+        result = namespace["eval"]
+        result.lines = ast.unparse(gec)
+        result.lineno = ast.parse(ast.unparse(gec)).body[0].lineno
+        self.eval = ptypes.MethodType(result, self)
+        self.equations.append(self.eval)
+        self.t1 = self.create_namespace(namespace_)
         self.t1.add_equations([self])
-        self.add_event("hitground_event", event_cond_2, event_action_2, compiled_functions={"event_cond": event_cond,
-                                                                                            "event_action": event_action})
-
-    @Equation()
-    def eval(self, scope):
-        scope.h_dot, scope.v_dot = self.fmu_eval(scope.h, scope.v, scope.g, scope.e)
+        self.add_event("event", event_cond_2, event_action_2, compiled_functions={"event_cond": event_cond,
+                                                                                  "event_action": event_action})
 
     def set_variables(self, model_description):
         for variable in model_description.modelVariables:
             if variable.initial == 'exact':
                 if variable.variability == 'fixed':
-                    self.add_constant(variable.name, float(variable.start))
+                    if variable.start != "DISABLED":
+                        self.add_constant(_replace_name_str(variable.name), float(variable.start))
+                    else:
+                        self.add_constant(_replace_name_str(variable.name), 0.0)
                 if variable.variability == 'continuous':
-                    self.add_state(variable.name, float(variable.start))
+                    self.add_state(_replace_name_str(variable.name), float(variable.start))
                 if variable.variability == 'tunable':
-                    self.add_parameter(variable.name, float(variable.start))
+                    self.add_parameter(_replace_name_str(variable.name), float(variable.start))
 
 
 class Test_Eq(EquationBase):
@@ -329,11 +340,11 @@ class S3(Subsystem):
 
         fmu_filename = 'bouncingBall.fmu'
         fmu_subsystem = FMU_Subsystem(fmu_filename, "BouncingBall")
-        fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2")
+        # fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2")
         # fmu_subsystem3 = FMU_Subsystem(fmu_filename, "BouncingBall3", h=1.5)
-        item_t = G('test', TG=10, RG=2)
-        item_t.t1.R = fmu_subsystem.t1.h
-        self.register_items([fmu_subsystem, fmu_subsystem2])
+        # item_t = G('test', TG=10, RG=2)
+        # item_t.t1.R = fmu_subsystem.t1.h
+        self.register_items([fmu_subsystem])
 
 
 subsystem1 = S3('q1')
@@ -347,11 +358,11 @@ sub_S.fmu.terminate()
 fig, ax = plt.subplots()
 # t = np.linspace(0, 1.0, 100 + 1)
 y = np.array(m1.historian_df["q1.BouncingBall.t1.h"])
-y2 = np.array(m1.historian_df["q1.BouncingBall2.t1.h"])
+# y2 = np.array(m1.historian_df["q1.BouncingBall2.t1.h"])
 # y3 = np.array(m1.historian_df["q1.BouncingBall3.t1.h"])
 t = np.array(m1.historian_df["time"])
 ax.plot(t, y)
-ax.plot(t, y2)
+# ax.plot(t, y2)
 # ax.plot(t, y3)
 
 ax.set(xlabel='time (s)', ylabel='h', title='BB')

@@ -480,7 +480,7 @@ def generate_event_action(len_q, states, variables):
                                                                                                      ast.arg(arg='y')],
                                                                                kwonlyargs=[], kw_defaults=[],
                                                                                defaults=[]),
-                                       body=body, decorator_list=[ast.Name(id='njit', ctx=ast.Load())],lineno=0)
+                                       body=body, decorator_list=[ast.Name(id='njit', ctx=ast.Load())], lineno=0)
 
     elts2 = []
 
@@ -500,8 +500,8 @@ def generate_event_action(len_q, states, variables):
         body2.append(ast.Assign(targets=[
             ast.Subscript(value=ast.Name(id='variables', ctx=ast.Load()), slice=ast.Constant(value=var_id),
                           ctx=ast.Store())],
-                                value=ast.Subscript(value=ast.Name(id='vars', ctx=ast.Load()),
-                                                    slice=ast.Constant(value=idx), ctx=ast.Load()), lineno=0))
+            value=ast.Subscript(value=ast.Name(id='vars', ctx=ast.Load()),
+                                slice=ast.Constant(value=idx), ctx=ast.Load()), lineno=0))
     event_action_fun_2 = ast.FunctionDef(name='event_action_2', args=ast.arguments(posonlyargs=[],
                                                                                    args=[ast.arg(arg='t'),
                                                                                          ast.arg(arg='variables')],
@@ -509,5 +509,30 @@ def generate_event_action(len_q, states, variables):
                                                                                    kw_defaults=[],
                                                                                    defaults=[]),
                                          body=body2,
-                                         decorator_list=[],lineno=0)
+                                         decorator_list=[], lineno=0)
     return event_action_fun, event_action_fun_2
+
+
+def generate_eq_call(deriv_names, var_names):
+    elts = []
+    for d_name in deriv_names:
+        elts.append(ast.Attribute(value=ast.Name(id='scope', ctx=ast.Load()), attr=d_name, ctx=ast.Store()))
+
+    args = []
+    for v_name in var_names:
+        args.append(ast.Attribute(value=ast.Name(id='scope', ctx=ast.Load()), attr=v_name, ctx=ast.Load()))
+
+    return ast.Module(body=[ast.FunctionDef(name='eval',
+                                            args=ast.arguments(posonlyargs=[],
+                                                               args=[ast.arg(arg='self'), ast.arg(arg='scope')],
+                                                               kwonlyargs=[],
+                                                               kw_defaults=[], defaults=[]),
+                                            body=[ast.Assign(targets=[ast.Tuple(
+                                                elts=elts, ctx=ast.Store())], value=ast.Call(
+                                                func=ast.Attribute(value=ast.Name(id='self', ctx=ast.Load()),
+                                                                   attr='fmu_eval', ctx=ast.Load()),
+                                                args=args, keywords=[]), lineno=0)],
+                                            decorator_list=[
+                                                ast.Call(func=ast.Name(id='Equation', ctx=ast.Load()), args=[],
+                                                         keywords=[])], lineno=0)],
+                      type_ignores=[])
