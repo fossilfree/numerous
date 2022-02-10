@@ -28,6 +28,7 @@ from numerous.engine.system.fmu_system_generator.utils import address_as_void_po
 
 
 def _replace_name_str(str_v):
+    print(str_v)
     return str_v.replace(".", "_").replace("[", "_").replace("]", "_")
 
 
@@ -311,6 +312,9 @@ class FMU_Subsystem(Subsystem, EquationBase):
                     self.add_state(_replace_name_str(variable.name), float(variable.start))
                 if variable.variability == 'tunable':
                     self.add_parameter(_replace_name_str(variable.name), float(variable.start))
+            else:
+                if not variable.derivative:
+                    self.add_parameter(_replace_name_str(variable.name), 0.0)
 
 
 class Test_Eq(EquationBase):
@@ -337,7 +341,7 @@ class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
 
-        fmu_filename = 'bouncingBall.fmu'
+        fmu_filename = 'Rectifier.fmu'
         fmu_subsystem = FMU_Subsystem(fmu_filename, "BouncingBall")
         # fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2")
         # fmu_subsystem3 = FMU_Subsystem(fmu_filename, "BouncingBall3", h=1.5)
@@ -356,12 +360,12 @@ sub_S.fmu.terminate()
 
 fig, ax = plt.subplots()
 # t = np.linspace(0, 1.0, 100 + 1)
-y = np.array(m1.historian_df["q1.BouncingBall.t1.h"])
+y = np.array(m1.historian_df["q1.BouncingBall.t1.f"])
 # y2 = np.array(m1.historian_df["q1.BouncingBall2.t1.h"])
 # y3 = np.array(m1.historian_df["q1.BouncingBall3.t1.h"])
 t = np.array(m1.historian_df["time"])
 ax.plot(t, y)
-# ax.plot(t, y2)
+ax.plot(t, y2)
 # ax.plot(t, y3)
 
 ax.set(xlabel='time (s)', ylabel='h', title='BB')
