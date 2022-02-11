@@ -41,7 +41,10 @@ def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs):
         dtype_kw = ast.Attribute(value=ast.Name(id=arr_id, ctx=ast.Load()), attr=DTYPE, ctx=ast.Load())
         _keywords = ast.keyword(arg=DTYPE, value=dtype_kw)
         return_elts.append(carray_call(add_address_as_void_pointer(zero_assign_ptr), shape, _keywords))
-    return_exp = [ast.Return(value=ast.Tuple(elts=return_elts), ctx=ast.Load())]
+    if len(return_elts)>1:
+        return_exp = [ast.Return(value=ast.Tuple(elts=return_elts), ctx=ast.Load())]
+    else:
+        return_exp = [ast.Return(value=return_elts[0], ctx=ast.Load())]
     decorator_list = [ast.Call(func=ast.Name(id=NUMEROUS_FUNCTION, ctx=ast.Load()), args=[], keywords=[])]
     return ast.FunctionDef(name='fmu_eval', args=args, body=zero_assigns + eq_expr + return_exp,
                            decorator_list=decorator_list, lineno=0)
@@ -518,6 +521,11 @@ def generate_eq_call(deriv_names, var_names):
     for d_name in deriv_names:
         elts.append(ast.Attribute(value=ast.Name(id='scope', ctx=ast.Load()), attr=d_name, ctx=ast.Store()))
 
+    if len(deriv_names)>1:
+        trg = [ast.Tuple(elts=elts, ctx=ast.Store())]
+    else:
+        trg = [elts[0]]
+
     args = []
     for v_name in var_names:
         args.append(ast.Attribute(value=ast.Name(id='scope', ctx=ast.Load()), attr=v_name, ctx=ast.Load()))
@@ -527,8 +535,7 @@ def generate_eq_call(deriv_names, var_names):
                                                                args=[ast.arg(arg='self'), ast.arg(arg='scope')],
                                                                kwonlyargs=[],
                                                                kw_defaults=[], defaults=[]),
-                                            body=[ast.Assign(targets=[ast.Tuple(
-                                                elts=elts, ctx=ast.Store())], value=ast.Call(
+                                            body=[ast.Assign(targets=trg, value=ast.Call(
                                                 func=ast.Attribute(value=ast.Name(id='self', ctx=ast.Load()),
                                                                    attr='fmu_eval', ctx=ast.Load()),
                                                 args=args, keywords=[]), lineno=0)],

@@ -28,7 +28,6 @@ from numerous.engine.system.fmu_system_generator.utils import address_as_void_po
 
 
 def _replace_name_str(str_v):
-    print(str_v)
     return str_v.replace(".", "_").replace("[", "_").replace("]", "_")
 
 
@@ -36,7 +35,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
     """
     """
 
-    def __init__(self, fmu_filename: str, tag: str):
+    def __init__(self, fmu_filename: str, tag: str, debug_output=False):
         super().__init__(tag)
         self.model_description = None
         input = None
@@ -189,6 +188,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         q1, equation_call_wrapper = generate_eval_llvm(idx_tuple_array, [idx_tuple_array[i] for i in deriv_idx])
         module_func = ast.Module(body=[q1, equation_call_wrapper], type_ignores=[])
+        if debug_output:
+            print(ast.unparse(module_func))
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"carray": carray, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q, "getreal": getreal,
                      "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
@@ -199,6 +200,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         q = generate_fmu_eval(var_names_ordered, ptr_tuple_array,
                               [ptr_tuple_array[i] for i in deriv_idx])
         module_func = ast.Module(body=[q], type_ignores=[])
+        if debug_output:
+            print(ast.unparse(module_func))
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"NumerousFunction": NumerousFunction, "carray": carray,
                      "address_as_void_pointer": address_as_void_pointer,
@@ -212,11 +215,12 @@ class FMU_Subsystem(Subsystem, EquationBase):
             namespace.update({"a" + str(i) + "_ptr": ptr_var_array[i]})
         exec(code, namespace)
         self.fmu_eval = namespace["fmu_eval"]
-        ## only 1 event allowed in current version
-        event_n = 1
+        event_n = model_description.numberOfEventIndicators
 
-        q, wrapper = generate_eval_event([0, 2], len_q)
+        q, wrapper = generate_eval_event([x - 1 for x in deriv_idx], len_q)
         module_func = ast.Module(body=[q, wrapper], type_ignores=[])
+        if debug_output:
+            print(ast.unparse(module_func))
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
                      "getreal": getreal,
@@ -231,6 +235,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         f1, f2 = generate_njit_event_cond(var_states_ordered)
         module_func = ast.Module(body=[f1, f2], type_ignores=[])
+        if debug_output:
+            print(ast.unparse(module_func))
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval_2', mode='exec')
         namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np,
                      "event_ind_call_1": event_ind_call_1,
@@ -245,6 +251,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         a, b = generate_action_event(len_q)
         module_func = ast.Module(body=[a, b], type_ignores=[])
+        if debug_output:
+            print(ast.unparse(module_func))
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
                      "getreal": getreal,
@@ -269,6 +277,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         a1, b1 = generate_event_action(len_q, var_states_ordered, var_names_ordered_ns)
 
         module_func = ast.Module(body=[a1, b1], type_ignores=[])
+        if debug_output:
+            print(ast.unparse(module_func))
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
                      "q_ptr": q_ptr,
@@ -287,7 +297,9 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_action_2 = namespace["event_action_2"]
         event_action_2.lines = ast.unparse(ast.Module(body=[b1], type_ignores=[]))
         gec = generate_eq_call(deriv_names_ordered, var_names_ordered)
-        code = compile(ast.parse(ast.unparse(gec)),filename='fmu_eval', mode='exec')
+        if debug_output:
+            print(ast.unparse(gec))
+        code = compile(ast.parse(ast.unparse(gec)), filename='fmu_eval', mode='exec')
         namespace = {"Equation": Equation}
         exec(code, namespace)
         result = namespace["eval"]
@@ -305,7 +317,12 @@ class FMU_Subsystem(Subsystem, EquationBase):
             if variable.initial == 'exact':
                 if variable.variability == 'fixed':
                     if variable.start != "DISABLED":
-                        self.add_constant(_replace_name_str(variable.name), float(variable.start))
+                        if isinstance(variable.start, bool):
+                            start = int(variable.start is True)
+                        else:
+                            start = float(variable.start)
+
+                        self.add_constant(_replace_name_str(variable.name), start)
                     else:
                         self.add_constant(_replace_name_str(variable.name), 0.0)
                 if variable.variability == 'continuous':
@@ -341,8 +358,10 @@ class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
 
-        fmu_filename = 'Rectifier.fmu'
-        fmu_subsystem = FMU_Subsystem(fmu_filename, "BouncingBall")
+        fmu_filename = 'Dahlquist.fmu'
+        fmu_subsystem = FMU_Subsystem(fmu_filename, "VanDerPol", debug_output=True)
+        # fmu_filename = 'bouncingBall.fmu'
+        # fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2", debug_output=True)
         # fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2")
         # fmu_subsystem3 = FMU_Subsystem(fmu_filename, "BouncingBall3", h=1.5)
         # item_t = G('test', TG=10, RG=2)
@@ -351,21 +370,22 @@ class S3(Subsystem):
 
 
 subsystem1 = S3('q1')
-m1 = Model(subsystem1, use_llvm=True)
+m1 = Model(subsystem1, use_llvm=False)
 s = Simulation(
-    m1, t_start=0, t_stop=1.0, num=500, num_inner=100, max_step=.1, solver_type=SolverType.NUMEROUS)
-sub_S = m1.system.get_item(ItemPath("q1.BouncingBall"))
+    m1, t_start=0, t_stop=10, num=100, num_inner=100, max_step=.1, solver_type=SolverType.SOLVER_IVP)
+# sub_S = m1.system.get_item(ItemPath("q1.BouncingBall"))
 s.solve()
-sub_S.fmu.terminate()
+# sub_S.fmu.terminate()
 
 fig, ax = plt.subplots()
 # t = np.linspace(0, 1.0, 100 + 1)
-y = np.array(m1.historian_df["q1.BouncingBall.t1.f"])
+y = np.array(m1.historian_df["q1.VanDerPol.t1.x"])
+# y2 = np.array(m1.historian_df["q1.VanDerPol.t1.x1"])
 # y2 = np.array(m1.historian_df["q1.BouncingBall2.t1.h"])
 # y3 = np.array(m1.historian_df["q1.BouncingBall3.t1.h"])
 t = np.array(m1.historian_df["time"])
 ax.plot(t, y)
-ax.plot(t, y2)
+# ax.plot(t, y2)
 # ax.plot(t, y3)
 
 ax.set(xlabel='time (s)', ylabel='h', title='BB')
