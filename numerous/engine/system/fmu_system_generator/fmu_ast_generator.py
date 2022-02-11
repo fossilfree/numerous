@@ -33,6 +33,7 @@ def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs):
         eq_call_args.append(ast.Name(id=arg_id, ctx=ast.Load()))
 
     eq_call_args.append(ast.Constant(value=0.1))
+    # eq_expr__ = [ast.Expr(value=ast.Call(func=ast.Name(id='print', ctx=ast.Load()), args=[ast.Name(id='x1', ctx=ast.Load())], keywords=[]))]
     eq_expr = [ast.Expr(value=ast.Call(func=ast.Name(id=EQ_CALL), args=eq_call_args, keywords=[], ctx=ast.Load()),
                         keywords=[])]
     return_elts = []
@@ -41,7 +42,7 @@ def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs):
         dtype_kw = ast.Attribute(value=ast.Name(id=arr_id, ctx=ast.Load()), attr=DTYPE, ctx=ast.Load())
         _keywords = ast.keyword(arg=DTYPE, value=dtype_kw)
         return_elts.append(carray_call(add_address_as_void_pointer(zero_assign_ptr), shape, _keywords))
-    if len(return_elts)>1:
+    if len(return_elts) > 1:
         return_exp = [ast.Return(value=ast.Tuple(elts=return_elts), ctx=ast.Load())]
     else:
         return_exp = [ast.Return(value=return_elts[0], ctx=ast.Load())]
@@ -81,7 +82,7 @@ def _generate_pointer(attr):
     return ast.Attribute(value=ast.Name(id='types', ctx=ast.Load()), attr=attr, ctx=ast.Load())
 
 
-def generate_eval_llvm(assign_ptrs, output_args):
+def generate_eval_llvm(assign_ptrs, output_args, states_idx):
     args_lst = [ast.arg(arg="event"), ast.arg(arg="term")]
     output_args_as_list = [item for t in output_args for item in t]
     for assign_ptr, arr_id in assign_ptrs:
@@ -134,6 +135,24 @@ def generate_eval_llvm(assign_ptrs, output_args):
                                               ast.Name(id='len_q', ctx=ast.Load()),
                                               ast.Attribute(value=ast.Name(id='value1', ctx=ast.Load()),
                                                             attr='ctypes', ctx=ast.Load())], keywords=[])))
+
+    args_ = []
+    for state_idx in states_idx:
+        args_.append(ast.Name(id=assign_ptrs[state_idx][0], ctx=ast.Load()))
+    body.append(ast.Assign(targets=[ast.Name(id='value3', ctx=ast.Store())],
+                           value=ast.Call(func=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='array',
+                                                             ctx=ast.Load()),
+                                          args=[ast.List(elts=args_, ctx=ast.Load())],
+                                          keywords=[ast.keyword(arg='dtype', value=ast.Attribute(
+                                              value=ast.Name(id='np', ctx=ast.Load()), attr='float64',
+                                              ctx=ast.Load()))]),lineno=0))
+
+    body.append(ast.Expr(value=ast.Call(func=ast.Name(id='fmi2SetC', ctx=ast.Load()),
+                                        args=[ast.Name(id='component', ctx=ast.Load()),
+                                              ast.Attribute(value=ast.Name(id='value3', ctx=ast.Load()),
+                                                            attr='ctypes', ctx=ast.Load()),
+                                              ast.Constant(value=len(states_idx))], keywords=[])))
+
     body.append(ast.Expr(value=ast.Call(func=ast.Name(id='set_time', ctx=ast.Load()),
                                         args=[ast.Name(id='component', ctx=ast.Load()),
                                               ast.Name(id='t', ctx=ast.Load())], keywords=[])))
@@ -521,7 +540,7 @@ def generate_eq_call(deriv_names, var_names):
     for d_name in deriv_names:
         elts.append(ast.Attribute(value=ast.Name(id='scope', ctx=ast.Load()), attr=d_name, ctx=ast.Store()))
 
-    if len(deriv_names)>1:
+    if len(deriv_names) > 1:
         trg = [ast.Tuple(elts=elts, ctx=ast.Store())]
     else:
         trg = [elts[0]]

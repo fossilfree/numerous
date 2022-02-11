@@ -126,6 +126,10 @@ class FMU_Subsystem(Subsystem, EquationBase):
         set_time.argtypes = [ctypes.c_void_p, ctypes.c_double]
         set_time.restype = ctypes.c_int
 
+        fmi2SetC = getattr(fmu.dll, "fmi2SetContinuousStates")
+        fmi2SetC.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint]
+        fmi2SetC.restype = ctypes.c_uint
+
         fmi2SetReal = getattr(fmu.dll, "fmi2SetReal")
         fmi2SetReal.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p]
         fmi2SetReal.restype = ctypes.c_uint
@@ -186,16 +190,18 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         fmu.enterContinuousTimeMode()
 
-        q1, equation_call_wrapper = generate_eval_llvm(idx_tuple_array, [idx_tuple_array[i] for i in deriv_idx])
+        q1, equation_call_wrapper = generate_eval_llvm(idx_tuple_array, [idx_tuple_array[i] for i in deriv_idx],
+                                                       [x - 1 for x in deriv_idx])
         module_func = ast.Module(body=[q1, equation_call_wrapper], type_ignores=[])
         if debug_output:
             print(ast.unparse(module_func))
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"carray": carray, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q, "getreal": getreal,
-                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
+                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,"fmi2SetC":fmi2SetC,
                      "completedIntegratorStep": completedIntegratorStep}
         exec(code, namespace)
         equation_call = namespace["equation_call"]
+
 
         q = generate_fmu_eval(var_names_ordered, ptr_tuple_array,
                               [ptr_tuple_array[i] for i in deriv_idx])
@@ -214,6 +220,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             namespace.update({"a" + str(i): var_array[i]})
             namespace.update({"a" + str(i) + "_ptr": ptr_var_array[i]})
         exec(code, namespace)
+
         self.fmu_eval = namespace["fmu_eval"]
         event_n = model_description.numberOfEventIndicators
 
@@ -297,20 +304,14 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_action_2 = namespace["event_action_2"]
         event_action_2.lines = ast.unparse(ast.Module(body=[b1], type_ignores=[]))
         gec = generate_eq_call(deriv_names_ordered, var_names_ordered)
-        if debug_output:
-            print(ast.unparse(gec))
-        code = compile(ast.parse(ast.unparse(gec)), filename='fmu_eval', mode='exec')
-        namespace = {"Equation": Equation}
-        exec(code, namespace)
-        result = namespace["eval"]
-        result.lines = ast.unparse(gec)
-        result.lineno = ast.parse(ast.unparse(gec)).body[0].lineno
-        self.eval = ptypes.MethodType(result, self)
-        self.equations.append(self.eval)
         self.t1 = self.create_namespace(namespace_)
         self.t1.add_equations([self])
         self.add_event("event", event_cond_2, event_action_2, compiled_functions={"event_cond": event_cond,
                                                                                   "event_action": event_action})
+
+    @Equation()
+    def eval(self, scope):
+            (scope.x0_dot, scope.x1_dot) = self.fmu_eval(scope.x0, scope.x1, scope.mu)
 
     def set_variables(self, model_description):
         for variable in model_description.modelVariables:
@@ -358,7 +359,7 @@ class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
 
-        fmu_filename = 'Dahlquist.fmu'
+        fmu_filename = 'VanDerPol.fmu'
         fmu_subsystem = FMU_Subsystem(fmu_filename, "VanDerPol", debug_output=True)
         # fmu_filename = 'bouncingBall.fmu'
         # fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2", debug_output=True)
@@ -379,7 +380,7 @@ s.solve()
 
 fig, ax = plt.subplots()
 # t = np.linspace(0, 1.0, 100 + 1)
-y = np.array(m1.historian_df["q1.VanDerPol.t1.x"])
+y = np.array(m1.historian_df["q1.VanDerPol.t1.x1"])
 # y2 = np.array(m1.historian_df["q1.VanDerPol.t1.x1"])
 # y2 = np.array(m1.historian_df["q1.BouncingBall2.t1.h"])
 # y3 = np.array(m1.historian_df["q1.BouncingBall3.t1.h"])
