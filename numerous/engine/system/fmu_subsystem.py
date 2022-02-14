@@ -174,6 +174,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             idx_tuple_array.append(("a_i_" + str(i), 'a' + str(i)))
             ptr_tuple_array.append(("a" + str(i) + "_ptr", 'a' + str(i)))
         deriv_idx = []
+        states_idx = []
         var_names_ordered = []
         var_states_ordered = []
         var_names_ordered_ns = []
@@ -181,6 +182,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         for idx, variable in enumerate(model_description.modelVariables):
             if variable.derivative:
                 deriv_idx.append(idx)
+                states_idx.append([(index, x) for index, x in enumerate(model_description.modelVariables) if
+                                   x.name == variable.derivative.name][0][0])
                 var_names_ordered_ns.append(namespace_ + "." + _replace_name_str(variable.derivative.name) + "_dot")
                 deriv_names_ordered.append(_replace_name_str(variable.derivative.name) + "_dot")
                 var_states_ordered.append(namespace_ + "." + _replace_name_str(variable.derivative.name))
@@ -191,17 +194,16 @@ class FMU_Subsystem(Subsystem, EquationBase):
         fmu.enterContinuousTimeMode()
 
         q1, equation_call_wrapper = generate_eval_llvm(idx_tuple_array, [idx_tuple_array[i] for i in deriv_idx],
-                                                       [x - 1 for x in deriv_idx])
+                                                       states_idx)
         module_func = ast.Module(body=[q1, equation_call_wrapper], type_ignores=[])
         if debug_output:
             print(ast.unparse(module_func))
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"carray": carray, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q, "getreal": getreal,
-                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,"fmi2SetC":fmi2SetC,
+                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time, "fmi2SetC": fmi2SetC,
                      "completedIntegratorStep": completedIntegratorStep}
         exec(code, namespace)
         equation_call = namespace["equation_call"]
-
 
         q = generate_fmu_eval(var_names_ordered, ptr_tuple_array,
                               [ptr_tuple_array[i] for i in deriv_idx])
@@ -224,7 +226,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         self.fmu_eval = namespace["fmu_eval"]
         event_n = model_description.numberOfEventIndicators
 
-        q, wrapper = generate_eval_event([x - 1 for x in deriv_idx], len_q)
+        q, wrapper = generate_eval_event(states_idx, len_q)
         module_func = ast.Module(body=[q, wrapper], type_ignores=[])
         if debug_output:
             print(ast.unparse(module_func))
@@ -339,65 +341,3 @@ class FMU_Subsystem(Subsystem, EquationBase):
             else:
                 if not variable.derivative:
                     self.add_parameter(_replace_name_str(variable.name), 0.0)
-
-
-class Test_Eq(EquationBase):
-    __test__ = False
-
-    def __init__(self, T=0, R=1):
-        super().__init__(tag='T_eq')
-        self.add_state('Q', T)
-        self.add_parameter('R', R)
-
-    @Equation()
-    def eval(self, scope):
-        scope.Q_dot = scope.R + 9
-
-
-class G(Item):
-    def __init__(self, tag, TG, RG):
-        super().__init__(tag)
-        t1 = self.create_namespace('t1')
-        t1.add_equations([Test_Eq(T=TG, R=RG)])
-
-
-class S3(Subsystem):
-    def __init__(self, tag):
-        super().__init__(tag)
-
-        fmu_filename = 'bouncingBall.fmu'
-        fmu_subsystem = FMU_Subsystem(fmu_filename, "VanDerPol", debug_output=True)
-        # fmu_filename = 'bouncingBall.fmu'
-        # fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2", debug_output=True)
-        # fmu_subsystem2 = FMU_Subsystem(fmu_filename, "BouncingBall2")
-        # fmu_subsystem3 = FMU_Subsystem(fmu_filename, "BouncingBall3", h=1.5)
-        # item_t = G('test', TG=10, RG=2)
-        # item_t.t1.R = fmu_subsystem.t1.h
-        self.register_items([fmu_subsystem])
-
-
-subsystem1 = S3('q1')
-m1 = Model(subsystem1, use_llvm=False)
-s = Simulation(
-    m1, t_start=0, t_stop=1, num=100, num_inner=100, max_step=.1, solver_type=SolverType.SOLVER_IVP)
-# sub_S = m1.system.get_item(ItemPath("q1.BouncingBall"))
-s.solve()
-# sub_S.fmu.terminate()
-
-fig, ax = plt.subplots()
-# t = np.linspace(0, 1.0, 100 + 1)
-y = np.array(m1.historian_df["q1.VanDerPol.t1.h"])
-# y2 = np.array(m1.historian_df["q1.VanDerPol.t1.x1"])
-# y2 = np.array(m1.historian_df["q1.BouncingBall2.t1.h"])
-# y3 = np.array(m1.historian_df["q1.BouncingBall3.t1.h"])
-t = np.array(m1.historian_df["time"])
-ax.plot(t, y)
-# ax.plot(t, y2)
-# ax.plot(t, y3)
-
-ax.set(xlabel='time (s)', ylabel='h', title='BB')
-ax.grid()
-
-plt.show()
-
-print("execution finished")
