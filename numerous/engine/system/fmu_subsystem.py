@@ -225,7 +225,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         self.fmu_eval = namespace["fmu_eval"]
         event_n = model_description.numberOfEventIndicators
-
         q, wrapper = generate_eval_event(states_idx, len_q)
         module_func = ast.Module(body=[q, wrapper], type_ignores=[])
         if debug_output:
@@ -323,6 +322,12 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
     def set_variables(self, model_description):
         for variable in model_description.modelVariables:
+            if variable.derivative:
+                if variable.derivative.start:
+                    start = variable.derivative.start
+                else:
+                    start =0
+                self.add_state(_replace_name_str(variable.derivative.name), float(start))
             if variable.initial == 'exact':
                 if variable.variability == 'fixed':
                     if variable.start != "DISABLED":
@@ -330,12 +335,9 @@ class FMU_Subsystem(Subsystem, EquationBase):
                             start = int(variable.start is True)
                         else:
                             start = float(variable.start)
-
                         self.add_constant(_replace_name_str(variable.name), start)
                     else:
                         self.add_constant(_replace_name_str(variable.name), 0.0)
-                if variable.variability == 'continuous':
-                    self.add_state(_replace_name_str(variable.name), float(variable.start))
                 if variable.variability == 'tunable':
                     self.add_parameter(_replace_name_str(variable.name), float(variable.start))
             else:

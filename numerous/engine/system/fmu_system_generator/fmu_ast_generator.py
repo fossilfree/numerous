@@ -331,8 +331,8 @@ def generate_njit_event_cond(states):
 
     args = [ast.Name(id='temp_addr', ctx=ast.Load()), ast.Name(id='t', ctx=ast.Load())]
 
-    for _ in states:
-        args.append(ast.Subscript(value=ast.Name(id='y', ctx=ast.Load()), slice=ast.Constant(value=0), ctx=ast.Load()))
+    for idx,_ in enumerate(states):
+        args.append(ast.Subscript(value=ast.Name(id='y', ctx=ast.Load()), slice=ast.Constant(value=idx), ctx=ast.Load()))
 
     body.append(ast.Expr(
         value=ast.Call(func=ast.Name(id='event_ind_call_1', ctx=ast.Load()),
