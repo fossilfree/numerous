@@ -238,8 +238,10 @@ class FMU_Subsystem(Subsystem, EquationBase):
         exec(code, namespace)
         event_ind_call_1 = namespace["event_ind_call_1"]
 
-        c = np.array([0], dtype=np.float64)
+        c = np.zeros(shape=event_n)
         c_ptr = c.ctypes.data
+        for i in range(event_n):
+            pass
 
         f1, f2 = generate_njit_event_cond(var_states_ordered)
         module_func = ast.Module(body=[f1, f2], type_ignores=[])
