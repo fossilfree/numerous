@@ -18,10 +18,10 @@ def generate_event_condition_ast(event_functions: list[NumerousEvent],
 
     for event in event_functions:
         directions_array.append(event.direction)
-        body.append(event.condition)
+        body.append(event.condition_full)
         body.append(ast.Expr(value=ast.Call(
             func=ast.Attribute(value=ast.Name(id=array_label, ctx=ast.Load()), attr='append', ctx=ast.Load()),
-            args=[ast.Call(func=ast.Name(id=event.condition.name, ctx=ast.Load()),
+            args=[ast.Call(func=ast.Name(id=event.condition_full.name, ctx=ast.Load()),
                            args=[ast.Name(id='t', ctx=ast.Load()), ast.Name(id='states', ctx=ast.Load())],
                            keywords=[])], keywords=[])))
 

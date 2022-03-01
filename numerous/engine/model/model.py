@@ -570,10 +570,10 @@ class Model:
         return ""
 
     def add_event(self, key, condition, action, terminal=True, direction=-1, compiled=False):
-        condition = _replace_path_strings(self, condition, "state")
-
+        condition_full = _replace_path_strings(self, condition, "var")
+        condition = condition_full
         action = _replace_path_strings(self, action, "var")
-        event = NumerousEvent(key, condition, action, compiled, terminal, direction)
+        event = NumerousEvent(key, condition, action, compiled, terminal, direction, condition_full)
         self.events.append(event)
 
     def add_timestamp_event(self, key, action, timestamps):

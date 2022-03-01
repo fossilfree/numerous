@@ -1,7 +1,8 @@
 class NumerousEvent:
-    def __init__(self, key, condition, action, compiled, terminal, direction):
+    def __init__(self, key, condition, action, compiled, terminal, direction, condition_full=None):
         self.key = key
         self.condition = condition
+        self.condition_full = condition_full
         self.action = action
         self.compiled = compiled
         self.direction = direction

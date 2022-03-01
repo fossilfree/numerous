@@ -41,7 +41,14 @@ class Numerous_solver(BaseSolver):
 
         self.timestamps_actions = timestamp_events[0][0]
         # events value
-        self.g = self.events(time_[0], y0)
+        def get_variables_modified(y_):
+            old_states = numba_model.get_states()
+            numba_model.set_states(y_)
+            vars = numba_model.read_variables()
+            numba_model.set_states(old_states)
+            return vars
+
+        self.g = self.events(time_[0], get_variables_modified(y0))
 
         self.time = time_
         self.model = model
@@ -84,10 +91,9 @@ class Numerous_solver(BaseSolver):
             self._solve = self.generate_solver()
 
     def generate_solver(self):
-        def _solve(numba_model, _solve_state, initial_step, order, order_, roller, strict_eval, outer_itermax,
-                   min_step, max_step, step_integrate_, events, actions, g, number_of_events, event_directions,
-                   timestamps, timestamp_actions,
-                   t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
+        def _solve(numba_model, _solve_state, initial_step, order, order_, roller, strict_eval, outer_itermax, min_step,
+                   max_step, step_integrate_, events, actions, g, number_of_events, event_directions, timestamps,
+                   timestamp_actions, t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
             # Init t to t0
             imax = 100
             step_info = 0
@@ -228,13 +234,23 @@ class Numerous_solver(BaseSolver):
                         yi[i] = np.interp(t, tv, yvi)
                     return yi
 
+                def get_variables_modified(y_):
+                    old_states = numba_model.get_states()
+                    numba_model.set_states(y_)
+                    vars = numba_model.read_variables()
+                    numba_model.set_states(old_states)
+                    return vars
+
                 def check_event(event_fun, ix, t_previous, y_previous, t, y, t_next_eval):
                     t_l = t_previous
                     y_l = y_previous
-                    e_l = event_fun(t_l, y_l)[ix]
+                    #e_l = event_fun(t_l, y_l)[ix]
+                    e_l = event_fun(t_l, get_variables_modified(y_l))[ix]
+                    #print(e_l)
+                    #print(e_l2)
                     t_r = t
                     y_r = y
-                    e_r = event_fun(t_r, y_r)[ix]
+                    e_r = event_fun(t_r, get_variables_modified(y_r))[ix]
                     status = 0
                     if np.sign(e_l) == np.sign(e_r):
                         return status, t, y
@@ -243,7 +259,7 @@ class Numerous_solver(BaseSolver):
                     y_m = sol(t_m, t, y)
 
                     while status == 0:  # bisection method
-                        e_m = event_fun(t_m, y_m)[ix]
+                        e_m = event_fun(t_m, get_variables_modified(y_m))[ix]
                         if np.sign(e_l) != np.sign(e_m):
                             t_r = t_m
                         elif np.sign(e_r) != np.sign(e_m):
@@ -258,14 +274,14 @@ class Numerous_solver(BaseSolver):
                     return status, t_m, y_m
 
                 if step_converged:
-                    g_new = events(t, y)
+                    g_new = events(t, get_variables_modified(y))
                     up = (g <= 0) & (g_new >= 0) & (event_directions == 1)
                     down = (g >= 0) & (g_new <= 0) & (event_directions == -1)
                     g = g_new
 
                     for ix in np.concatenate((np.argwhere(up), np.argwhere(down))):
-                        status, t_event, y_event = check_event(events, ix[0],
-                                                               t_previous, y_previous, t, y, t_next_eval)
+                        status, t_event, y_event = check_event(events, ix[0], t_previous, y_previous, t, y,
+                                                               t_next_eval)
                         t_events[ix[0]] = t_event
                         y_events[:, ix[0]] = y_event
 
@@ -274,7 +290,7 @@ class Numerous_solver(BaseSolver):
                     event_ix = np.argmin(t_events)
                     t_event = t_events[event_ix]
                     y_event = y_events[:, event_ix]
-                    g = events(t_event, y_event)
+                    g = events(t_event, get_variables_modified(y_event))
 
                 if not event_trigger and step_converged:
                     y_previous = y
