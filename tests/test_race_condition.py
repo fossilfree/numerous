@@ -76,7 +76,7 @@ def analytical(tvec, o, a, dt):
 
 
 @pytest.mark.parametrize("use_llvm", [True,False])
-def test_race_condition_1(solver, use_llvm):
+def test_race_condition_1(use_llvm):
     omega0 = 0.01
     dt = 10
     s1 = System(item=Link(item1=Item1(omega=omega0)),tag='system_race_1')
