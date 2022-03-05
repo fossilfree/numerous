@@ -61,6 +61,7 @@ def ms1(simple_item):
 def hitground_event_fun(t, variables):
     return variables['S1.ball.t1.x']
 
+
 def hitground_event_fun_g(t, variables):
     return variables['S1.ball.t1.x'] * (variables['S1.ball.t1.g']/variables['S1.ball.t1.g'])
 
