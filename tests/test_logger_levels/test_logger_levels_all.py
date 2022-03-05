@@ -49,17 +49,15 @@ def sigmoidlike(t):
     return 1 / (1 + np.exp(2 * t))
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_logger_levels(solver, use_llvm):
+def test_logger_levels(use_llvm):
     num = 100
     t_stop = 100
     t_start = 0
     sys = TestLogSubsystem1()
     model = Model(sys, logger_level=ALL, use_llvm=use_llvm)
     tvec = np.linspace(t_start, t_stop, num + 1, dtype=np.float64)
-    sim = Simulation(model, t_start=t_start, t_stop=t_stop, num=num, num_inner=1, solver_type=solver,
-                     rtol=1e-8, atol=1e-8)
+    sim = Simulation(model, t_start=t_start, t_stop=t_stop, num=num, num_inner=1, rtol=1e-8, atol=1e-8)
     sim.solve()
 
     df = sim.model.historian_df

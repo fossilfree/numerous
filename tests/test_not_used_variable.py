@@ -48,11 +48,10 @@ def ms4(simple_item):
     return S1('S1_var')
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_var_not_used(ms4, solver, use_llvm):
+def test_var_not_used(ms4, use_llvm):
     m1 = Model(ms4,use_llvm=use_llvm)
-    s1 = Simulation(m1, t_start=0, t_stop=100, num=10, solver_type=solver)
+    s1 = Simulation(m1, t_start=0, t_stop=100, num=10)
     s1.solve()
     df = s1.model.historian_df
     assert approx(np.array(df['S1_var.test_item.t1.P2'])) == np.repeat(11, (11))

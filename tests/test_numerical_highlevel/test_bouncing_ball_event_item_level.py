@@ -84,13 +84,12 @@ def ms1(simple_item):
     return S1('S1')
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_bouncing_ball(solver, use_llvm):
+def test_bouncing_ball(use_llvm):
     model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
     m1 = Model(model_system_2, use_llvm=use_llvm)
 
-    sim = Simulation(m1, t_start=0, t_stop=tmax, num=num, solver_type=solver)
+    sim = Simulation(m1, t_start=0, t_stop=tmax, num=num)
 
     sim.solve()
     asign = np.sign(np.array(m1.historian_df['S1.ball.t1.v']))
@@ -99,13 +98,12 @@ def test_bouncing_ball(solver, use_llvm):
     assert approx(m1.historian_df['time'][args[0::2][:5]], rel=0.01) == t_hits[:5]
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_timetamp_item_event(solver, use_llvm, capsys):
+def test_timetamp_item_event(use_llvm, capsys):
     model_system_2 = ms1(Ball2(tag="ball", g=9.81, f_loss=0.05))
     m1 = Model(model_system_2, use_llvm=use_llvm)
 
-    sim = Simulation(m1, t_start=0, t_stop=tmax, num=num, solver_type=solver)
+    sim = Simulation(m1, t_start=0, t_stop=tmax, num=num)
 
     sim.solve()
     captured = capsys.readouterr()

@@ -72,29 +72,28 @@ class IfSystem(Subsystem):
         self.register_items([item])
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_if_statement_if_body_executed(solver, use_llvm):
+def test_external_if_statement_if_body_executed(use_llvm):
     model_ = model.Model(IfSystem('if_system1', IfTest2('tm1')), use_llvm=use_llvm)
-    s = simulation.Simulation(model_, solver_type=solver, t_start=0, t_stop=10.0, num=10, num_inner=10)
+    s = simulation.Simulation(model_, t_start=0, t_stop=10.0, num=10, num_inner=10)
     s.solve()
     expected_ti4 = -95
     assert s.model.historian_df['if_system1.tm1.test_nm.T_i4'][1] == expected_ti4
 
-@pytest.mark.parametrize("solver", solver_types)
+
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_if_statement_if_else_executed(solver, use_llvm):
+def test_external_if_statement_if_else_executed(use_llvm):
     model_ = model.Model(IfSystem('if_system2', IfTest3('tm1')), use_llvm=use_llvm)
-    s = simulation.Simulation(model_, solver_type=solver, t_start=0, t_stop=10.0, num=10, num_inner=10)
+    s = simulation.Simulation(model_, t_start=0, t_stop=10.0, num=10, num_inner=10)
     s.solve()
     expected_ti4 = 1
     assert s.model.historian_df['if_system2.tm1.test_nm.T_i4'][1] == expected_ti4
 
-@pytest.mark.parametrize("solver", solver_types)
+
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_if_statement_if_else_executed_additional_var(solver, use_llvm):
+def test_external_if_statement_if_else_executed_additional_var(use_llvm):
     model_ = model.Model(IfSystem('if_system3', IfTest4('tm1')), use_llvm=use_llvm)
-    s = simulation.Simulation(model_, solver_type=solver, t_start=0, t_stop=10.0, num=10, num_inner=10)
+    s = simulation.Simulation(model_, t_start=0, t_stop=10.0, num=10, num_inner=10)
     s.solve()
     expected_ti4 = 1
     assert s.model.historian_df['if_system3.tm1.test_nm.T_i4'][1] == expected_ti4

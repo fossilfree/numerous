@@ -75,16 +75,15 @@ def analytical(tvec, o, a, dt):
     return s, s_delayed
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True,False])
-def test_race_condition_1(solver,use_llvm):
+def test_race_condition_1(solver, use_llvm):
     omega0 = 0.01
     dt = 10
     s1 = System(item=Link(item1=Item1(omega=omega0)),tag='system_race_1')
     s2 = System(item=Item2(omega=omega0),tag='system_race_2')
 
     m1 = Model(s1,use_llvm=use_llvm)
-    sim1 = Simulation(m1, max_step=dt, num=500, solver_type=solver)
+    sim1 = Simulation(m1, num=500, max_step=dt)
 
 
     sim1.solve()
@@ -92,7 +91,7 @@ def test_race_condition_1(solver,use_llvm):
     df1 = sim1.model.historian_df
 
     m2 = Model(s2, use_llvm=use_llvm)
-    sim2 = Simulation(m2, max_step=dt, num=500, solver_type=solver)
+    sim2 = Simulation(m2, num=500, max_step=dt)
     sim2.solve()
     df2 = sim2.model.historian_df
 

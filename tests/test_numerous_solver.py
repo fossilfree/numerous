@@ -59,7 +59,7 @@ def simulation(model: Model, variables: variables):
     def fn(solver: SolverType, method: str):
 
         model.update_variables(variables)
-        sim = Simulation(model, t_start=0, t_stop=1000, num=1000, solver_type=solver, method=method)
+        sim = Simulation(model, t_start=0, t_stop=1000, num=1000, method=method)
         sim.reset()
         sim.model.historian_df = None
         return sim

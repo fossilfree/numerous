@@ -55,7 +55,5 @@ if __name__ == "__main__":
 
     subsystem = SimpleSystem('system', k=.1, n=2, x0=[0, 0])
     # Define simulation
-    s = simulation.Simulation(
-        model.Model(subsystem),
-        t_start=0, t_stop=1, num=100, num_inner=100, max_step=1,use_llvm=True, save_to_file=True
-    )
+    s = simulation.Simulation(model.Model(subsystem), t_start=0, t_stop=1, num=100, num_inner=100, max_step=1,
+                              use_llvm=True, save_to_file=True)

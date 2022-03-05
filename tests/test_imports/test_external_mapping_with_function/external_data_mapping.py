@@ -27,12 +27,11 @@ class DynamicDataSystem(Subsystem):
         self.register_items([DynamicDataTest('tm1')])
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_mapping(solver, use_llvm):
+def test_external_mapping(use_llvm):
     model_ = model.Model(DynamicDataSystem('system'), imports=[("external_data_functions", "h_test")],
                          use_llvm=use_llvm)
-    s = simulation.Simulation(model_, solver_type=solver, t_start=0, t_stop=10.0, num=10, num_inner=10)
+    s = simulation.Simulation(model_, t_start=0, t_stop=10.0, num=10, num_inner=10)
     s.solve()
     expected = 106.0
     assert s.model.historian_df['system.tm1.test_nm.T_i1'][1] == expected
