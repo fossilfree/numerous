@@ -570,8 +570,7 @@ class Model:
         return ""
 
     def add_event(self, key, condition, action, terminal=True, direction=-1, compiled=False):
-        condition = _replace_path_strings(self, condition, "state")
-
+        condition = _replace_path_strings(self, condition, "var")
         action = _replace_path_strings(self, action, "var")
         event = NumerousEvent(key, condition, action, compiled, terminal, direction)
         self.events.append(event)
@@ -595,34 +594,14 @@ class Model:
             i = 1
         self.add_timestamp_event("mock", action, [-1])
 
-    def generate_event_condition_ast(self, is_numerous_solver: bool) -> tuple[list[CPUDispatcher], npt.ArrayLike]:
-        if len(self.events) == 0 and is_numerous_solver:
+    def generate_event_condition_ast(self) -> tuple[list[CPUDispatcher], npt.ArrayLike]:
+        if len(self.events) == 0:
             self.generate_mock_event()
-        if is_numerous_solver:
-            return generate_event_condition_ast(self.events, self.imports.from_imports)
-        else:
-            result = []
-            directions = []
-            for event in self.events:
-                if event.compiled:
-                    compiled_event = event
-                else:
-                    compiled_event = njit_and_compile_function(event.condition, self.imports.from_imports)
-                compiled_event.terminal = event.terminal
-                compiled_event.direction = event.direction
-                directions.append(event.direction)
-                result.append(compiled_event)
-            return result, np.array(directions)
+        return generate_event_condition_ast(self.events, self.imports.from_imports)
 
-    def generate_event_action_ast(self, events, is_numerous_solver: bool) -> list[CPUDispatcher]:
-        if is_numerous_solver:
-            return [generate_event_action_ast(events, self.imports.from_imports)]
-        else:
-            result = []
-            for event in events:
-                compiled_event = njit_and_compile_function(event.action, self.imports.from_imports)
-                result.append(compiled_event)
-            return result
+    def generate_event_action_ast(self, events) -> list[CPUDispatcher]:
+        return [generate_event_action_ast(events, self.imports.from_imports)]
+
 
     def _get_var_idx(self, var, idx_type):
         if idx_type == "state":

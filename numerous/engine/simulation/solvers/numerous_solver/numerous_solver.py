@@ -34,6 +34,14 @@ class Numerous_solver(BaseSolver):
                  **kwargs):
         super().__init__()
 
+        def get_variables_modified(y_):
+            old_states = numba_model.get_states()
+            numba_model.set_states(y_)
+
+            vars = numba_model.read_variables().copy()
+            numba_model.set_states(old_states)
+            return vars
+
         self.events = events[0][0]
         self.event_directions = event_directions
         self.actions = events[1][0]
@@ -41,7 +49,7 @@ class Numerous_solver(BaseSolver):
 
         self.timestamps_actions = timestamp_events[0][0]
         # events value
-        self.g = self.events(time_[0], y0)
+        self.g = self.events(time_[0], get_variables_modified(y0))
 
         self.time = time_
         self.model = model
@@ -56,6 +64,13 @@ class Numerous_solver(BaseSolver):
         self.max_event_steps = max_event_steps
         self.options = kwargs
         self.info = None
+
+        def get_variables_modified(y_):
+            old_states = numba_model.get_states()
+            numba_model.set_states(y_)
+            vars = numba_model.read_variables()
+            numba_model.set_states(old_states)
+            return vars
 
         eps = np.finfo(1.0).eps
         odesolver_options = {'longer': kwargs.get('longer', 1.2), 'shorter': kwargs.get('shorter', 0.8),
@@ -105,7 +120,13 @@ class Numerous_solver(BaseSolver):
             t_previous = t0
             y_previous = np.copy(y)
 
-            len_y = numba_model.get_states().shape[0]
+            def get_variables_modified(y_):
+                old_states = numba_model.get_states()
+                numba_model.set_states(y_)
+
+                vars = numba_model.read_variables().copy()
+                numba_model.set_states(old_states)
+                return vars
 
             def add_ring_buffer(t_, y_, rb, o):
 
@@ -136,17 +157,13 @@ class Numerous_solver(BaseSolver):
             te_array[1] = t_eval[ix_eval] + dt if strict_eval else np.inf
             t_next_eval = t_eval[ix_eval]
 
-            outer_iter = outer_itermax
-
             terminate = False
             step_converged = True
             event_trigger = False
             event_ix = -1
             t_event = t
             y_event = y
-            dt_last = -1
             j_i = 0
-            progress_c = t_eval.shape[0]
             while not terminate:
                 # updated events time estimates
                 # # time acceleration
@@ -154,11 +171,9 @@ class Numerous_solver(BaseSolver):
 
                     if min_step > dt:
                         raise ValueError('dt shortened below min_dt')
-                    decrease = True
                     te_array[0] = t_previous + dt
                 elif step_converged and not event_trigger:
                     dt = min(max_step, dt)
-                    decrease = False
 
                     te_array[0] = t + dt
                 else:  # event
@@ -185,7 +200,6 @@ class Numerous_solver(BaseSolver):
                     if t_next_eval <= (t + 10 * np.finfo(1.0).eps):
                         j_i += 1
                         p_size = 100
-                        x = int(p_size * j_i / progress_c)
                         if not step_converged:
                             print("step not converged, but historian updated")
                         numba_model.historian_update(t)
@@ -228,13 +242,13 @@ class Numerous_solver(BaseSolver):
                         yi[i] = np.interp(t, tv, yvi)
                     return yi
 
-                def check_event(event_fun, ix, t_previous, y_previous, t, y, t_next_eval):
+                def check_event(event_fun, ix, t_previous, y_previous, t, y):
                     t_l = t_previous
                     y_l = y_previous
-                    e_l = event_fun(t_l, y_l)[ix]
+                    e_l = event_fun(t_l, get_variables_modified(y_l))[ix]
                     t_r = t
                     y_r = y
-                    e_r = event_fun(t_r, y_r)[ix]
+                    e_r = event_fun(t_r, get_variables_modified(y_r))[ix]
                     status = 0
                     if np.sign(e_l) == np.sign(e_r):
                         return status, t, y
@@ -243,7 +257,7 @@ class Numerous_solver(BaseSolver):
                     y_m = sol(t_m, t, y)
 
                     while status == 0:  # bisection method
-                        e_m = event_fun(t_m, y_m)[ix]
+                        e_m = event_fun(t_m, get_variables_modified(y_m))[ix]
                         if np.sign(e_l) != np.sign(e_m):
                             t_r = t_m
                         elif np.sign(e_r) != np.sign(e_m):
@@ -258,14 +272,15 @@ class Numerous_solver(BaseSolver):
                     return status, t_m, y_m
 
                 if step_converged:
-                    g_new = events(t, y)
+                    g_new = events(t, get_variables_modified(y))
+
                     up = (g <= 0) & (g_new >= 0) & (event_directions == 1)
                     down = (g >= 0) & (g_new <= 0) & (event_directions == -1)
                     g = g_new
 
                     for ix in np.concatenate((np.argwhere(up), np.argwhere(down))):
                         status, t_event, y_event = check_event(events, ix[0],
-                                                               t_previous, y_previous, t, y, t_next_eval)
+                                                               t_previous, y_previous, t, y)
                         t_events[ix[0]] = t_event
                         y_events[:, ix[0]] = y_event
 
@@ -274,7 +289,7 @@ class Numerous_solver(BaseSolver):
                     event_ix = np.argmin(t_events)
                     t_event = t_events[event_ix]
                     y_event = y_events[:, event_ix]
-                    g = events(t_event, y_event)
+                    g = events(t_event, get_variables_modified(y_event))
 
                 if not event_trigger and step_converged:
                     y_previous = y

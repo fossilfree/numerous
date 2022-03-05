@@ -60,7 +60,7 @@ def ms1(simple_item):
 
 # returns position to find zero crossing using root finding algorithm of scipy solver
 def hitground_event_fun(t, states):
-    return states['S1.ball.t1.x']
+    return states['S1.ball.t1.x']*(states['S1.ball.t1.g']/states['S1.ball.t1.g'])
 
 
 # change direction of movement upon event detection and reduce velocity
