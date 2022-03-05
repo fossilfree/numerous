@@ -5,7 +5,6 @@ from numerous.engine.model import Model
 from numerous.engine.system import Subsystem
 from numerous.engine.simulation import Simulation
 from numerous.multiphysics import EquationBase, Equation
-from numerous.engine.simulation.solvers.base_solver import solver_types
 from pytest import approx
 
 tmax = 5

@@ -5,7 +5,6 @@ from numerous.engine.model import Model
 from numerous.engine.system import Subsystem
 from numerous.engine.simulation import Simulation
 from numerous.multiphysics import EquationBase, Equation
-from numerous.engine.simulation.solvers.base_solver import solver_types
 from pytest import approx
 
 tmax = 5
@@ -60,7 +59,7 @@ def ms1(simple_item):
 
 # returns position to find zero crossing using root finding algorithm of scipy solver
 def hitground_event_fun(t, states):
-    return states['S1.ball.t1.x']*(states['S1.ball.t1.g']/states['S1.ball.t1.g'])
+    return states['S1.ball.t1.x'] * (states['S1.ball.t1.g'] / states['S1.ball.t1.g'])
 
 
 # change direction of movement upon event detection and reduce velocity

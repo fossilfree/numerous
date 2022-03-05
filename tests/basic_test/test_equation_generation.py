@@ -5,7 +5,7 @@ from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
 from numerous.engine.system import Subsystem
 from numerous.engine import model, simulation
-from numerous.engine.simulation.solvers.base_solver import solver_types
+
 
 
 

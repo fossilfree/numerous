@@ -3,11 +3,8 @@ import pytest
 
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
-from numerous.engine.simulation.solvers.base_solver import solver_types
 from numerous.engine.system import Subsystem, Item
 from numerous.multiphysics import EquationBase, Equation
-
-
 
 
 class Item1(Item, EquationBase):
@@ -75,16 +72,15 @@ def analytical(tvec, o, a, dt):
     return s, s_delayed
 
 
-@pytest.mark.parametrize("use_llvm", [True,False])
+@pytest.mark.parametrize("use_llvm", [True, False])
 def test_race_condition_1(use_llvm):
     omega0 = 0.01
     dt = 10
-    s1 = System(item=Link(item1=Item1(omega=omega0)),tag='system_race_1')
-    s2 = System(item=Item2(omega=omega0),tag='system_race_2')
+    s1 = System(item=Link(item1=Item1(omega=omega0)), tag='system_race_1')
+    s2 = System(item=Item2(omega=omega0), tag='system_race_2')
 
-    m1 = Model(s1,use_llvm=use_llvm)
+    m1 = Model(s1, use_llvm=use_llvm)
     sim1 = Simulation(m1, num=500, max_step=dt)
-
 
     sim1.solve()
 
@@ -96,5 +92,5 @@ def test_race_condition_1(use_llvm):
     df2 = sim2.model.historian_df
 
     assert np.all(
-        np.isclose(np.array(df1['system_race_1.link.t1.S'])[2:], np.array(df2['system_race_2.item2.t1.S'][2:]), rtol=1e-02, atol=1e-04))
-
+        np.isclose(np.array(df1['system_race_1.link.t1.S'])[2:], np.array(df2['system_race_2.item2.t1.S'][2:]),
+                   rtol=1e-02, atol=1e-04))

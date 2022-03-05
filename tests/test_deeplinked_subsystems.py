@@ -10,10 +10,6 @@ from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 import numpy as np
 
-from numerous.engine.simulation.solvers.base_solver import solver_types
-
-
-
 
 class InitialValue(Item, EquationBase):
     def __init__(self, tag='initialvalue', x0=1):

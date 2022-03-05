@@ -3,7 +3,7 @@ from pytest import approx
 
 from numerous.engine import simulation
 from numerous.engine.model import Model
-from numerous.engine.simulation.solvers.base_solver import solver_types
+
 from numerous.engine.system import Item, Subsystem
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.multiphysics.equation_decorators import Equation

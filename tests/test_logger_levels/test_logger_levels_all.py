@@ -6,7 +6,6 @@ from numerous.multiphysics.equation_base import EquationBase
 from numerous.multiphysics.equation_decorators import Equation
 from numerous.engine.system.item import Item
 from numerous.engine.system.subsystem import Subsystem
-from numerous.engine.simulation.solvers.base_solver import solver_types
 import numpy as np
 
 INFO = LoggerLevel.INFO
