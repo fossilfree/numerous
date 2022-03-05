@@ -390,7 +390,7 @@ class Model:
         for item in self.model_items.values():
             if item.events:
                 for event in item.events:
-                    event.condition = _replace_path_strings(self, event.condition, "state", item.path)
+                    event.condition = _replace_path_strings(self, event.condition, "var", item.path)
                     event.action = _replace_path_strings(self, event.action, "var", item.path)
                     self.events.append(event)
             if item.timestamp_events:
