@@ -65,13 +65,6 @@ class Numerous_solver(BaseSolver):
         self.options = kwargs
         self.info = None
 
-        def get_variables_modified(y_):
-            old_states = numba_model.get_states()
-            numba_model.set_states(y_)
-            vars = numba_model.read_variables()
-            numba_model.set_states(old_states)
-            return vars
-
         eps = np.finfo(1.0).eps
         odesolver_options = {'longer': kwargs.get('longer', 1.2), 'shorter': kwargs.get('shorter', 0.8),
                              'min_step': kwargs.get('min_step', 10 * eps), 'strict_eval': True,
