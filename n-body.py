@@ -1,8 +1,14 @@
-
+from numerous import Equation
+from numerous.engine.model import Model
+from numerous.engine.simulation import Simulation, SolverType
+from numerous.engine.system.item import Item
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import ode
 from mpl_toolkits.mplot3d import Axes3D
+
+from numerous.engine.system import EquationBase, Subsystem
+
 
 def plot(r):
     fig=plt.figure(figsize=(10,10))
@@ -40,14 +46,33 @@ def plot(r):
 earth_radius=6378.0
 earth_mu=398600.0
 
-def diffy_q(t,y,mu):
-    rx,ry,rz,vx,vy,vz=y
-    r=np.array([rx,ry,rz])
+class Oribtal(EquationBase, Item):
+    def __init__(self,  initial, mu, tag='orbit'):
+        super(Oribtal, self).__init__(tag)
+        self.add_parameter('mu',mu)
+        self.add_state('rx',initial[0])
+        self.add_state('ry',initial[1])
+        self.add_state('rz',initial[2])
+        self.add_state('vx',initial[3])
+        self.add_state('vy',initial[4])
+        self.add_state('vz',initial[5])
+        self.add_state('ax')
+        self.add_state('ay')
+        self.add_state('az')
+        mechanics = self.create_namespace('mechanics')
+        mechanics.add_equations([self])
+    @Equation()
+    def diffy_q(self,scope):
+        r=np.array([scope.rx,scope.ry,scope.rz])
+        norm_r = (r[0]**2+r[1]**2+r[2]**2)**(1/2)
+        # norm_r=np.linalg.norm(r)
 
-    norm_r=np.linalg.norm(r)
+        scope.ax,scope.ay,scope.az=-r*scope.mu/norm_r**3
 
-    ax,ay,az=-r*mu/norm_r**3
-    return [vx,vy,vz,ax,ay,az]
+class Nbody(Subsystem):
+    def __init__(self, initial, mu, tag="nbody"):
+        super().__init__(tag)
+        self.register_item(Oribtal(initial=initial, mu=mu))
 
 if __name__ == '__main__':
     r_mag=earth_radius+500.0
@@ -61,26 +86,28 @@ if __name__ == '__main__':
     dt=100.0
 
     n_steps=int(np.ceil(tspan/dt))
-
-    ys=np.zeros((n_steps,6))
-    ts=np.zeros((n_steps,1))
-
     y0=r0+v0
-
-    ys[0]=y0
-    step=1
-
-    solver=ode(diffy_q)
-    solver.set_integrator('lsoda')
-    solver.set_initial_value(y0,0)
-    solver.set_f_params(earth_mu)
-
-    while solver.successful() and step<n_steps:
-        solver.integrate(solver.t+dt)
-        ts[step]=solver.t
-        ys[step]=solver.y
-        step+=1
-
-    rs=ys[:,:3]
+    nbody_system = Nbody(initial=y0, mu=earth_mu)
+    nbody_model = Model(nbody_system,use_llvm=False)
+    nbody_simulation = Simulation(nbody_model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=10.0, num=100, num_inner=100, max_step=1)
+    nbody_simulation.solve()
+    # ys=np.zeros((n_steps,6))
+    # ts=np.zeros((n_steps,1))
+    #
+    #
+    #
+    # ys[0]=y0
+    # step=1
+    #
+    # while solver.successful() and step<n_steps:
+    #     solver.integrate(solver.t+dt)
+    #     ts[step]=solver.t
+    #     ys[step]=solver.y
+    #     step+=1
+    #
+    # rs=ys[:,:3]
+    rs = nbody_simulation.model.historian_df[['nbody.orbital.mechanics.rx',
+                                              'nbody.orbital.mechanics.ry',
+                                              'nbody.orbital.mechanics.rz']]
 
     plot(rs)
