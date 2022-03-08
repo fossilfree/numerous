@@ -32,7 +32,7 @@ class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
 
-        fmu_filename = 'VanDerPol.fmu'
+        fmu_filename = 'Rectifier.fmu'
         fmu_subsystem = FMU_Subsystem(fmu_filename, "VanDerPol", debug_output=True)
         self.register_items([fmu_subsystem])
 
@@ -40,14 +40,14 @@ class S3(Subsystem):
 subsystem1 = S3('q1')
 m1 = Model(subsystem1, use_llvm=False)
 s = Simulation(
-    m1, t_start=0, t_stop=1, num=100, num_inner=100, max_step=.1, solver_type=SolverType.SOLVER_IVP)
+    m1, t_start=0, t_stop=10, num=1000, num_inner=1000, max_step=.1, solver_type=SolverType.SOLVER_IVP)
 # sub_S = m1.system.get_item(ItemPath("q1.BouncingBall"))
 s.solve()
 # sub_S.fmu.terminate()
 
 fig, ax = plt.subplots()
 # t = np.linspace(0, 1.0, 100 + 1)
-y = np.array(m1.historian_df["q1.VanDerPol.t1.x0"])
+y = np.array(m1.historian_df["q1.VanDerPol.t1.outputs"])
 # y2 = np.array(m1.historian_df["q1.VanDerPol.t1.x1"])
 # y2 = np.array(m1.historian_df["q1.BouncingBall2.t1.h"])
 # y3 = np.array(m1.historian_df["q1.BouncingBall3.t1.h"])
@@ -56,7 +56,7 @@ ax.plot(t, y)
 # ax.plot(t, y2)
 # ax.plot(t, y3)
 
-ax.set(xlabel='time (s)', ylabel='h', title='BB')
+ax.set(xlabel='time (s)', ylabel='outputs', title='BB')
 ax.grid()
 
 plt.show()

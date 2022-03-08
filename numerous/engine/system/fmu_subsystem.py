@@ -223,41 +223,43 @@ class FMU_Subsystem(Subsystem, EquationBase):
             namespace.update({"a" + str(i) + "_ptr": ptr_var_array[i]})
         exec(code, namespace)
 
-        self.fmu_eval = namespace["fmu_eval"]
         event_n = model_description.numberOfEventIndicators
-        q, wrapper = generate_eval_event(states_idx, len_q)
-        module_func = ast.Module(body=[q, wrapper], type_ignores=[])
-        if debug_output:
-            print(ast.unparse(module_func))
-        code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
-        namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
-                     "getreal": getreal,
-                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
-                     "get_event_indicators": get_event_indicators,
-                     "completedIntegratorStep": completedIntegratorStep}
-        exec(code, namespace)
-        event_ind_call_1 = namespace["event_ind_call_1"]
-
-        c = np.zeros(shape=event_n)
-        c_ptr = c.ctypes.data
+        self.fmu_eval = namespace["fmu_eval"]
+        event_cond = []
+        event_cond_wrapped = []
         for i in range(event_n):
-            pass
+            q, wrapper = generate_eval_event(states_idx, len_q, event_id=i)
+            module_func = ast.Module(body=[q, wrapper], type_ignores=[])
+            if debug_output:
+                print(ast.unparse(module_func))
+            code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
+            namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
+                         "getreal": getreal,
+                         "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
+                         "get_event_indicators": get_event_indicators,
+                         "completedIntegratorStep": completedIntegratorStep}
+            exec(code, namespace)
+            event_ind_call_1 = namespace["event_ind_call_1"]
 
-        f1, f2 = generate_njit_event_cond(var_states_ordered)
-        module_func = ast.Module(body=[f1, f2], type_ignores=[])
-        if debug_output:
-            print(ast.unparse(module_func))
-        code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval_2', mode='exec')
-        namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np,
-                     "event_ind_call_1": event_ind_call_1,
-                     "c_ptr": c_ptr,
-                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
-                     "njit": njit, "address_as_void_pointer": address_as_void_pointer,
-                     "completedIntegratorStep": completedIntegratorStep}
-        exec(code, namespace)
-        event_cond = namespace["event_cond"]
-        event_cond_2 = namespace["event_cond_2"]
-        event_cond_2.lines = ast.unparse(ast.Module(body=[f2], type_ignores=[]))
+            c = np.zeros(shape=event_n)
+            c_ptr = c.ctypes.data
+
+            f1, f2 = generate_njit_event_cond(var_states_ordered)
+            module_func = ast.Module(body=[f1, f2], type_ignores=[])
+            if debug_output:
+                print(ast.unparse(module_func))
+            code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval_2', mode='exec')
+            namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np,
+                         "event_ind_call_1": event_ind_call_1,
+                         "c_ptr": c_ptr,
+                         "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
+                         "njit": njit, "address_as_void_pointer": address_as_void_pointer,
+                         "completedIntegratorStep": completedIntegratorStep}
+            exec(code, namespace)
+            event_cond.append(namespace["event_cond"])
+            event_cond_2 = namespace["event_cond_2"]
+            event_cond_2.lines = ast.unparse(ast.Module(body=[f2], type_ignores=[]))
+            event_cond_wrapped.append(event_cond_2)
 
         a, b = generate_action_event(len_q)
         module_func = ast.Module(body=[a, b], type_ignores=[])
@@ -319,8 +321,9 @@ class FMU_Subsystem(Subsystem, EquationBase):
         self.equations.append(self.eval)
         self.t1 = self.create_namespace(namespace_)
         self.t1.add_equations([self])
-        self.add_event("event", event_cond_2, event_action_2, compiled_functions={"event_cond": event_cond,
-                                                                                  "event_action": event_action})
+        for i in range(event_n):
+            self.add_event("event_" + str(i), event_cond_wrapped[i], event_action_2,
+                           compiled_functions={"event_cond": event_cond[i], "event_action": event_action})
 
     def set_variables(self, model_description):
         for variable in model_description.modelVariables:
@@ -328,7 +331,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                 if variable.derivative.start:
                     start = variable.derivative.start
                 else:
-                    start =0
+                    start = 0
                 self.add_state(_replace_name_str(variable.derivative.name), float(start))
             if variable.initial == 'exact':
                 if variable.variability == 'fixed':
