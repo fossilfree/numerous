@@ -47,17 +47,19 @@ class Simulation:
         self.time = time_
         self.model = model
 
-        def __end_step(solver, y, t, events_action, event_id=None):
+        def __end_step(solver, y, t, events_action, event_id=None, run_fmu_event_action=False):
             """
 
             """
             solver.y0 = y.flatten()
 
-            if event_id is not None:
+            if event_id is not None or (run_fmu_event_action and len(events_action)>0):
                 self.model.update_local_variables()
                 ## slow code
                 list_var = [v.value for v in self.model.path_to_variable.values()]
                 q = np.array(list_var)
+                if event_id is None:
+                    event_id = 0
                 events_action[event_id](t, q)
                 for i, var in enumerate(self.model.path_to_variable.values()):
                     var.value = q[i]
@@ -119,8 +121,8 @@ class Simulation:
 
         self.compiled_model = numba_model
 
-    def solve(self):
-        self.reset()
+    def solve(self, run_fmu_event_action):
+        self.reset(run_fmu_event_action)
 
         sol, self.result_status = self.solver.solve()
 
@@ -128,11 +130,12 @@ class Simulation:
         self.complete()
         return sol
 
-    def reset(self):
+    def reset(self, run_fmu_event_action):
         self.__init_step()
         self.model.numba_model.historian_reinit()
 
-        self.end_step(self.solver, self.model.numba_model.get_states(), 0, [])
+        self.end_step(self.solver, self.model.numba_model.get_states(), 0, self.model.generate_event_action_ast(False),
+                      run_fmu_event_action=run_fmu_event_action)
 
     def step(self, dt):
         try:

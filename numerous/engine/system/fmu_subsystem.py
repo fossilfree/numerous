@@ -61,7 +61,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         start_time = 0.0
         start_time = float(start_time)
 
-        stop_time = start_time + 1.0
+        stop_time = start_time + 0.1
 
         stop_time = float(stop_time)
 

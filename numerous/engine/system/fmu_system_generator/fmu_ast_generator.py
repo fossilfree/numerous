@@ -145,7 +145,7 @@ def generate_eval_llvm(assign_ptrs, output_args, states_idx):
                                           args=[ast.List(elts=args_, ctx=ast.Load())],
                                           keywords=[ast.keyword(arg='dtype', value=ast.Attribute(
                                               value=ast.Name(id='np', ctx=ast.Load()), attr='float64',
-                                              ctx=ast.Load()))]),lineno=0))
+                                              ctx=ast.Load()))]), lineno=0))
 
     body.append(ast.Expr(value=ast.Call(func=ast.Name(id='fmi2SetC', ctx=ast.Load()),
                                         args=[ast.Name(id='component', ctx=ast.Load()),

@@ -32,22 +32,23 @@ class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
 
-        fmu_filename = 'Rectifier.fmu'
-        fmu_subsystem = FMU_Subsystem(fmu_filename, "VanDerPol", debug_output=True)
+        # fmu_filename = '/home/artem/Source/FMPy/Rectifier.fmu'
+        fmu_filename = 'VanDerPol.fmu'
+        fmu_subsystem = FMU_Subsystem(fmu_filename, "Rectifier", debug_output=True)
         self.register_items([fmu_subsystem])
 
 
 subsystem1 = S3('q1')
-m1 = Model(subsystem1, use_llvm=False)
+m1 = Model(subsystem1, use_llvm=True)
 s = Simulation(
-    m1, t_start=0, t_stop=10, num=1000, num_inner=1000, max_step=.1, solver_type=SolverType.SOLVER_IVP)
+    m1, t_start=0, t_stop=10, num=200, num_inner=200, max_step=.1, solver_type=SolverType.NUMEROUS)
 # sub_S = m1.system.get_item(ItemPath("q1.BouncingBall"))
-s.solve()
+s.solve(run_fmu_event_action=False)
 # sub_S.fmu.terminate()
 
 fig, ax = plt.subplots()
 # t = np.linspace(0, 1.0, 100 + 1)
-y = np.array(m1.historian_df["q1.VanDerPol.t1.outputs"])
+y = np.array(m1.historian_df["q1.Rectifier.t1.x0"])
 # y2 = np.array(m1.historian_df["q1.VanDerPol.t1.x1"])
 # y2 = np.array(m1.historian_df["q1.BouncingBall2.t1.h"])
 # y3 = np.array(m1.historian_df["q1.BouncingBall3.t1.h"])
