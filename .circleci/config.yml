@@ -18,7 +18,7 @@ jobs:
 
   test_pypi_publish:
     docker:
-      - image: cimg/python:3.10
+        - image: cimg/python:3.10
     steps:
       - checkout
       - run:
