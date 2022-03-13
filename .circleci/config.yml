@@ -15,3 +15,27 @@ jobs:
       - run:
           command: cat /sys/fs/cgroup/memory/memory.max_usage_in_bytes
           when: always
+
+  test_pypi_publish:
+    docker:
+      - image: cimg/python:3.10
+    steps:
+      - checkout
+      - run:
+          command: |  
+            python setup.py sdist bdist_wheel
+            sudo pip install pipenv
+            pipenv install twine
+            pipenv run twine upload -u __token__ -p $PYPI_TEST_TOKEN --repository testpypi dist/*
+            
+workflows:
+  workflow_publish:
+    jobs:
+      - build
+      - test_pipy_publish:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                pipy_automatic_test
