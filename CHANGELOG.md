@@ -1,8 +1,8 @@
 # Change Log
 
-## [0.0.2] - 2022-03-14
+## [0.0.2]
 
 ### Add
 
-Test
+Add automatic pypi deployment
 
