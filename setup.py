@@ -7,7 +7,7 @@ with open("requirements.txt", "r") as requirements:
     install_requires = [s.strip() for s in requirements]
 
 setuptools.setup(
-    name="numerous-engine-test",
+    name="numerous-engine",
     version="0.5",
     author='Artem Chupryna, EnergyMachines ApS',
     author_email='artem.chupryna@energymachines.com',
