@@ -11,4 +11,3 @@ else:
     base_branch = requests.get(new_url).json().get('base', {}).get('ref', 'master')
 
     print(base_branch)
-
