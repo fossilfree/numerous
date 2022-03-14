@@ -17,7 +17,7 @@ jobs:
           name: Linters
           command: |
             branch=$(python3 linters/get_base_branch.py)
-            git fetch ${branch}
+            git fetch
             git diff -U0 ${branch} | lint-diffs
 
       - run:
