@@ -24,7 +24,7 @@ jobs:
       - run:
           command: |  
             python3 setup.py sdist bdist_wheel
-            sudo pip3 install pipenv
+            pip3 install pipenv
             pipenv install twine
             pipenv run twine upload -u __token__ -p $PYPI_TEST_TOKEN --repository testpypi dist/*
             
