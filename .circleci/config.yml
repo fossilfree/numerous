@@ -32,7 +32,7 @@ workflows:
   workflow_publish:
     jobs:
       - build
-      - test_pipy_publish:
+      - test_pypi_publish:
           requires:
             - build
           filters:
