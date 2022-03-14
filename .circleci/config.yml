@@ -11,7 +11,31 @@ jobs:
           name: Tests
           command: |
             python3 -m pytest
-
       - run:
           command: cat /sys/fs/cgroup/memory/memory.max_usage_in_bytes
           when: always
+
+  pypi_publish:
+    docker:
+        - image: cimg/python:3.10
+    steps:
+      - checkout
+      - run:
+          command: |  
+            python3 setup.py sdist bdist_wheel
+            pip3 install pipenv
+            pipenv install twine
+            pipenv run twine upload -u __token__ -p $PYPI_TOKEN dist/*
+  
+
+workflows:
+  workflow:
+    jobs:
+      - build
+      - pypi_publish:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                master
