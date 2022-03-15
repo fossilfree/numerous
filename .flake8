@@ -1,0 +1,15 @@
+[flake8]
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    build,
+    dist
+ignore =
+    E501,  # line too long
+    ANN101,
+    ANN002,
+    ANN003,
+    R504,
+show-source = true
+suppress-none-returning=true

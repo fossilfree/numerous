@@ -6,7 +6,19 @@ jobs:
 
     steps:
       - checkout
-      - run:  pip3 install -r requirements.txt
+
+      - run:
+          name: Install packages
+          command: |
+             pip3 install -r requirements.txt
+             pip3 install -r linters/linter_requirements.txt
+
+      - run:
+          name: Linters
+          command: |
+            branch=$(python3 linters/get_base_branch.py)
+            git diff -U0 origin/${branch} | lint-diffs
+
       - run:
           name: Tests
           command: |
