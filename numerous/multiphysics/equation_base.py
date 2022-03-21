@@ -28,9 +28,9 @@ class VariableDescriptionMap(VariableBase):
     # refactored in a more functional way
     def __iter__(self):
         # used filter and extend
-        self.variables_descriptions_deque.extend(list(filter((lambda v:\
-            isinstance(v, VariableDescription)),\
-            self.variables_descriptions.values())))
+        self.variables_descriptions_deque.extend(list(filter((lambda v: \
+                                                                  isinstance(v, VariableDescription)), \
+                                                             self.variables_descriptions.values())))
         return self
 
     def __next__(self):
@@ -38,6 +38,7 @@ class VariableDescriptionMap(VariableBase):
             return self.variables_descriptions_deque.pop()
         else:
             raise StopIteration
+
 
 class Mapping:
     def __init__(self, from_, to_=None, dir='<-'):
@@ -52,6 +53,7 @@ class EquationBase:
      are defined in classes extending the :class:`numerous.multiphysics.Equation`.
 
     """
+
     def __init__(self, tag=None):
         if tag:
             self.tag = tag
@@ -63,7 +65,6 @@ class EquationBase:
             method_call = getattr(self, method)
             if hasattr(method_call, '_equation'):
                 self.equations.append(method_call)
-
 
     def add_parameter(self, tag, init_val=0, logger_level=None, alias=None, integrate=None):
         """
@@ -87,16 +88,15 @@ class EquationBase:
                 scope.{integrate['tag']}_dot = scope.{tag} * {integrate['scale']}
             """
             ie = InlineEquation()
-            integrate_source_ = ie('integrate_'+tag, integrate_source, {})
+            integrate_source_ = ie('integrate_' + tag, integrate_source, {})
 
-            setattr(self, 'integrate_'+tag, integrate_source_)
+            setattr(self, 'integrate_' + tag, integrate_source_)
             self.equations.append(integrate_source_)
 
-
-    def add_parameters(self, parameters:dict or list):
+    def add_parameters(self, parameters: dict or list):
         if isinstance(parameters, dict):
             for p, v in parameters.items():
-                if isinstance(v,numbers.Number):
+                if isinstance(v, numbers.Number):
                     self.add_parameter(p, init_val=v)
                 else:
                     self.add_parameter(p, **v)
@@ -104,9 +104,9 @@ class EquationBase:
             for p in parameters:
                 self.add_parameter(p)
 
-    def add_constants(self, constants:dict):
+    def add_constants(self, constants: dict):
         for p, v in constants.items():
-            if isinstance(v,numbers.Number):
+            if isinstance(v, numbers.Number):
                 self.add_constant(p, value=v)
             else:
                 self.add_constant(p, **v)
@@ -125,13 +125,18 @@ class EquationBase:
         """
         self.add_variable(tag, value, VariableType.CONSTANT, logger_level, alias)
 
-    def add_state(self, tag, init_val=0, logger_level=None, alias=None):
+    def add_derivative(self, tag, logger_level=None, alias=None):
+        self.add_variable(tag + '_dot', 0, VariableType.DERIVATIVE, logger_level,
+                          alias + "_dot" if alias is not None else None)
+
+    def add_state(self, tag, init_val=0, logger_level=None, alias=None, create_derivative=True):
         """
 
         Parameters
         ----------
         tag
         init_val
+        create_derivative
 
         Returns
         -------
@@ -140,8 +145,9 @@ class EquationBase:
         if not isinstance(init_val, float) and not isinstance(init_val, int) and not isinstance(init_val, np.int64):
             raise ValueError("State must be float or integer")
         self.add_variable(tag, init_val, VariableType.STATE, logger_level, alias)
-        self.add_variable(tag + '_dot', 0, VariableType.DERIVATIVE, logger_level,
-                          alias+"_dot" if alias is not None else None)
+        if create_derivative:
+            self.add_variable(tag + '_dot', 0, VariableType.DERIVATIVE, logger_level,
+                              alias + "_dot" if alias is not None else None)
 
     def add_variable(self, tag, init_val, var_type, logger_level, alias):
         """
@@ -165,6 +171,3 @@ class EquationBase:
         for m in mappings:
             if not self.variables_descriptions.variable_exists(m.to_):
                 self.add_parameter(m.to_)
-
-
-

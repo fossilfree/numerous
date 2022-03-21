@@ -1,12 +1,7 @@
 import types as ptypes
-
-import matplotlib.pyplot as plt
 import ctypes
 import ast
-import os
-from typing import List
 
-from attr import attrs, attrib, Factory
 from fmpy import read_model_description, extract
 
 from fmpy.fmi1 import printLogMessage
@@ -16,9 +11,8 @@ from fmpy.simulation import apply_start_values, Input
 from fmpy.util import auto_interval
 
 from numerous import EquationBase, Equation, NumerousFunction
-from numerous.engine.model import Model
-from numerous.engine.simulation import Simulation, SolverType
-from numerous.engine.system import Subsystem, Item, ItemPath
+
+from numerous.engine.system import Subsystem
 from numba import cfunc, carray, types, njit
 import numpy as np
 
@@ -326,13 +320,29 @@ class FMU_Subsystem(Subsystem, EquationBase):
                            compiled_functions={"event_cond": event_cond[i], "event_action": event_action})
 
     def set_variables(self, model_description):
+        derivatives = []
+        derivatives_names = []
+        states = []
+
         for variable in model_description.modelVariables:
             if variable.derivative:
-                if variable.derivative.start:
-                    start = variable.derivative.start
+                derivatives.append(variable)
+                derivatives_names.append(_replace_name_str(variable.derivative.name) + '_dot')
+                # if variable.derivative.start:
+                #     start = variable.derivative.start
+                # else:
+                #     start = 0
+                states.append(variable.derivative)
+        for variable in model_description.modelVariables:
+            if variable in states:
+                if variable.start:
+                    start = variable.start
                 else:
                     start = 0
-                self.add_state(_replace_name_str(variable.derivative.name), float(start))
+                self.add_state(_replace_name_str(variable.name), float(start), create_derivative=False)
+
+            if variable in derivatives:
+                self.add_derivative(derivatives_names[derivatives.index(variable)])
             if variable.initial == 'exact':
                 if variable.variability == 'fixed':
                     if variable.start != "DISABLED":
@@ -348,3 +358,5 @@ class FMU_Subsystem(Subsystem, EquationBase):
             else:
                 if not variable.derivative:
                     self.add_parameter(_replace_name_str(variable.name), 0.0)
+
+        print(1)
