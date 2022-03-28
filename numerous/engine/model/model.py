@@ -191,21 +191,21 @@ class Model:
             self.validate()
 
     def __add_item(self, item):
-        model_namespaces = []
+        model_namespaces = {}
         if item.id in self.model_items:
             return model_namespaces
 
         self.model_items.update({item.id: item})
-        model_namespaces.append((item.id, self.create_model_namespaces(item)))
+        model_namespaces[item.id] = self.create_model_namespaces(item)
         if isinstance(item, ItemSet):
             return model_namespaces
         if isinstance(item, Connector):
             for binded_item in item.get_binded_items():
                 if not binded_item.part_of_set:
-                    model_namespaces.extend(self.__add_item(binded_item))
+                    model_namespaces.update(self.__add_item(binded_item))
         if isinstance(item, Subsystem):
             for registered_item in item.registered_items.values():
-                model_namespaces.extend(self.__add_item(registered_item))
+                model_namespaces.update(self.__add_item(registered_item))
         return model_namespaces
 
     def __get_mapping__variable(self, variable, depth):
@@ -238,14 +238,14 @@ class Model:
         assemble_start = time.time()
 
         # 1. Create list of model namespaces
-        model_namespaces = [_ns
+        model_namespaces = {item_id: _ns
                             for item in self.system.registered_items.values() if not item.part_of_set
-                            for _ns in self.__add_item(item)]
+                            for item_id, _ns in self.__add_item(item).items()}
 
         # 2. Compute dictionaries
         # equation_dict <scope_id, [Callable]>
         # scope_variables <variable_id, Variable>
-        for variables, equation_dict in map(ModelAssembler.namespace_parser, model_namespaces):
+        for variables, equation_dict in map(ModelAssembler.namespace_parser, model_namespaces.items()):
             self.equation_dict.update(equation_dict)
             self.variables.update(variables)
 
@@ -276,16 +276,15 @@ class Model:
             v.top_item = self.system.id
 
         eq_used = []
-        for ns in model_namespaces:
-            ##will be false for empty namespaces. Ones without equations and variables.
-            if ns[1]:
+        for item_id, namespaces in model_namespaces.items():
+            for ns in namespaces:
                 ## Key : scope.tag Value: Variable or VariableSet
-                if ns[1][0].is_set:
-                    tag_vars = ns[1][0].set_variables
+                if ns.is_set:
+                    tag_vars = ns.set_variables
                 else:
-                    tag_vars = {v.tag: v for k, v in ns[1][0].variables.items()}
+                    tag_vars = {v.tag: v for k, v in ns.variables.items()}
 
-                parse_eq(model_namespace=ns[1][0], item_id=ns[0], mappings_graph=self.mappings_graph,
+                parse_eq(model_namespace=ns, item_id=item_id, mappings_graph=self.mappings_graph,
                          scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
                          scoped_equations=self.scoped_equations, parsed_eq=self.equations_top, eq_used=eq_used)
         self.eq_used = eq_used
@@ -386,7 +385,7 @@ class Model:
         self.external_idx = np.array(external_idx, dtype=np.int64)
         self.generate_path_to_varaible()
 
-        ##check for item level events
+        # check for item level events
         for item in self.model_items.values():
             if item.events:
                 for event in item.events:
