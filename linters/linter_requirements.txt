@@ -1,0 +1,4 @@
+pylint
+flake8
+lint-diffs
+requests

@@ -554,9 +554,9 @@ class Model:
             directions = []
             for event in self.events:
                 if event.compiled:
-                    compiled_event = event.condition
+                    compiled_event = event
                 else:
-                    compiled_event = njit_and_compile_function(event.condition, self.imports.from_imports,compiled_functions=event.compiled_functions)
+                    compiled_event = njit_and_compile_function(event.condition, self.imports.from_imports)
                 compiled_event.terminal = event.terminal
                 compiled_event.direction = event.direction
                 directions.append(event.direction)
@@ -571,11 +571,8 @@ class Model:
         else:
             result = []
             for event in self.events:
-                if event.compiled:
-                    result.append(event.action)
-                else:
-                    compiled_event = njit_and_compile_function(event.action, self.imports.from_imports,compiled_functions=event.compiled_functions)
-                    result.append(compiled_event)
+                compiled_event = njit_and_compile_function(event.action, self.imports.from_imports)
+                result.append(compiled_event)
             return result
 
     def _get_var_idx(self, var, idx_type):

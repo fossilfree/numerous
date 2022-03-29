@@ -4,6 +4,5 @@ class NumerousEvent:
         self.condition = condition
         self.action = action
         self.compiled = compiled
-        self.compiled_functions = compiled_functions
         self.direction = direction
         self.terminal =terminal

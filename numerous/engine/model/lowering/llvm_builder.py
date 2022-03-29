@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import logging
 import os
 from ctypes import CFUNCTYPE, POINTER, c_double, c_void_p, c_int64
 from numba import carray, cfunc, njit
@@ -20,7 +21,7 @@ ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
 
 LISTING_FILEPATH = "tmp/listings/"
 LISTINGFILENAME = "_llvm_listing.ll"
-LLVMOPTLISTING_FILENAME = "tmp/listings/llvm_listing_opt.ll"
+
 
 class LLVMBuilder:
     """
@@ -37,8 +38,8 @@ class LLVMBuilder:
         """
 
         self.loopcount = 0
-        self.detailed_print('target data: ', target_machine.target_data)
-        self.detailed_print('target triple: ', target_machine.triple)
+        self.detailed_print('Target data: ', target_machine.target_data)
+        self.detailed_print('Target triple: ', target_machine.triple)
         self.module = ll.Module()
         self.ext_funcs = {}
         self.states = states
@@ -52,11 +53,11 @@ class LLVMBuilder:
         self.fnty.args[0].name = "y"
         self.system_tag = system_tag
         self.variable_names = {}
-
+        self.equations_llvm = []
+        self.equations_llvm_opt = []
         for k, v in variable_names.items():
             self.variable_names[k] = v
             self.variable_names[v] = k
-
 
         self.max_var = initial_values.shape[0]
 
@@ -66,7 +67,7 @@ class LLVMBuilder:
 
         self.deriv_global = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), self.n_deriv), 'derivatives')
         self.deriv_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), self.n_deriv),
-                                                  [float(0) for _ in range(self.n_deriv)])
+                                                    [float(0) for _ in range(self.n_deriv)])
 
         # Creatinf the fixed structure of the kernel
         self.func = ll.Function(self.module, self.fnty, name="kernel")
@@ -81,7 +82,7 @@ class LLVMBuilder:
         self.values = {}
 
         # go through  all states to put them in load block
-        for idx,state in enumerate(self.states):
+        for idx, state in enumerate(self.states):
             self.load_state_variable(idx, state)
 
         # go through all states to put them in store block
@@ -92,13 +93,15 @@ class LLVMBuilder:
         self.builder.branch(self.bb_loop)
         self.builder.position_at_end(self.bb_loop)
 
-    def add_external_function(self, function, signature, number_of_args, target_ids,replacements=None,replace_name=None):
+    def add_external_function(self, function, signature, number_of_args, target_ids, replacements=None,
+                              replace_name=None):
         """
         Wrap the function and make it available in the LLVM module
         """
-
         f_c = cfunc(sig=signature)(function)
-        name = function.__qualname__
+        name = f_c.native_name
+        self.equations_llvm.append(f_c.inspect_llvm())
+
         f_c_sym = llvm.add_symbol(name, f_c.address)
         llvm_signature = np.tile(ll.DoubleType(), number_of_args).tolist()
         for i in target_ids:
@@ -110,6 +113,7 @@ class LLVMBuilder:
         f_llvm = ll.Function(self.module, fnty_c_func, name=name)
 
         self.ext_funcs[name] = f_llvm
+        return {function.__qualname__: name}
 
     def generate(self, imports=None, system_tag=None, save_to_file=False):
 
@@ -138,7 +142,15 @@ class LLVMBuilder:
         self._build_var_w()
 
         if save_to_file:
-            self.save_module(LISTING_FILEPATH+self.system_tag+LISTINGFILENAME)
+            self.equations_llvm.append(str(self.module))
+            for i, ll_code in enumerate(self.equations_llvm):
+                llmod_saved = llvm.parse_assembly(ll_code)
+                pmb = llvm.create_pass_manager_builder()
+                pmb.opt_level = 3
+                pm = llvm.create_module_pass_manager()
+                pmb.populate(pm)
+                pm.run(llmod_saved)
+                self.equations_llvm_opt.append(str(llmod_saved))
 
         llmod = llvm.parse_assembly(str(self.module))
 
@@ -146,12 +158,7 @@ class LLVMBuilder:
         pmb.opt_level = 1
         pm = llvm.create_module_pass_manager()
         pmb.populate(pm)
-
         pm.run(llmod)
-        os.makedirs(os.path.dirname(LLVMOPTLISTING_FILENAME), exist_ok=True)
-        if save_to_file:
-            with open(LLVMOPTLISTING_FILENAME, 'w') as f:
-                f.write(str(llmod))
 
         ee.add_module(llmod)
 
@@ -162,7 +169,6 @@ class LLVMBuilder:
         cfptr_var_w = ee.get_function_address("vars_w")
 
         c_float_type = type(np.ctypeslib.as_ctypes(np.float64()))
-        self.detailed_print(c_float_type)
 
         diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type))(cfptr)
 
@@ -193,9 +199,9 @@ class LLVMBuilder:
         return diff, read_variables, write_variables
         # write_variables
 
-    def detailed_print(self, *args, sep=' ', end='\n', file=None):
+    def detailed_print(self, *args, sep=' '):
         if config.PRINT_LLVM:
-            print(*args, sep, end, file)
+            logging.info(sep.join(map(str, args)))
 
     def save_module(self, filename):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
@@ -209,7 +215,7 @@ class LLVMBuilder:
         eptr = self.builder.gep(ptr, indices, name="variable_" + variable_name)
         self.values[variable_name] = eptr
 
-    def load_state_variable(self,idx, state_name):
+    def load_state_variable(self, idx, state_name):
         index_args = ll.IntType(64)(idx)
         ptr = self.func.args[0]
         indices = [index_args]
