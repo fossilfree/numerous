@@ -31,8 +31,8 @@ class G(Item):
 class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
-        fmu_filename = '/home/artem/Source/FMPy/Rectifier.fmu'
-        # fmu_filename = 'BouncingBall.fmu'
+        # fmu_filename = '/home/artem/Source/FMPy/Rectifier.fmu'
+        fmu_filename = 'VanDerPol.fmu'
         fmu_subsystem = FMU_Subsystem(fmu_filename, "Rectifier", debug_output=True)
         self.register_items([fmu_subsystem])
 
