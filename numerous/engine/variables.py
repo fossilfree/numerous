@@ -33,6 +33,7 @@ class VariableDescription:
     type: VariableType = VariableType.PARAMETER
     initial_value: Any = None
     id: str = None
+    variable_idx: int = 0
     logger_level: LoggerLevel = LoggerLevel.ALL
     alias: str = None
     update: bool = False
@@ -50,7 +51,7 @@ class DetailedVariableDescription(VariableDescription):
 
 class MappedValue(object):
     def __init__(self, id):
-        self.id = str(id).replace("-","_")
+        self.id = str(id).replace("-", "_")
         self.mapping = None
         self.sum_mapping = []
         self.special_mapping = False
@@ -228,7 +229,7 @@ class Variable(MappedValue):
     @staticmethod
     def create(namespace, v_id, tag,
                v_type, value, item, metadata,
-               mapping, update_counter, allow_update, logger_level, alias):
+               mapping, update_counter, allow_update, logger_level,variable_idx, alias):
         return Variable(DetailedVariableDescription(tag=tag,
                                                     id=v_id,
                                                     type=v_type,
@@ -240,6 +241,7 @@ class Variable(MappedValue):
                                                     update_counter=update_counter,
                                                     allow_update=allow_update,
                                                     logger_level=logger_level,
+                                                    variable_idx=variable_idx,
                                                     alias=alias))
 
 
@@ -259,6 +261,7 @@ class _VariableFactory:
                                update_counter=0,
                                allow_update=(var_desc.type != VariableType.CONSTANT),
                                logger_level=var_desc.logger_level,
+                               variable_idx = var_desc.variable_idx,
                                alias=var_desc.alias,
                                )
 

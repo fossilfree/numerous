@@ -152,6 +152,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         newDiscreteStates.restype = ctypes.c_uint
 
         len_q = len(model_description.modelVariables)
+        var_order = [x.valueReference for x in model_description.modelVariables]
+
 
         term_1 = np.array([0], dtype=np.int32)
         term_1_ptr = term_1.ctypes.data
@@ -188,7 +190,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         fmu.enterContinuousTimeMode()
 
         q1, equation_call_wrapper = generate_eval_llvm(idx_tuple_array, [idx_tuple_array[i] for i in deriv_idx],
-                                                       states_idx)
+                                                       states_idx,var_order)
         module_func = ast.Module(body=[q1, equation_call_wrapper], type_ignores=[])
         if debug_output:
             print(ast.unparse(module_func))
@@ -222,7 +224,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_cond = []
         event_cond_wrapped = []
         for i in range(event_n):
-            q, wrapper = generate_eval_event(states_idx, len_q, event_id=i)
+            q, wrapper = generate_eval_event(states_idx, len_q,var_order, event_id=i)
             module_func = ast.Module(body=[q, wrapper], type_ignores=[])
             if debug_output:
                 print(ast.unparse(module_func))
@@ -255,7 +257,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
             event_cond_2.lines = ast.unparse(ast.Module(body=[f2], type_ignores=[]))
             event_cond_wrapped.append(event_cond_2)
 
-        a, b = generate_action_event(len_q)
+
+        a, b = generate_action_event(len_q, var_order)
         module_func = ast.Module(body=[a, b], type_ignores=[])
         if debug_output:
             print(ast.unparse(module_func))
@@ -327,7 +330,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         for variable in model_description.modelVariables:
             if variable.derivative:
                 derivatives.append(variable)
-                derivatives_names.append(_replace_name_str(variable.derivative.name) + '_dot')
+                derivatives_names.append(_replace_name_str(variable.derivative.name))
                 # if variable.derivative.start:
                 #     start = variable.derivative.start
                 # else:
@@ -358,5 +361,3 @@ class FMU_Subsystem(Subsystem, EquationBase):
             else:
                 if not variable.derivative:
                     self.add_parameter(_replace_name_str(variable.name), 0.0)
-
-        print(1)

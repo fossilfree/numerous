@@ -58,6 +58,7 @@ class EquationBase:
         if tag:
             self.tag = tag
         self.equations = []
+        self.new_variable_idx = 0
         self.variables_descriptions = VariableDescriptionMap(self)
         super(EquationBase, self).__init__()
         method_list = [func for func in dir(self) if callable(getattr(self, func)) and not func.startswith("__")]
@@ -163,10 +164,12 @@ class EquationBase:
         -------
 
         """
+
         self.variables_descriptions. \
             register_variable_description(VariableDescription(tag=tag, id=str(uuid.uuid1()), initial_value=init_val,
-                                                              type=var_type, logger_level=logger_level, alias=alias))
-
+                                                              type=var_type, logger_level=logger_level, alias=alias,
+                                                              variable_idx = self.new_variable_idx ))
+        self.new_variable_idx +=1
     def map_create_parameters(self, item, mappings):
         for m in mappings:
             if not self.variables_descriptions.variable_exists(m.to_):

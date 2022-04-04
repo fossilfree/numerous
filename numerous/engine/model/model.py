@@ -63,7 +63,10 @@ class ModelNamespace:
             variables__.append(variables___)
         variables__ = [list(x) for x in zip(*variables__)]
         variables__ = list(itertools.chain(*variables__))
-        return variables__
+        variables_ordered = [None] * len(variables__)
+        for variable in variables__:
+            variables_ordered[variable.detailed_description.variable_idx]=variable
+        return variables_ordered
 
 
 class ModelAssembler:
@@ -614,6 +617,7 @@ class Model:
             for eq in namespace.associated_equations.values():
                 equations = []
                 ids = []
+
                 for equation in eq.equations:
                     equations.append(equation)
                 for vardesc in eq.variables_descriptions:

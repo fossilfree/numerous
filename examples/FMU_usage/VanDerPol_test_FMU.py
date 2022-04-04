@@ -32,7 +32,7 @@ class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
         fmu_filename = '/home/artem/Source/FMPy/Rectifier.fmu'
-        # fmu_filename = 'BouncingBall.fmu'
+        # fmu_filename = 'VanDerPol.fmu'
         fmu_subsystem = FMU_Subsystem(fmu_filename, "Rectifier", debug_output=True)
         self.register_items([fmu_subsystem])
 
@@ -40,7 +40,7 @@ class S3(Subsystem):
 subsystem1 = S3('q1')
 m1 = Model(subsystem1, use_llvm=False)
 s = Simulation(
-    m1, t_start=0, t_stop=1, num=200, num_inner=200, max_step=.1, solver_type=SolverType.SOLVER_IVP)
+    m1, t_start=0, t_stop=10, num=100, num_inner=1, max_step=.1, solver_type=SolverType.SOLVER_IVP)
 # sub_S = m1.system.get_item(ItemPath("q1.BouncingBall"))
 s.solve(run_fmu_event_action=True)
 # sub_S.fmu.terminate()
