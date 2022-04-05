@@ -150,9 +150,9 @@ class FMU_Subsystem(Subsystem, EquationBase):
         newDiscreteStates = getattr(fmu.dll, "fmi2NewDiscreteStates")
         newDiscreteStates.argtypes = [ctypes.c_uint, ctypes.c_void_p]
         newDiscreteStates.restype = ctypes.c_uint
-
-        len_q = len(model_description.modelVariables)
-        var_order = [x.valueReference for x in model_description.modelVariables]
+        number_of_string_vars = len([x.valueReference for x in model_description.modelVariables if x.type == "String"])
+        len_q = len(model_description.modelVariables)-number_of_string_vars
+        var_order = [x.valueReference for x in model_description.modelVariables if x.type != "String"]
 
 
         term_1 = np.array([0], dtype=np.int32)
@@ -176,6 +176,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         var_names_ordered_ns = []
         deriv_names_ordered = []
         for idx, variable in enumerate(model_description.modelVariables):
+            if variable.type == 'String':
+                continue
             if variable.derivative:
                 deriv_idx.append(idx)
                 states_idx.append([(index, x) for index, x in enumerate(model_description.modelVariables) if
@@ -337,6 +339,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
                 #     start = 0
                 states.append(variable.derivative)
         for variable in model_description.modelVariables:
+            if variable.type == 'String':
+                continue
             if variable in states:
                 if variable.start:
                     start = variable.start

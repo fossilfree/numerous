@@ -386,5 +386,5 @@ def test_static_system(solver, use_llvm):
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=solver
     )
     s.solve()
-    assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i1'])[1:]) == np.repeat(0, (100))
-    assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i2'])[1:]) == np.repeat(0, (100))
+    assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i1'])[1:]) == np.repeat(0, 100)
+    assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i2'])[1:]) == np.repeat(0, 100)
