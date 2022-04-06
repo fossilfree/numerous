@@ -307,17 +307,18 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_action = namespace["event_action"]
         event_action_2 = namespace["event_action_2"]
         event_action_2.lines = ast.unparse(ast.Module(body=[b1], type_ignores=[]))
-        gec = generate_eq_call(deriv_names_ordered, var_names_ordered)
-        if debug_output:
-            print(ast.unparse(gec))
-        code = compile(ast.parse(ast.unparse(gec)), filename='fmu_eval', mode='exec')
-        namespace = {"Equation": Equation}
-        exec(code, namespace)
-        result = namespace["eval"]
-        result.lines = ast.unparse(gec)
-        result.lineno = ast.parse(ast.unparse(gec)).body[0].lineno
-        self.eval = ptypes.MethodType(result, self)
-        self.equations.append(self.eval)
+        if len(deriv_names_ordered)>0:
+            gec = generate_eq_call(deriv_names_ordered, var_names_ordered)
+            if debug_output:
+                print(ast.unparse(gec))
+            code = compile(ast.parse(ast.unparse(gec)), filename='fmu_eval', mode='exec')
+            namespace = {"Equation": Equation}
+            exec(code, namespace)
+            result = namespace["eval"]
+            result.lines = ast.unparse(gec)
+            result.lineno = ast.parse(ast.unparse(gec)).body[0].lineno
+            self.eval = ptypes.MethodType(result, self)
+            self.equations.append(self.eval)
         self.t1 = self.create_namespace(namespace_)
         self.t1.add_equations([self])
         for i in range(event_n):

@@ -121,7 +121,7 @@ class Simulation:
 
         self.compiled_model = numba_model
 
-    def solve(self, run_fmu_event_action):
+    def solve(self, run_fmu_event_action=False):
         self.reset(run_fmu_event_action)
 
         sol, self.result_status = self.solver.solve()

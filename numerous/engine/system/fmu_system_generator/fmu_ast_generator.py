@@ -37,6 +37,7 @@ def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs):
     eq_expr = [ast.Expr(value=ast.Call(func=ast.Name(id=EQ_CALL), args=eq_call_args, keywords=[], ctx=ast.Load()),
                         keywords=[])]
     return_elts = []
+    return_exp = []
     for zero_assign_ptr, arr_id in output_ptrs:
         shape = ast.Attribute(value=ast.Name(id=arr_id, ctx=ast.Load()), attr=SHAPE, ctx=ast.Load())
         dtype_kw = ast.Attribute(value=ast.Name(id=arr_id, ctx=ast.Load()), attr=DTYPE, ctx=ast.Load())
@@ -44,8 +45,9 @@ def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs):
         return_elts.append(carray_call(add_address_as_void_pointer(zero_assign_ptr), shape, _keywords))
     if len(return_elts) > 1:
         return_exp = [ast.Return(value=ast.Tuple(elts=return_elts), ctx=ast.Load())]
-    else:
+    if len(return_elts) == 1:
         return_exp = [ast.Return(value=return_elts[0], ctx=ast.Load())]
+
     decorator_list = [ast.Call(func=ast.Name(id=NUMEROUS_FUNCTION, ctx=ast.Load()), args=[], keywords=[])]
     return ast.FunctionDef(name='fmu_eval', args=args, body=zero_assigns + eq_expr + return_exp,
                            decorator_list=decorator_list, lineno=0)
@@ -146,19 +148,20 @@ def generate_eval_llvm(assign_ptrs, output_args, states_idx, var_order: list):
     args_ = []
     for state_idx in states_idx:
         args_.append(ast.Name(id=assign_ptrs[state_idx][0], ctx=ast.Load()))
-    body.append(ast.Assign(targets=[ast.Name(id='value3', ctx=ast.Store())],
-                           value=ast.Call(func=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='array',
-                                                             ctx=ast.Load()),
-                                          args=[ast.List(elts=args_, ctx=ast.Load())],
-                                          keywords=[ast.keyword(arg='dtype', value=ast.Attribute(
-                                              value=ast.Name(id='np', ctx=ast.Load()), attr='float64',
-                                              ctx=ast.Load()))]), lineno=0))
+    if len(args_)>0:
+        body.append(ast.Assign(targets=[ast.Name(id='value3', ctx=ast.Store())],
+                               value=ast.Call(func=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='array',
+                                                                 ctx=ast.Load()),
+                                              args=[ast.List(elts=args_, ctx=ast.Load())],
+                                              keywords=[ast.keyword(arg='dtype', value=ast.Attribute(
+                                                  value=ast.Name(id='np', ctx=ast.Load()), attr='float64',
+                                                  ctx=ast.Load()))]), lineno=0))
 
-    body.append(ast.Expr(value=ast.Call(func=ast.Name(id='fmi2SetC', ctx=ast.Load()),
-                                        args=[ast.Name(id='component', ctx=ast.Load()),
-                                              ast.Attribute(value=ast.Name(id='value3', ctx=ast.Load()),
-                                                            attr='ctypes', ctx=ast.Load()),
-                                              ast.Constant(value=len(states_idx))], keywords=[])))
+        body.append(ast.Expr(value=ast.Call(func=ast.Name(id='fmi2SetC', ctx=ast.Load()),
+                                            args=[ast.Name(id='component', ctx=ast.Load()),
+                                                  ast.Attribute(value=ast.Name(id='value3', ctx=ast.Load()),
+                                                                attr='ctypes', ctx=ast.Load()),
+                                                  ast.Constant(value=len(states_idx))], keywords=[])))
 
     body.append(ast.Expr(value=ast.Call(func=ast.Name(id='set_time', ctx=ast.Load()),
                                         args=[ast.Name(id='component', ctx=ast.Load()),
