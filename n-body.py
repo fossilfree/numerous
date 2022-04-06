@@ -77,7 +77,7 @@ if __name__ == '__main__':
     r_mag=earth_radius+500.0
     v_mag=np.sqrt(earth_mu/r_mag)
 
-    r0=[r_mag,0,0]
+    r0=[r_mag,0,4000]
     v0=[0,v_mag,0]
 
     tspan=100*60.0
@@ -108,7 +108,7 @@ if __name__ == '__main__':
     rs = nbody_simulation.model.historian_df['nbody.orbit.mechanics.rx']
 
     fig, ax = plt.subplots()
-    y = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.ry"])
+    y = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rz"])
     # t = np.array(m1.historian_df["time"])
     ax.plot(y)
 

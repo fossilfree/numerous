@@ -56,7 +56,7 @@ if __name__ == '__main__':
     r_mag=earth_radius+500.0
     v_mag=np.sqrt(earth_mu/r_mag)
 
-    r0=[r_mag,0,0]
+    r0=[r_mag,0,4000]
     v0=[0,v_mag,0]
 
     tspan=100*60.0
