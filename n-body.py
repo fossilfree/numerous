@@ -56,9 +56,9 @@ class Oribtal(EquationBase, Item):
         self.add_state('vx',initial[3])
         self.add_state('vy',initial[4])
         self.add_state('vz',initial[5])
-        self.add_state('ax')
-        self.add_state('ay')
-        self.add_state('az')
+        self.add_parameter('ax')
+        self.add_parameter('ay')
+        self.add_parameter('az')
         mechanics = self.create_namespace('mechanics')
         mechanics.add_equations([self])
     @Equation()
@@ -106,8 +106,8 @@ if __name__ == '__main__':
     #     step+=1
     #
     # rs=ys[:,:3]
-    rs = nbody_simulation.model.historian_df[['nbody.orbital.mechanics.rx',
-                                              'nbody.orbital.mechanics.ry',
-                                              'nbody.orbital.mechanics.rz']]
+    rs = nbody_simulation.model.historian_df[['nbody.orbital.mechanics.ax',
+                                              'nbody.orbital.mechanics.ay',
+                                              'nbody.orbital.mechanics.az']]
 
     plot(rs)
