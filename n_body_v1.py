@@ -7,7 +7,7 @@ from mpl_toolkits.mplot3d import Axes3D
 def plot(r):
     fig=plt.figure(figsize=(10,10))
     ax=fig.add_subplot(111,projection='3d')
-
+    print(r)
     ax.plot(r[:,0],r[:,1],r[:,2],'k')
     ax.plot([r[0,0]],[r[0,1]],[r[0,2]],'ko')
 

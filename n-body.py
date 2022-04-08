@@ -10,7 +10,15 @@ from mpl_toolkits.mplot3d import Axes3D
 from numerous.engine.system import EquationBase, Subsystem
 
 
-def plot(r):
+def plot(x,y,z):
+    sublists=[]
+    for i in range(len(x)):
+        current=np.array([x[i],y[i],z[i]])
+        sublists.append(current)
+    r=np.array(sublists)
+    #lost=[np.array(x),np.array(y),np.array(z)]
+    #r=np.array(lost)
+    print(r)
     fig=plt.figure(figsize=(10,10))
     ax=fig.add_subplot(111,projection='3d')
 
@@ -77,8 +85,8 @@ if __name__ == '__main__':
     r_mag=earth_radius+500.0
     v_mag=np.sqrt(earth_mu/r_mag)
 
-    r0=[r_mag,0,4000]
-    v0=[0,v_mag,0]
+    r0 = [r_mag, 0, 4000]
+    v0 = [0, v_mag, 0]
 
     tspan=100*60.0
 
@@ -108,11 +116,14 @@ if __name__ == '__main__':
     rs = nbody_simulation.model.historian_df['nbody.orbit.mechanics.rx']
 
     fig, ax = plt.subplots()
-    y = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rz"])
+    x = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rx"])
+    y = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.ry"])
+    z = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rz"])
     # t = np.array(m1.historian_df["time"])
-    ax.plot(y)
-
-    ax.set(xlabel='time', ylabel='outputs', title='nbody')
+    ax.plot(x, label='x')
+    ax.plot(y, label='y')
+    ax.plot(z, label='z')
+    ax.set(xlabel='time', title='nbody')
     ax.grid()
-
-    plt.show()
+    #plt.show()
+    plot(x,y,z)
