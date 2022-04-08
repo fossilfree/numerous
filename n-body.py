@@ -16,9 +16,6 @@ def plot(x,y,z):
         current=np.array([x[i],y[i],z[i]])
         sublists.append(current)
     r=np.array(sublists)
-    #lost=[np.array(x),np.array(y),np.array(z)]
-    #r=np.array(lost)
-    print(r)
     fig=plt.figure(figsize=(10,10))
     ax=fig.add_subplot(111,projection='3d')
 
@@ -114,16 +111,8 @@ if __name__ == '__main__':
     #
     # rs=ys[:,:3]
     rs = nbody_simulation.model.historian_df['nbody.orbit.mechanics.rx']
-
-    fig, ax = plt.subplots()
     x = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rx"])
     y = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.ry"])
     z = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rz"])
-    # t = np.array(m1.historian_df["time"])
-    ax.plot(x, label='x')
-    ax.plot(y, label='y')
-    ax.plot(z, label='z')
-    ax.set(xlabel='time', title='nbody')
-    ax.grid()
-    #plt.show()
+
     plot(x,y,z)
