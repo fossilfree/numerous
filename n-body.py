@@ -56,18 +56,17 @@ class Oribtal(EquationBase, Item):
         self.add_state('vx',initial[3])
         self.add_state('vy',initial[4])
         self.add_state('vz',initial[5])
-        self.add_parameter('ax')
-        self.add_parameter('ay')
-        self.add_parameter('az')
         mechanics = self.create_namespace('mechanics')
         mechanics.add_equations([self])
     @Equation()
-    def diffy_q(self,scope):
-        r=np.array([scope.rx,scope.ry,scope.rz])
-        norm_r = (r[0]**2+r[1]**2+r[2]**2)**(1/2)
-        # norm_r=np.linalg.norm(r)
-
-        scope.ax,scope.ay,scope.az=-r*scope.mu/norm_r**3
+    def diffy_q(self, scope):
+        norm_r = (scope.rx**2+scope.ry**2+scope.rz**2)**(1/2)
+        scope.vx_dot = -scope.rx*scope.mu/norm_r**3
+        scope.vy_dot = -scope.ry*scope.mu/norm_r**3
+        scope.vz_dot = -scope.rz*scope.mu/norm_r**3
+        scope.rx_dot = scope.vx
+        scope.ry_dot = scope.vy
+        scope.rz_dot = scope.vz
 
 class Nbody(Subsystem):
     def __init__(self, initial, mu, tag="nbody"):
@@ -78,7 +77,7 @@ if __name__ == '__main__':
     r_mag=earth_radius+500.0
     v_mag=np.sqrt(earth_mu/r_mag)
 
-    r0=[r_mag,0,0]
+    r0=[r_mag,0,4000]
     v0=[0,v_mag,0]
 
     tspan=100*60.0
@@ -89,7 +88,7 @@ if __name__ == '__main__':
     y0=r0+v0
     nbody_system = Nbody(initial=y0, mu=earth_mu)
     nbody_model = Model(nbody_system,use_llvm=False)
-    nbody_simulation = Simulation(nbody_model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=10.0, num=100, num_inner=100, max_step=1)
+    nbody_simulation = Simulation(nbody_model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=10000.0, num=100, num_inner=100, max_step=1)
     nbody_simulation.solve()
     # ys=np.zeros((n_steps,6))
     # ts=np.zeros((n_steps,1))
@@ -103,11 +102,17 @@ if __name__ == '__main__':
     #     solver.integrate(solver.t+dt)
     #     ts[step]=solver.t
     #     ys[step]=solver.y
-    #     step+=1
+    #     step+=1plot
     #
     # rs=ys[:,:3]
-    rs = nbody_simulation.model.historian_df[['nbody.orbital.mechanics.ax',
-                                              'nbody.orbital.mechanics.ay',
-                                              'nbody.orbital.mechanics.az']]
+    rs = nbody_simulation.model.historian_df['nbody.orbit.mechanics.rx']
 
-    plot(rs)
+    fig, ax = plt.subplots()
+    y = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rz"])
+    # t = np.array(m1.historian_df["time"])
+    ax.plot(y)
+
+    ax.set(xlabel='time', ylabel='outputs', title='nbody')
+    ax.grid()
+
+    plt.show()
