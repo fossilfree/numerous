@@ -242,7 +242,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             c = np.zeros(shape=event_n)
             c_ptr = c.ctypes.data
 
-            f1, f2 = generate_njit_event_cond(var_states_ordered)
+            f1, f2 = generate_njit_event_cond(var_states_ordered,i)
             module_func = ast.Module(body=[f1, f2], type_ignores=[])
             if debug_output:
                 print(ast.unparse(module_func))
@@ -254,8 +254,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
                          "njit": njit, "address_as_void_pointer": address_as_void_pointer,
                          "completedIntegratorStep": completedIntegratorStep}
             exec(code, namespace)
-            event_cond.append(namespace["event_cond"])
-            event_cond_2 = namespace["event_cond_2"]
+            event_cond.append(namespace["event_cond_inner_"+str(i)])
+            event_cond_2 = namespace["event_cond_"+str(i)]
             event_cond_2.lines = ast.unparse(ast.Module(body=[f2], type_ignores=[]))
             event_cond_wrapped.append(event_cond_2)
 
@@ -323,7 +323,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         self.t1.add_equations([self])
         for i in range(event_n):
             self.add_event("event_" + str(i), event_cond_wrapped[i], event_action_2,
-                           compiled_functions={"event_cond": event_cond[i], "event_action": event_action})
+                           compiled_functions={"event_cond_inner_"+str(i): event_cond[i], "event_action": event_action})
 
     def set_variables(self, model_description):
         derivatives = []

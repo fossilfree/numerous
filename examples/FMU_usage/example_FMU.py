@@ -31,26 +31,26 @@ class G(Item):
 class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
-        fmu_filename = '/home/artem/fmus/Feedthrough.fmu'
-        fmu_subsystem = FMU_Subsystem(fmu_filename, "Feedthrough", debug_output=True)
+        fmu_filename = '/home/artem/fmus/Rectifier.fmu'
+        fmu_subsystem = FMU_Subsystem(fmu_filename, "Rectifier", debug_output=True)
         self.register_items([fmu_subsystem])
 
 
 subsystem1 = S3('q1')
-m1 = Model(subsystem1, use_llvm=False)
+m1 = Model(subsystem1, use_llvm=True)
 s = Simulation(
-    m1, t_start=0, t_stop=10, num=100, num_inner=1, max_step=.1, solver_type=SolverType.SOLVER_IVP)
+    m1, t_start=0, t_stop=0.1, num=1500, num_inner=1, max_step=.1, solver_type=SolverType.SOLVER_IVP)
 
 s.solve(run_fmu_event_action=True)
 
 
 fig, ax = plt.subplots()
-y = np.array(m1.historian_df["q1.Feedthrough.t1.y"])
+y = np.array(m1.historian_df["q1.Rectifier.t1.outputs"])
 t = np.array(m1.historian_df["time"])
 ax.plot(t, y)
 
 
-ax.set(xlabel='time (s)', ylabel='outputs', title='VanDerPol')
+ax.set(xlabel='time (s)', ylabel='outputs', title='Rectifier')
 ax.grid()
 
 plt.show()

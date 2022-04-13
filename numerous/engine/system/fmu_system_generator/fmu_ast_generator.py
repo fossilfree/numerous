@@ -320,7 +320,7 @@ def generate_eval_event(state_idx, len_q, var_order: list, event_id):
     return ast.FunctionDef(name='eval_event', args=args, body=body, decorator_list=[], lineno=0), wrapper
 
 
-def generate_njit_event_cond(states):
+def generate_njit_event_cond(states,id_):
     body = [ast.Assign(targets=[ast.Name(id='temp_addr', ctx=ast.Store())],
                        value=ast.Call(func=ast.Name(id='address_as_void_pointer', ctx=ast.Load()),
                                       args=[ast.Name(id='c_ptr', ctx=ast.Load())],
@@ -361,7 +361,7 @@ def generate_njit_event_cond(states):
 
     body.append(ast.Return(value=ast.Name(id='result', ctx=ast.Load())))
 
-    event_cond = ast.FunctionDef(name='event_cond',
+    event_cond = ast.FunctionDef(name='event_cond_inner_'+str(id_),
                                  args=ast.arguments(posonlyargs=[], args=[ast.arg(arg='t'), ast.arg(arg='y')],
                                                     kwonlyargs=[],
                                                     kw_defaults=[], defaults=[]), body=body,
@@ -382,15 +382,15 @@ def generate_njit_event_cond(states):
                                                          ctx=ast.Load())], keywords=[]), lineno=0))
 
     body.append(ast.Return(
-        value=ast.Call(func=ast.Name(id='event_cond', ctx=ast.Load()),
+        value=ast.Call(func=ast.Name(id='event_cond_inner_'+str(id_), ctx=ast.Load()),
                        args=[ast.Name(id='t', ctx=ast.Load()), ast.Name(id='q', ctx=ast.Load())], keywords=[])))
 
-    eq_expr__ = [ast.Expr(
-        value=ast.Call(func=ast.Name(id='print', ctx=ast.Load()), args=[ast.Name(id='q', ctx=ast.Load())],
-                       keywords=[]))]
-    body.append(eq_expr__)
+    # eq_expr__ = [ast.Expr(
+    #     value=ast.Call(func=ast.Name(id='print', ctx=ast.Load()), args=[ast.Name(id='q', ctx=ast.Load())],
+    #                    keywords=[]))]
+    # body.append(eq_expr__)
 
-    event_cond_2 = ast.FunctionDef(name='event_cond_2',
+    event_cond_2 = ast.FunctionDef(name='event_cond_'+str(id_),
                                    args=ast.arguments(posonlyargs=[], args=[ast.arg(arg='t'), ast.arg(arg='variables')],
                                                       kwonlyargs=[],
                                                       kw_defaults=[], defaults=[]), body=body,
