@@ -51,27 +51,56 @@ def plot(x,y,z):
 earth_radius=6378.0
 earth_mu=398600.0
 
+# universal gravitation constant
+# G = 6.67408e-11 (m**3/kg/s**2)
+G = 6.67259e-20  # (km**3/kg/s**2)
+
 class Oribtal(EquationBase, Item):
     def __init__(self,  initial, mu, tag='orbit'):
         super(Oribtal, self).__init__(tag)
         self.add_parameter('mu',mu)
-        self.add_state('rx',initial[0])
-        self.add_state('ry',initial[1])
-        self.add_state('rz',initial[2])
-        self.add_state('vx',initial[3])
-        self.add_state('vy',initial[4])
-        self.add_state('vz',initial[5])
+        self.add_state('rx_0',initial[0])
+        self.add_state('ry_0',initial[1])
+        self.add_state('rz_0',initial[2])
+        self.add_state('vx_0',initial[3])
+        self.add_state('vy_0',initial[4])
+        self.add_state('vz_0',initial[5])
+        self.add_state('rx_1', initial[6])
+        self.add_state('ry_1', initial[7])
+        self.add_state('rz_1', initial[8])
+        self.add_state('vx_1', initial[9])
+        self.add_state('vy_1', initial[10])
+        self.add_state('vz_1', initial[11])
         mechanics = self.create_namespace('mechanics')
         mechanics.add_equations([self])
+
     @Equation()
     def diffy_q(self, scope):
-        norm_r = (scope.rx**2+scope.ry**2+scope.rz**2)**(1/2)
-        scope.vx_dot = -scope.rx*scope.mu/norm_r**3
-        scope.vy_dot = -scope.ry*scope.mu/norm_r**3
-        scope.vz_dot = -scope.rz*scope.mu/norm_r**3
-        scope.rx_dot = scope.vx
-        scope.ry_dot = scope.vy
-        scope.rz_dot = scope.vz
+        G = 6.67259e-20
+        m_0 = 1e26
+        m_1 = 1e26
+        rx = scope.rx_1 - scope.rx_0
+        ry = scope.ry_1  -scope.ry_0
+        rz = scope.rz_1 - scope.rz_0
+        norm_r = (rx**2+ry**2+rz**2)**(1/2)
+
+
+        scope.vx_0_dot =G* m_1 *(scope.rx_1 - scope.rx_0) / norm_r**3
+
+        scope.vx_1_dot = G * m_0 * (scope.rx_0 - scope.rx_1) / norm_r ** 3
+
+
+
+        # scope.vy_dot = -scope.ry*scope.mu/norm_r**3
+        # scope.vz_dot = -scope.rz*scope.mu/norm_r**3
+
+        scope.rx_0_dot = scope.vx_0
+        scope.ry_0_dot = scope.vy_0
+        scope.rz_0_dot = scope.vz_0
+        scope.rx_1_dot = scope.vx_1
+        scope.ry_1_dot = scope.vy_1
+        scope.rz_1_dot = scope.vz_1
+
 
 class Nbody(Subsystem):
     def __init__(self, initial, mu, tag="nbody"):
@@ -93,7 +122,7 @@ if __name__ == '__main__':
     y0=r0+v0
     nbody_system = Nbody(initial=y0, mu=earth_mu)
     nbody_model = Model(nbody_system,use_llvm=False)
-    nbody_simulation = Simulation(nbody_model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=10000.0, num=100, num_inner=100, max_step=1)
+    nbody_simulation = Simulation(nbody_model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=20000.0, num=100, num_inner=100, max_step=1)
     nbody_simulation.solve()
     # ys=np.zeros((n_steps,6))
     # ts=np.zeros((n_steps,1))
