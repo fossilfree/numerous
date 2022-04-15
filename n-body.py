@@ -10,40 +10,43 @@ from mpl_toolkits.mplot3d import Axes3D
 from numerous.engine.system import EquationBase, Subsystem
 
 
-def plot(x,y,z):
-    sublists=[]
-    for i in range(len(x)):
-        current=np.array([x[i],y[i],z[i]])
-        sublists.append(current)
-    r=np.array(sublists)
-    fig=plt.figure(figsize=(10,10))
-    ax=fig.add_subplot(111,projection='3d')
-
-    ax.plot(r[:,0],r[:,1],r[:,2],'k')
-    ax.plot([r[0,0]],[r[0,1]],[r[0,2]],'ko')
-
-    r_plot=earth_radius
-
-    _u,_v=np.mgrid[0:2*np.pi:20j,0:np.pi:10j]
-    _x=r_plot*np.cos(_u)*np.sin(_v)
-    _y=r_plot*np.sin(_u)*np.sin(_v)
-    _z=r_plot*np.cos(_v)
-    ax.plot_surface(_x,_y,_z,cmap='Blues')
-
-    l=r_plot*2.0
+def plot(bodies):
+    plots=[]
+    pl_index=0
     x,y,z=[[0,0,0],[0,0,0],[0,0,0]]
     u,v,w=[[1,0,0],[0,1,0],[0,0,1]]
-    ax.quiver(x,y,z,u,v,w,color='k')
+    for i in bodies:
+        x,y,z=i
+        sublists=[]
+        for i in range(len(x)):
+            current=np.array([x[i],y[i],z[i]])
+            sublists.append(current)
+        r=np.array(sublists)
+        fig=plt.figure(figsize=(10,10))
+        plots.append(fig.add_subplot(projection='3d'))
 
-    max_val=np.max(np.abs(r))
+        plots[pl_index].plot(r[:,0],r[:,1],r[:,2],'k')
+        plots[pl_index].plot([r[0,0]],[r[0,1]],[r[0,2]],'ko')
 
-    ax.set_xlim([-max_val,max_val])
-    ax.set_ylim([-max_val,max_val])
-    ax.set_zlim([-max_val,max_val])
-    ax.set_xlabel('X (km)')
-    ax.set_ylabel('Y (km)')
-    ax.set_zlabel('Z (km)')
-    ax.set_aspect('auto')
+    #r_plot=earth_radius
+
+    #_u,_v=np.mgrid[0:2*np.pi:20j,0:np.pi:10j]
+    #_x=r_plot*np.cos(_u)*np.sin(_v)
+    #_y=r_plot*np.sin(_u)*np.sin(_v)
+    #_z=r_plot*np.cos(_v)
+    #ax.plot_surface(_x,_y,_z,cmap='Blues')
+
+    #l=r_plot*2.0
+#        plots[pl_index].quiver(x,y,z,u,v,w,color='k')
+        pl_index += 1
+    #plots[pl_index].set_xlim([-max_val,max_val])
+    #plots[pl_index].set_ylim([-max_val,max_val])
+    #plots[pl_index].set_zlim([-max_val,max_val])
+    #plots[pl_index].set_xlabel('X (km)')
+    #plots[pl_index].set_ylabel('Y (km)')
+    #plots[pl_index].set_zlabel('Z (km)')
+    #plots[pl_index].set_aspect('auto')
+
 
     plt.legend(['Trajectory','Starting Position'])
     plt.show()
@@ -80,14 +83,20 @@ class Oribtal(EquationBase, Item):
         m_0 = 1e26
         m_1 = 1e26
         rx = scope.rx_1 - scope.rx_0
-        ry = scope.ry_1  -scope.ry_0
+        ry = scope.ry_1 - scope.ry_0
         rz = scope.rz_1 - scope.rz_0
         norm_r = (rx**2+ry**2+rz**2)**(1/2)
-
-
-        scope.vx_0_dot =G* m_1 *(scope.rx_1 - scope.rx_0) / norm_r**3
+        scope.vx_0_dot = G * m_1 * (scope.rx_1 - scope.rx_0) / norm_r ** 3
 
         scope.vx_1_dot = G * m_0 * (scope.rx_0 - scope.rx_1) / norm_r ** 3
+
+        scope.vy_0_dot = G * m_1 * (scope.ry_1 - scope.ry_0) / norm_r ** 3
+
+        scope.vy_1_dot = G * m_0 * (scope.ry_0 - scope.ry_1) / norm_r ** 3
+
+        scope.vz_0_dot = G * m_1 * (scope.rz_1 - scope.rz_0) / norm_r ** 3
+
+        scope.vz_1_dot = G * m_0 * (scope.rz_0 - scope.rz_1) / norm_r ** 3
 
 
 
@@ -111,15 +120,23 @@ if __name__ == '__main__':
     r_mag=earth_radius+500.0
     v_mag=np.sqrt(earth_mu/r_mag)
 
-    r0 = [r_mag, 0, 4000]
-    v0 = [0, v_mag, 0]
+    inital_bodies=[
+        [
+            [r_mag, 0, 4000],[0, v_mag, 0]
+        ],[
+            [-r_mag, 0, -4000], [0, -v_mag, 0]
+        ]
+    ]
 
     tspan=100*60.0
 
     dt=100.0
 
     n_steps=int(np.ceil(tspan/dt))
-    y0=r0+v0
+    y0=[]
+    for i in inital_bodies:
+        y0+=i[0]+i[1]
+    print(y0)
     nbody_system = Nbody(initial=y0, mu=earth_mu)
     nbody_model = Model(nbody_system,use_llvm=False)
     nbody_simulation = Simulation(nbody_model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=20000.0, num=100, num_inner=100, max_step=1)
@@ -139,9 +156,15 @@ if __name__ == '__main__':
     #     step+=1plot
     #
     # rs=ys[:,:3]
-    rs = nbody_simulation.model.historian_df['nbody.orbit.mechanics.rx']
-    x = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rx"])
-    y = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.ry"])
-    z = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rz"])
+    #rs = nbody_simulation.model.historian_df['nbody.orbit.mechanics.rx']
+    x_0 = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rx_0"])
+    y_0 = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.ry_0"])
+    z_0 = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rz_0"])
 
-    plot(x,y,z)
+    x_1 = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rx_1"])
+    y_1 = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.ry_1"])
+    z_1 = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rz_1"])
+
+    bodies=[[x_0,y_0,z_0],[x_1,y_1,z_1]]
+
+    plot(bodies)
