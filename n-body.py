@@ -28,25 +28,7 @@ def plot(bodies):
         plots[pl_index].plot(r[:,0],r[:,1],r[:,2],'k')
         plots[pl_index].plot([r[0,0]],[r[0,1]],[r[0,2]],'ko')
 
-    #r_plot=earth_radius
-
-    #_u,_v=np.mgrid[0:2*np.pi:20j,0:np.pi:10j]
-    #_x=r_plot*np.cos(_u)*np.sin(_v)
-    #_y=r_plot*np.sin(_u)*np.sin(_v)
-    #_z=r_plot*np.cos(_v)
-    #ax.plot_surface(_x,_y,_z,cmap='Blues')
-
-    #l=r_plot*2.0
-#        plots[pl_index].quiver(x,y,z,u,v,w,color='k')
         pl_index += 1
-    #plots[pl_index].set_xlim([-max_val,max_val])
-    #plots[pl_index].set_ylim([-max_val,max_val])
-    #plots[pl_index].set_zlim([-max_val,max_val])
-    #plots[pl_index].set_xlabel('X (km)')
-    #plots[pl_index].set_ylabel('Y (km)')
-    #plots[pl_index].set_zlabel('Z (km)')
-    #plots[pl_index].set_aspect('auto')
-
 
     plt.legend(['Trajectory','Starting Position'])
     plt.show()
