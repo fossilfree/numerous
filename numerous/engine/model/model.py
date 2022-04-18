@@ -18,7 +18,6 @@ import pandas as pd
 
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
 from numerous.engine.model.utils import Imports, njit_and_compile_function
-from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
 from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
 
 from numerous.utils.logger_levels import LoggerLevel
@@ -36,7 +35,7 @@ from numerous.engine.model.graph_representation.graph import Graph
 from numerous.engine.model.ast_parser.parser_ast import process_mappings
 
 from numerous.engine.model.lowering.equations_generator import EquationGenerator
-from numerous.engine.system import SetNamespace
+from numerous.engine.system import SetNamespace, EmptyMapping
 
 import faulthandler
 import llvmlite.binding as llvm
@@ -116,7 +115,7 @@ class Model:
     """
 
     def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
-                 external_mappings=None, data_loader=None, imports=None, historian=InMemoryHistorian(),
+                 imports=None, historian=InMemoryHistorian(),
                  use_llvm=True, save_to_file=False, generate_graph_pdf=False, export_model=False):
 
         self.path_to_variable = {}
@@ -127,9 +126,8 @@ class Model:
         else:
             self.logger_level = logger_level
 
-        self.is_external_data = True if external_mappings else False
-        self.external_mappings = ExternalMapping(external_mappings,
-                                                 data_loader) if external_mappings else EmptyMapping()
+        self.is_external_data = True if system.external_mappings is None else False
+        self.external_mappings = system.external_mappings
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
         self.imports = Imports()
@@ -465,7 +463,7 @@ class Model:
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             with open(filename, 'wb') as handle:
                 sys.setrecursionlimit(100000)
-                pickle.dump((self.system, self.logger_level, self.external_mappings,
+                pickle.dump((self.system, self.logger_level,
                              self.imports, self.use_llvm, self.vars_ordered_values, self.variables,
                              self.state_idx, self.derivatives_idx, self.init_values, self.aliases,
                              eq_gen.generated_program.equations_llvm_opt, eq_gen.generated_program.max_var,
@@ -769,11 +767,9 @@ class Model:
 
     @classmethod
     def from_file(cls, param):
-        system_, logger_level, external_mappings, imports, use_llvm, vars_ordered_values, variables, state_idx, \
+        system_, logger_level, imports, use_llvm, vars_ordered_values, variables, state_idx, \
         derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(open(param, "rb"))
-        if isinstance(external_mappings, EmptyMapping):
-            external_mappings = None
-        model = Model(system=system_, assemble=False, logger_level=logger_level, external_mappings=external_mappings,
+        model = Model(system=system_, assemble=False, logger_level=logger_level,
                       use_llvm=use_llvm)
         model.variables = variables
         model.imports = imports

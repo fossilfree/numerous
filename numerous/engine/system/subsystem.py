@@ -2,6 +2,7 @@ import copy
 from enum import Enum
 
 from numerous import EquationBase
+from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.system.item import Item
 import networkx as nx
@@ -22,9 +23,11 @@ class Subsystem(ConnectorItem):
 
     """
 
-    def __init__(self, tag):
+    def __init__(self, tag, external_mappings=None, data_loader=None):
         self.ports = _DictWrapper({}, Item)
         self.registered_items = {}
+        self.external_mappings = ExternalMapping(external_mappings,
+                                                 data_loader) if external_mappings else EmptyMapping()
         super().__init__(tag)
 
     def add_port(self, port_tag, item):
@@ -109,7 +112,6 @@ class Subsystem(ConnectorItem):
                 DG.add_edge(self.tag, item.tag)
         return DG
 
-
     def update_variables_path(self, item, tail=[]):
         """
         Create variable path hierarchy.
@@ -128,7 +130,7 @@ class Subsystem(ConnectorItem):
                 var.path.extend_path(item.id, self.id, self.tag)
                 if len(tail) == 1:
                     var.path.extend_path(self.id, tail[0].id, tail[0].tag)
-                if len(tail)>1:
+                if len(tail) > 1:
                     t1 = tail[0::2][0]
                     t2 = tail[1::2][0]
                     var.path.extend_path(t2.id, t1.id, t1.tag)
