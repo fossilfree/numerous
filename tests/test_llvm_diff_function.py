@@ -1,7 +1,4 @@
-from abc import ABC
-
 import pytest
-from numerous.engine.model.external_mappings import ExternalMappingElement
 
 from pytest import approx
 
