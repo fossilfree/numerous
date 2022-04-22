@@ -39,7 +39,8 @@ def generate_event_condition_ast(event_functions: list[NumerousEvent],
                                                 kwonlyargs=[], kw_defaults=[], defaults=[]),
                              body=body, decorator_list=[], lineno=0)
 
-    return [njit_and_compile_function(body_r, from_imports,compiled_functions=compiled_functions)], np.array(directions_array)
+    return [njit_and_compile_function(body_r, from_imports, compiled_functions=compiled_functions)], np.array(
+        directions_array,dtype=np.float)
 
 
 def _replace_path_strings(model, function, idx_type, path_to_root=[]):
@@ -81,6 +82,5 @@ def generate_event_action_ast(event_functions: list[NumerousEvent],
                                                                       ast.arg(arg='a_idx')],
                                                 kwonlyargs=[], kw_defaults=[], defaults=[]),
                              body=body, decorator_list=[], lineno=0)
-
 
     return njit_and_compile_function(body_r, from_imports, compiled_functions=compiled_functions)

@@ -307,7 +307,7 @@ def generate_eval_event(state_idx, len_q, var_order: list, event_id):
     for _ in state_idx:
         wrapper_args.append(_generate_pointer('float64'))
 
-    wrapper = ast.Assign(targets=[ast.Name(id="event_ind_call_1", ctx=ast.Store())],
+    wrapper = ast.Assign(targets=[ast.Name(id="event_ind_call_"+str(event_id), ctx=ast.Store())],
                          value=ast.Call(func=ast.Call(func=ast.Name(id='cfunc', ctx=ast.Load()),
                                                       args=[ast.Call(
                                                           func=ast.Attribute(value=ast.Name(id='types', ctx=ast.Load()),
@@ -345,7 +345,7 @@ def generate_njit_event_cond(states,id_):
             ast.Subscript(value=ast.Name(id='y', ctx=ast.Load()), slice=ast.Constant(value=idx), ctx=ast.Load()))
 
     body.append(ast.Expr(
-        value=ast.Call(func=ast.Name(id='event_ind_call_1', ctx=ast.Load()),
+        value=ast.Call(func=ast.Name(id='event_ind_call_'+str(id_), ctx=ast.Load()),
                        args=args,
                        keywords=[])))
 

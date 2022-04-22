@@ -52,7 +52,7 @@ class Simulation:
 
             """
             solver.y0 = y.flatten()
-
+            # print(t)
             if event_id is not None or (run_fmu_event_action and len(events_action)>0):
                 self.model.update_local_variables()
                 ## slow code

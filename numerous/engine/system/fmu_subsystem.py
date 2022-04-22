@@ -225,6 +225,10 @@ class FMU_Subsystem(Subsystem, EquationBase):
         self.fmu_eval = namespace["fmu_eval"]
         event_cond = []
         event_cond_wrapped = []
+        self._c_ptrs_a = []
+        for _ in range(event_n):
+            self._c_ptrs_a.append(np.zeros(shape=event_n))
+
         for i in range(event_n):
             q, wrapper = generate_eval_event(states_idx, len_q,var_order, event_id=i)
             module_func = ast.Module(body=[q, wrapper], type_ignores=[])
@@ -237,10 +241,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                          "get_event_indicators": get_event_indicators,
                          "completedIntegratorStep": completedIntegratorStep}
             exec(code, namespace)
-            event_ind_call_1 = namespace["event_ind_call_1"]
 
-            c = np.zeros(shape=event_n)
-            c_ptr = c.ctypes.data
 
             f1, f2 = generate_njit_event_cond(var_states_ordered,i)
             module_func = ast.Module(body=[f1, f2], type_ignores=[])
@@ -248,8 +249,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
                 print(ast.unparse(module_func))
             code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval_2', mode='exec')
             namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np,
-                         "event_ind_call_1": event_ind_call_1,
-                         "c_ptr": c_ptr,
+                         "event_ind_call_"+str(i): namespace["event_ind_call_"+str(i)],
+                         "c_ptr":self._c_ptrs_a[i].ctypes.data,
                          "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
                          "njit": njit, "address_as_void_pointer": address_as_void_pointer,
                          "completedIntegratorStep": completedIntegratorStep}

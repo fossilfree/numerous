@@ -24,6 +24,14 @@ class SolveEvent(IntEnum):
     ExternalDataUpdate = 2
 
 
+@njit()
+def run_event_action(actions, time_, numba_model, action_id):
+    modified_variables = actions(time_, numba_model.read_variables(), action_id)
+    modified_mask = (modified_variables != numba_model.read_variables())
+    for idx in np.argwhere(modified_mask):
+        numba_model.write_variables(modified_variables[idx[0]], idx[0])
+
+
 class Numerous_solver(BaseSolver):
 
     def __init__(self, time_, delta_t, model, numba_model, num_inner, max_event_steps, y0, numba_compiled_solver,
@@ -32,8 +40,12 @@ class Numerous_solver(BaseSolver):
         super().__init__()
 
         self.events = events[0][0]
+        event_directions_2 = np.array([-1.0,-1.0,-1.0,-1.0,-1.0,-1.0])
+        event_directions_3 = np.array([-1.0,-1.0,-1.0,-1.0,-1.0,-1.0])
         self.event_directions = event_directions
         self.actions = events[1][0]
+        run_event_action(self.actions, 0, numba_model, 0)
+
         # events value
         self.g = self.events(time_[0], y0)
 
@@ -253,6 +265,7 @@ class Numerous_solver(BaseSolver):
 
                 if step_converged:
                     g_new = events(t, y)
+                    print(g_new)
                     up = (g <= 0) & (g_new >= 0) & (event_directions == 1)
                     down = (g >= 0) & (g_new <= 0) & (event_directions == -1)
                     g = g_new
@@ -276,10 +289,8 @@ class Numerous_solver(BaseSolver):
 
                 if event_trigger:
                     numba_model.set_states(y_event)
-                    modified_variables = actions(t_event, numba_model.read_variables(), event_ix)
-                    modified_mask = (modified_variables != numba_model.read_variables())
-                    for idx in np.argwhere(modified_mask):
-                        numba_model.write_variables(modified_variables[idx[0]], idx[0])
+                    run_event_action(actions, t_event, numba_model, event_ix)
+
                     y_previous = numba_model.get_states()
                     t_previous = t_event
                     numba_model.historian_update(t_event)
