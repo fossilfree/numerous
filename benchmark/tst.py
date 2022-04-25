@@ -7,8 +7,7 @@ from numerous.engine.simulation import Simulation
 from numerous.engine.simulation.solvers.base_solver import SolverType
 from numerous.engine.system import Item, ConnectorTwoWay, Subsystem
 
-from numerous import EquationBase
-from numerous.multiphysics import Equation
+from numerous.multiphysics import EquationBase, Equation
 
 class Thermal_Conductance_Equation(EquationBase):
     """

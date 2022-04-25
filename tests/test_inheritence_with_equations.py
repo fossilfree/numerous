@@ -3,10 +3,9 @@ from pytest import approx
 
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
-
 from numerous.engine.system import Subsystem, Item
-from numerous import EquationBase, Equation
 from numerous.engine.simulation.solvers.base_solver import solver_types
+from numerous.multiphysics import EquationBase, Equation
 
 
 class Base_eq(Item, EquationBase):

@@ -1,4 +1,4 @@
-from numerous import EquationBase, Equation
+from numerous.engine import EquationBase, Equation
 
 
 class TestEq_input(EquationBase):
