@@ -1,4 +1,4 @@
-from numerous.engine import VariableType, SetOfVariables
+from numerous.engine.variables import VariableType, SetOfVariables
 from numerous.engine.model.graph_representation.utils import EdgeType
 from numerous.engine.model.utils import NodeTypes
 from numerous.utils.string_utils import d_u

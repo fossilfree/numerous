@@ -1,6 +1,6 @@
 import pytest
 
-from numerous.engine import VariableDescription, VariableType
+from numerous.engine.variables import VariableDescription, VariableType
 from numerous.engine.system import ConnectorTwoWay, Item
 
 
