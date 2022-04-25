@@ -8,7 +8,7 @@ from pytest import approx
 from numerous.engine.model import Model
 
 from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
-from numerous import EquationBase, Equation
+from numerous.multiphysics import EquationBase, Equation
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 import numpy as np
 

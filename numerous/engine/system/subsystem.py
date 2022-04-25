@@ -1,10 +1,11 @@
 import copy
 from enum import Enum
 
-from numerous import EquationBase
+import networkx as nx
+
+from numerous.multiphysics import EquationBase
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.system.item import Item
-import networkx as nx
 from numerous.engine.system.connector_item import ConnectorItem
 from numerous.engine.system.namespace import SetNamespace
 
