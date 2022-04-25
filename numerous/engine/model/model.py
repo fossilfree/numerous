@@ -220,11 +220,11 @@ class Model:
         """
         """
         notation:
-        - _idx for single integers / tuples, 
+        - _idx for single integers / tuples,
         - _idxs for lists / arrays of integers
         - _pos as counterpart to _from
         -  _flat
-        -  _3d 
+        -  _3d
 
         """
 
@@ -277,9 +277,9 @@ class Model:
 
         eq_used = []
         for ns in model_namespaces:
-            ##will be false for empty namespaces. Ones without equations and variables.
+            # will be false for empty namespaces. Ones without equations and variables.
             if ns[1]:
-                ## Key : scope.tag Value: Variable or VariableSet
+                # Key : scope.tag Value: Variable or VariableSet
                 if ns[1][0].is_set:
                     tag_vars = ns[1][0].set_variables
                 else:
@@ -386,7 +386,7 @@ class Model:
         self.external_idx = np.array(external_idx, dtype=np.int64)
         self.generate_path_to_varaible()
 
-        ##check for item level events
+        # check for item level events
         for item in self.model_items.values():
             if item.events:
                 for event in item.events:
