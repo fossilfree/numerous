@@ -9,14 +9,14 @@ with open('requirements.txt', "r") as requirements:
 
 setuptools.setup(
     name="numerous-engine",
-    version="0.2.2",
+    version="0.2.3",
     author='Artem Chupryna, EnergyMachines ApS',
     author_email='artem.chupryna@energymachines.com',
     description="Numerous  - an object-oriented modelling and simulation engine.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/fossilfree/numerous",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_namespace_packages(include=['numerous.*']),
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",
