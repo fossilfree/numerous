@@ -349,9 +349,11 @@ class FMU_Subsystem(Subsystem, EquationBase):
                 else:
                     start = 0
                 self.add_state(_replace_name_str(variable.name), float(start), create_derivative=False)
+                continue
 
             if variable in derivatives:
                 self.add_derivative(derivatives_names[derivatives.index(variable)])
+                continue
             if variable.initial == 'exact':
                 if variable.variability == 'fixed':
                     if variable.start != "DISABLED":
@@ -362,8 +364,14 @@ class FMU_Subsystem(Subsystem, EquationBase):
                         self.add_constant(_replace_name_str(variable.name), start)
                     else:
                         self.add_constant(_replace_name_str(variable.name), 0.0)
+                if  variable.variability == 'discrete':
+                    if variable.start == "false":
+                        self.add_parameter(_replace_name_str(variable.name), 0.0)
+                    if (variable.start == "true"):
+                        self.add_parameter(_replace_name_str(variable.name), 1.0)
                 if variable.variability == 'tunable':
                     self.add_parameter(_replace_name_str(variable.name), float(variable.start))
+                continue
             else:
                 if not variable.derivative:
                     self.add_parameter(_replace_name_str(variable.name), 0.0)

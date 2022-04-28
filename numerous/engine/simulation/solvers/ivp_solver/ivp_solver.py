@@ -44,7 +44,7 @@ class IVP_solver(BaseSolver):
         self.sol = None
 
         try:
-            for t in self.time[0:-1]:
+            for t in tqdm(self.time[0:-1]):
                 if self.solver_step(t):
                     break
         except Exception as e:

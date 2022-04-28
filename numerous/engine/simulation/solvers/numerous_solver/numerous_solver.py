@@ -40,8 +40,6 @@ class Numerous_solver(BaseSolver):
         super().__init__()
 
         self.events = events[0][0]
-        event_directions_2 = np.array([-1.0,-1.0,-1.0,-1.0,-1.0,-1.0])
-        event_directions_3 = np.array([-1.0,-1.0,-1.0,-1.0,-1.0,-1.0])
         self.event_directions = event_directions
         self.actions = events[1][0]
         run_event_action(self.actions, 0, numba_model, 0)
@@ -265,15 +263,15 @@ class Numerous_solver(BaseSolver):
 
                 if step_converged:
                     g_new = events(t, y)
-                    print(g_new)
                     up = (g <= 0) & (g_new >= 0) & (event_directions == 1)
                     down = (g >= 0) & (g_new <= 0) & (event_directions == -1)
                     g = g_new
 
                     for ix in np.concatenate((np.argwhere(up), np.argwhere(down))):
+                        eps = 0.0001 #for case to t_event = t
                         status, t_event, y_event = check_event(events, ix[0],
                                                                t_previous, y_previous, t, y, t_next_eval)
-                        t_events[ix[0]] = t_event
+                        t_events[ix[0]] = t_event - eps
                         y_events[:, ix[0]] = y_event
 
                 if min(t_events) < t:
@@ -289,6 +287,7 @@ class Numerous_solver(BaseSolver):
 
                 if event_trigger:
                     numba_model.set_states(y_event)
+
                     run_event_action(actions, t_event, numba_model, event_ix)
 
                     y_previous = numba_model.get_states()
