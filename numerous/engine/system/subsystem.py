@@ -2,7 +2,8 @@ import copy
 from enum import Enum
 
 from numerous import EquationBase
-from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping
+from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping, ExternalMappingElement, \
+    ExternalMappingUnpacked
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.system.item import Item
 import networkx as nx
@@ -27,7 +28,9 @@ class Subsystem(ConnectorItem):
         self.ports = _DictWrapper({}, Item)
         self.registered_items = {}
         self.external_mappings = ExternalMapping(external_mappings,
-                                                 data_loader) if external_mappings else EmptyMapping()
+                                                 data_loader) if external_mappings else None
+
+        self.external_mappings_ = ExternalMappingUnpacked(external_mappings, data_loader) if external_mappings else None
         super().__init__(tag)
 
     def add_port(self, port_tag, item):
@@ -151,6 +154,15 @@ class Subsystem(ConnectorItem):
         item._increase_level()
         self.update_variables_path(item)
         self.registered_items.update({item.id: item})
+
+    def get_external_mappings(self):
+        external_mappings = []
+        if self.external_mappings_ is not None:
+            external_mappings.append(self.external_mappings_)
+        for item in self.registered_items.values():
+            if isinstance(item, Subsystem):
+                external_mappings.extend(item.get_external_mappings())
+        return external_mappings
 
 
 class ItemSet(Subsystem, EquationBase):

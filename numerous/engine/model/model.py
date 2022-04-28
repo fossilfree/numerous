@@ -128,6 +128,9 @@ class Model:
 
         self.is_external_data = True if system.external_mappings is None else False
         self.external_mappings = system.external_mappings
+        print(system.external_mappings.data_loader)
+        print(system.get_external_mappings()[0].data_loader)
+
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
         self.imports = Imports()
