@@ -5,7 +5,7 @@ import numpy as np
 from numerous.engine.system.external_mappings.interpolation_type import InterpolationType
 
 
-class ExtrenalMappingMultiple:
+class ExternalMappingsMultiple:
     def __init__(self, external_mappings):
         self.external_mappings = external_mappings
         self.external_mappings_numpy = []
@@ -15,12 +15,12 @@ class ExtrenalMappingMultiple:
         self.interpoaltion_type = []
         self.t_max = 0
         for external_mapping in self.external_mappings:
-            for element in external_mapping:
+            for element in external_mapping.external_mappings:
                 df = external_mapping.data_loader.load(element.data_frame_id, element.index_to_timestep_mapping_start)
                 element.add_df(df)
 
         for external_mapping in self.external_mappings:
-            for element in external_mapping:
+            for element in external_mapping.external_mappings:
                 self.external_columns.append(list(element.dataframe_aliases.keys()))
                 self.interpoaltion_type.append([a_tuple[1] for a_tuple in list(element.dataframe_aliases.values())])
                 self.external_mappings_numpy.append(

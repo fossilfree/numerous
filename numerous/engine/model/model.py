@@ -19,6 +19,7 @@ import pandas as pd
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
 from numerous.engine.model.utils import Imports, njit_and_compile_function
 from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
+from numerous.engine.system.external_mappings import ExternalMappingsMultiple
 
 from numerous.utils.logger_levels import LoggerLevel
 
@@ -127,9 +128,8 @@ class Model:
             self.logger_level = logger_level
 
         self.is_external_data = True if system.external_mappings is None else False
-        self.external_mappings = system.external_mappings
-        print(system.external_mappings.data_loader)
-        print(system.get_external_mappings()[0].data_loader)
+        self.external_mappings = ExternalMappingsMultiple(system.get_external_mappings())
+
 
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file

@@ -14,8 +14,6 @@ from numerous.engine.simulation.solvers.base_solver import solver_types
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 
 
-
-
 @pytest.fixture
 def test_eq1():
     class TestEq1(EquationBase):
@@ -338,6 +336,18 @@ class StaticDataSystem(Subsystem):
         self.register_items(o_s)
 
 
+class StaticDataSystem2(Subsystem):
+    def __init__(self, tag, system, n=1, external_mappings=None, data_loader=None):
+        super().__init__(tag, external_mappings, data_loader)
+        o_s = []
+        for i in range(n):
+            o = StaticDataTest('tm' + str(i))
+            o_s.append(o)
+        # o_s.append(system)
+        # Register the items to the subsystem to make it recognize them.
+        self.register_items(o_s)
+
+
 @pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_external_data(solver, use_llvm):
@@ -368,7 +378,7 @@ def test_external_data(solver, use_llvm):
     )
     s.solve()
     assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
-    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
+    # assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
 
 
 @pytest.mark.parametrize("solver", solver_types)
