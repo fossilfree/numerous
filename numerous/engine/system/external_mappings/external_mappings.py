@@ -28,6 +28,7 @@ class ExternalMapping:
                     .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
                 # TODO extend for multiple dataframes
                 self.t_max = np.max(self.external_mappings_time[0])
+                
         self.external_mappings_numpy = np.array(self.external_mappings_numpy, dtype=np.float64)
         self.external_mappings_time = np.array(self.external_mappings_time, dtype=np.float64)
         self.interpoaltion_type = [item for sublist in self.interpoaltion_type for item in sublist]
@@ -37,6 +38,7 @@ class ExternalMapping:
     def load_new_external_data_batch(self, t):
         self.external_mappings_numpy = []
         self.external_mappings_time = []
+
         for external_mapping in self.external_mappings:
             for element in external_mapping:
                 # TODO division round bugs? we can skip a row here
@@ -54,6 +56,7 @@ class ExternalMapping:
                 self.external_mappings_time.append(
                     element.time_multiplier * element.df[element.index_to_timestep_mapping]
                     .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
+
         self.external_mappings_numpy = np.array(self.external_mappings_numpy, dtype=np.float64)
         self.external_mappings_time = np.array(self.external_mappings_time, dtype=np.float64)
         # TODO extend for multiple dataframes
@@ -100,12 +103,10 @@ class ExternalMappingElement:
         else:
             self.df = df
 
-
 class ExternalMappingUnpacked:
     def __init__(self, external_mappings=None, data_loader=None):
         self.data_loader = data_loader
         self.external_mappings = external_mappings
-
 
 class EmptyMapping:
     def __init__(self):

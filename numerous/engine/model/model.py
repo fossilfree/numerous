@@ -36,7 +36,7 @@ from numerous.engine.model.graph_representation.graph import Graph
 from numerous.engine.model.ast_parser.parser_ast import process_mappings
 
 from numerous.engine.model.lowering.equations_generator import EquationGenerator
-from numerous.engine.system import SetNamespace
+from numerous.engine.system import SetNamespace, EmptyMapping
 
 import faulthandler
 import llvmlite.binding as llvm
@@ -129,7 +129,6 @@ class Model:
         external_mappings_unpacked = system.get_external_mappings()
         self.is_external_data = True if len(external_mappings_unpacked) else False
         self.external_mappings = ExternalMapping(external_mappings_unpacked) if len(external_mappings_unpacked) else EmptyMapping()
-
 
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
