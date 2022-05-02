@@ -10,7 +10,7 @@ with open('requirements.txt', "r") as requirements:
 setuptools.setup(
     name="numerous-engine",
     version="0.2.1",
-    author='Artem Chupryna,  EnergyMachines ApS',
+    author='Artem Chupryna, EnergyMachines ApS',
     author_email='artem.chupryna@energymachines.com',
     description="Numerous  - an object-oriented modelling and simulation engine.",
     long_description=long_description,
