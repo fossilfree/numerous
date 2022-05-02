@@ -122,7 +122,7 @@ class Item(Node):
                 variables_result.append((variable, vn))
         return variables_result
 
-    def add_event(self, key, condition, action, compiled_functions=None, terminal=True, direction=1, compiled=False):
+    def add_event(self, key, condition, action, compiled_functions=None, terminal=True, direction=-1, compiled=False):
         condition = condition
         action = action
         event = NumerousEvent(key, condition, action, compiled, terminal, direction,

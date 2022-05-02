@@ -39,17 +39,17 @@ class S3(Subsystem):
 subsystem1 = S3('q1')
 m1 = Model(subsystem1, use_llvm=True)
 s = Simulation(
-    m1, t_start=0, t_stop=1, num=1000, num_inner=1, max_step=.1, solver_type=SolverType.NUMEROUS)
+    m1, t_start=0, t_stop=1, num=200, num_inner=1, max_step=.1, solver_type=SolverType.NUMEROUS)
 
 s.solve(run_fmu_event_action=True)
 
 
 fig, ax = plt.subplots()
-# y = np.array(m1.historian_df["q1.Rectifier.t1.Rectifier1_Capacitor1_v"])
+# y = np.array(m1.historian_df["q1.Rectifier.t1.outputs"])
 y1 = np.array(m1.historian_df["q1.Rectifier.t1.h"])
 t = np.array(m1.historian_df["time"])
-# ax.plot(t, y)
 ax.plot(t, y1)
+# ax.plot(t, y)
 
 
 ax.set(xlabel='time (s)', ylabel='outputs', title='Rectifier')

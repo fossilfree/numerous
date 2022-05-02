@@ -320,9 +320,12 @@ class FMU_Subsystem(Subsystem, EquationBase):
         self.t1 = self.create_namespace(namespace_)
         self.t1.add_equations([self])
         for i in range(event_n):
-            self.add_event("event_" + str(i), event_cond_wrapped[i], event_action_2,
+            self.add_event("event_u_" + str(i), event_cond_wrapped[i], event_action_2,
                            compiled_functions={"event_cond_inner_" + str(i): event_cond[i],
-                                               "event_action": event_action})
+                                               "event_action": event_action}, direction=-1)
+            self.add_event("event_d_" + str(i), event_cond_wrapped[i], event_action_2,
+                           compiled_functions={"event_cond_inner_" + str(i): event_cond[i],
+                                               "event_action": event_action}, direction=1)
 
     def set_variables(self, model_description):
         derivatives = []

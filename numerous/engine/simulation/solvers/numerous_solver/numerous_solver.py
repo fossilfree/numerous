@@ -210,7 +210,7 @@ class Numerous_solver(BaseSolver):
                 dt_ = min([t_next_eval - t_start, t_new_test - t_start])
 
                 # solve from start to new test by calling the step function
-
+                print(t)
                 t, y, step_converged, step_info, _solve_state, factor = step_integrate_(numba_model,
                                                                                         t_start,
                                                                                         dt_, y,
@@ -489,10 +489,13 @@ class Numerous_solver(BaseSolver):
                 self.numba_model.update_external_data(external_mappings_numpy, external_mappings_time)
             time_idx = np.argmax((self.time - info.t) > 0)
             info = self._solve(self.numba_model,
-                               solve_state, info.dt, order, strict_eval, outer_itermax, min_step,
+                               solve_state, initial_step, order, order_, roller, strict_eval, outer_itermax, min_step,
                                max_step, step_integrate_, self.events, self.actions, self.g,
-                               self.number_of_events, self.event_directions,
-                               info.t, t_end, self.time[time_idx:])
+                               self.number_of_events, self.event_directions, t_start, t_end, self.time)
+
+            #order, order_, roller, strict_eval, outer_itermax,
+            # min_step, max_step, step_integrate_, events, actions, g, number_of_events, event_directions,
+            # t0 = 0.0, t_end = 1000.0, t_eval = np.linspace(0.0, 1000.0, 100)
 
         print("finished")
         return self.sol, self.result_status
