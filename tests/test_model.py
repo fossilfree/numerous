@@ -403,8 +403,7 @@ def test_external_data_inner(use_llvm):
                               dataframe_aliases))
     data_loader = InMemoryDataLoader(df)
     system2 = OuterSystem('system_outer',
-                          StaticDataSystem('system_external', n=1, external_mappings=external_mappings,
-                                                 data_loader=data_loader))
+                          StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader))
     s = Simulation(
         Model(system2, use_llvm=use_llvm),
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=SolverType.NUMEROUS
