@@ -1,4 +1,6 @@
 import pytest
+import pandas as pd
+import numpy as np
 from numerous.engine.system.external_mappings import ExternalMappingElement
 
 from numerous.utils.data_loader import InMemoryDataLoader
@@ -337,9 +339,12 @@ class StaticDataSystem(Subsystem):
 
 
 class OuterSystem(Subsystem):
-    def __init__(self, tag, system, external_mappings=None, data_loader=None):
+    def __init__(self, tag, system, n=1, external_mappings=None, data_loader=None):
         super().__init__(tag, external_mappings, data_loader)
         o_s = []
+        for i in range(n):
+            o = StaticDataTest('tm' + str(i))
+            o_s.append(o)
         o_s.append(system)
         # Register the items to the subsystem to make it recognize them.
         self.register_items(o_s)
@@ -348,9 +353,6 @@ class OuterSystem(Subsystem):
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_external_data(use_llvm):
     external_mappings = []
-
-    import pandas as pd
-    import numpy as np
 
     data = {'time': np.arange(100),
             'Dew Point Temperature {C}': np.arange(100) + 1,
@@ -379,11 +381,9 @@ def test_external_data(use_llvm):
 
 
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_data_inner(use_llvm):
+def test_external_data_multiple(use_llvm):
     external_mappings = []
-
-    import pandas as pd
-    import numpy as np
+    external_mappings_outer = []
 
     data = {'time': np.arange(100),
             'Dew Point Temperature {C}': np.arange(100) + 1,
@@ -394,23 +394,37 @@ def test_external_data_inner(use_llvm):
     index_to_timestep_mapping = 'time'
     index_to_timestep_mapping_start = 0
     dataframe_aliases = {
-        'system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
-        'system_external.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE)
+        'system_outer.system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
+        'system_outer.system_external.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE),
+    }
+    dataframe_aliases_outer = {
+        'system_outer.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
+        'system_outer.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE),
     }
     external_mappings.append(ExternalMappingElement
                              ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
                               dataframe_aliases))
+    external_mappings_outer.append((ExternalMappingElement
+                                    ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
+                                     dataframe_aliases_outer)))
     data_loader = InMemoryDataLoader(df)
-    system2 = OuterSystem('system_outer',
-                          StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader))
+    system_outer = OuterSystem('system_outer',
+                               StaticDataSystem('system_external', n=1, external_mappings=external_mappings,
+                                                data_loader=data_loader),
+                               external_mappings=external_mappings_outer,
+                               data_loader=data_loader)
     s = Simulation(
-        Model(system2, use_llvm=use_llvm),
+        Model(system_outer, use_llvm=use_llvm),
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=SolverType.NUMEROUS
     )
     s.solve()
     assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(
         101)[1:]
     assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(
+        101)[1:] + 1
+    assert approx(np.array(s.model.historian_df['system_outer.tm0.test_nm.T_i1'])[1:]) == np.arange(
+        101)[1:]
+    assert approx(np.array(s.model.historian_df['system_outer.tm0.test_nm.T_i2'])[1:]) == np.arange(
         101)[1:] + 1
 
 
