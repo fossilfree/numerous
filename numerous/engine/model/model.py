@@ -36,7 +36,7 @@ from numerous.engine.model.graph_representation.graph import Graph
 from numerous.engine.model.ast_parser.parser_ast import process_mappings
 
 from numerous.engine.model.lowering.equations_generator import EquationGenerator
-from numerous.engine.system import SetNamespace, EmptyMapping
+from numerous.engine.system import SetNamespace
 
 import faulthandler
 import llvmlite.binding as llvm
