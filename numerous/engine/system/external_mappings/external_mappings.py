@@ -22,10 +22,10 @@ class ExternalMapping:
                 self.interpoaltion_type.append([a_tuple[1] for a_tuple in list(element.dataframe_aliases.values())])
                 self.external_mappings_numpy.append(
                     element.df[[a_tuple[0] for a_tuple in list(element.dataframe_aliases.values())]]
-                    .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
+                        .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
                 self.external_mappings_time.append(
-                    element.time_multiplier * element.df[element.index_to_timestep_mapping].to_numpy(dtype=np.float64)[
-                                              element.index_to_timestep_mapping_start:])
+                    element.time_multiplier * element.df[element.index_to_timestep_mapping]
+                    .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
                 # TODO extend for multiple dataframes
                 self.t_max = np.max(self.external_mappings_time[0])
         self.external_mappings_numpy = np.array(self.external_mappings_numpy, dtype=np.float64)
@@ -52,8 +52,8 @@ class ExternalMapping:
                     element.df[[a_tuple[0] for a_tuple in list(element.dataframe_aliases.values())]]
                     .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
                 self.external_mappings_time.append(
-                    element.time_multiplier * element.df[element.index_to_timestep_mapping].to_numpy(dtype=np.float64)[
-                                              element.index_to_timestep_mapping_start:])
+                    element.time_multiplier * element.df[element.index_to_timestep_mapping]
+                    .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
         self.external_mappings_numpy = np.array(self.external_mappings_numpy, dtype=np.float64)
         self.external_mappings_time = np.array(self.external_mappings_time, dtype=np.float64)
         # TODO extend for multiple dataframes
