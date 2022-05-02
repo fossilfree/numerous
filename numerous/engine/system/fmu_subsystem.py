@@ -151,9 +151,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         newDiscreteStates.argtypes = [ctypes.c_uint, ctypes.c_void_p]
         newDiscreteStates.restype = ctypes.c_uint
         number_of_string_vars = len([x.valueReference for x in model_description.modelVariables if x.type == "String"])
-        len_q = len(model_description.modelVariables)-number_of_string_vars
+        len_q = len(model_description.modelVariables) - number_of_string_vars
         var_order = [x.valueReference for x in model_description.modelVariables if x.type != "String"]
-
 
         term_1 = np.array([0], dtype=np.int32)
         term_1_ptr = term_1.ctypes.data
@@ -192,7 +191,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         fmu.enterContinuousTimeMode()
 
         q1, equation_call_wrapper = generate_eval_llvm(idx_tuple_array, [idx_tuple_array[i] for i in deriv_idx],
-                                                       states_idx,var_order)
+                                                       states_idx, var_order)
         module_func = ast.Module(body=[q1, equation_call_wrapper], type_ignores=[])
         if debug_output:
             print(ast.unparse(module_func))
@@ -230,7 +229,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             self._c_ptrs_a.append(np.zeros(shape=event_n))
 
         for i in range(event_n):
-            q, wrapper = generate_eval_event(states_idx, len_q,var_order, event_id=i)
+            q, wrapper = generate_eval_event(states_idx, len_q, var_order, event_id=i)
             module_func = ast.Module(body=[q, wrapper], type_ignores=[])
             if debug_output:
                 print(ast.unparse(module_func))
@@ -242,24 +241,22 @@ class FMU_Subsystem(Subsystem, EquationBase):
                          "completedIntegratorStep": completedIntegratorStep}
             exec(code, namespace)
 
-
-            f1, f2 = generate_njit_event_cond(var_states_ordered,i)
+            f1, f2 = generate_njit_event_cond(var_states_ordered, i)
             module_func = ast.Module(body=[f1, f2], type_ignores=[])
             if debug_output:
                 print(ast.unparse(module_func))
             code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval_2', mode='exec')
             namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np,
-                         "event_ind_call_"+str(i): namespace["event_ind_call_"+str(i)],
-                         "c_ptr":self._c_ptrs_a[i].ctypes.data,
+                         "event_ind_call_" + str(i): namespace["event_ind_call_" + str(i)],
+                         "c_ptr": self._c_ptrs_a[i].ctypes.data,
                          "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
                          "njit": njit, "address_as_void_pointer": address_as_void_pointer,
                          "completedIntegratorStep": completedIntegratorStep}
             exec(code, namespace)
-            event_cond.append(namespace["event_cond_inner_"+str(i)])
-            event_cond_2 = namespace["event_cond_"+str(i)]
+            event_cond.append(namespace["event_cond_inner_" + str(i)])
+            event_cond_2 = namespace["event_cond_" + str(i)]
             event_cond_2.lines = ast.unparse(ast.Module(body=[f2], type_ignores=[]))
             event_cond_wrapped.append(event_cond_2)
-
 
         a, b = generate_action_event(len_q, var_order)
         module_func = ast.Module(body=[a, b], type_ignores=[])
@@ -308,7 +305,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_action = namespace["event_action"]
         event_action_2 = namespace["event_action_2"]
         event_action_2.lines = ast.unparse(ast.Module(body=[b1], type_ignores=[]))
-        if len(deriv_names_ordered)>0:
+        if len(deriv_names_ordered) > 0:
             gec = generate_eq_call(deriv_names_ordered, var_names_ordered)
             if debug_output:
                 print(ast.unparse(gec))
@@ -324,7 +321,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         self.t1.add_equations([self])
         for i in range(event_n):
             self.add_event("event_" + str(i), event_cond_wrapped[i], event_action_2,
-                           compiled_functions={"event_cond_inner_"+str(i): event_cond[i], "event_action": event_action})
+                           compiled_functions={"event_cond_inner_" + str(i): event_cond[i],
+                                               "event_action": event_action})
 
     def set_variables(self, model_description):
         derivatives = []
@@ -364,7 +362,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                         self.add_constant(_replace_name_str(variable.name), start)
                     else:
                         self.add_constant(_replace_name_str(variable.name), 0.0)
-                if  variable.variability == 'discrete':
+                if variable.variability == 'discrete':
                     if variable.start == "false":
                         self.add_parameter(_replace_name_str(variable.name), 0.0)
                     if variable.start == "true":
