@@ -345,9 +345,8 @@ class OuterSystem(Subsystem):
         self.register_items(o_s)
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_data(solver, use_llvm):
+def test_external_data(use_llvm):
     external_mappings = []
 
     import pandas as pd
@@ -372,7 +371,7 @@ def test_external_data(solver, use_llvm):
     s = Simulation(
         Model(StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader),
               use_llvm=use_llvm),
-        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=solver
+        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=SolverType.NUMEROUS
     )
     s.solve()
     assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
