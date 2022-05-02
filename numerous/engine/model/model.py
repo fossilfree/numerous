@@ -19,7 +19,7 @@ import pandas as pd
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
 from numerous.engine.model.utils import Imports, njit_and_compile_function
 from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
-from numerous.engine.system.external_mappings import ExternalMappingsMultiple
+from numerous.engine.system.external_mappings import ExternalMapping
 
 from numerous.utils.logger_levels import LoggerLevel
 
@@ -36,7 +36,7 @@ from numerous.engine.model.graph_representation.graph import Graph
 from numerous.engine.model.ast_parser.parser_ast import process_mappings
 
 from numerous.engine.model.lowering.equations_generator import EquationGenerator
-from numerous.engine.system import SetNamespace, EmptyMapping
+from numerous.engine.system import SetNamespace
 
 import faulthandler
 import llvmlite.binding as llvm
@@ -128,7 +128,7 @@ class Model:
             self.logger_level = logger_level
 
         self.is_external_data = True if system.external_mappings is None else False
-        self.external_mappings = ExternalMappingsMultiple(system.get_external_mappings())
+        self.external_mappings = ExternalMapping(system.get_external_mappings())
 
 
         self.use_llvm = use_llvm
