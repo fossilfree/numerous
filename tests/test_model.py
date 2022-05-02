@@ -10,7 +10,7 @@ from numerous.engine.simulation import Simulation
 
 from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
 from numerous import EquationBase, Equation
-from numerous.engine.simulation.solvers.base_solver import solver_types
+from numerous.engine.simulation.solvers.base_solver import solver_types, SolverType
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 
 
@@ -336,14 +336,11 @@ class StaticDataSystem(Subsystem):
         self.register_items(o_s)
 
 
-class StaticDataSystem2(Subsystem):
-    def __init__(self, tag, system, n=1, external_mappings=None, data_loader=None):
+class OuterSystem(Subsystem):
+    def __init__(self, tag, system, external_mappings=None, data_loader=None):
         super().__init__(tag, external_mappings, data_loader)
         o_s = []
-        for i in range(n):
-            o = StaticDataTest('tm' + str(i))
-            o_s.append(o)
-        # o_s.append(system)
+        o_s.append(system)
         # Register the items to the subsystem to make it recognize them.
         self.register_items(o_s)
 
@@ -373,12 +370,50 @@ def test_external_data(solver, use_llvm):
                               dataframe_aliases))
     data_loader = InMemoryDataLoader(df)
     s = Simulation(
-        Model(StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader), use_llvm=use_llvm),
+        Model(StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader),
+              use_llvm=use_llvm),
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=solver
     )
     s.solve()
     assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
-    # assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
+    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
+
+
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_external_data_inner(use_llvm):
+    external_mappings = []
+
+    import pandas as pd
+    import numpy as np
+
+    data = {'time': np.arange(100),
+            'Dew Point Temperature {C}': np.arange(100) + 1,
+            'Dry Bulb Temperature {C}': np.arange(100) + 2,
+            }
+
+    df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
+    index_to_timestep_mapping = 'time'
+    index_to_timestep_mapping_start = 0
+    dataframe_aliases = {
+        'system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
+        'system_external.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE)
+    }
+    external_mappings.append(ExternalMappingElement
+                             ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
+                              dataframe_aliases))
+    data_loader = InMemoryDataLoader(df)
+    system2 = OuterSystem('system_outer',
+                          StaticDataSystem('system_external', n=1, external_mappings=external_mappings,
+                                                 data_loader=data_loader))
+    s = Simulation(
+        Model(system2, use_llvm=use_llvm),
+        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=SolverType.NUMEROUS
+    )
+    s.solve()
+    assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(
+        101)[1:]
+    assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(
+        101)[1:] + 1
 
 
 @pytest.mark.parametrize("solver", solver_types)

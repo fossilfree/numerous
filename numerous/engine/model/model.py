@@ -380,9 +380,9 @@ class Model:
                 external_idx.append(self.vars_ordered_values[var.id])
                 number_of_external_mappings += 1
                 self.external_mappings.add_df_idx(self.variables, var.id, self.system.id)
-
         self.number_of_external_mappings = number_of_external_mappings
         self.external_mappings.store_mappings()
+
         self.external_idx = np.array(external_idx, dtype=np.int64)
         self.generate_path_to_varaible()
 
