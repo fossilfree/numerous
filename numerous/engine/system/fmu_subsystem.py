@@ -367,7 +367,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                 if  variable.variability == 'discrete':
                     if variable.start == "false":
                         self.add_parameter(_replace_name_str(variable.name), 0.0)
-                    if (variable.start == "true"):
+                    if variable.start == "true":
                         self.add_parameter(_replace_name_str(variable.name), 1.0)
                 if variable.variability == 'tunable':
                     self.add_parameter(_replace_name_str(variable.name), float(variable.start))
