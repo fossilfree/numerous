@@ -385,10 +385,6 @@ def generate_njit_event_cond(states,id_):
         value=ast.Call(func=ast.Name(id='event_cond_inner_'+str(id_), ctx=ast.Load()),
                        args=[ast.Name(id='t', ctx=ast.Load()), ast.Name(id='q', ctx=ast.Load())], keywords=[])))
 
-    # eq_expr__ = [ast.Expr(
-    #     value=ast.Call(func=ast.Name(id='print', ctx=ast.Load()), args=[ast.Name(id='q', ctx=ast.Load())],
-    #                    keywords=[]))]
-    # body.append(eq_expr__)
 
     event_cond_2 = ast.FunctionDef(name='event_cond_'+str(id_),
                                    args=ast.arguments(posonlyargs=[], args=[ast.arg(arg='t'), ast.arg(arg='variables')],
