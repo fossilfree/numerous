@@ -43,23 +43,25 @@ class AbsTestItem(Item, EquationBase):
 
 @pytest.fixture
 def model():
-    sys = AbsTestSystem(item=AbsTestItem())
-    historian=InMemoryHistorian()
-    historian.max_size = 2000
-    model = Model(system=sys, logger_level=LoggerLevel.INFO, use_llvm=True, historian=historian)
-    yield model
+    def i_model():
+        sys = AbsTestSystem(item=AbsTestItem())
+        historian=InMemoryHistorian()
+        historian.max_size = 2000
+        model = Model(system=sys, logger_level=LoggerLevel.INFO, use_llvm=True, historian=historian)
+        return model
+    yield i_model
 
 @pytest.fixture
-def variables(model: Model):
-    variables = model.get_variables()
+def variables(model: model):
+    variables = model().get_variables()
     yield variables
 
 @pytest.fixture
-def simulation(model: Model, variables: variables):
+def simulation(model: model, variables: variables):
     def fn(solver: SolverType, method: str):
-
-        model.update_variables(variables)
-        sim = Simulation(model, t_start=0, t_stop=1000, num=1000, solver_type=solver, method=method)
+        model_o = model()
+        model_o.update_variables(variables)
+        sim = Simulation(model_o, t_start=0, t_stop=1000, num=1000, solver_type=solver, method=method)
         sim.reset()
         sim.model.historian_df = None
         return sim
