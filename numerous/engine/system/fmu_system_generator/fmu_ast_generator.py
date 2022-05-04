@@ -254,10 +254,11 @@ def generate_eval_event(state_idx, len_q, var_order: list, event_id):
     body.append(ast.Assign(targets=[ast.Name(id='value1', ctx=ast.Store())],
                            value=ast.Call(func=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='array',
                                                              ctx=ast.Load()),
-                                          args=[ast.List(elts=arg_elts, ctx=ast.Load())], keywords=[
-                                   ast.keyword(arg='dtype', value=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()),
-                                                                                attr='float64',
-                                                                                ctx=ast.Load()))]), lineno=0))
+                                          args=[ast.List(elts=arg_elts, ctx=ast.Load())],
+                                          keywords=[ast.keyword(arg='dtype', value=ast.Attribute(
+                                              value=ast.Name(id='np', ctx=ast.Load()),
+                                              attr='float64',
+                                              ctx=ast.Load()))]), lineno=0))
 
     body.append(ast.Expr(value=ast.Call(func=ast.Name(id='fmi2SetReal', ctx=ast.Load()),
                                         args=[ast.Name(id='component', ctx=ast.Load()),
@@ -485,15 +486,16 @@ def generate_event_action(len_q, states, variables):
     body = []
     for i in range(len_q):
         body.append(ast.Assign(targets=[ast.Subscript(
-            value=ast.Call(func=ast.Name(id='carray', ctx=ast.Load()), args=[
-                ast.Call(func=ast.Name(id='address_as_void_pointer', ctx=ast.Load()),
-                         args=[ast.Name(id='a_e_ptr_' + str(i), ctx=ast.Load())],
-                         keywords=[]),
-                ast.Attribute(value=ast.Name(id='a_e_' + str(i), ctx=ast.Load()), attr='shape', ctx=ast.Load())],
-                           keywords=[
-                               ast.keyword(arg='dtype', value=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()),
-                                                                            attr='float64',
-                                                                            ctx=ast.Load()))]),
+            value=ast.Call(func=ast.Name(id='carray', ctx=ast.Load()),
+                           args=[ast.Call(func=ast.Name(id='address_as_void_pointer', ctx=ast.Load()),
+                                          args=[ast.Name(id='a_e_ptr_' + str(i), ctx=ast.Load())],
+                                          keywords=[]),
+                                 ast.Attribute(value=ast.Name(id='a_e_' + str(i), ctx=ast.Load()), attr='shape',
+                                               ctx=ast.Load())],
+                           keywords=[ast.keyword(arg='dtype',
+                                                 value=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()),
+                                                                     attr='float64',
+                                                                     ctx=ast.Load()))]),
             slice=ast.Constant(value=0), ctx=ast.Store())], value=ast.Constant(value=0), lineno=0))
 
     args = [ast.Call(func=ast.Name(id='address_as_void_pointer', ctx=ast.Load()),
