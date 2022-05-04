@@ -40,7 +40,7 @@ def generate_event_condition_ast(event_functions: list[NumerousEvent],
                              body=body, decorator_list=[], lineno=0)
 
     return [njit_and_compile_function(body_r, from_imports, compiled_functions=compiled_functions)], np.array(
-        directions_array,dtype=np.float)
+        directions_array, dtype=np.float)
 
 
 def _replace_path_strings(model, function, idx_type, path_to_root=[]):

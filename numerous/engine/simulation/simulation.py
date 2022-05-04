@@ -53,10 +53,9 @@ class Simulation:
 
             """
             solver.y0 = y.flatten()
-            # print(t)
-            if event_id is not None or (run_event_action and len(events_action)>0):
+            if event_id is not None or (run_event_action and len(events_action) > 0):
                 self.model.update_local_variables()
-                ## slow code
+                # slow code
                 list_var = [v.value for v in self.model.path_to_variable.values()]
                 q = np.array(list_var)
                 if event_id is None:
@@ -74,7 +73,7 @@ class Simulation:
                 if solver.numba_model.is_store_required():
                     self.model.store_history(numba_model.historian_data)
                     solver.numba_model.historian_reinit()
-                #
+
                 if solver.numba_model.is_external_data_update_needed(t):
                     solver.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
                     if solver.numba_model.is_external_data:

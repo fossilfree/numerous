@@ -390,7 +390,7 @@ class Model:
         self.external_idx = np.array(external_idx, dtype=np.int64)
         self.generate_path_to_varaible()
 
-        ##check for item level events
+        #check for item level events
         for item in self.model_items.values():
             if item.events:
                 for event in item.events:
