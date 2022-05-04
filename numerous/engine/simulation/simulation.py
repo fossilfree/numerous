@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 import time
 import numpy as np
@@ -81,29 +82,36 @@ class Simulation:
                                                                 self.model.external_mappings.external_mappings_time)
 
         self.end_step = __end_step
-        print("Generating Numba Model")
+        logging.info("Generating Numba Model")
         generation_start = time.time()
-        print('Len time steps: ', len(self.time))
+        logging.info(f'Number of steps: {len(self.time)}')
         numba_model = model.generate_compiled_model(t_start, len(self.time))
 
         generation_finish = time.time()
-        print("Generation time: ", generation_finish - generation_start)
-
+        logging.info(f"Numba model generation finished, generation time: {generation_finish - generation_start}")
         if solver_type.value == SolverType.SOLVER_IVP.value:
             event_function, _ = model.generate_event_condition_ast(False)
-            action_function = model.generate_event_action_ast(False)
+            action_function = model.generate_event_action_ast(model.events, False)
+            timestamp_action_function = model.generate_event_action_ast(model.timestamp_events, False)
+            timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
             self.solver = IVP_solver(time_, delta_t, model, numba_model,
                                      num_inner, max_event_steps, self.model.states_as_vector,
                                      events=(event_function, action_function),
+                                     timestamp_events=(timestamp_action_function, timestamps),
                                      **kwargs)
 
         if solver_type.value == SolverType.NUMEROUS.value:
             event_function, event_directions = model.generate_event_condition_ast(True)
-            action_function = model.generate_event_action_ast(True)
+            action_function = model.generate_event_action_ast(model.events, True)
+            if len(model.timestamp_events) == 0:
+                model.generate_mock_timestamp_event()
+            timestamp_action_function = model.generate_event_action_ast(model.timestamp_events, True)
+            timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
             self.solver = Numerous_solver(time_, delta_t, model, numba_model,
                                           num_inner, max_event_steps, self.model.states_as_vector,
                                           numba_compiled_solver=model.use_llvm,
                                           events=(event_function, action_function), event_directions=event_directions,
+                                          timestamp_events=(timestamp_action_function, timestamps),
                                           **kwargs)
 
         self.solver.register_endstep(__end_step)
@@ -112,12 +120,13 @@ class Simulation:
         self.info = model.info["Solver"]
         self.info["Number of Equation Calls"] = 0
 
-        print("Compiling Numba equations and initializing historian")
+        logging.info("Compiling Numba equations and initializing historian")
         compilation_start = time.time()
         numba_model.func(t_start, numba_model.get_states())
         numba_model.historian_update(t_start)
         compilation_finished = time.time()
-        print("Compilation time: ", compilation_finished - compilation_start)
+        logging.info(
+            f"Numba equations compiled, historian initizalized, compilation time: {compilation_finished - compilation_start}")
 
         self.compiled_model = numba_model
 

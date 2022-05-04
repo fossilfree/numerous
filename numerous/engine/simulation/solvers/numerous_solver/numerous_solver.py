@@ -1,3 +1,4 @@
+import logging
 import time
 from collections import namedtuple
 from enum import IntEnum, unique
@@ -28,13 +29,17 @@ class Numerous_solver(BaseSolver):
 
     def __init__(self, time_, delta_t, model, numba_model, num_inner, max_event_steps, y0, numba_compiled_solver,
                  events,
-                 event_directions, **kwargs):
+                 event_directions,
+                 timestamp_events,
+                 **kwargs):
         super().__init__()
 
         self.events = events[0][0]
         self.event_directions = event_directions
         self.actions = events[1][0]
-
+        self.timestamps = timestamp_events[1]
+        
+        self.timestamps_actions = timestamp_events[0][0]
         # events value
         self.g = self.events(time_[0], y0)
 
@@ -92,7 +97,9 @@ class Numerous_solver(BaseSolver):
     def generate_solver(self):
         def _solve(numba_model, _solve_state, initial_step, order, order_, roller, strict_eval, outer_itermax,
                    min_step, max_step, step_integrate_, events, actions, g, number_of_events, event_directions,
-                   run_event_action, t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
+                   run_event_action,timestamps, timestamp_actions, t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):           
+                   t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
+
             # Init t to t0
             imax = 100
             step_info = 0
@@ -210,7 +217,6 @@ class Numerous_solver(BaseSolver):
                     order_ = add_ring_buffer(t, y, roller, order_)
 
                 dt_ = min([t_next_eval - t_start, t_new_test - t_start])
-
                 # solve from start to new test by calling the step function
                 t, y, step_converged, step_info, _solve_state, factor = step_integrate_(numba_model,
                                                                                         t_start,
@@ -285,6 +291,15 @@ class Numerous_solver(BaseSolver):
                 if not event_trigger and step_converged:
                     y_previous = y
                     t_previous = t
+                    for event_ix, timestamps_ in enumerate(timestamps):
+                        for timestamp in timestamps_:
+                            if abs(timestamp - t) < 1e-6:
+                                numba_model.set_states(y)
+                                modified_variables = timestamp_actions(t, numba_model.read_variables(), event_ix)
+                                modified_mask = (modified_variables != numba_model.read_variables())
+                                for idx in np.argwhere(modified_mask):
+                                    numba_model.write_variables(modified_variables[idx[0]], idx[0])
+                                y_previous = numba_model.get_states()
 
                 if event_trigger:
                     numba_model.set_states(y_event)
@@ -313,7 +328,7 @@ class Numerous_solver(BaseSolver):
 
     def compile_solver(self):
 
-        print("Compiling Numerous Solver")
+        logging.info("Compiling Numerous Solver")
         generation_start = time.time()
 
         argtypes = []
@@ -341,6 +356,8 @@ class Numerous_solver(BaseSolver):
                 self.number_of_events,
                 self.event_directions,
                 self.run_event_action,
+                self.timestamps,
+                self.timestamps_actions,
                 self.time[0],
                 self.time[-1],
                 self.time)
@@ -351,7 +368,7 @@ class Numerous_solver(BaseSolver):
         _solve = self._non_compiled_solve.compile(tuple(argtypes))
 
         generation_finish = time.time()
-        print("Compiling time: ", generation_finish - generation_start)
+        logging.info(f"Solver compiled, compilation time: {generation_finish - generation_start}")
 
         return _solve
 
@@ -440,7 +457,7 @@ class Numerous_solver(BaseSolver):
         """
         self.result_status = "Success"
         self.sol = None
-
+        logging.info('Solve started')
         # try:
         t_start = self.time[0]
         t_end = self.time[-1]
@@ -477,8 +494,10 @@ class Numerous_solver(BaseSolver):
         info = self._solve(self.numba_model,
                            solve_state, initial_step, order, order_, roller, strict_eval, outer_itermax, min_step,
                            max_step, step_integrate_, self.events, self.actions, self.g,
-                           self.number_of_events, self.event_directions, self.run_event_action, t_start, t_end,
+                           self.number_of_events, self.event_directions, self.run_event_action,  self.timestamps,
+                           self.timestamps_actions,t_start, t_end,
                            self.time)
+
 
         while info.status == SolveStatus.Running:
             if info.event_id == 1:
@@ -493,10 +512,11 @@ class Numerous_solver(BaseSolver):
             info = self._solve(self.numba_model,
                                solve_state, initial_step, order, order_, roller, strict_eval, outer_itermax, min_step,
                                max_step, step_integrate_, self.events, self.actions, self.g,
-                               self.number_of_events, self.event_directions, self.run_event_action, t_start, t_end,
+                               self.number_of_events, self.event_directions, self.run_event_action, self.timestamps, self.timestamps_actions, t_start, t_end,
                                self.time)
 
-        print("finished")
+
+        logging.info("Solve finished")
         return self.sol, self.result_status
 
     def solver_step(self, t, delta_t=None):
@@ -539,7 +559,8 @@ class Numerous_solver(BaseSolver):
         info = self._solve(self.numba_model,
                            solve_state, dt, order, order_, roller, strict_eval, outer_itermax, min_step,
                            max_step, step_integrate_, self.events, self.actions, self.g,
-                           self.number_of_events, self.event_directions, self.run_event_action,
+                           self.number_of_events, self.event_directions, self.run_event_action,, self.timestamps, self.timestamps_actions,
+
                            t_start, t_end, time_span)
 
         if info.event_id == 1:

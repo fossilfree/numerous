@@ -1,10 +1,10 @@
 import pytest
-from numerous.engine.model.external_mappings import ExternalMappingElement
+from numerous.engine.system.external_mappings import ExternalMappingElement
 
 from numerous.utils.data_loader import InMemoryDataLoader
 from pytest import approx
 
-from numerous.engine.model.external_mappings.interpolation_type import InterpolationType
+from numerous.engine.system.external_mappings.interpolation_type import InterpolationType
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 
@@ -14,11 +14,6 @@ from numerous.engine.simulation.solvers.base_solver import solver_types
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 
 
-@pytest.fixture(autouse=True)
-def run_before_and_after_tests():
-    import shutil
-    shutil.rmtree('./tmp', ignore_errors=True)
-    yield
 
 
 @pytest.fixture
@@ -333,8 +328,8 @@ class StaticDataTest(EquationBase, Item):
 
 
 class StaticDataSystem(Subsystem):
-    def __init__(self, tag, n=1):
-        super().__init__(tag)
+    def __init__(self, tag, n=1, external_mappings=None, data_loader=None):
+        super().__init__(tag, external_mappings, data_loader)
         o_s = []
         for i in range(n):
             o = StaticDataTest('tm' + str(i))
@@ -368,8 +363,7 @@ def test_external_data(solver, use_llvm):
                               dataframe_aliases))
     data_loader = InMemoryDataLoader(df)
     s = Simulation(
-        Model(StaticDataSystem('system_external', n=1), use_llvm=use_llvm, external_mappings=external_mappings,
-              data_loader=data_loader),
+        Model(StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader), use_llvm=use_llvm),
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=solver
     )
     s.solve()

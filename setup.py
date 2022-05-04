@@ -3,6 +3,10 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+
+with open('requirements.txt', "r") as requirements:
+    install_requires = [s.strip() for s in requirements]
+
 setuptools.setup(
     name="numerous-engine",
     version="0.3.0",
@@ -40,5 +44,7 @@ setuptools.setup(
         'wcwidth >= 0.1.7',
         'zipp >= 0.6.0'
     ],
-    python_requires='>=3.9',
+    install_requires=install_requires,
+    python_requires='>=3.10',
+
 )

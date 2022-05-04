@@ -13,7 +13,7 @@ Wrapper for scipy ivp solver.
 
 class IVP_solver(BaseSolver):
 
-    def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps, y0, events, **kwargs):
+    def __init__(self, time, delta_t, model, numba_model, num_inner, max_event_steps, y0, events, timestamp_events, **kwargs):
         super().__init__()
         self.model = model
         self.time = time
@@ -23,6 +23,9 @@ class IVP_solver(BaseSolver):
             self.eventf.append(event_cond)
         for event_action in events[1]:
             self.event_a.append(event_action)
+
+        self.timestamps_actions = timestamp_events[0]
+        self.timestamps = timestamp_events[1]
         self.y0 = y0
         self.num_inner = num_inner
         self.delta_t = delta_t
@@ -82,6 +85,10 @@ class IVP_solver(BaseSolver):
                     self.model.numba_model.historian_update(current_timestamp)
                     self.y0 = self.sol.y[:, -1]
                     return current_timestamp, self.sol.t[-1]
+                for id, timestamps in enumerate(self.timestamps):
+                    for timestamp in timestamps:
+                        if abs(timestamp - current_timestamp) < 1e-6:
+                            self.__end_step(self, self.sol.y, current_timestamp, self.timestamps_actions, event_id=id)
             if event_step:
                 event_id = np.nonzero([x.size > 0 for x in self.sol.t_events])[0][0]
                 # solution stuck

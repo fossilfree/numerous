@@ -1,6 +1,6 @@
 import numpy as np
 
-from numerous.engine.model.external_mappings.interpolation_type import InterpolationType
+from numerous.engine.system.external_mappings.interpolation_type import InterpolationType
 
 
 class ExternalMapping:
@@ -12,21 +12,21 @@ class ExternalMapping:
         self.external_columns = []
         self.interpoaltion_type = []
         self.t_max = 0
-        ##loading initial dataframes
+        # loading initial dataframes
         for element in self.external_mappings:
             df = self.data_loader.load(element.data_frame_id, element.index_to_timestep_mapping_start)
             element.add_df(df)
-        ##mapping data
+        # mapping data
         for element in self.external_mappings:
             self.external_columns.append(list(element.dataframe_aliases.keys()))
             self.interpoaltion_type.append([a_tuple[1] for a_tuple in list(element.dataframe_aliases.values())])
             self.external_mappings_numpy.append(
-                element.df[[a_tuple[0] for a_tuple in list(element.dataframe_aliases.values())]
-                ].to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
+                element.df[[a_tuple[0] for a_tuple in list(element.dataframe_aliases.values())]]
+                .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
             self.external_mappings_time.append(
                 element.time_multiplier * element.df[element.index_to_timestep_mapping].to_numpy(dtype=np.float64)[
                                           element.index_to_timestep_mapping_start:])
-            ## TODO extend for multiple dataframes
+            # TODO extend for multiple dataframes
             self.t_max = np.max(self.external_mappings_time[0])
         self.external_mappings_numpy = np.array(self.external_mappings_numpy, dtype=np.float64)
         self.external_mappings_time = np.array(self.external_mappings_time, dtype=np.float64)
@@ -39,7 +39,7 @@ class ExternalMapping:
         self.external_mappings_time = []
 
         for element in self.external_mappings:
-            ## TODO division round bugs? we can skip a row here
+            # TODO division round bugs? we can skip a row here
             df = self.data_loader.load(element.data_frame_id, int(t / element.time_multiplier) - 1)
 
             if df.empty:
@@ -48,14 +48,14 @@ class ExternalMapping:
             element.add_df(df)
         for element in self.external_mappings:
             self.external_mappings_numpy.append(
-                element.df[[a_tuple[0] for a_tuple in list(element.dataframe_aliases.values())]
-                ].to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
+                element.df[[a_tuple[0] for a_tuple in list(element.dataframe_aliases.values())]]
+                .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
             self.external_mappings_time.append(
                 element.time_multiplier * element.df[element.index_to_timestep_mapping].to_numpy(dtype=np.float64)[
                                           element.index_to_timestep_mapping_start:])
         self.external_mappings_numpy = np.array(self.external_mappings_numpy, dtype=np.float64)
         self.external_mappings_time = np.array(self.external_mappings_time, dtype=np.float64)
-        ## TODO extend for multiple dataframes
+        # TODO extend for multiple dataframes
         self.t_max = np.max(self.external_mappings_time[0])
         return True
 
@@ -90,7 +90,7 @@ class ExternalMappingElement:
         self.dataframe_aliases = dataframe_aliases
         self.df = None
 
-    ##TODO check that e_m is correct format (have all the mappings) after loading
+    # TODO check that e_m is correct format (have all the mappings) after loading
     def add_df(self, df):
         if self.df is not None:
             columns = self.df.columns

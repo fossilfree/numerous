@@ -187,7 +187,8 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
                     eq_key__ = eq_key
 
                 parsed_eq_branches[eq_key__] = ParsedEquation(
-                    parsed_eq_branches[eq_key].eq, parsed_eq_branches[eq_key].dsource, parsed_eq_branches[eq_key].graph, {},
+                    parsed_eq_branches[eq_key].eq, parsed_eq_branches[eq_key].dsource, parsed_eq_branches[eq_key].graph,
+                    {},
                     replacements)
 
                 eq_key = eq_key__
@@ -219,7 +220,7 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
 
 
 def process_mappings(mappings, mappings_graph: Graph, scope_vars):
-    logging.info('process mappings')
+
     for m in mappings:
         target_var = scope_vars[m[0]]
         target_set_var_ix = -1
@@ -259,12 +260,13 @@ def process_mappings(mappings, mappings_graph: Graph, scope_vars):
             else:
                 mappings_graph.edges_c[ix_[0]].mappings.append((ivar_set_var_ix, target_set_var_ix))
 
-    logging.info('clone eq graph')
+    logging.info('Clone eq graph')
+
+    logging.info('Remove dependencies')
+
+    logging.info('Cleaning')
+
     mappings_graph = mappings_graph.clean()
 
-    logging.info('remove dependencies')
-
-    logging.info('cleaning')
-
-    logging.info('done cleaning')
+    logging.info('Cleaning finished')
     return mappings_graph

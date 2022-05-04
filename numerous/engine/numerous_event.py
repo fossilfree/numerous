@@ -1,4 +1,5 @@
 class NumerousEvent:
+
     def __init__(self, key, condition, action, compiled,terminal,direction,compiled_functions=None):
         self.key = key
         self.condition = condition
@@ -6,4 +7,11 @@ class NumerousEvent:
         self.compiled = compiled
         self.compiled_functions = compiled_functions
         self.direction = direction
-        self.terminal =terminal
+        self.terminal = terminal
+
+
+class TimestampEvent:
+    def __init__(self, key, action, timestamps):
+        self.key = key
+        self.action = action
+        self.timestamps = timestamps
