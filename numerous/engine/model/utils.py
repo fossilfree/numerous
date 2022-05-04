@@ -45,7 +45,8 @@ def recurse_Attribute(attr, sep='.'):
         return recurse_Attribute(attr.value) + sep + attr.attr
 
 
-def njit_and_compile_function(func: ast.FunctionDef, from_imports: list[(str, str)], compiled_functions:list[CPUDispatcher] = None) -> CPUDispatcher:
+def njit_and_compile_function(func: ast.FunctionDef, from_imports: list[(str, str)],
+                              compiled_functions: list[CPUDispatcher] = None) -> CPUDispatcher:
     fname = func.name
     njit_decorator = ast.Name(id='njit', ctx=ast.Load())
     func.decorator_list = [njit_decorator]

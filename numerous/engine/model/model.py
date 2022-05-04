@@ -600,6 +600,7 @@ class Model:
     def generate_mock_timestamp_event(self):
         def action(t, v):
             i = 1
+
         self.add_timestamp_event("mock", action, [-1])
 
     def generate_event_condition_ast(self, is_numerous_solver: bool) -> tuple[list[CPUDispatcher], npt.ArrayLike]:

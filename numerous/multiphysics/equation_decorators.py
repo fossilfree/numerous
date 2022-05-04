@@ -36,7 +36,7 @@ class Equation(object):
         try:
             wrapper.lines = inspect.getsource(func)
             wrapper.lineno = inspect.getsourcelines(func)[1]
-        except:
+        except TypeError:
             pass
         wrapper.file = inspect.getfile(func)
         wrapper.name = func.__name__

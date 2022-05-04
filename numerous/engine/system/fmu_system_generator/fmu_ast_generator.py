@@ -148,7 +148,7 @@ def generate_eval_llvm(assign_ptrs, output_args, states_idx, var_order: list):
     args_ = []
     for state_idx in states_idx:
         args_.append(ast.Name(id=assign_ptrs[state_idx][0], ctx=ast.Load()))
-    if len(args_)>0:
+    if len(args_) > 0:
         body.append(ast.Assign(targets=[ast.Name(id='value3', ctx=ast.Store())],
                                value=ast.Call(func=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='array',
                                                                  ctx=ast.Load()),
@@ -248,8 +248,8 @@ def generate_eval_event(state_idx, len_q, var_order: list, event_id):
 
     body.append(ast.Assign(targets=[ast.Name(id='value1', ctx=ast.Store())],
                            value=ast.Call(func=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='array',
-                                                             ctx=ast.Load()), args=[ast.List(
-                               elts=arg_elts, ctx=ast.Load())], keywords=[
+                                                             ctx=ast.Load()),
+                                          args=[ast.List(elts=arg_elts, ctx=ast.Load())], keywords=[
                                ast.keyword(arg='dtype',
                                            value=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='float64',
                                                                ctx=ast.Load()))]), lineno=0))
@@ -277,8 +277,8 @@ def generate_eval_event(state_idx, len_q, var_order: list, event_id):
 
     body.append(ast.Assign(targets=[ast.Name(id='value2', ctx=ast.Store())],
                            value=ast.Call(func=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='array',
-                                                             ctx=ast.Load()), args=[ast.List(
-                               elts=lst_arg, ctx=ast.Load())],
+                                                             ctx=ast.Load()),
+                                          args=[ast.List(elts=lst_arg, ctx=ast.Load())],
                                           keywords=[ast.keyword(arg='dtype', value=ast.Attribute(
                                               value=ast.Name(id='np', ctx=ast.Load()), attr='float64',
                                               ctx=ast.Load()))]), lineno=0))
@@ -307,7 +307,7 @@ def generate_eval_event(state_idx, len_q, var_order: list, event_id):
     for _ in state_idx:
         wrapper_args.append(_generate_pointer('float64'))
 
-    wrapper = ast.Assign(targets=[ast.Name(id="event_ind_call_"+str(event_id), ctx=ast.Store())],
+    wrapper = ast.Assign(targets=[ast.Name(id="event_ind_call_" + str(event_id), ctx=ast.Store())],
                          value=ast.Call(func=ast.Call(func=ast.Name(id='cfunc', ctx=ast.Load()),
                                                       args=[ast.Call(
                                                           func=ast.Attribute(value=ast.Name(id='types', ctx=ast.Load()),
@@ -320,7 +320,7 @@ def generate_eval_event(state_idx, len_q, var_order: list, event_id):
     return ast.FunctionDef(name='eval_event', args=args, body=body, decorator_list=[], lineno=0), wrapper
 
 
-def generate_njit_event_cond(states,id_):
+def generate_njit_event_cond(states, id_):
     body = [ast.Assign(targets=[ast.Name(id='temp_addr', ctx=ast.Store())],
                        value=ast.Call(func=ast.Name(id='address_as_void_pointer', ctx=ast.Load()),
                                       args=[ast.Name(id='c_ptr', ctx=ast.Load())],
@@ -345,7 +345,7 @@ def generate_njit_event_cond(states,id_):
             ast.Subscript(value=ast.Name(id='y', ctx=ast.Load()), slice=ast.Constant(value=idx), ctx=ast.Load()))
 
     body.append(ast.Expr(
-        value=ast.Call(func=ast.Name(id='event_ind_call_'+str(id_), ctx=ast.Load()),
+        value=ast.Call(func=ast.Name(id='event_ind_call_' + str(id_), ctx=ast.Load()),
                        args=args,
                        keywords=[])))
 
@@ -361,7 +361,7 @@ def generate_njit_event_cond(states,id_):
 
     body.append(ast.Return(value=ast.Name(id='result', ctx=ast.Load())))
 
-    event_cond = ast.FunctionDef(name='event_cond_inner_'+str(id_),
+    event_cond = ast.FunctionDef(name='event_cond_inner_' + str(id_),
                                  args=ast.arguments(posonlyargs=[], args=[ast.arg(arg='t'), ast.arg(arg='y')],
                                                     kwonlyargs=[],
                                                     kw_defaults=[], defaults=[]), body=body,
@@ -382,11 +382,10 @@ def generate_njit_event_cond(states,id_):
                                                          ctx=ast.Load())], keywords=[]), lineno=0))
 
     body.append(ast.Return(
-        value=ast.Call(func=ast.Name(id='event_cond_inner_'+str(id_), ctx=ast.Load()),
+        value=ast.Call(func=ast.Name(id='event_cond_inner_' + str(id_), ctx=ast.Load()),
                        args=[ast.Name(id='t', ctx=ast.Load()), ast.Name(id='q', ctx=ast.Load())], keywords=[])))
 
-
-    event_cond_2 = ast.FunctionDef(name='event_cond_'+str(id_),
+    event_cond_2 = ast.FunctionDef(name='event_cond_' + str(id_),
                                    args=ast.arguments(posonlyargs=[], args=[ast.arg(arg='t'), ast.arg(arg='variables')],
                                                       kwonlyargs=[],
                                                       kw_defaults=[], defaults=[]), body=body,

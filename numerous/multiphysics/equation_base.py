@@ -28,8 +28,7 @@ class VariableDescriptionMap(VariableBase):
     # refactored in a more functional way
     def __iter__(self):
         # used filter and extend
-        self.variables_descriptions_deque.extend(list(filter((lambda v: \
-                                                                  isinstance(v, VariableDescription)), \
+        self.variables_descriptions_deque.extend(list(filter((lambda v: isinstance(v, VariableDescription)),
                                                              self.variables_descriptions.values())))
         return self
 
@@ -168,8 +167,9 @@ class EquationBase:
         self.variables_descriptions. \
             register_variable_description(VariableDescription(tag=tag, id=str(uuid.uuid1()), initial_value=init_val,
                                                               type=var_type, logger_level=logger_level, alias=alias,
-                                                              variable_idx = self.new_variable_idx ))
-        self.new_variable_idx +=1
+                                                              variable_idx=self.new_variable_idx))
+        self.new_variable_idx += 1
+
     def map_create_parameters(self, item, mappings):
         for m in mappings:
             if not self.variables_descriptions.variable_exists(m.to_):

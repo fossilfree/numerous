@@ -232,7 +232,7 @@ class Variable(MappedValue):
     @staticmethod
     def create(namespace, v_id, tag,
                v_type, value, item, metadata,
-               mapping, update_counter, allow_update, logger_level,variable_idx, alias):
+               mapping, update_counter, allow_update, logger_level, variable_idx, alias):
         return Variable(DetailedVariableDescription(tag=tag,
                                                     id=v_id,
                                                     type=v_type,
@@ -264,7 +264,7 @@ class _VariableFactory:
                                update_counter=0,
                                allow_update=(var_desc.type != VariableType.CONSTANT),
                                logger_level=var_desc.logger_level,
-                               variable_idx = var_desc.variable_idx,
+                               variable_idx=var_desc.variable_idx,
                                alias=var_desc.alias,
                                )
 

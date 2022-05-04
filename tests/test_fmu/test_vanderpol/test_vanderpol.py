@@ -17,6 +17,7 @@ class S3(Subsystem):
         fmu_subsystem = FMU_Subsystem(fmu_filename, "VanDerPol", debug_output=True)
         self.register_items([fmu_subsystem])
 
+
 @pytest.mark.xfail
 @pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
