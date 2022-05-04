@@ -279,6 +279,7 @@ class _VariableFactory:
                              allow_update=(variable_description.type != VariableType.CONSTANT),
                              logger_level=variable_description.logger_level,
                              alias=variable_description.alias,
+                             variable_idx=0
                              )
 
         return v1

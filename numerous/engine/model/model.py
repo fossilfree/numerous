@@ -23,7 +23,7 @@ from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
 
 from numerous.engine.system.subsystem import Subsystem, ItemSet
-from numerous.engine.variables import VariableType
+from numerous.engine.variables import VariableType, SetOfVariables
 
 from numerous.engine.model.ast_parser.parser_ast import parse_eq
 from numerous.engine.model.graph_representation.graph import Graph
@@ -61,11 +61,15 @@ class ModelNamespace:
             for v in vs:
                 variables___.append(v)
             variables__.append(variables___)
+
         variables__ = [list(x) for x in zip(*variables__)]
         variables__ = list(itertools.chain(*variables__))
         variables_ordered = [None] * len(variables__)
+        if self.is_set:
+            for i, v in enumerate(variables__):
+                v.detailed_description.variable_idx = i
         for variable in variables__:
-            variables_ordered[variable.detailed_description.variable_idx]=variable
+            variables_ordered[variable.detailed_description.variable_idx] = variable
         return variables_ordered
 
 
@@ -212,6 +216,7 @@ class Model:
         -  _3d 
 
         """
+
         def __get_mapping__idx(variable):
             if variable.mapping:
                 return __get_mapping__idx(variable.mapping)
@@ -366,7 +371,6 @@ class Model:
         self.external_idx = np.array(external_idx, dtype=np.int64)
         self.generate_path_to_varaible()
 
-
         ##check for item level events
         for item in self.model_items.values():
             if item.events:
@@ -374,10 +378,9 @@ class Model:
                     if event.compiled:
                         pass
                     else:
-                        event.condition = _replace_path_strings(self, event.condition, "state",item.path)
-                        event.action = _replace_path_strings(self, event.action, "var",item.path)
+                        event.condition = _replace_path_strings(self, event.condition, "state", item.path)
+                        event.action = _replace_path_strings(self, event.action, "var", item.path)
                     self.events.append(event)
-
 
         assemble_finish = time.time()
         print("Assemble time: ", assemble_finish - assemble_start)
@@ -535,7 +538,7 @@ class Model:
         condition = _replace_path_strings(self, condition, "state")
 
         action = _replace_path_strings(self, action, "var")
-        event = NumerousEvent(key, condition, action, compiled,terminal,direction)
+        event = NumerousEvent(key, condition, action, compiled, terminal, direction)
         self.events.append(event)
 
     def generate_mock_event(self) -> None:
@@ -559,7 +562,8 @@ class Model:
                 if event.compiled:
                     compiled_event = event.condition
                 else:
-                    compiled_event = njit_and_compile_function(event.condition, self.imports.from_imports,compiled_functions=event.compiled_functions)
+                    compiled_event = njit_and_compile_function(event.condition, self.imports.from_imports,
+                                                               compiled_functions=event.compiled_functions)
                 compiled_event.terminal = event.terminal
                 compiled_event.direction = event.direction
                 directions.append(event.direction)
@@ -577,7 +581,8 @@ class Model:
                 if event.compiled:
                     result.append(event.action)
                 else:
-                    compiled_event = njit_and_compile_function(event.action, self.imports.from_imports,compiled_functions=event.compiled_functions)
+                    compiled_event = njit_and_compile_function(event.action, self.imports.from_imports,
+                                                               compiled_functions=event.compiled_functions)
                     result.append(compiled_event)
             return result
 
@@ -586,8 +591,6 @@ class Model:
             return np.where(self.state_idx == var.llvm_idx)[0]
         if idx_type == "var":
             return [var.llvm_idx]
-
-
 
     def create_alias(self, variable_name, alias):
         """
