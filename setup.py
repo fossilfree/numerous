@@ -44,7 +44,6 @@ setuptools.setup(
         'wcwidth >= 0.1.7',
         'zipp >= 0.6.0'
     ],
-    install_requires=install_requires,
     python_requires='>=3.10',
 
 )
