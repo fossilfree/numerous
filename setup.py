@@ -26,7 +26,7 @@ setuptools.setup(
         'numpy >= 1.17.4',
         'networkx >= 2.4',
         'numba >=0.52',
-        'fmpy == 0.2.27',
+        'fmpy == 0.3.7',
         'tqdm >= 4.40.2',
         'packaging >= 19.2',
         'pandas >= 1.0.5',
