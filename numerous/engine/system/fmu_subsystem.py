@@ -10,7 +10,7 @@ from fmpy.fmi2 import FMU2Model, fmi2CallbackFunctions, fmi2CallbackLoggerTYPE, 
 from fmpy.simulation import apply_start_values, Input
 from fmpy.util import auto_interval
 
-from numerous import EquationBase, Equation, NumerousFunction
+from numerous.multiphysics import EquationBase, Equation, NumerousFunction
 
 from numerous.engine.system import Subsystem
 from numba import cfunc, carray, types, njit

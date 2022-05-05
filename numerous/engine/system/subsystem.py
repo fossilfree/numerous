@@ -1,8 +1,10 @@
 import copy
 from enum import Enum
 
-from numerous import EquationBase
 from numerous.engine.system.external_mappings import ExternalMappingUnpacked
+
+
+from numerous.multiphysics import EquationBase
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.system.item import Item
 import networkx as nx

@@ -11,9 +11,8 @@ from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 
 from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
-from numerous import EquationBase, Equation
-from numerous.engine.simulation.solvers.base_solver import solver_types, SolverType
-
+from numerous.engine.simulation.solvers.base_solver import solver_types
+from numerous.multiphysics import EquationBase, Equation
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 
 

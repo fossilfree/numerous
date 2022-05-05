@@ -1,4 +1,4 @@
-from numerous import EquationBase, Equation
+from numerous.multiphysics import EquationBase, Equation
 
 
 class TestEq_input(EquationBase):
