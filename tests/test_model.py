@@ -331,7 +331,6 @@ class StaticDataSystem(Subsystem):
         self.register_items(o_s)
 
 
-
 class OuterSystem(Subsystem):
     def __init__(self, tag, system, n=1, external_mappings=None, data_loader=None):
         super().__init__(tag, external_mappings, data_loader)
