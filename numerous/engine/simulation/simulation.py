@@ -78,7 +78,6 @@ class Simulation:
                         solver.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
                                                                 self.model.external_mappings.external_mappings_time)
 
-        self.end_step = __end_step
         logging.info("Generating Numba Model")
         generation_start = time.time()
         logging.info(f'Number of steps: {len(self.time)}')
@@ -117,8 +116,8 @@ class Simulation:
 
         self.compiled_model = numba_model
 
-    def solve(self, run_fmu_event_action=False):
-        self.reset(run_fmu_event_action)
+    def solve(self):
+        self.reset()
 
         sol, self.result_status = self.solver.solve()
 
@@ -126,12 +125,10 @@ class Simulation:
         self.complete()
         return sol
 
-    def reset(self, run_event_action=False):
+    def reset(self):
         self.__init_step()
         self.model.numba_model.historian_reinit()
 
-        self.end_step(self.solver, self.model.numba_model.get_states(), 0, self.model.generate_event_action_ast([]),
-                      run_event_action=run_event_action)
 
     def step(self, dt):
         try:
