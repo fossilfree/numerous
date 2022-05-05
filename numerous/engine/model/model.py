@@ -18,7 +18,6 @@ import pandas as pd
 
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
 from numerous.engine.model.utils import Imports, njit_and_compile_function
-from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
 from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
 
 from numerous.utils.logger_levels import LoggerLevel
@@ -29,14 +28,14 @@ from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
 
 from numerous.engine.system.subsystem import Subsystem, ItemSet
-from numerous.engine.variables import VariableType
+from numerous.engine.variables import VariableType, SetOfVariables
 
 from numerous.engine.model.ast_parser.parser_ast import parse_eq
 from numerous.engine.model.graph_representation.graph import Graph
 from numerous.engine.model.ast_parser.parser_ast import process_mappings
 
 from numerous.engine.model.lowering.equations_generator import EquationGenerator
-from numerous.engine.system import SetNamespace
+from numerous.engine.system import SetNamespace, EmptyMapping
 
 import faulthandler
 import llvmlite.binding as llvm
@@ -78,9 +77,16 @@ class ModelNamespace:
             for v in vs:
                 variables___.append(v)
             variables__.append(variables___)
+
         variables__ = [list(x) for x in zip(*variables__)]
         variables__ = list(itertools.chain(*variables__))
-        return variables__
+        variables_ordered = [None] * len(variables__)
+        if self.is_set:
+            for i, v in enumerate(variables__):
+                v.detailed_description.variable_idx = i
+        for variable in variables__:
+            variables_ordered[variable.detailed_description.variable_idx] = variable
+        return variables_ordered
 
 
 class ModelAssembler:
@@ -116,7 +122,7 @@ class Model:
     """
 
     def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
-                 external_mappings=None, data_loader=None, imports=None, historian=InMemoryHistorian(),
+                 imports=None, historian=InMemoryHistorian(),
                  use_llvm=True, save_to_file=False, generate_graph_pdf=False, export_model=False):
 
         self.path_to_variable = {}
@@ -127,9 +133,8 @@ class Model:
         else:
             self.logger_level = logger_level
 
-        self.is_external_data = True if external_mappings else False
-        self.external_mappings = ExternalMapping(external_mappings,
-                                                 data_loader) if external_mappings else EmptyMapping()
+        self.is_external_data = True if system.external_mappings is None else False
+        self.external_mappings = system.external_mappings
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
         self.imports = Imports()
@@ -191,21 +196,21 @@ class Model:
             self.validate()
 
     def __add_item(self, item):
-        model_namespaces = []
+        model_namespaces = {}
         if item.id in self.model_items:
             return model_namespaces
 
         self.model_items.update({item.id: item})
-        model_namespaces.append((item.id, self.create_model_namespaces(item)))
+        model_namespaces[item.id] = self.create_model_namespaces(item)
         if isinstance(item, ItemSet):
             return model_namespaces
         if isinstance(item, Connector):
             for binded_item in item.get_binded_items():
                 if not binded_item.part_of_set:
-                    model_namespaces.extend(self.__add_item(binded_item))
+                    model_namespaces.update(self.__add_item(binded_item))
         if isinstance(item, Subsystem):
             for registered_item in item.registered_items.values():
-                model_namespaces.extend(self.__add_item(registered_item))
+                model_namespaces.update(self.__add_item(registered_item))
         return model_namespaces
 
     def __get_mapping__variable(self, variable, depth):
@@ -238,14 +243,14 @@ class Model:
         assemble_start = time.time()
 
         # 1. Create list of model namespaces
-        model_namespaces = [_ns
+        model_namespaces = {item_id: _ns
                             for item in self.system.registered_items.values() if not item.part_of_set
-                            for _ns in self.__add_item(item)]
+                            for item_id, _ns in self.__add_item(item).items()}
 
         # 2. Compute dictionaries
         # equation_dict <scope_id, [Callable]>
         # scope_variables <variable_id, Variable>
-        for variables, equation_dict in map(ModelAssembler.namespace_parser, model_namespaces):
+        for variables, equation_dict in map(ModelAssembler.namespace_parser, model_namespaces.items()):
             self.equation_dict.update(equation_dict)
             self.variables.update(variables)
 
@@ -276,16 +281,15 @@ class Model:
             v.top_item = self.system.id
 
         eq_used = []
-        for ns in model_namespaces:
-            ##will be false for empty namespaces. Ones without equations and variables.
-            if ns[1]:
+        for item_id, namespaces in model_namespaces.items():
+            for ns in namespaces:
                 ## Key : scope.tag Value: Variable or VariableSet
-                if ns[1][0].is_set:
-                    tag_vars = ns[1][0].set_variables
+                if ns.is_set:
+                    tag_vars = ns.set_variables
                 else:
-                    tag_vars = {v.tag: v for k, v in ns[1][0].variables.items()}
+                    tag_vars = {v.tag: v for k, v in ns.variables.items()}
 
-                parse_eq(model_namespace=ns[1][0], item_id=ns[0], mappings_graph=self.mappings_graph,
+                parse_eq(model_namespace=ns, item_id=item_id, mappings_graph=self.mappings_graph,
                          scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
                          scoped_equations=self.scoped_equations, parsed_eq=self.equations_top, eq_used=eq_used)
         self.eq_used = eq_used
@@ -386,12 +390,16 @@ class Model:
         self.external_idx = np.array(external_idx, dtype=np.int64)
         self.generate_path_to_varaible()
 
-        ##check for item level events
+        # check for item level events
         for item in self.model_items.values():
             if item.events:
                 for event in item.events:
-                    event.condition = _replace_path_strings(self, event.condition, "var", item.path)
-                    event.action = _replace_path_strings(self, event.action, "var", item.path)
+                    if event.compiled:
+                        pass
+                    else:
+                        event.condition = _replace_path_strings(self, event.condition, "var", item.path)
+                        event.action = _replace_path_strings(self, event.action, "var", item.path)
+
                     self.events.append(event)
             if item.timestamp_events:
                 for event in item.timestamp_events:
@@ -466,7 +474,7 @@ class Model:
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             with open(filename, 'wb') as handle:
                 sys.setrecursionlimit(100000)
-                pickle.dump((self.system, self.logger_level, self.external_mappings,
+                pickle.dump((self.system, self.logger_level,
                              self.imports, self.use_llvm, self.vars_ordered_values, self.variables,
                              self.state_idx, self.derivatives_idx, self.init_values, self.aliases,
                              eq_gen.generated_program.equations_llvm_opt, eq_gen.generated_program.max_var,
@@ -592,6 +600,7 @@ class Model:
     def generate_mock_timestamp_event(self):
         def action(t, v):
             i = 1
+
         self.add_timestamp_event("mock", action, [-1])
 
     def generate_event_condition_ast(self) -> tuple[list[CPUDispatcher], npt.ArrayLike]:
@@ -637,6 +646,7 @@ class Model:
             for eq in namespace.associated_equations.values():
                 equations = []
                 ids = []
+
                 for equation in eq.equations:
                     equations.append(equation)
                 for vardesc in eq.variables_descriptions:
@@ -749,11 +759,9 @@ class Model:
 
     @classmethod
     def from_file(cls, param):
-        system_, logger_level, external_mappings, imports, use_llvm, vars_ordered_values, variables, state_idx, \
+        system_, logger_level, imports, use_llvm, vars_ordered_values, variables, state_idx, \
         derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(open(param, "rb"))
-        if isinstance(external_mappings, EmptyMapping):
-            external_mappings = None
-        model = Model(system=system_, assemble=False, logger_level=logger_level, external_mappings=external_mappings,
+        model = Model(system=system_, assemble=False, logger_level=logger_level,
                       use_llvm=use_llvm)
         model.variables = variables
         model.imports = imports

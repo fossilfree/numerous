@@ -1,10 +1,10 @@
 import pytest
-from numerous.engine.model.external_mappings import ExternalMappingElement
+from numerous.engine.system.external_mappings import ExternalMappingElement
 
 from numerous.utils.data_loader import InMemoryDataLoader
 from pytest import approx
 
-from numerous.engine.model.external_mappings.interpolation_type import InterpolationType
+from numerous.engine.system.external_mappings.interpolation_type import InterpolationType
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 
@@ -187,7 +187,7 @@ def test_model_var_referencing(ms1, use_llvm):
     m1 = Model(ms1, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
     s1.solve()
-    assert approx(list(m1.states_as_vector[::-1]), rel=0.01) == [2010, 1010, 510, 210]
+    assert approx(list(m1.states_as_vector), rel=0.01) == [2010, 1010, 510, 210]
 
 
 @pytest.mark.skip(reason="Functionality not implemented in current version")
@@ -317,8 +317,8 @@ class StaticDataTest(EquationBase, Item):
 
 
 class StaticDataSystem(Subsystem):
-    def __init__(self, tag, n=1):
-        super().__init__(tag)
+    def __init__(self, tag, n=1, external_mappings=None, data_loader=None):
+        super().__init__(tag, external_mappings, data_loader)
         o_s = []
         for i in range(n):
             o = StaticDataTest('tm' + str(i))
@@ -353,6 +353,7 @@ def test_external_data(use_llvm):
     s = Simulation(
         Model(StaticDataSystem('system_external', n=1), use_llvm=use_llvm, external_mappings=external_mappings,
               data_loader=data_loader), t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
+
     s.solve()
     assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
     assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
@@ -364,5 +365,5 @@ def test_static_system(use_llvm):
     s = Simulation(Model(StaticDataSystem('system_static', n=1), use_llvm=use_llvm), t_start=0, t_stop=100.0, num=100,
                    num_inner=100, max_step=.1)
     s.solve()
-    assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i1'])[1:]) == np.repeat(0, (100))
-    assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i2'])[1:]) == np.repeat(0, (100))
+    assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i1'])[1:]) == np.repeat(0, 100)
+    assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i2'])[1:]) == np.repeat(0, 100)
