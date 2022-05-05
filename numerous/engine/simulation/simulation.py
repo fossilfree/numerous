@@ -2,8 +2,6 @@ import logging
 from datetime import datetime
 import time
 import numpy as np
-from numerous.engine.simulation.solvers.base_solver import SolverType
-from numerous.engine.simulation.solvers.ivp_solver.ivp_solver import IVP_solver
 from numerous.engine.simulation.solvers.numerous_solver.numerous_solver import Numerous_solver
 
 
