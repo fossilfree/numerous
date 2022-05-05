@@ -284,7 +284,7 @@ class Numerous_solver(BaseSolver):
                     for ix in np.concatenate((np.argwhere(up), np.argwhere(down))):
                         eps = 0.0001  # for case to t_event = t
                         status, t_event, y_event = check_event(events, ix[0],
-                                                               t_previous, y_previous, t, y, t_next_eval)
+                                                               t_previous, y_previous, t, y)
                         t_events[ix[0]] = t_event - eps
                         y_events[:, ix[0]] = y_event
 
