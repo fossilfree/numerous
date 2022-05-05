@@ -48,19 +48,21 @@ class Simulation:
         self.time = time_
         self.model = model
 
-        def __end_step(solver, y, t, events_action, event_id=None):
+        def __end_step(solver, y, t, events_action, event_id=None, run_event_action=False):
             """
 
             """
             solver.y0 = y.flatten()
-
-            if event_id is not None:
+            if event_id is not None or (run_event_action and len(events_action) > 0):
                 self.model.update_local_variables()
-                ## slow code
+                # slow code
                 list_var = [v.value for v in self.model.path_to_variable.values()]
-                events_action[event_id](t, list_var)
+                q = np.array(list_var)
+                if event_id is None:
+                    event_id = 0
+                events_action[event_id](t, q)
                 for i, var in enumerate(self.model.path_to_variable.values()):
-                    var.value = list_var[i]
+                    var.value = q[i]
                 self.model.update_all_variables()
                 solver.y0 = self.model.states_as_vector
 
@@ -71,7 +73,7 @@ class Simulation:
                 if solver.numba_model.is_store_required():
                     self.model.store_history(numba_model.historian_data)
                     solver.numba_model.historian_reinit()
-                #
+
                 if solver.numba_model.is_external_data_update_needed(t):
                     solver.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
                     if solver.numba_model.is_external_data:
@@ -127,8 +129,8 @@ class Simulation:
 
         self.compiled_model = numba_model
 
-    def solve(self):
-        self.reset()
+    def solve(self, run_fmu_event_action=False):
+        self.reset(run_fmu_event_action)
 
         sol, self.result_status = self.solver.solve()
 
@@ -136,11 +138,12 @@ class Simulation:
         self.complete()
         return sol
 
-    def reset(self):
+    def reset(self, run_event_action=False):
         self.__init_step()
         self.model.numba_model.historian_reinit()
 
-        self.end_step(self.solver, self.model.numba_model.get_states(), 0, [])
+        self.end_step(self.solver, self.model.numba_model.get_states(), 0, self.model.generate_event_action_ast(None,False),
+                      run_event_action=run_event_action)
 
     def step(self, dt):
         try:

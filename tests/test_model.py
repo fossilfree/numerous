@@ -191,7 +191,7 @@ def test_model_var_referencing(ms1, solver, use_llvm):
     m1 = Model(ms1, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
     s1.solve()
-    assert approx(list(m1.states_as_vector[::-1]), rel=0.01) == [2010, 1010, 510, 210]
+    assert approx(list(m1.states_as_vector), rel=0.01) == [2010, 1010, 510, 210]
 
 
 @pytest.mark.parametrize("solver", solver_types)
@@ -380,5 +380,5 @@ def test_static_system(solver, use_llvm):
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=solver
     )
     s.solve()
-    assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i1'])[1:]) == np.repeat(0, (100))
-    assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i2'])[1:]) == np.repeat(0, (100))
+    assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i1'])[1:]) == np.repeat(0, 100)
+    assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i2'])[1:]) == np.repeat(0, 100)
