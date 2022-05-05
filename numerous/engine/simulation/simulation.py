@@ -25,9 +25,7 @@ class Simulation:
                Not unique tag that will be used in reports or printed output.
     """
 
-    def __init__(self, model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=20000, num=1000, num_inner=1,
-                 max_event_steps=100,
-
+    def __init__(self, model, t_start=0, t_stop=20000, num=1000, num_inner=1, max_event_steps=100,
                  start_datetime=datetime.now(), **kwargs):
         """
             Creating a namespace.
@@ -88,30 +86,20 @@ class Simulation:
 
         generation_finish = time.time()
         logging.info(f"Numba model generation finished, generation time: {generation_finish - generation_start}")
-        if solver_type.value == SolverType.SOLVER_IVP.value:
-            event_function, _ = model.generate_event_condition_ast(False)
-            action_function = model.generate_event_action_ast(model.events, False)
-            timestamp_action_function = model.generate_event_action_ast(model.timestamp_events, False)
-            timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
-            self.solver = IVP_solver(time_, delta_t, model, numba_model,
-                                     num_inner, max_event_steps, self.model.states_as_vector,
-                                     events=(event_function, action_function),
-                                     timestamp_events=(timestamp_action_function, timestamps),
-                                     **kwargs)
 
-        if solver_type.value == SolverType.NUMEROUS.value:
-            event_function, event_directions = model.generate_event_condition_ast(True)
-            action_function = model.generate_event_action_ast(model.events, True)
-            if len(model.timestamp_events) == 0:
-                model.generate_mock_timestamp_event()
-            timestamp_action_function = model.generate_event_action_ast(model.timestamp_events, True)
-            timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
-            self.solver = Numerous_solver(time_, delta_t, model, numba_model,
-                                          num_inner, max_event_steps, self.model.states_as_vector,
-                                          numba_compiled_solver=model.use_llvm,
-                                          events=(event_function, action_function), event_directions=event_directions,
-                                          timestamp_events=(timestamp_action_function, timestamps),
-                                          **kwargs)
+        event_function, event_directions = model.generate_event_condition_ast()
+        event_function_full, _ = model.generate_event_condition_ast()
+        action_function = model.generate_event_action_ast(model.events)
+        if len(model.timestamp_events) == 0:
+            model.generate_mock_timestamp_event()
+        timestamp_action_function = model.generate_event_action_ast(model.timestamp_events)
+        timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
+        self.solver = Numerous_solver(time_, delta_t, model, numba_model,
+                                      num_inner, max_event_steps, self.model.states_as_vector,
+                                      numba_compiled_solver=model.use_llvm,
+                                      events=(event_function, action_function), event_directions=event_directions,
+                                      timestamp_events=(timestamp_action_function, timestamps),
+                                      **kwargs)
 
         self.solver.register_endstep(__end_step)
 
@@ -142,7 +130,7 @@ class Simulation:
         self.__init_step()
         self.model.numba_model.historian_reinit()
 
-        self.end_step(self.solver, self.model.numba_model.get_states(), 0, self.model.generate_event_action_ast(None,False),
+        self.end_step(self.solver, self.model.numba_model.get_states(), 0, self.model.generate_event_action_ast([]),
                       run_event_action=run_event_action)
 
     def step(self, dt):

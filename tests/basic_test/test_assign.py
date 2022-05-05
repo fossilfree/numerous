@@ -3,7 +3,7 @@ from pytest import approx
 
 from numerous.engine import simulation
 from numerous.engine.model import Model
-from numerous.engine.simulation.solvers.base_solver import solver_types
+
 from numerous.engine.system import Item, Subsystem
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.multiphysics.equation_decorators import Equation
@@ -98,80 +98,73 @@ class System(Subsystem):
         self.register_items([item])
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_single_assign(solver, use_llvm):
+def test_single_assign(use_llvm):
     m = System(tag='system1', item=SingleAssign(tag='item1'))
     model = Model(m, use_llvm=use_llvm, generate_graph_pdf=False)
-    s = simulation.Simulation(model, solver_type=solver, t_start=0, t_stop=2.0, num=2, num_inner=2)
+    s = simulation.Simulation(model, t_start=0, t_stop=2.0, num=2, num_inner=2)
     s.solve()
     historian_df = s.model.historian_df
     assert approx(historian_df['system1.item1.t1.x'][2]) == 2
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_tuple_assign(solver, use_llvm):
+def test_tuple_assign(use_llvm):
     m = System(tag='system2', item=TupleToTupleAssign(tag='item2'))
     model = Model(m, use_llvm=use_llvm, generate_graph_pdf=False)
-    s = simulation.Simulation(model, solver_type=solver, t_start=0, t_stop=2.0, num=2, num_inner=2)
+    s = simulation.Simulation(model, t_start=0, t_stop=2.0, num=2, num_inner=2)
     s.solve()
     historian_df = s.model.historian_df
     assert approx(historian_df['system2.item2.t1.x'][2]) == 2
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.skip(reason="Functionality not implemented in current version")
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_tuple_to_var_assign(solver, use_llvm):
+def test_tuple_to_var_assign(use_llvm):
     m = System(tag='system3', item=TupleToVarAssign(tag='item3'))
     model = Model(m, use_llvm=use_llvm, generate_graph_pdf=False)
-    s = simulation.Simulation(model, solver_type=solver, t_start=0, t_stop=2.0, num=2, num_inner=2)
+    s = simulation.Simulation(model, t_start=0, t_stop=2.0, num=2, num_inner=2)
     s.solve()
     historian_df = s.model.historian_df
     assert approx(historian_df['system3.item3.t1.x'][2]) == 2
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_tuple_to_func_assign(solver, use_llvm):
+def test_tuple_to_func_assign(use_llvm):
     m = System(tag='system4', item=TupleToFuncAssign(tag='item4'))
     model = Model(m, use_llvm=use_llvm, generate_graph_pdf=False, imports=[("external_functions", "if_replacement")])
-    s = simulation.Simulation(model, solver_type=solver, t_start=0, t_stop=2.0, num=2, num_inner=2)
+    s = simulation.Simulation(model, t_start=0, t_stop=2.0, num=2, num_inner=2)
     s.solve()
     historian_df = s.model.historian_df
     assert approx(historian_df['system4.item4.t1.x'][2]) == 2
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_single_binary_operator(solver, use_llvm):
+def test_single_binary_operator(use_llvm):
     m = System(tag='system5', item=SingleBinaryOperator(tag='item5'))
     model = Model(m, use_llvm=use_llvm, generate_graph_pdf=False)
-    s = simulation.Simulation(model, solver_type=solver, t_start=0, t_stop=2.0, num=2, num_inner=2)
+    s = simulation.Simulation(model, t_start=0, t_stop=2.0, num=2, num_inner=2)
     s.solve()
     historian_df = s.model.historian_df
     assert approx(historian_df['system5.item5.t1.x'][2]) == 2
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_single_unary_operator(solver, use_llvm):
+def test_single_unary_operator(use_llvm):
     m = System(tag='system6', item=SingleUnaryOperator(tag='item6'))
     model = Model(m, use_llvm=use_llvm, generate_graph_pdf=False)
-    s = simulation.Simulation(model, solver_type=solver, t_start=0, t_stop=2.0, num=2, num_inner=2)
+    s = simulation.Simulation(model, t_start=0, t_stop=2.0, num=2, num_inner=2)
     s.solve()
     historian_df = s.model.historian_df
     assert approx(historian_df['system6.item6.t1.x'][2]) == 2
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_single_unary_operator_local_variables_are_not_shared(solver, use_llvm):
+def test_single_unary_operator_local_variables_are_not_shared(use_llvm):
     m = System(tag='system7', item=SingleUnaryOperator(tag='item7', t=1))
     m.register_item(SingleUnaryOperator(tag='item8', t=-3))
     model = Model(m, use_llvm=use_llvm, generate_graph_pdf=False)
-    s = simulation.Simulation(model, solver_type=solver, t_start=0, t_stop=2.0, num=2, num_inner=2)
+    s = simulation.Simulation(model, t_start=0, t_stop=2.0, num=2, num_inner=2)
     s.solve()
     historian_df = s.model.historian_df
     assert approx(historian_df['system7.item7.t1.x'][2]) == 4

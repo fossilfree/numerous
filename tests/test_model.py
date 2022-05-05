@@ -10,10 +10,7 @@ from numerous.engine.simulation import Simulation
 
 from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
 from numerous import EquationBase, Equation
-from numerous.engine.simulation.solvers.base_solver import solver_types
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
-
-
 
 
 @pytest.fixture
@@ -185,28 +182,25 @@ def ms3():
     return S3('S3')
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_model_var_referencing(ms1, solver, use_llvm):
+def test_model_var_referencing(ms1, use_llvm):
     m1 = Model(ms1, use_llvm=use_llvm)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
     s1.solve()
     assert approx(list(m1.states_as_vector), rel=0.01) == [2010, 1010, 510, 210]
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.skip(reason="Functionality not implemented in current version")
-def test_model_save_only_aliases(ms3, solver):
+def test_model_save_only_aliases(ms3):
     of = OutputFilter(only_aliases=True)
     m1 = Model(ms3, historian_filter=of)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
     s1.solve()
     assert m1.historian_df.empty
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.skip(reason="Functionality not implemented in current version")
-def test_model_save_only_aliases2(ms3, solver):
+def test_model_save_only_aliases2(ms3):
     of = OutputFilter(only_aliases=True)
     m1 = Model(ms3, historian_filter=of)
     item = m1.search_items('2')[0]
@@ -215,7 +209,7 @@ def test_model_save_only_aliases2(ms3, solver):
         var[0].alias = str(i)
         columns_number += 1
 
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
     s1.solve()
     assert m1.historian_df.columns.size == columns_number
 
@@ -226,9 +220,8 @@ def test_1_item_model(ms1):
     assert item.t1.P.value == 100
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_callback_step_item_model(ms3, solver, use_llvm):
+def test_callback_step_item_model(ms3, use_llvm):
     def action(time, variables):
         if int(time) == 119:
             raise ValueError("Overflow of state. time:119")
@@ -246,7 +239,7 @@ def test_callback_step_item_model(ms3, solver, use_llvm):
     m1 = Model(ms3, use_llvm=use_llvm)
     m1.add_event("simple", condition, action)
     m1.add_event("simple2", condition2, action2)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     with pytest.raises(ValueError, match=r".*time:119.*"):
         s1.solve()
 
@@ -260,29 +253,26 @@ def test_add_item_twice_with_same_tag(ms2):
         ms2.register_items([Item_('1')])
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_chain_item_model(ms2, solver, use_llvm):
+def test_chain_item_model(ms2, use_llvm):
     m1 = Model(ms2, use_llvm=use_llvm)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_chain_item_binding_model_nested(ms3, solver, use_llvm):
+def test_chain_item_binding_model_nested(ms3, use_llvm):
     ms4 = Subsystem('new_s')
     ms4.register_item(ms3)
     m1 = Model(ms4, use_llvm=use_llvm)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_chain_item_binding_model_nested2(ms3, solver, use_llvm):
+def test_chain_item_binding_model_nested2(ms3, use_llvm):
     ms4 = Subsystem('new_s4')
     ms4.register_item(ms3)
     ms5 = Subsystem('new_s5')
@@ -293,18 +283,17 @@ def test_chain_item_binding_model_nested2(ms3, solver, use_llvm):
     ms7 = Subsystem('new_s7')
     ms7.register_item(ms6)
     m1 = Model(ms7, use_llvm=use_llvm)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     s1.solve()
     assert len(m1.path_variables) == 50
     assert len(m1.variables) == 25
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_chain_item_binding_model(ms3, solver, use_llvm):
+def test_chain_item_binding_model(ms3, use_llvm):
     m1 = Model(ms3, use_llvm=use_llvm)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=solver)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     s1.solve()
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
@@ -338,9 +327,8 @@ class StaticDataSystem(Subsystem):
         self.register_items(o_s)
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_data(solver, use_llvm):
+def test_external_data(use_llvm):
     external_mappings = []
 
     import pandas as pd
@@ -363,22 +351,19 @@ def test_external_data(solver, use_llvm):
                               dataframe_aliases))
     data_loader = InMemoryDataLoader(df)
     s = Simulation(
-        Model(StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader), use_llvm=use_llvm),
-        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=solver
-    )
+        Model(StaticDataSystem('system_external', n=1), use_llvm=use_llvm, external_mappings=external_mappings,
+              data_loader=data_loader), t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
+
     s.solve()
     assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
     assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_static_system(solver, use_llvm):
+def test_static_system(use_llvm):
     import numpy as np
-    s = Simulation(
-        Model(StaticDataSystem('system_static', n=1), use_llvm=use_llvm),
-        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=solver
-    )
+    s = Simulation(Model(StaticDataSystem('system_static', n=1), use_llvm=use_llvm), t_start=0, t_stop=100.0, num=100,
+                   num_inner=100, max_step=.1)
     s.solve()
     assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i1'])[1:]) == np.repeat(0, 100)
     assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i2'])[1:]) == np.repeat(0, 100)

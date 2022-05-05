@@ -27,8 +27,7 @@ class System(Subsystem):
 sys = System()
 model = Model(sys)
 t_stop = 100
-sim=Simulation(model, t_start=0, t_stop=t_stop, num=50, max_step=np.inf, method='RK45',
-           solver_type=SolverType.NUMEROUS)
+sim= Simulation(model, t_start=0, t_stop=t_stop, num=50, max_step=np.inf, method='RK45')
 
 finished = False
 dt = 2

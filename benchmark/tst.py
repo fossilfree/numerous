@@ -160,11 +160,9 @@ if __name__ == "__main__":
         m = Model(ThermalCapacitancesSeries("tcs", num_nodes=i, Tinit=Tinit, T0=T0, k=k))
 
         # Define simulation
-        s_ns = Simulation(m, t_start=0, t_stop=1000, num=1000, num_inner=1, solver_type=SolverType.NUMEROUS,
-                       method=method_ns)
+        s_ns = Simulation(m, t_start=0, t_stop=1000, num=1000, num_inner=1, method=method_ns)
 
-        s_scipy = Simulation(m, t_start=0, t_stop=1000, num=1000, num_inner=1, solver_type=SolverType.SOLVER_IVP,
-                       method=method_scipy)
+        s_scipy = Simulation(m, t_start=0, t_stop=1000, num=1000, num_inner=1, method=method_scipy)
         #
         # solve simulation
         dt_ns = timeit(s_ns)
