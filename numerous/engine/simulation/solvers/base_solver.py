@@ -6,7 +6,7 @@ class SolverType(Enum):
     NUMEROUS = 1
 
 
-solver_types = [SolverType.NUMEROUS, SolverType.SOLVER_IVP]
+solver_types = [SolverType.NUMEROUS]
 
 
 class BaseSolver:

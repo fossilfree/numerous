@@ -5,7 +5,6 @@ from numerous.engine.model import Model
 from numerous.engine.system import Subsystem
 from numerous.engine.simulation import Simulation
 from numerous.multiphysics import EquationBase, Equation
-from numerous.engine.simulation.solvers.base_solver import solver_types
 from pytest import approx
 
 tmax = 5
@@ -59,8 +58,12 @@ def ms1(simple_item):
 
 
 # returns position to find zero crossing using root finding algorithm of scipy solver
-def hitground_event_fun(t, states):
-    return states['S1.ball.t1.x']
+def hitground_event_fun(t, variables):
+    return variables['S1.ball.t1.x']
+
+
+def hitground_event_fun_g(t, variables):
+    return variables['S1.ball.t1.x'] * (variables['S1.ball.t1.g']/variables['S1.ball.t1.g'])
 
 
 # change direction of movement upon event detection and reduce velocity
@@ -75,15 +78,14 @@ def timestamp_callback(t, variables):
     print(t)
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_bouncing_ball(solver, use_llvm):
+def test_bouncing_ball(use_llvm):
     model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
     m1 = Model(model_system_2, use_llvm=use_llvm)
 
     m1.add_event("hitground_event", hitground_event_fun, hitground_event_callback_fun)
 
-    sim = Simulation(m1, t_start=0, t_stop=tmax, num=num, solver_type=solver)
+    sim = Simulation(m1, t_start=0, t_stop=tmax, num=num)
 
     sim.solve()
     asign = np.sign(np.array(m1.historian_df['S1.ball.t1.v']))
@@ -92,15 +94,30 @@ def test_bouncing_ball(solver, use_llvm):
     assert approx(m1.historian_df['time'][args[0::2][:5]], rel=0.01) == t_hits[:5]
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_timestamp_events(solver, use_llvm, capsys):
+def test_with_full_condition(use_llvm):
+    model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
+    m1 = Model(model_system_2, use_llvm=use_llvm)
+
+    m1.add_event("hitground_event", hitground_event_fun_g, hitground_event_callback_fun)
+
+    sim = Simulation(m1, t_start=0, t_stop=tmax, num=num)
+
+    sim.solve()
+    asign = np.sign(np.array(m1.historian_df['S1.ball.t1.v']))
+    signchange = ((np.roll(asign, 1) - asign) != 0).astype(int)
+    args = np.argwhere(signchange > 0)[2:].flatten()
+    assert approx(m1.historian_df['time'][args[0::2][:5]], rel=0.01) == t_hits[:5]
+
+
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_timestamp_events(use_llvm, capsys):
     model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
     m1 = Model(model_system_2, use_llvm=use_llvm)
 
     m1.add_timestamp_event("timestamp_event", timestamp_callback, timestamps=[0.11, 0.33])
 
-    sim = Simulation(m1, t_start=0, t_stop=tmax, num=num, solver_type=solver)
+    sim = Simulation(m1, t_start=0, t_stop=tmax, num=num)
 
     sim.solve()
     captured = capsys.readouterr()

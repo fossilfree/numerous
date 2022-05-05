@@ -89,7 +89,7 @@ if not os.path.isfile(model_filename):
     print("model compilation time ", end - start)
 
 
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=SolverType.NUMEROUS)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     s1.solve()
     print(list(m1.states_as_vector[::-1]))
 else:
@@ -98,6 +98,6 @@ else:
     m1 = Model.from_file(model_filename)
     end = time.time()
     print("model from file  ",end - start)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=SolverType.NUMEROUS)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     s1.solve()
     print(list(m1.states_as_vector[::-1]))

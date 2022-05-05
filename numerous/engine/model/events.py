@@ -15,8 +15,10 @@ def generate_event_condition_ast(event_functions: list[NumerousEvent],
     directions_array = []
     body = [ast.Assign(targets=[ast.Name(id=array_label)], lineno=0,
                        value=ast.List(elts=[], ctx=ast.Load()))]
-
+    compiled_functions = {}
     for event in event_functions:
+        if event.compiled_functions:
+            compiled_functions.update(event.compiled_functions)
         directions_array.append(event.direction)
         body.append(event.condition)
         body.append(ast.Expr(value=ast.Call(
@@ -37,11 +39,16 @@ def generate_event_condition_ast(event_functions: list[NumerousEvent],
                                                 kwonlyargs=[], kw_defaults=[], defaults=[]),
                              body=body, decorator_list=[], lineno=0)
 
-    return [njit_and_compile_function(body_r, from_imports)], np.array(directions_array)
+    return [njit_and_compile_function(body_r, from_imports, compiled_functions=compiled_functions)], np.array(
+        directions_array, dtype=np.float)
 
 
 def _replace_path_strings(model, function, idx_type, path_to_root=[]):
-    lines = inspect.getsource(function)
+    if hasattr(function, 'lines'):
+        lines = function.lines
+    else:
+        lines = inspect.getsource(function)
+
     path_to_root_str = ".".join(path_to_root) + "."
     path_to_root_str_len = len(path_to_root_str)
     for (var_path, var) in model.path_to_variable.items():
@@ -56,8 +63,10 @@ def _replace_path_strings(model, function, idx_type, path_to_root=[]):
 def generate_event_action_ast(event_functions: list[NumerousEvent],
                               from_imports: list[tuple[str, str]]) -> CPUDispatcher:
     body = []
-
+    compiled_functions = {}
     for idx, event in enumerate(event_functions):
+        if event.compiled_functions:
+            compiled_functions.update(event.compiled_functions)
         body.append(event.action)
         body.append(ast.If(test=ast.Compare(left=ast.Name(id='a_idx', ctx=ast.Load()), ops=[ast.Eq()],
                                             comparators=[ast.Constant(value=idx)]),
@@ -74,4 +83,4 @@ def generate_event_action_ast(event_functions: list[NumerousEvent],
                                                 kwonlyargs=[], kw_defaults=[], defaults=[]),
                              body=body, decorator_list=[], lineno=0)
 
-    return njit_and_compile_function(body_r, from_imports)
+    return njit_and_compile_function(body_r, from_imports, compiled_functions=compiled_functions)

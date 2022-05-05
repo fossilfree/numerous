@@ -29,7 +29,7 @@ from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
 
 from numerous.engine.system.subsystem import Subsystem, ItemSet
-from numerous.engine.variables import VariableType
+from numerous.engine.variables import VariableType, SetOfVariables
 
 from numerous.engine.model.ast_parser.parser_ast import parse_eq
 from numerous.engine.model.graph_representation.graph import Graph
@@ -78,9 +78,16 @@ class ModelNamespace:
             for v in vs:
                 variables___.append(v)
             variables__.append(variables___)
+
         variables__ = [list(x) for x in zip(*variables__)]
         variables__ = list(itertools.chain(*variables__))
-        return variables__
+        variables_ordered = [None] * len(variables__)
+        if self.is_set:
+            for i, v in enumerate(variables__):
+                v.detailed_description.variable_idx = i
+        for variable in variables__:
+            variables_ordered[variable.detailed_description.variable_idx] = variable
+        return variables_ordered
 
 
 class ModelAssembler:
@@ -389,8 +396,12 @@ class Model:
         for item in self.model_items.values():
             if item.events:
                 for event in item.events:
-                    event.condition = _replace_path_strings(self, event.condition, "state", item.path)
-                    event.action = _replace_path_strings(self, event.action, "var", item.path)
+                    if event.compiled:
+                        pass
+                    else:
+                        event.condition = _replace_path_strings(self, event.condition, "var", item.path)
+                        event.action = _replace_path_strings(self, event.action, "var", item.path)
+
                     self.events.append(event)
             if item.timestamp_events:
                 for event in item.timestamp_events:
@@ -569,8 +580,7 @@ class Model:
         return ""
 
     def add_event(self, key, condition, action, terminal=True, direction=-1, compiled=False):
-        condition = _replace_path_strings(self, condition, "state")
-
+        condition = _replace_path_strings(self, condition, "var")
         action = _replace_path_strings(self, action, "var")
         event = NumerousEvent(key, condition, action, compiled, terminal, direction)
         self.events.append(event)
@@ -592,36 +602,17 @@ class Model:
     def generate_mock_timestamp_event(self):
         def action(t, v):
             i = 1
+
         self.add_timestamp_event("mock", action, [-1])
 
-    def generate_event_condition_ast(self, is_numerous_solver: bool) -> tuple[list[CPUDispatcher], npt.ArrayLike]:
-        if len(self.events) == 0 and is_numerous_solver:
+    def generate_event_condition_ast(self) -> tuple[list[CPUDispatcher], npt.ArrayLike]:
+        if len(self.events) == 0:
             self.generate_mock_event()
-        if is_numerous_solver:
-            return generate_event_condition_ast(self.events, self.imports.from_imports)
-        else:
-            result = []
-            directions = []
-            for event in self.events:
-                if event.compiled:
-                    compiled_event = event
-                else:
-                    compiled_event = njit_and_compile_function(event.condition, self.imports.from_imports)
-                compiled_event.terminal = event.terminal
-                compiled_event.direction = event.direction
-                directions.append(event.direction)
-                result.append(compiled_event)
-            return result, np.array(directions)
+        return generate_event_condition_ast(self.events, self.imports.from_imports)
 
-    def generate_event_action_ast(self, events, is_numerous_solver: bool) -> list[CPUDispatcher]:
-        if is_numerous_solver:
-            return [generate_event_action_ast(events, self.imports.from_imports)]
-        else:
-            result = []
-            for event in events:
-                compiled_event = njit_and_compile_function(event.action, self.imports.from_imports)
-                result.append(compiled_event)
-            return result
+    def generate_event_action_ast(self, events) -> list[CPUDispatcher]:
+        return [generate_event_action_ast(events, self.imports.from_imports)]
+
 
     def _get_var_idx(self, var, idx_type):
         if idx_type == "state":
@@ -657,6 +648,7 @@ class Model:
             for eq in namespace.associated_equations.values():
                 equations = []
                 ids = []
+
                 for equation in eq.equations:
                     equations.append(equation)
                 for vardesc in eq.variables_descriptions:

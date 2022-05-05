@@ -79,12 +79,12 @@ def test_cashing_model(monkeypatch, tmpdir):
     monkeypatch.setenv("EXPORT_MODEL_PATH", tmpdir_path)
 
     model = Model(system, export_model=True)
-    s1 = Simulation(model, t_start=0, t_stop=2, num=2, solver_type=SolverType.NUMEROUS)
+    s1 = Simulation(model, t_start=0, t_stop=2, num=2)
     s1.solve()
     assert os.path.exists(os.path.join(tmpdir, "S2.numerous"))
     cached_model = Model.from_file(os.path.join(os.environ.get("EXPORT_MODEL_PATH"), "S2.numerous"))
 
-    s2 = Simulation(cached_model, t_start=0, t_stop=2, num=2, solver_type=SolverType.NUMEROUS)
+    s2 = Simulation(cached_model, t_start=0, t_stop=2, num=2)
     s2.solve()
     assert all(s1.model.states_as_vector == s2.model.states_as_vector)
 

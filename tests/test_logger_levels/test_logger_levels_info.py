@@ -6,7 +6,6 @@ from numerous.multiphysics.equation_base import EquationBase
 from numerous.multiphysics.equation_decorators import Equation
 from numerous.engine.system.item import Item
 from numerous.engine.system.subsystem import Subsystem
-from numerous.engine.simulation.solvers.base_solver import solver_types
 import numpy as np
 
 INFO = LoggerLevel.INFO
@@ -49,17 +48,15 @@ def sigmoidlike(t):
     return 1 / (1 + np.exp(2 * t))
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_logger_levels(solver, use_llvm):
+def test_logger_levels(use_llvm):
     num = 100
     t_stop = 100
     t_start = 0
     sys = TestLogSubsystem1()
     model = Model(sys, logger_level=INFO, use_llvm=use_llvm)
     tvec = np.linspace(t_start, t_stop, num + 1, dtype=np.float64)
-    sim = Simulation(model, t_start=t_start, t_stop=t_stop, num=num, num_inner=1, solver_type=solver,
-                     rtol=1e-6, atol=1e-6)
+    sim = Simulation(model, t_start=t_start, t_stop=t_stop, num=num, num_inner=1, rtol=1e-6, atol=1e-6)
     sim.solve()
 
     df = sim.model.historian_df
