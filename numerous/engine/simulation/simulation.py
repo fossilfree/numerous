@@ -142,7 +142,7 @@ class Simulation:
         self.__init_step()
         self.model.numba_model.historian_reinit()
 
-        self.end_step(self.solver, self.model.numba_model.get_states(), 0, self.model.generate_event_action_ast(False),
+        self.end_step(self.solver, self.model.numba_model.get_states(), 0, self.model.generate_event_action_ast(None,False),
                       run_event_action=run_event_action)
 
     def step(self, dt):

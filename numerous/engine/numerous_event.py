@@ -11,7 +11,8 @@ class NumerousEvent:
 
 
 class TimestampEvent:
-    def __init__(self, key, action, timestamps):
+    def __init__(self, key, action, timestamps, compiled_functions=None):
         self.key = key
         self.action = action
+        self.compiled_functions = compiled_functions
         self.timestamps = timestamps

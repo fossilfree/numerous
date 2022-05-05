@@ -97,9 +97,8 @@ class Numerous_solver(BaseSolver):
     def generate_solver(self):
         def _solve(numba_model, _solve_state, initial_step, order, order_, roller, strict_eval, outer_itermax,
                    min_step, max_step, step_integrate_, events, actions, g, number_of_events, event_directions,
-                   run_event_action,timestamps, timestamp_actions, t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):           
+                   run_event_action,timestamps, timestamp_actions,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
-
             # Init t to t0
             imax = 100
             step_info = 0
@@ -555,12 +554,11 @@ class Numerous_solver(BaseSolver):
         time_span = np.linspace(t_start, t_end, 2)
 
         step_integrate_ = self._method.step_func
-
         info = self._solve(self.numba_model,
                            solve_state, dt, order, order_, roller, strict_eval, outer_itermax, min_step,
                            max_step, step_integrate_, self.events, self.actions, self.g,
-                           self.number_of_events, self.event_directions, self.run_event_action,, self.timestamps, self.timestamps_actions,
-
+                           self.number_of_events, self.event_directions,
+                           self.run_event_action, self.timestamps, self.timestamps_actions,
                            t_start, t_end, time_span)
 
         if info.event_id == 1:
