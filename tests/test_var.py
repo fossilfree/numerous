@@ -1,7 +1,6 @@
 import pytest
 
-from numerous.engine.variables import _VariableFactory, OverloadAction, VariableType, Variable
-from numerous import VariableDescription
+from numerous.engine.variables import _VariableFactory, VariableType, VariableDescription
 from tests.test_equations import *
 
 

@@ -1,7 +1,7 @@
 import pytest
 
+from numerous.engine.variables import VariableDescription, VariableType
 from numerous.engine.system import Connector, Item
-from numerous import VariableDescription, VariableType
 
 
 

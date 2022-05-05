@@ -11,9 +11,8 @@ from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 
 from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
-from numerous import EquationBase, Equation
-from numerous.engine.simulation.solvers.base_solver import solver_types, SolverType
-
+from numerous.engine.simulation.solvers.base_solver import solver_types
+from numerous.multiphysics import EquationBase, Equation
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 
 
@@ -409,8 +408,7 @@ def test_external_data_multiple(use_llvm):
                                data_loader=data_loader)
     s = Simulation(
         Model(system_outer, use_llvm=use_llvm),
-        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=SolverType.NUMEROUS
-    )
+        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
     s.solve()
     assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(
         101)[1:]

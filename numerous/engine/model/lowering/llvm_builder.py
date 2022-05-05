@@ -4,7 +4,7 @@ import logging
 import os
 from ctypes import CFUNCTYPE, POINTER, c_double, c_void_p, c_int64
 from numba import carray, cfunc, njit
-from numerous import config
+from numerous.utils import config
 import faulthandler
 import numpy as np
 
