@@ -408,8 +408,7 @@ def test_external_data_multiple(use_llvm):
                                data_loader=data_loader)
     s = Simulation(
         Model(system_outer, use_llvm=use_llvm),
-        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1, solver_type=SolverType.NUMEROUS
-    )
+        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
     s.solve()
     assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(
         101)[1:]
