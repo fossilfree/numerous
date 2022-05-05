@@ -19,6 +19,7 @@ import pandas as pd
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
 from numerous.engine.model.utils import Imports, njit_and_compile_function
 from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
+from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping
 
 from numerous.utils.logger_levels import LoggerLevel
 
@@ -35,7 +36,7 @@ from numerous.engine.model.graph_representation.graph import Graph
 from numerous.engine.model.ast_parser.parser_ast import process_mappings
 
 from numerous.engine.model.lowering.equations_generator import EquationGenerator
-from numerous.engine.system import SetNamespace, EmptyMapping
+from numerous.engine.system import SetNamespace
 
 import faulthandler
 import llvmlite.binding as llvm
@@ -132,9 +133,10 @@ class Model:
             self.logger_level = LoggerLevel.ALL
         else:
             self.logger_level = logger_level
+        external_mappings_unpacked = system.get_external_mappings()
+        self.is_external_data = True if len(external_mappings_unpacked) else False
+        self.external_mappings = ExternalMapping(external_mappings_unpacked) if len(external_mappings_unpacked) else EmptyMapping()
 
-        self.is_external_data = True if system.external_mappings is None else False
-        self.external_mappings = system.external_mappings
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
         self.imports = Imports()
@@ -384,9 +386,9 @@ class Model:
                 external_idx.append(self.vars_ordered_values[var.id])
                 number_of_external_mappings += 1
                 self.external_mappings.add_df_idx(self.variables, var.id, self.system.id)
-
         self.number_of_external_mappings = number_of_external_mappings
         self.external_mappings.store_mappings()
+
         self.external_idx = np.array(external_idx, dtype=np.int64)
         self.generate_path_to_varaible()
 
