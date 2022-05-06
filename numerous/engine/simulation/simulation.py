@@ -44,42 +44,10 @@ class Simulation:
         self.time = time_
         self.model = model
 
-        def __end_step(solver, y, t, events_action, event_id=None, run_event_action=False):
-            """
-
-            """
-            solver.y0 = y.flatten()
-            if event_id is not None or (run_event_action and len(events_action) > 0):
-                self.model.update_local_variables()
-                # slow code
-                list_var = [v.value for v in self.model.path_to_variable.values()]
-                q = np.array(list_var)
-                if event_id is None:
-                    event_id = 0
-                events_action[event_id](t, q)
-                for i, var in enumerate(self.model.path_to_variable.values()):
-                    var.value = q[i]
-                self.model.update_all_variables()
-                solver.y0 = self.model.states_as_vector
-
-            else:
-                solver.numba_model.historian_update(t)
-                solver.numba_model.map_external_data(t)
-
-                if solver.numba_model.is_store_required():
-                    self.model.store_history(numba_model.historian_data)
-                    solver.numba_model.historian_reinit()
-
-                if solver.numba_model.is_external_data_update_needed(t):
-                    solver.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
-                    if solver.numba_model.is_external_data:
-                        solver.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
-                                                                self.model.external_mappings.external_mappings_time)
-
         logging.info("Generating Numba Model")
         generation_start = time.time()
         logging.info(f'Number of steps: {len(self.time)}')
-        numba_model = model.generate_compiled_model(t_start, len(self.time))
+        self.numba_model = model.generate_compiled_model(t_start, len(self.time))
 
         generation_finish = time.time()
         logging.info(f"Numba model generation finished, generation time: {generation_finish - generation_start}")
@@ -91,14 +59,12 @@ class Simulation:
             model.generate_mock_timestamp_event()
         timestamp_action_function = model.generate_event_action_ast(model.timestamp_events)
         timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
-        self.solver = Numerous_solver(time_, delta_t, model, numba_model,
+        self.solver = Numerous_solver(time_, delta_t, model, self.numba_model,
                                       num_inner, max_event_steps, self.model.states_as_vector,
                                       numba_compiled_solver=model.use_llvm,
                                       events=(event_function, action_function), event_directions=event_directions,
                                       timestamp_events=(timestamp_action_function, timestamps),
                                       **kwargs)
-
-        self.solver.register_endstep(__end_step)
 
         self.start_datetime = start_datetime
         self.info = model.info["Solver"]
@@ -106,13 +72,13 @@ class Simulation:
 
         logging.info("Compiling Numba equations and initializing historian")
         compilation_start = time.time()
-        numba_model.func(t_start, numba_model.get_states())
-        numba_model.historian_update(t_start)
+        self.numba_model.func(t_start, self.numba_model.get_states())
+        self.numba_model.historian_update(t_start)
         compilation_finished = time.time()
         logging.info(
             f"Numba equations compiled, historian initizalized, compilation time: {compilation_finished - compilation_start}")
 
-        self.compiled_model = numba_model
+        self.compiled_model = self.numba_model
 
     def solve(self):
         self.reset()
@@ -127,6 +93,18 @@ class Simulation:
         self.__init_step()
         self.model.numba_model.historian_reinit()
 
+        self.numba_model.historian_update(0)
+        self.numba_model.map_external_data(0)
+
+        if self.numba_model.is_store_required():
+            self.model.store_history(self.numba_model.historian_data)
+            self.numba_model.historian_reinit()
+
+        if self.numba_model.is_external_data_update_needed(0):
+            self.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(0)
+        if self.numba_model.is_external_data:
+                self.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
+                                                      self.model.external_mappings.external_mappings_time)
 
     def step(self, dt):
         try:
