@@ -331,7 +331,7 @@ def generate_eval_event(state_idx, len_q, var_order: list, event_id):
     return ast.FunctionDef(name='eval_event', args=args, body=body, decorator_list=[], lineno=0), wrapper
 
 
-def generate_njit_event_cond(states, id_):
+def generate_njit_event_cond(states, id_,variables):
     body = [ast.Assign(targets=[ast.Name(id='temp_addr', ctx=ast.Store())],
                        value=ast.Call(func=ast.Name(id='address_as_void_pointer', ctx=ast.Load()),
                                       args=[ast.Name(id='c_ptr', ctx=ast.Load())],
@@ -382,9 +382,9 @@ def generate_njit_event_cond(states, id_):
 
     elts = []
 
-    for state in states:
+    for var in variables:
         elts.append(ast.Subscript(value=ast.Name(id='variables', ctx=ast.Load()),
-                                  slice=ast.Constant(value=state), ctx=ast.Load()))
+                                  slice=ast.Constant(value=var), ctx=ast.Load()))
 
     body.append(ast.Assign(targets=[ast.Name(id='q', ctx=ast.Store())],
                            value=ast.Call(func=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='array',

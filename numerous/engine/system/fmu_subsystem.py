@@ -241,7 +241,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                          "completedIntegratorStep": completedIntegratorStep}
             exec(code, namespace)
 
-            f1, f2 = generate_njit_event_cond(var_states_ordered, i)
+            f1, f2 = generate_njit_event_cond(var_states_ordered, i,var_names_ordered_ns)
             module_func = ast.Module(body=[f1, f2], type_ignores=[])
             if debug_output:
                 print(ast.unparse(module_func))
