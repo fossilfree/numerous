@@ -103,8 +103,8 @@ class Simulation:
         if self.numba_model.is_external_data_update_needed(0):
             self.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(0)
         if self.numba_model.is_external_data:
-                self.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
-                                                      self.model.external_mappings.external_mappings_time)
+            self.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
+                                                  self.model.external_mappings.external_mappings_time)
 
     def step(self, dt):
         try:
