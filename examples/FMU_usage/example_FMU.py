@@ -39,7 +39,7 @@ class S3(Subsystem):
 subsystem1 = S3('q1')
 m1 = Model(subsystem1, use_llvm=True)
 s = Simulation(
-    m1, t_start=0, t_stop=5, num=10, num_inner=1, max_step=.1)
+    m1, t_start=0, t_stop=5, num=1000, num_inner=1, max_step=.1)
 
 s.solve()
 
