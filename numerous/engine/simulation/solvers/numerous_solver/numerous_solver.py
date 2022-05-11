@@ -265,17 +265,19 @@ class Numerous_solver(BaseSolver):
                             t_r = t_m
                         elif np.sign(e_r) != np.sign(e_m):
                             t_l = t_m
-                        if abs(e_m) < 1e-6:
+                        if abs(e_m) < 1e-6 or abs(t_l - t_r)< 1e-6:
                             status = 1
                         if i > imax:
                             status = -1
                         t_m = (t_l + t_r) / 2
                         y_m = sol(t_m, t, y)
+                        i+=1
 
                     return status, t_m, y_m
 
                 if step_converged:
                     g_new = events(t, get_variables_modified(y))
+
 
                     up = (g <= 0) & (g_new >= 0) & (event_directions == 1)
                     down = (g >= 0) & (g_new <= 0) & (event_directions == -1)

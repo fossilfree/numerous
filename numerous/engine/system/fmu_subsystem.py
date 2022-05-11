@@ -151,8 +151,10 @@ class FMU_Subsystem(Subsystem, EquationBase):
         newDiscreteStates.argtypes = [ctypes.c_uint, ctypes.c_void_p]
         newDiscreteStates.restype = ctypes.c_uint
         number_of_string_vars = len([x.valueReference for x in model_description.modelVariables if x.type == "String"])
-        len_q = len(model_description.modelVariables) - number_of_string_vars
-        var_order = [x.valueReference for x in model_description.modelVariables if x.type != "String"]
+        number_of_bool_vars = len([x.valueReference for x in model_description.modelVariables if x.type == "Boolean"])
+
+        len_q = len(model_description.modelVariables) - number_of_string_vars - number_of_bool_vars
+        var_order = [x.valueReference for x in model_description.modelVariables if (x.type != "String" and x.type != "Boolean") ]
 
         term_1 = np.array([0], dtype=np.int32)
         term_1_ptr = term_1.ctypes.data
@@ -177,6 +179,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         for idx, variable in enumerate(model_description.modelVariables):
             if variable.type == 'String':
                 continue
+            if variable.type == 'Boolean':
+                    continue
             if variable.derivative:
                 deriv_idx.append(idx)
                 states_idx.append([(index, x) for index, x in enumerate(model_description.modelVariables) if
@@ -229,7 +233,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             self._c_ptrs_a.append(np.zeros(shape=event_n))
 
         for i in range(event_n):
-            q, wrapper = generate_eval_event(states_idx, len_q, var_order, event_id=i)
+            q, wrapper = generate_eval_event(range(len_q), len_q, var_order, event_id=i)
             module_func = ast.Module(body=[q, wrapper], type_ignores=[])
             if debug_output:
                 print(ast.unparse(module_func))
@@ -267,7 +271,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                      "getreal": getreal,
                      "component": component, "enter_event_mode": enter_event_mode, "set_time": set_time,
                      "get_event_indicators": get_event_indicators, "newDiscreteStates": newDiscreteStates,
-                     "enter_cont_mode": enter_cont_mode,
+                     "enter_cont_mode": enter_cont_mode,"fmi2SetReal": fmi2SetReal,
                      "completedIntegratorStep": completedIntegratorStep}
         exec(code, namespace)
         event_ind_call = namespace["event_ind_call"]
@@ -283,7 +287,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             ae_vars.append(a_e)
             ae_ptrs.append(a_e.ctypes.data)
 
-        a1, b1 = generate_event_action(len_q, var_states_ordered, var_names_ordered_ns)
+        a1, b1 = generate_event_action(len_q, var_names_ordered_ns)
 
         module_func = ast.Module(body=[a1, b1], type_ignores=[])
         if debug_output:
@@ -343,6 +347,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
                 states.append(variable.derivative)
         for variable in model_description.modelVariables:
             if variable.type == 'String':
+                continue
+            if variable.type == 'Boolean':
                 continue
             if variable in states:
                 if variable.start:

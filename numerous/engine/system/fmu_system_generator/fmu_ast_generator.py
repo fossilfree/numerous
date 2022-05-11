@@ -131,24 +131,7 @@ def generate_eval_llvm(assign_ptrs, output_args, states_idx, var_order: list):
         else:
             arg_elts.append(ast.Name(id=assign_ptr, ctx=ast.Load()))
 
-    body.append(ast.Assign(targets=[ast.Name(id='value1', ctx=ast.Store())],
-                           value=ast.Call(func=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='array',
-                                                             ctx=ast.Load()),
-                                          args=[ast.List(elts=arg_elts, ctx=ast.Load())],
-                                          keywords=[ast.keyword(arg='dtype',
-                                                                value=ast.Attribute(
-                                                                    value=ast.Name(id='np', ctx=ast.Load()),
-                                                                    attr='float64',
-                                                                    ctx=ast.Load()))]), lineno=0))
-
-    body.append(ast.Expr(value=ast.Call(func=ast.Name(id='fmi2SetReal', ctx=ast.Load()),
-                                        args=[ast.Name(id='component', ctx=ast.Load()),
-                                              ast.Attribute(value=ast.Name(id='vr', ctx=ast.Load()),
-                                                            attr='ctypes', ctx=ast.Load()),
-                                              ast.Name(id='len_q', ctx=ast.Load()),
-                                              ast.Attribute(value=ast.Name(id='value1', ctx=ast.Load()),
-                                                            attr='ctypes', ctx=ast.Load())], keywords=[])))
-
+    body.append(generate_set_fmi_update(arg_elts))
     args_ = []
     for state_idx in states_idx:
         args_.append(ast.Name(id=assign_ptrs[state_idx][0], ctx=ast.Load()))
@@ -245,28 +228,9 @@ def generate_eval_event(state_idx, len_q, var_order: list, event_id):
 
     arg_elts = []
     for idx in range(len_q):
-        if idx not in state_idx:
-            arg_elts.append(ast.Subscript(value=ast.Name(id='value', ctx=ast.Load()),
-                                          slice=ast.Constant(value=idx), ctx=ast.Load()))
-        else:
-            arg_elts.append(ast.Name(id="y" + str(idx), ctx=ast.Load()))
+        arg_elts.append(ast.Name(id="y" + str(idx), ctx=ast.Load()))
 
-    body.append(ast.Assign(targets=[ast.Name(id='value1', ctx=ast.Store())],
-                           value=ast.Call(func=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='array',
-                                                             ctx=ast.Load()),
-                                          args=[ast.List(elts=arg_elts, ctx=ast.Load())],
-                                          keywords=[ast.keyword(arg='dtype', value=ast.Attribute(
-                                              value=ast.Name(id='np', ctx=ast.Load()),
-                                              attr='float64',
-                                              ctx=ast.Load()))]), lineno=0))
-
-    body.append(ast.Expr(value=ast.Call(func=ast.Name(id='fmi2SetReal', ctx=ast.Load()),
-                                        args=[ast.Name(id='component', ctx=ast.Load()),
-                                              ast.Attribute(value=ast.Name(id='vr', ctx=ast.Load()),
-                                                            attr='ctypes', ctx=ast.Load()),
-                                              ast.Name(id='len_q', ctx=ast.Load()),
-                                              ast.Attribute(value=ast.Name(id='value1', ctx=ast.Load()),
-                                                            attr='ctypes', ctx=ast.Load())], keywords=[])))
+    body.append(generate_set_fmi_update(arg_elts))
     body.append(ast.Expr(value=ast.Call(func=ast.Name(id='set_time', ctx=ast.Load()),
                                         args=[ast.Name(id='component', ctx=ast.Load()),
                                               ast.Name(id='t', ctx=ast.Load())], keywords=[])))
@@ -315,7 +279,7 @@ def generate_eval_event(state_idx, len_q, var_order: list, event_id):
 
     wrapper_args = [_generate_pointer('voidptr'), _generate_pointer('float64')]
 
-    for _ in state_idx:
+    for _ in range(len_q):
         wrapper_args.append(_generate_pointer('float64'))
 
     wrapper = ast.Assign(targets=[ast.Name(id="event_ind_call_" + str(event_id), ctx=ast.Store())],
@@ -331,7 +295,7 @@ def generate_eval_event(state_idx, len_q, var_order: list, event_id):
     return ast.FunctionDef(name='eval_event', args=args, body=body, decorator_list=[], lineno=0), wrapper
 
 
-def generate_njit_event_cond(states, id_,variables):
+def generate_njit_event_cond(states, id_, variables):
     body = [ast.Assign(targets=[ast.Name(id='temp_addr', ctx=ast.Store())],
                        value=ast.Call(func=ast.Name(id='address_as_void_pointer', ctx=ast.Load()),
                                       args=[ast.Name(id='c_ptr', ctx=ast.Load())],
@@ -351,7 +315,7 @@ def generate_njit_event_cond(states, id_,variables):
 
     args = [ast.Name(id='temp_addr', ctx=ast.Load()), ast.Name(id='t', ctx=ast.Load())]
 
-    for idx, _ in enumerate(states):
+    for idx, _ in enumerate(variables):
         args.append(
             ast.Subscript(value=ast.Name(id='y', ctx=ast.Load()), slice=ast.Constant(value=idx), ctx=ast.Load()))
 
@@ -405,8 +369,31 @@ def generate_njit_event_cond(states, id_,variables):
     return event_cond, event_cond_2
 
 
+def generate_set_fmi_update(arg_elts):
+    body = []
+    body.append(ast.Assign(targets=[ast.Name(id='value1', ctx=ast.Store())],
+                           value=ast.Call(func=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='array',
+                                                             ctx=ast.Load()),
+                                          args=[ast.List(elts=arg_elts, ctx=ast.Load())],
+                                          keywords=[ast.keyword(arg='dtype', value=ast.Attribute(
+                                              value=ast.Name(id='np', ctx=ast.Load()),
+                                              attr='float64',
+                                              ctx=ast.Load()))]), lineno=0))
+
+    body.append(ast.Expr(value=ast.Call(func=ast.Name(id='fmi2SetReal', ctx=ast.Load()),
+                                        args=[ast.Name(id='component', ctx=ast.Load()),
+                                              ast.Attribute(value=ast.Name(id='vr', ctx=ast.Load()),
+                                                            attr='ctypes', ctx=ast.Load()),
+                                              ast.Name(id='len_q', ctx=ast.Load()),
+                                              ast.Attribute(value=ast.Name(id='value1', ctx=ast.Load()),
+                                                            attr='ctypes', ctx=ast.Load())], keywords=[])))
+    return body
+
+
 def generate_action_event(len_q: int, var_order: list):
-    args_lst = [ast.arg(arg="q")]
+    args_lst = [ast.arg(arg="q"), ast.arg(arg="t")]
+    for state_id in range(len_q):
+        args_lst.append(ast.arg(arg="y" + str(state_id)))
     for id_ in range(len_q):
         args_lst.append(ast.arg(arg="a_" + str(id_)))
 
@@ -414,6 +401,22 @@ def generate_action_event(len_q: int, var_order: list):
                          kw_defaults=[], defaults=[])
 
     body = []
+    arg_elts = []
+
+    for idx in range(len_q):
+        arg_elts.append(ast.Name(id="y" + str(idx), ctx=ast.Load()))
+
+    body.append(ast.Assign(targets=[ast.Name(id='vr', ctx=ast.Store())],
+                           value=ast.Call(func=ast.Attribute(value=ast.Name(id='np', ctx=ast.Load()), attr='array',
+                                                             ctx=ast.Load()),
+                                          args=[list_from_var_order(var_order)],
+                                          keywords=[ast.keyword(arg='dtype',
+                                                                value=ast.Attribute(
+                                                                    value=ast.Name(id='np', ctx=ast.Load()),
+                                                                    attr='uint32', ctx=ast.Load()))]),
+                           lineno=0))
+    body.append(generate_set_fmi_update(arg_elts))
+
     body.append(ast.Expr(value=ast.Call(func=ast.Name(id='enter_event_mode', ctx=ast.Load()),
                                         args=[ast.Name(id='component', ctx=ast.Load())], keywords=[])))
     body.append(ast.Expr(value=ast.Call(func=ast.Name(id='newDiscreteStates', ctx=ast.Load()),
@@ -464,7 +467,10 @@ def generate_action_event(len_q: int, var_order: list):
             value=ast.Subscript(value=ast.Name(id='value', ctx=ast.Load()),
                                 slice=ast.Constant(value=i), ctx=ast.Load()), lineno=0))
 
-    wrapper_args = [_generate_pointer('voidptr')]
+    wrapper_args = [_generate_pointer('voidptr'), _generate_pointer('float64')]
+
+    for _ in range(len_q):
+        wrapper_args.append(_generate_pointer('float64'))
 
     for _ in range(len_q):
         wrapper_args.append(_generate_pointer('voidptr'))
@@ -482,7 +488,7 @@ def generate_action_event(len_q: int, var_order: list):
     return ast.FunctionDef(name='event_callback_fun', args=args, body=body, decorator_list=[], lineno=0), wrapper
 
 
-def generate_event_action(len_q, states, variables):
+def generate_event_action(len_q, variables):
     body = []
     for i in range(len_q):
         body.append(ast.Assign(targets=[ast.Subscript(
@@ -499,7 +505,12 @@ def generate_event_action(len_q, states, variables):
             slice=ast.Constant(value=0), ctx=ast.Store())], value=ast.Constant(value=0), lineno=0))
 
     args = [ast.Call(func=ast.Name(id='address_as_void_pointer', ctx=ast.Load()),
-                     args=[ast.Name(id='q_ptr', ctx=ast.Load())], keywords=[])]
+                     args=[ast.Name(id='q_ptr', ctx=ast.Load())], keywords=[]), ast.Name(id='t', ctx=ast.Load())]
+
+    for idx, _ in enumerate(variables):
+        args.append(
+            ast.Subscript(value=ast.Name(id='y', ctx=ast.Load()), slice=ast.Constant(value=idx), ctx=ast.Load()))
+
     for i in range(len_q):
         args.append(ast.Call(func=ast.Name(id='address_as_void_pointer', ctx=ast.Load()),
                              args=[ast.Name(id='a_e_ptr_' + str(i), ctx=ast.Load())], keywords=[]))
@@ -519,7 +530,7 @@ def generate_event_action(len_q, states, variables):
 
     body.append(ast.Return(value=ast.List(elts=elts, ctx=ast.Load())))
 
-    event_action_fun = ast.FunctionDef(name='event_action', args=ast.arguments(posonlyargs=[], args=[ast.arg(arg='x'),
+    event_action_fun = ast.FunctionDef(name='event_action', args=ast.arguments(posonlyargs=[], args=[ast.arg(arg='t'),
                                                                                                      ast.arg(arg='y')],
                                                                                kwonlyargs=[], kw_defaults=[],
                                                                                defaults=[]),
@@ -527,7 +538,7 @@ def generate_event_action(len_q, states, variables):
 
     elts2 = []
 
-    for state in states:
+    for state in variables:
         elts2.append(ast.Subscript(value=ast.Name(id='variables', ctx=ast.Load()),
                                    slice=ast.Constant(value=state), ctx=ast.Load()))
     body2 = [ast.Assign(targets=[ast.Name(id='q', ctx=ast.Store())],
