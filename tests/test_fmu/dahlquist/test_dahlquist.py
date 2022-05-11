@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from numerous.engine.model import Model
-from numerous.engine.simulation import Simulation, SolverType
+from numerous.engine.simulation import Simulation
 from numerous.engine.simulation.solvers import solver_types
 from numerous.engine.system import Subsystem
 from numerous.engine.system.fmu_subsystem import FMU_Subsystem
