@@ -154,7 +154,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         number_of_bool_vars = len([x.valueReference for x in model_description.modelVariables if x.type == "Boolean"])
 
         len_q = len(model_description.modelVariables) - number_of_string_vars - number_of_bool_vars
-        var_order = [x.valueReference for x in model_description.modelVariables if (x.type != "String" and x.type != "Boolean") ]
+        var_order = [x.valueReference for x in model_description.modelVariables if
+                     (x.type != "String" and x.type != "Boolean")]
 
         term_1 = np.array([0], dtype=np.int32)
         term_1_ptr = term_1.ctypes.data
@@ -180,7 +181,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             if variable.type == 'String':
                 continue
             if variable.type == 'Boolean':
-                    continue
+                continue
             if variable.derivative:
                 deriv_idx.append(idx)
                 states_idx.append([(index, x) for index, x in enumerate(model_description.modelVariables) if
@@ -245,7 +246,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                          "completedIntegratorStep": completedIntegratorStep}
             exec(code, namespace)
 
-            f1, f2 = generate_njit_event_cond(var_states_ordered, i,var_names_ordered_ns)
+            f1, f2 = generate_njit_event_cond(var_states_ordered, i, var_names_ordered_ns)
             module_func = ast.Module(body=[f1, f2], type_ignores=[])
             if debug_output:
                 print(ast.unparse(module_func))
@@ -271,7 +272,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                      "getreal": getreal,
                      "component": component, "enter_event_mode": enter_event_mode, "set_time": set_time,
                      "get_event_indicators": get_event_indicators, "newDiscreteStates": newDiscreteStates,
-                     "enter_cont_mode": enter_cont_mode,"fmi2SetReal": fmi2SetReal,
+                     "enter_cont_mode": enter_cont_mode, "fmi2SetReal": fmi2SetReal,
                      "completedIntegratorStep": completedIntegratorStep}
         exec(code, namespace)
         event_ind_call = namespace["event_ind_call"]

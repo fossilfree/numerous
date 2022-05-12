@@ -37,7 +37,7 @@ class G(Item):
 class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
-        fmu_filename = '/home/artem/fmus/bouncingBall.fmu'
+        fmu_filename = '/home/artem/fmus/BouncingBall_2_way.fmu'
         fmu_subsystem = FMU_Subsystem(fmu_filename, "VanDerPol", debug_output=True)
         self.register_items([fmu_subsystem])
 
