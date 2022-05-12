@@ -14,8 +14,8 @@ class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
 
-        fmu_filename = '.Feedthrough.fmu'
-        fmu_in = '.Feedthrough_in.csv'
+        fmu_filename = './Feedthrough.fmu'
+        fmu_in = './Feedthrough_in.csv'
         fmu_subsystem = FMU_Subsystem(fmu_filename, "Feedthrough", fmu_in=fmu_in, debug_output=False)
         self.register_items([fmu_subsystem])
 
