@@ -273,7 +273,7 @@ class Numerous_solver(BaseSolver):
                         y_m = sol(t_m, t, y)
                         i+=1
 
-                    return status, t_m, y_m
+                    return status, t_r, sol(t_r, t, y)
 
                 if step_converged:
                     g_new = events(t, get_variables_modified(y))
