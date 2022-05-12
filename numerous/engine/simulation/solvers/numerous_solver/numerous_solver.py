@@ -46,7 +46,6 @@ class Numerous_solver(BaseSolver):
         self.event_directions = event_directions
         self.actions = events[1][0]
         self.timestamps = timestamp_events[1]
-        
         self.timestamps_actions = timestamp_events[0][0]
         # events value
         self.g = self.events(time_[0], get_variables_modified(y0))
@@ -105,7 +104,7 @@ class Numerous_solver(BaseSolver):
     def generate_solver(self):
         def _solve(numba_model, _solve_state, initial_step, order, order_, roller, strict_eval, outer_itermax,
                    min_step, max_step, step_integrate_, events, actions, g, number_of_events, event_directions,
-                   run_event_action,timestamps, timestamp_actions,
+                   run_event_action, timestamps, timestamp_actions,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100)):
             # Init t to t0
             imax = 100
@@ -502,9 +501,8 @@ class Numerous_solver(BaseSolver):
                            solve_state, initial_step, order, order_, roller, strict_eval, outer_itermax, min_step,
                            max_step, step_integrate_, self.events, self.actions, self.g,
                            self.number_of_events, self.event_directions, self.run_event_action,  self.timestamps,
-                           self.timestamps_actions,t_start, t_end,
+                           self.timestamps_actions, t_start, t_end,
                            self.time)
-
 
         while info.status == SolveStatus.Running:
             if info.event_id == 1:

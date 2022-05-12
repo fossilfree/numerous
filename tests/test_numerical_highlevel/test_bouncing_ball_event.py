@@ -63,7 +63,7 @@ def hitground_event_fun(t, variables):
 
 
 def hitground_event_fun_g(t, variables):
-    return variables['S1.ball.t1.x'] * (variables['S1.ball.t1.g']/variables['S1.ball.t1.g'])
+    return variables['S1.ball.t1.x'] * (variables['S1.ball.t1.g'] / variables['S1.ball.t1.g'])
 
 
 # change direction of movement upon event detection and reduce velocity

@@ -27,17 +27,17 @@ class System(Subsystem):
 sys = System()
 model = Model(sys)
 t_stop = 100
-sim= Simulation(model, t_start=0, t_stop=t_stop, num=50, max_step=np.inf, method='RK45')
+sim = Simulation(model, t_start=0, t_stop=t_stop, num=50, max_step=np.inf, method='RK45')
 
 finished = False
 dt = 2
 while not finished:
     t, info = sim.step_solve(dt)
     print(t)
-    if t>=t_stop:
-        finished=True
+    if t >= t_stop:
+        finished = True
 
 sim.model.create_historian_df()
 
-df=sim.model.historian_df
+df = sim.model.historian_df
 print(df['time'].values, df['sys.simplestepping.t1.x'].values)

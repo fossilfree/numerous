@@ -22,7 +22,7 @@ class ExternalMapping:
                 self.interpoaltion_type.append([a_tuple[1] for a_tuple in list(element.dataframe_aliases.values())])
                 self.external_mappings_numpy.append(
                     element.df[[a_tuple[0] for a_tuple in list(element.dataframe_aliases.values())]]
-                        .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
+                    .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
                 self.external_mappings_time.append(
                     element.time_multiplier * element.df[element.index_to_timestep_mapping]
                     .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
@@ -52,7 +52,7 @@ class ExternalMapping:
             for element in external_mapping:
                 self.external_mappings_numpy.append(
                     element.df[[a_tuple[0] for a_tuple in list(element.dataframe_aliases.values())]]
-                        .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
+                    .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
                 self.external_mappings_time.append(
                     element.time_multiplier * element.df[element.index_to_timestep_mapping]
                     .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
