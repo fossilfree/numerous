@@ -1,3 +1,9 @@
+# import gc
+# import sys
+# sys.path.append('/home/artem/Source/numerous_github/numerousv2/numerous')
+# def trace(frame, event, arg):
+#     print("%s, %s:%d" % (event, frame.f_code.co_filename, frame.f_lineno))
+#     return trace
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -31,30 +37,33 @@ class G(Item):
 class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
-        fmu_filename = '/home/artem/fmus/BouncingBall_2_way.fmu'
+        fmu_filename = '/home/artem/fmus/bouncingBall.fmu'
         fmu_subsystem = FMU_Subsystem(fmu_filename, "VanDerPol", debug_output=True)
         self.register_items([fmu_subsystem])
 
-
+# sys.settrace(trace)
+# gc.collect()
 subsystem1 = S3('q1')
+
 m1 = Model(subsystem1, use_llvm=False)
+
 s = Simulation(
     m1, t_start=0, t_stop=1, num=10, num_inner=1, max_step=.1)
 
 s.solve()
+# gc.set_debug(gc.DEBUG_LEAK)
+
+# fig, ax = plt.subplots()
+# # y = np.array(m1.historian_df["q1.Rectifier.t1.outputs"])
+# y1 = np.array(m1.historian_df["q1.VanDerPol.t1.h"])
+# t = np.array(m1.historian_df["time"])
+# ax.plot(t, y1)
+# # ax.plot(t, y)
 
 
-fig, ax = plt.subplots()
-# y = np.array(m1.historian_df["q1.Rectifier.t1.outputs"])
-y1 = np.array(m1.historian_df["q1.VanDerPol.t1.h"])
-t = np.array(m1.historian_df["time"])
-ax.plot(t, y1)
-# ax.plot(t, y)
-
-
-ax.set(xlabel='time (s)', ylabel='outputs', title='Something')
-ax.grid()
-
-plt.show()
+# ax.set(xlabel='time (s)', ylabel='outputs', title='Something')
+# ax.grid()
+#
+# plt.show()
 
 print("execution finished")
