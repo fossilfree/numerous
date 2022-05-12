@@ -401,3 +401,4 @@ class FMU_Subsystem(Subsystem, EquationBase):
             self.external_mappings = ExternalMappingUnpacked(external_mappings, data_loader)
         else:
             self.external_mappings = None
+            
