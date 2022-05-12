@@ -116,8 +116,8 @@ class Numerous_solver(BaseSolver):
             if y.shape[0] == 0:
                 for t in t_eval[1:]:
                     numba_model.func(t, y)
-                    numba_model.historian_update(t)
                     numba_model.map_external_data(t)
+                    numba_model.historian_update(t)
                 return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
                             dt=dt, t=t, y=y, order_=order_, roller=roller, solve_state=_solve_state)
             t_start = t
