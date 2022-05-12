@@ -381,6 +381,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                 if not variable.derivative:
                     self.add_parameter(_replace_name_str(variable.name), 0.0)
 
+        # TODO another types and tunable            
         for variable in model_description.modelVariables:
             if variable.causality == 'input':
                 if variable.variability == 'discrete':
