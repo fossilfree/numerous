@@ -113,7 +113,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         getreal = getattr(fmu.dll, "fmi2GetReal")
         component = fmu.component
 
-        getreal.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p]
+        getreal.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
         getreal.restype = ctypes.c_uint
 
         set_time = getattr(fmu.dll, "fmi2SetTime")
@@ -121,34 +121,34 @@ class FMU_Subsystem(Subsystem, EquationBase):
         set_time.restype = ctypes.c_int
 
         fmi2SetC = getattr(fmu.dll, "fmi2SetContinuousStates")
-        fmi2SetC.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint]
+        fmi2SetC.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
         fmi2SetC.restype = ctypes.c_uint
 
         fmi2SetReal = getattr(fmu.dll, "fmi2SetReal")
-        fmi2SetReal.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p]
+        fmi2SetReal.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
         fmi2SetReal.restype = ctypes.c_uint
 
         completedIntegratorStep = getattr(fmu.dll, "fmi2CompletedIntegratorStep")
-        completedIntegratorStep.argtypes = [ctypes.c_uint, ctypes.c_uint, ctypes.c_void_p,
+        completedIntegratorStep.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
                                             ctypes.c_void_p]
         completedIntegratorStep.restype = ctypes.c_uint
 
         get_event_indicators = getattr(fmu.dll, "fmi2GetEventIndicators")
 
-        get_event_indicators.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
+        get_event_indicators.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
         get_event_indicators.restype = ctypes.c_uint
 
         enter_event_mode = getattr(fmu.dll, "fmi2EnterEventMode")
 
-        enter_event_mode.argtypes = [ctypes.c_uint]
+        enter_event_mode.argtypes = [ctypes.c_void_p]
         enter_event_mode.restype = ctypes.c_uint
 
         enter_cont_mode = getattr(fmu.dll, "fmi2EnterContinuousTimeMode")
-        enter_cont_mode.argtypes = [ctypes.c_uint]
+        enter_cont_mode.argtypes = [ctypes.c_void_p]
         enter_cont_mode.restype = ctypes.c_uint
 
         newDiscreteStates = getattr(fmu.dll, "fmi2NewDiscreteStates")
-        newDiscreteStates.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+        newDiscreteStates.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
         newDiscreteStates.restype = ctypes.c_uint
         number_of_string_vars = len([x.valueReference for x in model_description.modelVariables if x.type == "String"])
         number_of_bool_vars = len([x.valueReference for x in model_description.modelVariables if x.type == "Boolean"])
