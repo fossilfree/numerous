@@ -1,4 +1,5 @@
 import ast
+import re
 
 from numerous.engine.model.graph_representation import MappingsGraph, Graph
 from numerous.engine.model.graph_representation.utils import EdgeType
@@ -187,16 +188,30 @@ def function_body_from_graph(g, var_def_, lineno_count=1, level=0):
             body.append(process_if_node(func_body, func_test))
     return body
 
+# TODO need to Refactor later, quick fix, very bad code
+
+
+def tokenize_string(f):
+    return re.split("([\w\.]+)", f)
+
 
 def replace_closure_function(func, replacements, eq_prefix):
     f1 = ast.unparse(func)
     if replacements:
-        keys = list(replacements.keys())
-        for key in keys:
+        tokenized = tokenize_string(f1)
+        for i in range(len(tokenized)):
+            key = None
+            token = tokenized[i]
+            if token in replacements:
+                key = token
+            if token.startswith('s_') and token[2:] == token:
+                key = token[2:]
+            if key is None:
+                continue
             eq_key = (eq_prefix + key).replace('.', '_')
-            f1 = f1.replace(key, eq_key)
+            tokenized[i] = token.replace(key, eq_key)
             replacements[eq_key] = replacements[key]
-            replacements.pop(key)
+            f1 = ''.join(tokenized)
     return f1
 
 
