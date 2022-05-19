@@ -13,6 +13,7 @@ ignore =
     R504,
     F401,
     F403,
+    W605,
 
 show-source = true
 suppress-none-returning=true
