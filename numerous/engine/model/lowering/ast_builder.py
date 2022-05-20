@@ -106,7 +106,6 @@ class ASTBuilder:
         if self.replacements:
             local_replacments = {k: v for d in self.replacements for k, v in d.items()}
             kernel_module.__dict__.update(local_replacments)
-        print(code)
         if save_to_file:
             os.makedirs(os.path.dirname(self.kernel_filename), exist_ok=True)
             with open(self.kernel_filename, 'w') as f:
