@@ -49,29 +49,121 @@ class Oribtal(EquationBase, Item):
         self.add_state('vx_1', initial[9])
         self.add_state('vy_1', initial[10])
         self.add_state('vz_1', initial[11])
+        self.add_state('rx_2', initial[12])
+        self.add_state('ry_2', initial[13])
+        self.add_state('rz_2', initial[14])
+        self.add_state('vx_2', initial[15])
+        self.add_state('vy_2', initial[16])
+        self.add_state('vz_2', initial[17])
+        self.add_state('step', 0)
         mechanics = self.create_namespace('mechanics')
         mechanics.add_equations([self])
 
     @Equation()
     def diffy_q(self, scope):
+        scope.step = -1
+
         G = 6.67259e-20
         m_0 = 1e26
         m_1 = 1e26
-        rx = scope.rx_1 - scope.rx_0
-        ry = scope.ry_1 - scope.ry_0
-        rz = scope.rz_1 - scope.rz_0
-        norm_r = (rx**2+ry**2+rz**2)**(1/2)
-        scope.vx_0_dot = G * m_1 * (scope.rx_1 - scope.rx_0) / norm_r ** 3
+        m_2 = 1e26
 
-        scope.vx_1_dot = G * m_0 * (scope.rx_0 - scope.rx_1) / norm_r ** 3
+        scope.step = 1
 
-        scope.vy_0_dot = G * m_1 * (scope.ry_1 - scope.ry_0) / norm_r ** 3
+        #create pos diff
+        rx10 = scope.rx_1 - scope.rx_0
+        ry10 = scope.ry_1 - scope.ry_0
+        rz10 = scope.rz_1 - scope.rz_0
 
-        scope.vy_1_dot = G * m_0 * (scope.ry_0 - scope.ry_1) / norm_r ** 3
+        scope.step = 2
 
-        scope.vz_0_dot = G * m_1 * (scope.rz_1 - scope.rz_0) / norm_r ** 3
+        rx21 = scope.rx_2 - scope.rx_1
+        ry21 = scope.ry_2 - scope.ry_1
+        rz21 = scope.rz_2 - scope.rz_1
 
-        scope.vz_1_dot = G * m_0 * (scope.rz_0 - scope.rz_1) / norm_r ** 3
+        scope.step = 3
+
+        rx20 = scope.rx_2 - scope.rx_0
+        ry20 = scope.ry_2 - scope.ry_0
+        rz20 = scope.rz_2 - scope.rz_0
+
+        scope.step = 4
+
+        #normalize differences
+        norm_r10 = (rx10 ** 2 + ry10 ** 2 + rz10 ** 2) ** (1 / 2)
+        norm_r21 = (rx21 ** 2 + ry21 ** 2 + rz21 ** 2) ** (1 / 2)
+        norm_r20 = (rx20 ** 2 + ry20 ** 2 + rz20 ** 2) ** (1 / 2)
+
+        scope.step = 5
+
+        vx_0_dot = 0
+        vy_0_dot = 0
+        vz_0_dot = 0
+
+        vx_1_dot = 0
+        vy_1_dot = 0
+        vz_1_dot = 0
+
+        vx_2_dot = 0
+        vy_2_dot = 0
+        vz_2_dot = 0
+
+        #compute 10
+        vx_0_dot += G * m_1 * (scope.rx_1 - scope.rx_0) / norm_r10 ** 3
+
+        vx_1_dot += G * m_0 * (scope.rx_0 - scope.rx_1) / norm_r10 ** 3
+
+        vy_0_dot += G * m_1 * (scope.ry_1 - scope.ry_0) / norm_r10 ** 3
+
+        vy_1_dot += G * m_0 * (scope.ry_0 - scope.ry_1) / norm_r10 ** 3
+
+        vz_0_dot += G * m_1 * (scope.rz_1 - scope.rz_0) / norm_r10 ** 3
+
+        vz_1_dot += G * m_0 * (scope.rz_0 - scope.rz_1) / norm_r10 ** 3
+
+        scope.step = 6
+
+        #compute 21
+        vx_1_dot += G * m_2 * (scope.rx_2 - scope.rx_1) / norm_r21 ** 3
+
+        vx_2_dot += G * m_1 * (scope.rx_1 - scope.rx_2) / norm_r21 ** 3
+
+        vy_1_dot += G * m_2 * (scope.ry_2 - scope.ry_1) / norm_r21 ** 3
+
+        vy_2_dot += G * m_1 * (scope.ry_1 - scope.ry_2) / norm_r21 ** 3
+
+        vz_1_dot += G * m_2 * (scope.rz_2 - scope.rz_1) / norm_r21 ** 3
+
+        vz_2_dot += G * m_1 * (scope.rz_1 - scope.rz_2) / norm_r21 ** 3
+
+        scope.step = 7
+
+        # compute 20
+        vx_0_dot += G * m_2 * (scope.rx_2 - scope.rx_0) / norm_r20 ** 3
+
+        vx_2_dot += G * m_0 * (scope.rx_0 - scope.rx_2) / norm_r20 ** 3
+
+        vy_0_dot += G * m_2 * (scope.ry_2 - scope.ry_0) / norm_r20 ** 3
+
+        vy_2_dot += G * m_0 * (scope.ry_0 - scope.ry_2) / norm_r20 ** 3
+
+        vz_0_dot += G * m_2 * (scope.rz_2 - scope.rz_0) / norm_r20 ** 3
+
+        vz_2_dot += G * m_0 * (scope.rz_0 - scope.rz_2) / norm_r20 ** 3
+
+        scope.step = 8
+
+        scope.vx_0_dot = vx_0_dot
+        scope.vy_0_dot = vy_0_dot
+        scope.vz_0_dot = vz_0_dot
+
+        scope.vx_1_dot = vx_1_dot
+        scope.vy_1_dot = vy_1_dot
+        scope.vz_1_dot = vz_1_dot
+
+        scope.vx_2_dot = vx_2_dot
+        scope.vy_2_dot = vy_2_dot
+        scope.vz_2_dot = vz_2_dot
 
         scope.rx_0_dot = scope.vx_0
         scope.ry_0_dot = scope.vy_0
@@ -79,7 +171,11 @@ class Oribtal(EquationBase, Item):
         scope.rx_1_dot = scope.vx_1
         scope.ry_1_dot = scope.vy_1
         scope.rz_1_dot = scope.vz_1
+        scope.rx_2_dot = scope.vx_2
+        scope.ry_2_dot = scope.vy_2
+        scope.rz_2_dot = scope.vz_2
 
+        scope.step = 9
 
 class Nbody(Subsystem):
     def __init__(self, initial, mu, tag="nbody"):
@@ -92,9 +188,11 @@ if __name__ == '__main__':
 
     inital_bodies=[
         [
-            [r_mag, 0, 4000],[0, v_mag, 0]
+            [0.5, 0, 0],[0, 0, 0]
         ],[
-            [-r_mag, 0, -4000], [0, -v_mag, 0]
+            [0, 0.5, 0], [0, 0, 0]
+        ],[
+            [0, 0, 0.5], [0, 0, 0]
         ]
     ]
 
@@ -109,7 +207,7 @@ if __name__ == '__main__':
     print(y0)
     nbody_system = Nbody(initial=y0, mu=earth_mu)
     nbody_model = Model(nbody_system,use_llvm=False)
-    nbody_simulation = Simulation(nbody_model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=20000.0, num=1000, num_inner=100, max_step=1)
+    nbody_simulation = Simulation(nbody_model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=10, num=5 , num_inner=1, max_step=1)
     nbody_simulation.solve()
 
     x_0 = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rx_0"])
@@ -120,6 +218,17 @@ if __name__ == '__main__':
     y_1 = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.ry_1"])
     z_1 = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rz_1"])
 
-    bodies=[[x_0,y_0,z_0],[x_1,y_1,z_1]]
+    x_2 = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rx_2"])
+    y_2 = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.ry_2"])
+    z_2 = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rz_2"])
 
-    plot(bodies)
+    step = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.step"])
+
+    print(len(x_2))
+    print(step)
+    print(x_0)
+
+
+    bodies=[[x_0,y_0,z_0],[x_1,y_1,z_1],[x_2,y_2,z_2]]
+
+    # plot(bodies)
