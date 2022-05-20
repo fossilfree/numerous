@@ -4,7 +4,7 @@ import os
 import types
 
 from numerous.engine.model.utils import wrap_function
-from numerous import config
+from numerous.utils import config
 import numpy as np
 import ast
 from copy import deepcopy as copy
@@ -160,7 +160,7 @@ class ASTBuilder:
     def detailed_print(self, *args, sep=' ', end='\n', file=None):
         if config.PRINT_LLVM:
             print(*args, sep, end, file)
-    
+
     def store_variable(self, variable_name):
         pass
 

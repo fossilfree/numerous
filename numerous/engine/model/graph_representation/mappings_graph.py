@@ -1,6 +1,6 @@
+from numerous.engine.variables import VariableType, SetOfVariables
 from numerous.engine.model.graph_representation.utils import EdgeType
 from numerous.engine.model.utils import NodeTypes
-from numerous import VariableType, SetOfVariables, Variable
 from numerous.utils.string_utils import d_u
 
 from .graph import Graph, Node, Edge
@@ -106,7 +106,7 @@ class MappingsGraph(Graph):
                     # Make new temp var
                     sv = self.get(e[1], 'scope_var')
                     tmp_key = sv.tag + str(self.key_map[va]) + '_tmp'
-                    tmp_label = sv.tag + variables[str(self.key_map[va])].path.primary_path + '_tmp'
+                    tmp_label = sv.tag + str(self.key_map[va]) + '_label' + '_tmp'
                     # Create fake scope variables for tmp setvar
                     fake_sv = {}
                     svf = None

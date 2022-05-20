@@ -1,4 +1,4 @@
-from numerous.engine.numerous_event import NumerousEvent
+from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
 from numerous.engine.system.connector import Connector
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.system.namespace import VariableNamespace, VariableNamespaceBase
@@ -26,6 +26,7 @@ class Item(Node):
     def __init__(self, tag=None, logger_level=None):
         self.registered_namespaces = _DictWrapper(self.__dict__, VariableNamespaceBase)
         self.events = []
+        self.timestamp_events = []
         self.level = 1
         self.parent_item = None
         self.registered = False
@@ -122,9 +123,14 @@ class Item(Node):
 
     def add_event(self, key, condition, action, terminal=True, direction=-1,compiled=False):
         condition = condition
-        action =  action
-        event = NumerousEvent(key, condition, action, compiled,terminal,direction)
+        action = action
+        event = NumerousEvent(key, condition, action, compiled, terminal, direction)
         self.events.append(event)
+
+    def add_timestamp_event(self, key, action, timestamps):
+        action = action
+        event = TimestampEvent(key, action, timestamps)
+        self.timestamp_events.append(event)
 
     def _increase_level(self):
         self.level = self.level+1
@@ -147,7 +153,7 @@ class Item(Node):
         current_item = item_path.get_top_item()
         next_item_path = item_path.get_next_item_path()
         if self.tag == current_item and next_item_path:
-                return None
+            return None
         elif self.tag == current_item and next_item_path is None:
             return self
         else:

@@ -1,10 +1,11 @@
 import copy
 from enum import Enum
 
-from numerous import EquationBase
+import networkx as nx
+
+from numerous.multiphysics import EquationBase
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.system.item import Item
-import networkx as nx
 from numerous.engine.system.connector_item import ConnectorItem
 from numerous.engine.system.namespace import SetNamespace
 
@@ -128,7 +129,7 @@ class Subsystem(ConnectorItem):
                 var.path.extend_path(item.id, self.id, self.tag)
                 if len(tail) == 1:
                     var.path.extend_path(self.id, tail[0].id, tail[0].tag)
-                if len(tail)>1:
+                if len(tail) > 1:
                     t1 = tail[0::2][0]
                     t2 = tail[1::2][0]
                     var.path.extend_path(t2.id, t1.id, t1.tag)
