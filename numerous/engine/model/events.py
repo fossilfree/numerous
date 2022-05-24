@@ -43,6 +43,16 @@ def generate_event_condition_ast(event_functions: list[NumerousEvent],
         directions_array, dtype=np.float)
 
 
+class CheckVariablesVisitor(ast.NodeVisitor):
+    def generic_visit(self, node):
+        if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
+            token = node.slice.value
+            if isinstance(token, str):
+                raise KeyError(f'No such variable: {token}')
+
+        ast.NodeVisitor.generic_visit(self, node)
+
+
 def _replace_path_strings(model, function, idx_type, path_to_root=[]):
     if hasattr(function, 'lines'):
         lines = function.lines
@@ -57,6 +67,7 @@ def _replace_path_strings(model, function, idx_type, path_to_root=[]):
         if var_path in lines:
             lines = lines.replace('[\'' + var_path + '\']', str(model._get_var_idx(var, idx_type)))
     func = ast.parse(lines.strip()).body[0]
+    CheckVariablesVisitor().generic_visit(func)
     return func
 
 
