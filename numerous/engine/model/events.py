@@ -43,12 +43,22 @@ def generate_event_condition_ast(event_functions: list[NumerousEvent],
         directions_array, dtype=np.float)
 
 
-class CheckVariablesVisitor(ast.NodeVisitor):
+class VariablesVisitor(ast.NodeVisitor):
+    def __init__(self, path_to_root_str, model, idx_type):
+        self.path_to_root_str = path_to_root_str
+        self.model = model
+        self.idx_type = idx_type
+
     def generic_visit(self, node):
         if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
-            token = node.slice.value
-            if isinstance(token, str):
-                raise KeyError(f'No such variable: {token}')
+            if isinstance(node.slice.value, str):
+                for (var_path, var) in self.model.path_to_variable.items():
+                    if var_path.startswith(self.path_to_root_str):
+                        var_path = var_path[len(self.path_to_root_str):]
+                    if var_path == node.slice.value:
+                        node.slice.value = self.model._get_var_idx(var, self.idx_type)[0]
+            if isinstance(node.slice.value, str):
+                raise KeyError(f'No such variable: {node.slice.value}')
 
         ast.NodeVisitor.generic_visit(self, node)
 
@@ -60,14 +70,8 @@ def _replace_path_strings(model, function, idx_type, path_to_root=[]):
         lines = inspect.getsource(function)
 
     path_to_root_str = ".".join(path_to_root) + "."
-    path_to_root_str_len = len(path_to_root_str)
-    for (var_path, var) in model.path_to_variable.items():
-        if var_path.startswith(path_to_root_str):
-            var_path = var_path[path_to_root_str_len:]
-        if var_path in lines:
-            lines = lines.replace('[\'' + var_path + '\']', str(model._get_var_idx(var, idx_type)))
     func = ast.parse(lines.strip()).body[0]
-    CheckVariablesVisitor().generic_visit(func)
+    VariablesVisitor(path_to_root_str, model, idx_type).generic_visit(func)
     return func
 
 
