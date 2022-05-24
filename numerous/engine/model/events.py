@@ -68,7 +68,6 @@ def _replace_path_strings(model, function, idx_type, path_to_root=[]):
         lines = function.lines
     else:
         lines = inspect.getsource(function)
-
     path_to_root_str = ".".join(path_to_root) + "."
     func = ast.parse(lines.strip()).body[0]
     VariablesVisitor(path_to_root_str, model, idx_type).generic_visit(func)
