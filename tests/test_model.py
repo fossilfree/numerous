@@ -342,6 +342,18 @@ class OuterSystem(Subsystem):
         # Register the items to the subsystem to make it recognize them.
         self.register_items(o_s)
 
+class ExponentialDecay(Subsystem, EquationBase):
+    def __init__(self, tag='exp', alpha=0.1):
+        super(ExponentialDecay, self).__init__(tag)
+        self.t1 = self.create_namespace('t1')
+        self.add_state('x', 1, logger_level=LoggerLevel.INFO)
+        self.add_constant('alpha', alpha)
+        self.t1.add_equations([self])
+
+    @Equation()
+    def eval(self, scope):
+        scope.x_dot = -scope.x * scope.alpha
+
 
 class ExponentialDecay(Subsystem, EquationBase):
     def __init__(self, tag='exp', alpha=0.1):
