@@ -96,6 +96,7 @@ def test_bouncing_ball(use_llvm):
     args = np.argwhere(signchange > 0)[2:].flatten()
     assert approx(m1.historian_df['time'][args[0::2][:5]], rel=0.01) == t_hits[:5]
 
+
 @pytest.mark.parametrize("num", [5, 10, 100])
 def test_bouncing_ball_event_detection(num):
     model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
