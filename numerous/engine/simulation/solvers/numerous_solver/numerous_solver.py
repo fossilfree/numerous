@@ -170,7 +170,7 @@ class Numerous_solver(BaseSolver):
             # 0 index is used to keep next time step defined by solver
             te_array[0] = t
             # 1 index is used to keep next time to eval/save the solution
-            #ix_eval = 1
+
             te_array[1] = t_eval[ix_eval] + dt if strict_eval else np.inf
             t_next_eval = t_eval[ix_eval]
 

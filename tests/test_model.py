@@ -340,6 +340,7 @@ class OuterSystem(Subsystem):
         # Register the items to the subsystem to make it recognize them.
         self.register_items(o_s)
 
+
 class ExponentialDecay(Subsystem, EquationBase):
     def __init__(self, tag='exp', alpha=0.1):
         super(ExponentialDecay, self).__init__(tag)
@@ -439,6 +440,7 @@ def test_static_system(use_llvm):
     s.solve()
     assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i1'])[1:]) == np.repeat(0, 100)
     assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i2'])[1:]) == np.repeat(0, 100)
+
 
 def test_reset_model():
     model = Model(ExponentialDecay(tag='system'))

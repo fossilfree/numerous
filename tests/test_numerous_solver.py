@@ -113,25 +113,20 @@ def test_numerous_solver(normal_solver: normal_solver, step_solver: step_solver)
                                                                rel=rel), \
         f"results do not match within relative tolerance {rel}"
 
+
 def test_store_historian(normal_solver: normal_solver, step_solver: step_solver):
     results = {}
     for solver, name in zip([normal_solver, step_solver], ["normal_solver", "step_solver"]):
 
         df_split = solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
-                              historian_max_size=10)
+                          historian_max_size=10)
 
         df_single = solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
-                                         historian_max_size=2000)
-
+                           historian_max_size=2000)
 
         results.update({name: [df_split, df_single]})
-
 
         assert approx(df_split["abstestsys.abstest.t1.x"]) == df_single["abstestsys.abstest.t1.x"], \
             f"failed for {name}"
         assert approx(df_split["abstestsys.abstest.t1.y"]) == df_single["abstestsys.abstest.t1.y"], \
             "failed for {name}"
-
-
-
-
