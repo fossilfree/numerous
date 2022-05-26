@@ -4,11 +4,9 @@ from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 from numerous.engine.simulation.solvers.base_solver import SolverType
 from numerous.utils.logger_levels import LoggerLevel
-from numerous.utils.historian import InMemoryHistorian, Historian
+from numerous.utils.historian import InMemoryHistorian
 import pytest
 from pytest import approx
-import pandas as pd
-pd.options.plotting.backend = "matplotlib"
 
 
 class AbsTestSystem(Subsystem):
@@ -129,51 +127,10 @@ def test_store_historian(normal_solver: normal_solver, step_solver: step_solver)
         results.update({name: [df_split, df_single]})
 
 
-        assert approx(df_split["abstestsys.abstest.t1.x"], rel=1e-3) == df_single["abstestsys.abstest.t1.x"], \
+        assert approx(df_split["abstestsys.abstest.t1.x"]) == df_single["abstestsys.abstest.t1.x"], \
             f"failed for {name}"
-        assert approx(df_split["abstestsys.abstest.t1.y"], rel=1e-3) == df_single["abstestsys.abstest.t1.y"], \
+        assert approx(df_split["abstestsys.abstest.t1.y"]) == df_single["abstestsys.abstest.t1.y"], \
             "failed for {name}"
-
-    with pd.ExcelWriter("test_store_historian" + ".xlsx") as writer:
-        for name, df in results.items():
-            df[0].to_excel(writer, sheet_name=f'{name}-split')
-            df[1].to_excel(writer, sheet_name=f'{name}-single')
-
-if __name__ == "__main__":
-    import logging
-    logger = logging.getLogger('test')
-    logging.basicConfig(level=logging.INFO)
-    historian_max_size = 10
-    dt = 1
-    sys = AbsTestSystem(item=AbsTestItem())
-    historian = InMemoryHistorian()
-    historian.max_size = historian_max_size
-    model = Model(system=sys, logger_level=LoggerLevel.INFO, use_llvm=True, historian=historian)
-
-    sim = Simulation(model=model, t_start=0, t_stop=dt, num=1)
-    #.solve()
-    t = 0
-
-    while True:
-        sim.step_solve(t, dt)
-        print(sim.solver.info.event_id)
-        t += dt
-        if t >= 1000:
-            break
-    sim.model.create_historian_df()
-    df = sim.model.historian_df
-
-    sim2 = Simulation(model=model, t_start=0, t_stop=1000, num=1000)
-    sim2.solve()
-    df2 = sim2.model.historian_df
-
-    print("****")
-    #print(df2)
-
-    with pd.ExcelWriter("solvers" + ".xlsx") as writer:
-        df.to_excel(writer, sheet_name='step_solver')
-        df2.to_excel(writer, sheet_name='normal_solver')
-
 
 
 

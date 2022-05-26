@@ -180,8 +180,8 @@ class Numerous_solver(BaseSolver):
             event_ix = -1
             t_event = t
             y_event = y
-            j_i = 0
             t_event_previous = -1
+            solve_status = SolveStatus.Finished
             while not terminate:
                 # updated events time estimates
                 # # time acceleration
@@ -216,7 +216,6 @@ class Numerous_solver(BaseSolver):
                     # Since we didnt roll back we can update t_start and rollback
                     # Check if we should update history at t eval
                     if t_next_eval <= (t + 10 * feps):
-                        j_i += 1
                         if not step_converged:
                             print("step not converged, but historian updated")
                         numba_model.historian_update(t)
@@ -231,6 +230,10 @@ class Numerous_solver(BaseSolver):
                     t_start = t
                     t_new_test = np.min(te_array)
                     if t >= t_end:
+                        solve_status = SolveStatus.Finished
+                        break
+                    if get_event_id(t) > 0:
+                        solve_status = SolveStatus.Running
                         break
 
                     order_ = add_ring_buffer(t, y, roller, order_)
@@ -353,7 +356,7 @@ class Numerous_solver(BaseSolver):
                                     dt=dt, t=t, y=np.ascontiguousarray(y), order_=order_, roller=roller,
                                     solve_state=_solve_state, ix_eval=ix_eval)
 
-            return Info(status=SolveStatus.Finished, event_id=get_event_id(t), step_info=step_info,
+            return Info(status=solve_status, event_id=get_event_id(t), step_info=step_info,
                         dt=dt, t=t, y=np.ascontiguousarray(y), order_=order_, roller=roller, solve_state=_solve_state,
                         ix_eval=ix_eval)
 
