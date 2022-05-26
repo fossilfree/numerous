@@ -4,9 +4,11 @@ from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 from numerous.engine.simulation.solvers.base_solver import SolverType
 from numerous.utils.logger_levels import LoggerLevel
-from numerous.utils.historian import InMemoryHistorian
+from numerous.utils.historian import InMemoryHistorian, Historian
 import pytest
 from pytest import approx
+import pandas as pd
+pd.options.plotting.backend = "matplotlib"
 
 
 class AbsTestSystem(Subsystem):
@@ -44,10 +46,9 @@ class AbsTestItem(Item, EquationBase):
 
 @pytest.fixture
 def model():
-    def i_model():
+    def i_model(historian_max_size=2000, historian=InMemoryHistorian()):
         sys = AbsTestSystem(item=AbsTestItem())
-        historian = InMemoryHistorian()
-        historian.max_size = 2000
+        historian.max_size = historian_max_size
         model = Model(system=sys, logger_level=LoggerLevel.INFO, use_llvm=True, historian=historian)
         return model
 
@@ -57,26 +58,26 @@ def model():
 @pytest.fixture
 def variables(model: model):
     variables = model().get_variables()
-    yield variables
+    return variables
 
 
 @pytest.fixture
 def simulation(model: model, variables: variables):
-    def fn(solver: SolverType, method: str):
-        model_o = model()
+    def fn(solver: SolverType, method: str, historian_max_size=2000, historian=None):
+        model_o = model(historian_max_size=historian_max_size, historian=historian)
         model_o.update_variables(variables)
         sim = Simulation(model_o, t_start=0, t_stop=1000, num=1000, solver_type=solver, method=method)
         sim.reset()
         sim.model.historian_df = None
         return sim
 
-    yield fn
+    return fn
 
 
 @pytest.fixture
 def step_solver(simulation: simulation):
-    def fn(solver: SolverType, method: str):
-        sim = simulation(solver=solver, method=method)
+    def fn(solver: SolverType, method: str, historian_max_size=2000, historian=None):
+        sim = simulation(solver=solver, method=method, historian_max_size=historian_max_size, historian=historian)
         t = 0
         dt = 1
         while True:
@@ -93,8 +94,9 @@ def step_solver(simulation: simulation):
 
 @pytest.fixture()
 def normal_solver(simulation: simulation):
-    def fn(solver: SolverType, method: str):
-        sim = simulation(solver=solver, method=method)
+    def fn(solver: SolverType, method: str, historian_max_size=2000, historian=None):
+        sim = simulation(solver=solver, method=method, historian_max_size=historian_max_size,
+                         historian=historian)
         sim.solve()
         df = sim.model.historian_df
         return df
@@ -104,9 +106,75 @@ def normal_solver(simulation: simulation):
 
 def test_numerous_solver(normal_solver: normal_solver, step_solver: step_solver):
     rel = 1e-6
-    df_step = step_solver(solver=SolverType.NUMEROUS, method='RK45')
-    df_normal_solver = normal_solver(solver=SolverType.NUMEROUS, method='RK45')
+    df_step = step_solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
+                          historian_max_size=2000)
+    df_normal_solver = normal_solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
+                                     historian_max_size=2000)
 
     assert df_step['abstestsys.abstest.t1.x'].values == approx(df_normal_solver['abstestsys.abstest.t1.x'].values,
                                                                rel=rel), \
         f"results do not match within relative tolerance {rel}"
+
+def test_store_historian(normal_solver: normal_solver, step_solver: step_solver):
+    results = {}
+    for solver, name in zip([normal_solver, step_solver], ["normal_solver", "step_solver"]):
+
+        df_split = solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
+                              historian_max_size=10)
+
+        df_single = solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
+                                         historian_max_size=2000)
+
+
+        results.update({name: [df_split, df_single]})
+
+
+        assert approx(df_split["abstestsys.abstest.t1.x"], rel=1e-3) == df_single["abstestsys.abstest.t1.x"], \
+            f"failed for {name}"
+        assert approx(df_split["abstestsys.abstest.t1.y"], rel=1e-3) == df_single["abstestsys.abstest.t1.y"], \
+            "failed for {name}"
+
+    with pd.ExcelWriter("test_store_historian" + ".xlsx") as writer:
+        for name, df in results.items():
+            df[0].to_excel(writer, sheet_name=f'{name}-split')
+            df[1].to_excel(writer, sheet_name=f'{name}-single')
+
+if __name__ == "__main__":
+    import logging
+    logger = logging.getLogger('test')
+    logging.basicConfig(level=logging.INFO)
+    historian_max_size = 10
+    dt = 1
+    sys = AbsTestSystem(item=AbsTestItem())
+    historian = InMemoryHistorian()
+    historian.max_size = historian_max_size
+    model = Model(system=sys, logger_level=LoggerLevel.INFO, use_llvm=True, historian=historian)
+
+    sim = Simulation(model=model, t_start=0, t_stop=dt, num=1)
+    #.solve()
+    t = 0
+
+    while True:
+        sim.step_solve(t, dt)
+        print(sim.solver.info.event_id)
+        t += dt
+        if t >= 1000:
+            break
+    sim.model.create_historian_df()
+    df = sim.model.historian_df
+
+    sim2 = Simulation(model=model, t_start=0, t_stop=1000, num=1000)
+    sim2.solve()
+    df2 = sim2.model.historian_df
+
+    print("****")
+    #print(df2)
+
+    with pd.ExcelWriter("solvers" + ".xlsx") as writer:
+        df.to_excel(writer, sheet_name='step_solver')
+        df2.to_excel(writer, sheet_name='normal_solver')
+
+
+
+
+

@@ -3,6 +3,7 @@ from datetime import datetime
 import time
 import numpy as np
 from numerous.engine.simulation.solvers.numerous_solver.numerous_solver import Numerous_solver
+from numerous.engine.model import Model
 
 
 class Simulation:
@@ -23,8 +24,9 @@ class Simulation:
                Not unique tag that will be used in reports or printed output.
     """
 
-    def __init__(self, model, t_start=0, t_stop=20000, num=1000, num_inner=1, max_event_steps=100,
-                 start_datetime=datetime.now(), **kwargs):
+    def __init__(self, model: Model, t_start: float = 0, t_stop: float = 20000, num: int = 1000, num_inner: int = 1,
+                 max_event_steps: int = 100,
+                 start_datetime: datetime = datetime.now(), **kwargs):
         """
             Creating a namespace.
 
@@ -38,6 +40,8 @@ class Simulation:
             new_namespace : `VariableNamespace`
                 Empty namespace with given name
         """
+        if model.numba_model:
+            model._reset()
 
         time_, delta_t = np.linspace(t_start, t_stop, num + 1, retstep=True)
         self.callbacks = []
@@ -91,14 +95,12 @@ class Simulation:
 
     def reset(self):
         self.__init_step()
+
+        self.model.historian_df = None
         self.model.numba_model.historian_reinit()
 
         self.numba_model.historian_update(0)
         self.numba_model.map_external_data(0)
-
-        if self.numba_model.is_store_required():
-            self.model.store_history(self.numba_model.historian_data)
-            self.numba_model.historian_reinit()
 
         if self.numba_model.is_external_data_update_needed(0):
             self.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(0)
