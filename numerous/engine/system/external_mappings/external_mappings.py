@@ -70,17 +70,18 @@ class ExternalMapping:
     def add_df_idx(self, variables, var_id, system_id):
         for i, external_column in enumerate(self.external_columns):
             for path in variables[var_id].path.path[system_id]:
-                if path in external_column:
-                    i1 = external_column.index(path)
-                    self.external_df_idx.append((i, i1))
-                    self.interpolation_info.append(
-                        self.interpoaltion_type[i].value == InterpolationType.LINEAR.value)
+                for index, column in enumerate(external_column):
+                    if column in path:
+                        self.external_df_idx.append((i, index))
+                        self.interpolation_info.append(
+                            self.interpoaltion_type[index].value == InterpolationType.LINEAR.value)
 
     def is_mapped_var(self, variables, var_id, system_id):
         for path in variables[var_id].path.path[system_id]:
             for columns in self.external_columns:
-                if path in columns:
-                    return True
+                for column in columns:
+                    if column in path:
+                        return True
 
 
 class ExternalMappingElement:

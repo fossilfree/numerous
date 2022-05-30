@@ -64,7 +64,7 @@ class CompiledModel:
             (len(init_vars) + 1, self.historian_max_size), dtype=np.float64)
         self.historian_data.fill(np.nan)
 
-    def vectorizedfulljacobian(self, t, y, dt):
+    def vectorized_full_jacobian(self, t, y, dt):
         h = 1e-8
         y_perm = y + h * np.diag(np.ones(len(y)))
 

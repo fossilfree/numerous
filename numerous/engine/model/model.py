@@ -17,7 +17,7 @@ from numba.experimental import jitclass
 import pandas as pd
 
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
-from numerous.engine.model.utils import Imports, njit_and_compile_function
+from numerous.engine.model.utils import Imports
 from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
 from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping
 
@@ -135,7 +135,8 @@ class Model:
             self.logger_level = logger_level
         external_mappings_unpacked = system.get_external_mappings()
         self.is_external_data = True if len(external_mappings_unpacked) else False
-        self.external_mappings = ExternalMapping(external_mappings_unpacked) if len(external_mappings_unpacked) else EmptyMapping()
+        self.external_mappings = ExternalMapping(external_mappings_unpacked) if len(
+            external_mappings_unpacked) else EmptyMapping()
 
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
@@ -232,7 +233,6 @@ class Model:
         - _pos as counterpart to _from
         -  _flat
         -  _3d 
-
         """
 
         def __get_mapping__idx(variable):
@@ -558,7 +558,7 @@ class Model:
         ----------
         items : list of :class:`numerous.engine.system.Item`
             set of items with given tag
-               """
+        """
         return [item for item in self.model_items.values() if item.tag == item_tag]
 
     @property
@@ -617,7 +617,6 @@ class Model:
 
     def generate_event_action_ast(self, events) -> list[CPUDispatcher]:
         return [generate_event_action_ast(events, self.imports.from_imports)]
-
 
     def _get_var_idx(self, var, idx_type):
         if idx_type == "state":

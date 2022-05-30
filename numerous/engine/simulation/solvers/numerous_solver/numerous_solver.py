@@ -48,7 +48,6 @@ class Numerous_solver(BaseSolver):
         self.event_directions = event_directions
         self.actions = events[1][0]
         self.timestamps = timestamp_events[1]
-
         self.timestamps_actions = timestamp_events[0][0]
         # events value
         self.g = self.events(time_[0], get_variables_modified(y0))
@@ -109,6 +108,7 @@ class Numerous_solver(BaseSolver):
                    min_step, max_step, step_integrate_, events, actions, g, number_of_events, event_directions,
                    run_event_action, timestamps, timestamp_actions,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100), ix_eval=1, event_tolerance=1e-6):
+
             # Init t to t0
             imax = 100
             step_info = 0
@@ -119,8 +119,8 @@ class Numerous_solver(BaseSolver):
             if y.shape[0] == 0:
                 for t in t_eval[1:]:
                     numba_model.func(t, y)
-                    numba_model.historian_update(t)
                     numba_model.map_external_data(t)
+                    numba_model.historian_update(t)
                 return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
                             dt=dt, t=t, y=y, order_=order_, roller=roller, solve_state=_solve_state, ix_eval=ix_eval)
 
@@ -281,14 +281,14 @@ class Numerous_solver(BaseSolver):
                             t_r = t_m
                         elif np.sign(e_r) != np.sign(e_m):
                             t_l = t_m
-                        if abs(e_m) < 1e-6:
+                        if abs(e_m) < 1e-6 or abs(t_l - t_r) < 1e-6:
                             status = 1
                         if i > imax:
                             status = -1
                         t_m = (t_l + t_r) / 2
                         y_m = sol(t_m, t, y)
 
-                    return status, t_m, y_m
+                    return status, t_r, sol(t_r, t, y)
 
                 if step_converged:
                     g_new = events(t, get_variables_modified(y))
@@ -298,7 +298,7 @@ class Numerous_solver(BaseSolver):
                     g = g_new
 
                     for ix in np.concatenate((np.argwhere(up), np.argwhere(down))):
-                        eps = 0.0001  # for case to t_event = t
+                        eps = 1.e-6  # for case to t_event = t
                         status, t_event, y_event = check_event(events, ix[0],
                                                                t_previous, y_previous, t, y)
                         t_events[ix[0]] = t_event - eps
@@ -531,6 +531,7 @@ class Numerous_solver(BaseSolver):
                            self.number_of_events, self.event_directions, self.run_event_action, self.timestamps,
                            self.timestamps_actions, t_start, t_end,
                            self.time, 1, atol)
+
 
         while info.status == SolveStatus.Running:
             if info.event_id == 1:

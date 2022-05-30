@@ -1,14 +1,10 @@
 from numerous.multiphysics.equation_decorators import Equation
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
-from numerous.engine.system import Subsystem, ConnectorTwoWay, ItemsStructure
-
-import numpy as np
+from numerous.engine.system import Subsystem, ItemsStructure
 
 if __name__ == "__main__":
     from numerous.engine import model, simulation
-    from time import time
-    from matplotlib import pyplot as plt
 
 
 class Simple(EquationBase, Item):
@@ -24,15 +20,13 @@ class Simple(EquationBase, Item):
 
         self.add_state('x', x0)
 
-
         # define namespace and add equation
         mechanics = self.create_namespace('mechanics')
         mechanics.add_equations([self])
 
     @Equation()
     def eval(self, scope):
-
-        scope.x_dot = scope.k + 0*scope.x
+        scope.x_dot = scope.k + 0 * scope.x
 
 
 class SimpleSystem(Subsystem):
@@ -41,17 +35,14 @@ class SimpleSystem(Subsystem):
         simples = []
         for i in range(n):
             # Create oscillator
-            simple = Simple('simple' + str(i), k=k*(i+1), x0=x0[i])
+            simple = Simple('simple' + str(i), k=k * (i + 1), x0=x0[i])
             simples.append(simple)
 
         self.register_items(simples, tag="simples", structure=ItemsStructure.LIST)
 
 
-
 if __name__ == "__main__":
     from numerous.engine import model, simulation
-    from time import time
-    from matplotlib import pyplot as plt
 
     subsystem = SimpleSystem('system', k=.1, n=2, x0=[0, 0])
     # Define simulation

@@ -122,9 +122,9 @@ class Simulation:
                                                           self.model.path_variables), self.model.callbacks))
         self.model.create_historian_df()
 
-    def step_solve(self, t, step_size):
+    def step_solve(self, t_start, step_size):
         try:
-            t, results_status = self.solver.solver_step(t, step_size)
+            t, results_status = self.solver.solver_step(t_start, step_size)
 
             return t, results_status
         except Exception as e:
