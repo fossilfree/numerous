@@ -46,7 +46,6 @@ class Numerous_solver(BaseSolver):
         self.event_directions = event_directions
         self.actions = events[1][0]
         self.timestamps = timestamp_events[1]
-
         self.timestamps_actions = timestamp_events[0][0]
         # events value
         self.g = self.events(time_[0], get_variables_modified(y0))
@@ -116,11 +115,11 @@ class Numerous_solver(BaseSolver):
             if y.shape[0] == 0:
                 for t in t_eval[1:]:
                     numba_model.func(t, y)
-                    numba_model.historian_update(t)
                     numba_model.map_external_data(t)
+                    numba_model.historian_update(t)
                 return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
                             dt=dt, t=t, y=y, order_=order_, roller=roller, solve_state=_solve_state)
-
+            t_start = t
             t_previous = t0
             y_previous = np.copy(y)
 
@@ -271,7 +270,6 @@ class Numerous_solver(BaseSolver):
                             status = -1
                         t_m = (t_l + t_r) / 2
                         y_m = sol(t_m, t, y)
-                        i += 1
 
                     return status, t_r, sol(t_r, t, y)
 
@@ -570,7 +568,7 @@ class Numerous_solver(BaseSolver):
                            t_start, t_end, time_span)
 
         if info.event_id == 1:
-            self.model.create_historian_df()
+            self.model.store_history(self.numba_model.historian_data)
             self.numba_model.historian_reinit()
         if info.event_id == 2:
             is_external_data = self.model.external_mappings.load_new_external_data_batch(info.t)

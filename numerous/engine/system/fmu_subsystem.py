@@ -2,6 +2,7 @@ import types as ptypes
 import ctypes
 import ast
 
+import pandas
 from fmpy import read_model_description, extract
 
 from fmpy.fmi1 import printLogMessage
@@ -10,15 +11,17 @@ from fmpy.fmi2 import FMU2Model, fmi2CallbackFunctions, fmi2CallbackLoggerTYPE, 
 from fmpy.simulation import apply_start_values, Input
 from fmpy.util import auto_interval
 
+from numerous.engine.system.external_mappings import InterpolationType, ExternalMappingElement
 from numerous.multiphysics import EquationBase, Equation, NumerousFunction
 
-from numerous.engine.system import Subsystem
+from numerous.engine.system import Subsystem, ExternalMappingUnpacked
 from numba import cfunc, carray, types, njit
 import numpy as np
 
 from numerous.engine.system.fmu_system_generator.fmu_ast_generator import generate_fmu_eval, generate_eval_llvm, \
     generate_eval_event, generate_njit_event_cond, generate_action_event, generate_event_action, generate_eq_call
 from numerous.engine.system.fmu_system_generator.utils import address_as_void_pointer
+from numerous.utils.data_loader import InMemoryDataLoader
 
 
 def _replace_name_str(str_v):
@@ -29,7 +32,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
     """
     """
 
-    def __init__(self, fmu_filename: str, tag: str, debug_output=False):
+    def __init__(self, fmu_filename: str, tag: str, fmu_in: str = None, debug_output=False):
         super().__init__(tag)
         self.model_description = None
         input = None
@@ -44,6 +47,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         namespace_ = "t1"
         debug_logging = False
         visible = False
+        self.fmu_input = pandas.read_csv(fmu_in) if fmu_in is not None else None
+        self.dataframe_aliases = {}
         model_description = read_model_description(fmu_filename, validate=validate)
         self.model_description = model_description
         self.set_variables(self.model_description)
@@ -389,7 +394,28 @@ class FMU_Subsystem(Subsystem, EquationBase):
                         self.add_parameter(_replace_name_str(variable.name), 1.0)
                 if variable.variability == 'tunable':
                     self.add_parameter(_replace_name_str(variable.name), float(variable.start))
-                continue
             else:
                 if not variable.derivative:
                     self.add_parameter(_replace_name_str(variable.name), 0.0)
+
+        # TODO another types and tunable
+        for variable in model_description.modelVariables:
+            if variable.causality == 'input':
+                if variable.variability == 'discrete':
+                    self.dataframe_aliases[variable.name] = (variable.name, InterpolationType.PIESEWISE)
+                else:
+                    self.dataframe_aliases[variable.name] = (variable.name, InterpolationType.LINEAR)
+
+        if len(self.dataframe_aliases) > 0:
+            data_loader = InMemoryDataLoader(self.fmu_input)
+            index_to_timestep_mapping = 'time'
+            index_to_timestep_mapping_start = 0
+            external_mappings = [(ExternalMappingElement("inmemory",
+                                                         index_to_timestep_mapping,
+                                                         index_to_timestep_mapping_start,
+                                                         1,
+                                                         self.dataframe_aliases,
+                                                         ))]
+            self.external_mappings = ExternalMappingUnpacked(external_mappings, data_loader)
+        else:
+            self.external_mappings = None
