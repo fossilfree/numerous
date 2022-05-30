@@ -500,7 +500,7 @@ class Numerous_solver(BaseSolver):
         info = self._solve(self.numba_model,
                            solve_state, initial_step, order, order_, roller, strict_eval, outer_itermax, min_step,
                            max_step, step_integrate_, self.events, self.actions, self.g,
-                           self.number_of_events, self.event_directions, self.run_event_action,  self.timestamps,
+                           self.number_of_events, self.event_directions, self.run_event_action, self.timestamps,
                            self.timestamps_actions, t_start, t_end,
                            self.time)
 
