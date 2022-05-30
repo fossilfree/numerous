@@ -2,15 +2,11 @@ version: 2.1
 jobs:
   build:
     docker:
-        - image: cimg/python:3.10
+        - image: cimg/base:current-22.04
 
     steps:
       - checkout
 
-      - run:
-          name: Update
-          command: |
-            sudo apt-get update && apt-get upgrade -y
 
       - run:
           name: Install packages
