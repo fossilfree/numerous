@@ -37,7 +37,7 @@ class SimpleSystem(Subsystem):
         simples = []
         for i in range(n):
             # Create oscillator
-            simple = Simple('simple' + str(i), k= k * (i + 1), x0=x0[i])
+            simple = Simple('simple' + str(i), k=k * (i + 1), x0=x0[i])
             simples.append(simple)
 
         self.register_items(simples, tag="simples", structure=ItemsStructure.LIST)
