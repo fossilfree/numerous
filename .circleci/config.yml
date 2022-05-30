@@ -22,7 +22,8 @@ jobs:
       - run:
           name: Tests
           command: |
-            python3 -m pytest
+            TESTFILES=$(circleci tests glob tests/**/test*.py | circleci tests split --split-by=timings)
+            python3 -m pytest $TESTFILES
       - run:
           command: cat /sys/fs/cgroup/memory/memory.max_usage_in_bytes
           when: always
