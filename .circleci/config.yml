@@ -23,7 +23,7 @@ jobs:
           name: Tests
           parallel: true
           command: |
-            TESTFILES=$(circleci tests glob tests/**/test*.py | circleci tests split --split-by=timings)
+            TESTFILES=$(circleci tests glob (tests/**/test*.py|tests/test*.py) | circleci tests split --split-by=timings)
             python3 -m pytest $TESTFILES
       - run:
           command: cat /sys/fs/cgroup/memory/memory.max_usage_in_bytes
