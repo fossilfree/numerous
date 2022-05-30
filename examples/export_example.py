@@ -93,7 +93,6 @@ if not os.path.isfile(model_filename):
     print(list(m1.states_as_vector[::-1]))
 else:
     start = time.time()
-    # 1.7976946830749512
     m1 = Model.from_file(model_filename)
     end = time.time()
     print("model from file  ",end - start)

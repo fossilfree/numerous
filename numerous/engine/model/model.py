@@ -246,8 +246,7 @@ class Model:
 
         # 1. Create list of model namespaces
         model_namespaces = {item_id: _ns
-                            for item in self.system.registered_items.values() if not item.part_of_set
-                            for item_id, _ns in self.__add_item(item).items()}
+                            for item_id, _ns in self.__add_item(self.system).items()}
 
         # 2. Compute dictionaries
         # equation_dict <scope_id, [Callable]>

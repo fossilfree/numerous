@@ -570,7 +570,7 @@ class Numerous_solver(BaseSolver):
                            t_start, t_end, time_span)
 
         if info.event_id == 1:
-            self.model.store_history(self.numba_model.historian_data)
+            self.model.create_historian_df()
             self.numba_model.historian_reinit()
         if info.event_id == 2:
             is_external_data = self.model.external_mappings.load_new_external_data_batch(info.t)
