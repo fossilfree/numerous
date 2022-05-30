@@ -339,6 +339,7 @@ class Model:
             self.mappings_graph.as_graphviz(self.system.tag, force=True)
         self.lower_model_codegen(tmp_vars)
         self.assembly_tail()
+        self._initial_variables_dict = {k: v.value for k, v in self.variables.items()}
 
     def assembly_tail(self):
         self.logged_aliases = {}
@@ -412,6 +413,11 @@ class Model:
         self.info.update({"Number of equation scopes": len(self.equation_dict)})
         self.info.update({"Number of equations": len(self.compiled_eq)})
         self.info.update({"Solver": {}})
+
+    def _reset(self):
+        for k, v in self._initial_variables_dict.items():
+            self.variables[k].value = v
+            self.var_write(v, self.vars_ordered_values[k])
 
     def lower_model_codegen(self, tmp_vars):
 
