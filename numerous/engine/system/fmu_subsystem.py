@@ -10,7 +10,6 @@ from fmpy.fmi2 import FMU2Model, fmi2CallbackFunctions, fmi2CallbackLoggerTYPE, 
 from fmpy.simulation import apply_start_values, Input
 from fmpy.util import auto_interval
 
-
 from numerous.multiphysics import EquationBase, Equation, NumerousFunction
 
 from numerous.engine.system import Subsystem
@@ -273,11 +272,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
                         ('nextEventTimeDefined', ctypes.c_int8),
                         ('nextEventTime', ctypes.c_float)]
 
-
         event_info = EventInfo()
-        # q_ptr = ctypes.addressof(event_info)
         q_ptr = ctypes.addressof(event_info)
-
 
         a, b = generate_action_event(len_q, var_order)
         module_func = ast.Module(body=[a, b], type_ignores=[])
@@ -293,9 +289,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
                      "completedIntegratorStep": completedIntegratorStep}
         exec(code, namespace)
         event_ind_call = namespace["event_ind_call"]
-
-
-        # q_ptr = ctypes.byref(event_info)
 
         ae_vars = []
         ae_ptrs = []
