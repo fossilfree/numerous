@@ -120,7 +120,7 @@ class Numerous_solver(BaseSolver):
                     numba_model.map_external_data(t)
                 return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
                             dt=dt, t=t, y=y, order_=order_, roller=roller, solve_state=_solve_state)
-            t_start = t
+
             t_previous = t0
             y_previous = np.copy(y)
 

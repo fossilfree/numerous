@@ -10,6 +10,7 @@ from fmpy.fmi2 import FMU2Model, fmi2CallbackFunctions, fmi2CallbackLoggerTYPE, 
 from fmpy.simulation import apply_start_values, Input
 from fmpy.util import auto_interval
 
+
 from numerous.multiphysics import EquationBase, Equation, NumerousFunction
 
 from numerous.engine.system import Subsystem
@@ -263,6 +264,21 @@ class FMU_Subsystem(Subsystem, EquationBase):
             event_cond_2.lines = ast.unparse(ast.Module(body=[f2], type_ignores=[]))
             event_cond_wrapped.append(event_cond_2)
 
+        class EventInfo(ctypes.Structure):
+
+            _fields_ = [('newDiscreteStatesNeeded', ctypes.c_int8),
+                        ('terminateSimulation', ctypes.c_int8),
+                        ('nominalsOfContinuousStatesChanged', ctypes.c_int8),
+                        ('valuesOfContinuousStatesChanged', ctypes.c_int8),
+                        ('nextEventTimeDefined', ctypes.c_int8),
+                        ('nextEventTime', ctypes.c_float)]
+
+
+        event_info = EventInfo()
+        # q_ptr = ctypes.addressof(event_info)
+        q_ptr = ctypes.addressof(event_info)
+
+
         a, b = generate_action_event(len_q, var_order)
         module_func = ast.Module(body=[a, b], type_ignores=[])
         if debug_output:
@@ -270,6 +286,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
                      "getreal": getreal,
+                     "q_a": q_ptr,
                      "component": component, "enter_event_mode": enter_event_mode, "set_time": set_time,
                      "get_event_indicators": get_event_indicators, "newDiscreteStates": newDiscreteStates,
                      "enter_cont_mode": enter_cont_mode, "fmi2SetReal": fmi2SetReal,
@@ -277,8 +294,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         exec(code, namespace)
         event_ind_call = namespace["event_ind_call"]
 
-        event_info = fmi2EventInfo()
-        q_ptr = ctypes.addressof(event_info)
+
+        # q_ptr = ctypes.byref(event_info)
 
         ae_vars = []
         ae_ptrs = []
@@ -295,7 +312,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             print(ast.unparse(module_func))
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
-                     "q_ptr": q_ptr,
+
                      "component": component, "enter_event_mode": enter_event_mode, "set_time": set_time,
                      "get_event_indicators": get_event_indicators, "event_ind_call": event_ind_call,
                      "njit": njit,

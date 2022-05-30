@@ -391,7 +391,7 @@ def generate_set_fmi_update(arg_elts):
 
 
 def generate_action_event(len_q: int, var_order: list):
-    args_lst = [ast.arg(arg="q"), ast.arg(arg="t")]
+    args_lst = [ast.arg(arg="t")]
     for state_id in range(len_q):
         args_lst.append(ast.arg(arg="y" + str(state_id)))
     for id_ in range(len_q):
@@ -421,7 +421,7 @@ def generate_action_event(len_q: int, var_order: list):
                                         args=[ast.Name(id='component', ctx=ast.Load())], keywords=[])))
     body.append(ast.Expr(value=ast.Call(func=ast.Name(id='newDiscreteStates', ctx=ast.Load()),
                                         args=[ast.Name(id='component', ctx=ast.Load()),
-                                              ast.Name(id='q', ctx=ast.Load())], keywords=[])))
+                                              ast.Name(id='q_a', ctx=ast.Load())], keywords=[])))
     body.append(ast.Expr(value=ast.Call(func=ast.Name(id='enter_cont_mode', ctx=ast.Load()),
                                         args=[ast.Name(id='component', ctx=ast.Load())], keywords=[])))
     body.append(ast.Assign(targets=[ast.Name(id='vr', ctx=ast.Store())],
@@ -467,7 +467,7 @@ def generate_action_event(len_q: int, var_order: list):
             value=ast.Subscript(value=ast.Name(id='value', ctx=ast.Load()),
                                 slice=ast.Constant(value=i), ctx=ast.Load()), lineno=0))
 
-    wrapper_args = [_generate_pointer('voidptr'), _generate_pointer('float64')]
+    wrapper_args = [_generate_pointer('float64')]
 
     for _ in range(len_q):
         wrapper_args.append(_generate_pointer('float64'))
@@ -504,8 +504,7 @@ def generate_event_action(len_q, variables):
                                                                      ctx=ast.Load()))]),
             slice=ast.Constant(value=0), ctx=ast.Store())], value=ast.Constant(value=0), lineno=0))
 
-    args = [ast.Call(func=ast.Name(id='address_as_void_pointer', ctx=ast.Load()),
-                     args=[ast.Name(id='q_ptr', ctx=ast.Load())], keywords=[]), ast.Name(id='t', ctx=ast.Load())]
+    args = [ast.Name(id='t', ctx=ast.Load())]
 
     for idx, _ in enumerate(variables):
         args.append(
