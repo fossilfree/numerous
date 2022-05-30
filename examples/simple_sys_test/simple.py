@@ -1,14 +1,10 @@
-from numerous.multiphysics.equation_decorators import Equation
-from numerous.multiphysics.equation_base import EquationBase
+from numerous.engine.system import Subsystem, ItemsStructure
 from numerous.engine.system.item import Item
-from numerous.engine.system import Subsystem, ConnectorTwoWay, ItemsStructure
-
-import numpy as np
+from numerous.multiphysics.equation_base import EquationBase
+from numerous.multiphysics.equation_decorators import Equation
 
 if __name__ == "__main__":
     from numerous.engine import model, simulation
-    from time import time
-    from matplotlib import pyplot as plt
 
 
 class Simple(EquationBase, Item):
@@ -50,8 +46,6 @@ class SimpleSystem(Subsystem):
 
 if __name__ == "__main__":
     from numerous.engine import model, simulation
-    from time import time
-    from matplotlib import pyplot as plt
 
     subsystem = SimpleSystem('system', k=.1, n=2, x0=[0, 0])
     # Define simulation
