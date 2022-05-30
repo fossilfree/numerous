@@ -17,7 +17,7 @@ from numba.experimental import jitclass
 import pandas as pd
 
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
-from numerous.engine.model.utils import Imports, njit_and_compile_function
+from numerous.engine.model.utils import Imports
 from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
 from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping
 
@@ -246,8 +246,7 @@ class Model:
 
         # 1. Create list of model namespaces
         model_namespaces = {item_id: _ns
-                            for item in self.system.registered_items.values() if not item.part_of_set
-                            for item_id, _ns in self.__add_item(item).items()}
+                            for item_id, _ns in self.__add_item(self.system).items()}
 
         # 2. Compute dictionaries
         # equation_dict <scope_id, [Callable]>

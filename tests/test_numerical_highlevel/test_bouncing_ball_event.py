@@ -123,3 +123,23 @@ def test_timestamp_events(use_llvm, capsys):
     captured = capsys.readouterr()
 
     assert captured.out == "0.11\n0.33\n"
+
+
+def hitground_event_callback_fun_with_wrong_path(t, variables):
+    velocity = variables['S1.ball.t1.']
+    velocity = -velocity * (1 - variables['S1.ball.t1.f_loss'])
+    variables['S1.ball.t1.v'] = velocity
+    variables['S1.ball.t1.t_hit'] = t
+
+
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_variable_error(use_llvm):
+    with pytest.raises(KeyError):
+        model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
+        m1 = Model(model_system_2, use_llvm=use_llvm)
+
+        m1.add_event("hitground_event", hitground_event_fun, hitground_event_callback_fun_with_wrong_path)
+
+        sim = Simulation(m1, t_start=0, t_stop=tmax, num=num)
+
+        sim.solve()
