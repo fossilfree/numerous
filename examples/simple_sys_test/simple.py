@@ -1,7 +1,7 @@
-from numerous.engine.system import Subsystem, ItemsStructure
-from numerous.engine.system.item import Item
-from numerous.multiphysics.equation_base import EquationBase
 from numerous.multiphysics.equation_decorators import Equation
+from numerous.multiphysics.equation_base import EquationBase
+from numerous.engine.system.item import Item
+from numerous.engine.system import Subsystem, ItemsStructure
 
 if __name__ == "__main__":
     from numerous.engine import model, simulation
@@ -19,7 +19,6 @@ class Simple(EquationBase, Item):
         self.add_constant('k', k)
 
         self.add_state('x', x0)
-
 
         # define namespace and add equation
         mechanics = self.create_namespace('mechanics')
@@ -41,7 +40,6 @@ class SimpleSystem(Subsystem):
             simples.append(simple)
 
         self.register_items(simples, tag="simples", structure=ItemsStructure.LIST)
-
 
 
 if __name__ == "__main__":

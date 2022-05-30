@@ -97,6 +97,25 @@ def test_bouncing_ball(use_llvm):
     assert approx(m1.historian_df['time'][args[0::2][:5]], rel=0.01) == t_hits[:5]
 
 
+@pytest.mark.parametrize("num", [5, 10, 100])
+def test_bouncing_ball_event_detection(num):
+    model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
+    m1 = Model(model_system_2)
+
+    sim = Simulation(m1, t_start=0, t_stop=tmax, num=5)
+
+    sim.solve()
+
+    df = sim.model.historian_df
+
+    expected_number_of_hits = len(t_hits[t_hits <= tmax])
+
+    t_hits_model = np.unique(df['S1.ball.t1.t_hit'])[1:]
+
+    assert t_hits[:len(t_hits_model)] == approx(t_hits_model, rel=1e-3)
+    assert expected_number_of_hits == len(t_hits_model)
+
+
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_timetamp_item_event(use_llvm, capsys):
     model_system_2 = ms1(Ball2(tag="ball", g=9.81, f_loss=0.05))

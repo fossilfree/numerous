@@ -2,6 +2,7 @@ import types as ptypes
 import ctypes
 import ast
 
+import pandas
 from fmpy import read_model_description, extract
 
 from fmpy.fmi1 import printLogMessage
@@ -10,15 +11,17 @@ from fmpy.fmi2 import FMU2Model, fmi2CallbackFunctions, fmi2CallbackLoggerTYPE, 
 from fmpy.simulation import apply_start_values, Input
 from fmpy.util import auto_interval
 
+from numerous.engine.system.external_mappings import InterpolationType, ExternalMappingElement
 from numerous.multiphysics import EquationBase, Equation, NumerousFunction
 
-from numerous.engine.system import Subsystem
+from numerous.engine.system import Subsystem, ExternalMappingUnpacked
 from numba import cfunc, carray, types, njit
 import numpy as np
 
 from numerous.engine.system.fmu_system_generator.fmu_ast_generator import generate_fmu_eval, generate_eval_llvm, \
     generate_eval_event, generate_njit_event_cond, generate_action_event, generate_event_action, generate_eq_call
 from numerous.engine.system.fmu_system_generator.utils import address_as_void_pointer
+from numerous.utils.data_loader import InMemoryDataLoader
 
 
 def _replace_name_str(str_v):
@@ -29,7 +32,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
     """
     """
 
-    def __init__(self, fmu_filename: str, tag: str, debug_output=False):
+    def __init__(self, fmu_filename: str, tag: str, fmu_in: str = None, debug_output=False):
         super().__init__(tag)
         self.model_description = None
         input = None
@@ -44,6 +47,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         namespace_ = "t1"
         debug_logging = False
         visible = False
+        self.fmu_input = pandas.read_csv(fmu_in) if fmu_in is not None else None
+        self.dataframe_aliases = {}
         model_description = read_model_description(fmu_filename, validate=validate)
         self.model_description = model_description
         self.set_variables(self.model_description)
@@ -113,7 +118,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         getreal = getattr(fmu.dll, "fmi2GetReal")
         component = fmu.component
 
-        getreal.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p]
+        getreal.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
         getreal.restype = ctypes.c_uint
 
         set_time = getattr(fmu.dll, "fmi2SetTime")
@@ -121,38 +126,41 @@ class FMU_Subsystem(Subsystem, EquationBase):
         set_time.restype = ctypes.c_int
 
         fmi2SetC = getattr(fmu.dll, "fmi2SetContinuousStates")
-        fmi2SetC.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint]
+        fmi2SetC.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
         fmi2SetC.restype = ctypes.c_uint
 
         fmi2SetReal = getattr(fmu.dll, "fmi2SetReal")
-        fmi2SetReal.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p]
+        fmi2SetReal.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
         fmi2SetReal.restype = ctypes.c_uint
 
         completedIntegratorStep = getattr(fmu.dll, "fmi2CompletedIntegratorStep")
-        completedIntegratorStep.argtypes = [ctypes.c_uint, ctypes.c_uint, ctypes.c_void_p,
+        completedIntegratorStep.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
                                             ctypes.c_void_p]
         completedIntegratorStep.restype = ctypes.c_uint
 
         get_event_indicators = getattr(fmu.dll, "fmi2GetEventIndicators")
 
-        get_event_indicators.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
+        get_event_indicators.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
         get_event_indicators.restype = ctypes.c_uint
 
         enter_event_mode = getattr(fmu.dll, "fmi2EnterEventMode")
 
-        enter_event_mode.argtypes = [ctypes.c_uint]
+        enter_event_mode.argtypes = [ctypes.c_void_p]
         enter_event_mode.restype = ctypes.c_uint
 
         enter_cont_mode = getattr(fmu.dll, "fmi2EnterContinuousTimeMode")
-        enter_cont_mode.argtypes = [ctypes.c_uint]
+        enter_cont_mode.argtypes = [ctypes.c_void_p]
         enter_cont_mode.restype = ctypes.c_uint
 
         newDiscreteStates = getattr(fmu.dll, "fmi2NewDiscreteStates")
-        newDiscreteStates.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+        newDiscreteStates.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
         newDiscreteStates.restype = ctypes.c_uint
         number_of_string_vars = len([x.valueReference for x in model_description.modelVariables if x.type == "String"])
-        len_q = len(model_description.modelVariables) - number_of_string_vars
-        var_order = [x.valueReference for x in model_description.modelVariables if x.type != "String"]
+        number_of_bool_vars = len([x.valueReference for x in model_description.modelVariables if x.type == "Boolean"])
+
+        len_q = len(model_description.modelVariables) - number_of_string_vars - number_of_bool_vars
+        var_order = [x.valueReference for x in model_description.modelVariables if
+                     (x.type != "String" and x.type != "Boolean")]
 
         term_1 = np.array([0], dtype=np.int32)
         term_1_ptr = term_1.ctypes.data
@@ -176,6 +184,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         deriv_names_ordered = []
         for idx, variable in enumerate(model_description.modelVariables):
             if variable.type == 'String':
+                continue
+            if variable.type == 'Boolean':
                 continue
             if variable.derivative:
                 deriv_idx.append(idx)
@@ -229,7 +239,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             self._c_ptrs_a.append(np.zeros(shape=event_n))
 
         for i in range(event_n):
-            q, wrapper = generate_eval_event(states_idx, len_q, var_order, event_id=i)
+            q, wrapper = generate_eval_event(range(len_q), len_q, var_order, event_id=i)
             module_func = ast.Module(body=[q, wrapper], type_ignores=[])
             if debug_output:
                 print(ast.unparse(module_func))
@@ -241,7 +251,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                          "completedIntegratorStep": completedIntegratorStep}
             exec(code, namespace)
 
-            f1, f2 = generate_njit_event_cond(var_states_ordered, i)
+            f1, f2 = generate_njit_event_cond(var_states_ordered, i, var_names_ordered_ns)
             module_func = ast.Module(body=[f1, f2], type_ignores=[])
             if debug_output:
                 print(ast.unparse(module_func))
@@ -258,6 +268,18 @@ class FMU_Subsystem(Subsystem, EquationBase):
             event_cond_2.lines = ast.unparse(ast.Module(body=[f2], type_ignores=[]))
             event_cond_wrapped.append(event_cond_2)
 
+        class EventInfo(ctypes.Structure):
+
+            _fields_ = [('newDiscreteStatesNeeded', ctypes.c_int8),
+                        ('terminateSimulation', ctypes.c_int8),
+                        ('nominalsOfContinuousStatesChanged', ctypes.c_int8),
+                        ('valuesOfContinuousStatesChanged', ctypes.c_int8),
+                        ('nextEventTimeDefined', ctypes.c_int8),
+                        ('nextEventTime', ctypes.c_float)]
+
+        event_info = EventInfo()
+        q_ptr = ctypes.addressof(event_info)
+
         a, b = generate_action_event(len_q, var_order)
         module_func = ast.Module(body=[a, b], type_ignores=[])
         if debug_output:
@@ -265,15 +287,13 @@ class FMU_Subsystem(Subsystem, EquationBase):
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
                      "getreal": getreal,
+                     "q_a": q_ptr,
                      "component": component, "enter_event_mode": enter_event_mode, "set_time": set_time,
                      "get_event_indicators": get_event_indicators, "newDiscreteStates": newDiscreteStates,
-                     "enter_cont_mode": enter_cont_mode,
+                     "enter_cont_mode": enter_cont_mode, "fmi2SetReal": fmi2SetReal,
                      "completedIntegratorStep": completedIntegratorStep}
         exec(code, namespace)
         event_ind_call = namespace["event_ind_call"]
-
-        event_info = fmi2EventInfo()
-        q_ptr = ctypes.addressof(event_info)
 
         ae_vars = []
         ae_ptrs = []
@@ -283,14 +303,14 @@ class FMU_Subsystem(Subsystem, EquationBase):
             ae_vars.append(a_e)
             ae_ptrs.append(a_e.ctypes.data)
 
-        a1, b1 = generate_event_action(len_q, var_states_ordered, var_names_ordered_ns)
+        a1, b1 = generate_event_action(len_q, var_names_ordered_ns)
 
         module_func = ast.Module(body=[a1, b1], type_ignores=[])
         if debug_output:
             print(ast.unparse(module_func))
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
-                     "q_ptr": q_ptr,
+
                      "component": component, "enter_event_mode": enter_event_mode, "set_time": set_time,
                      "get_event_indicators": get_event_indicators, "event_ind_call": event_ind_call,
                      "njit": njit,
@@ -344,6 +364,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         for variable in model_description.modelVariables:
             if variable.type == 'String':
                 continue
+            if variable.type == 'Boolean':
+                continue
             if variable in states:
                 if variable.start:
                     start = variable.start
@@ -372,7 +394,28 @@ class FMU_Subsystem(Subsystem, EquationBase):
                         self.add_parameter(_replace_name_str(variable.name), 1.0)
                 if variable.variability == 'tunable':
                     self.add_parameter(_replace_name_str(variable.name), float(variable.start))
-                continue
             else:
                 if not variable.derivative:
                     self.add_parameter(_replace_name_str(variable.name), 0.0)
+
+        # TODO another types and tunable
+        for variable in model_description.modelVariables:
+            if variable.causality == 'input':
+                if variable.variability == 'discrete':
+                    self.dataframe_aliases[variable.name] = (variable.name, InterpolationType.PIESEWISE)
+                else:
+                    self.dataframe_aliases[variable.name] = (variable.name, InterpolationType.LINEAR)
+
+        if len(self.dataframe_aliases) > 0:
+            data_loader = InMemoryDataLoader(self.fmu_input)
+            index_to_timestep_mapping = 'time'
+            index_to_timestep_mapping_start = 0
+            external_mappings = [(ExternalMappingElement("inmemory",
+                                                         index_to_timestep_mapping,
+                                                         index_to_timestep_mapping_start,
+                                                         1,
+                                                         self.dataframe_aliases,
+                                                         ))]
+            self.external_mappings = ExternalMappingUnpacked(external_mappings, data_loader)
+        else:
+            self.external_mappings = None

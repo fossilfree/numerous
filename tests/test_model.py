@@ -10,8 +10,7 @@ from numerous.engine.system.external_mappings.interpolation_type import Interpol
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 
-from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
-from numerous.engine.simulation.solvers.base_solver import solver_types
+from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay, LoggerLevel
 from numerous.multiphysics import EquationBase, Equation
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 
@@ -342,6 +341,19 @@ class OuterSystem(Subsystem):
         self.register_items(o_s)
 
 
+class ExponentialDecay(Subsystem, EquationBase):
+    def __init__(self, tag='exp', alpha=0.1):
+        super(ExponentialDecay, self).__init__(tag)
+        self.t1 = self.create_namespace('t1')
+        self.add_state('x', 1, logger_level=LoggerLevel.INFO)
+        self.add_constant('alpha', alpha)
+        self.t1.add_equations([self])
+
+    @Equation()
+    def eval(self, scope):
+        scope.x_dot = -scope.x * scope.alpha
+
+
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_external_data(use_llvm):
     external_mappings = []
@@ -428,3 +440,18 @@ def test_static_system(use_llvm):
     s.solve()
     assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i1'])[1:]) == np.repeat(0, 100)
     assert approx(np.array(s.model.historian_df['system_static.tm0.test_nm.T_i2'])[1:]) == np.repeat(0, 100)
+
+
+def test_reset_model():
+    model = Model(ExponentialDecay(tag='system'))
+    sim = Simulation(model=model, t_start=0, t_stop=100, num=100)
+    sim.solve()
+
+    df_1 = sim.model.historian_df
+
+    sim2 = Simulation(model=model, t_start=0, t_stop=100, num=100)
+    sim2.solve()
+
+    df_2 = sim2.model.historian_df
+
+    assert approx(df_1['system.t1.x'].values) == df_2['system.t1.x'].values

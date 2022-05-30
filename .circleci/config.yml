@@ -2,16 +2,19 @@ version: 2.1
 jobs:
   build:
     docker:
-        - image: cimg/python:3.10
+     - image: cimg/base:current-22.04
     parallelism: 8
     steps:
       - checkout
 
+
       - run:
           name: Install packages
           command: |
-             pip3 install -r requirements.txt
-             pip3 install -r linters/linter_requirements.txt
+            sudo apt-get update
+            sudo apt-get -y install python3-pip
+            pip3 install -r requirements.txt
+            pip3 install -r linters/linter_requirements.txt
 
       - run:
           name: Linters
