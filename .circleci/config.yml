@@ -3,7 +3,7 @@ jobs:
   build:
     docker:
         - image: cimg/python:3.10
-
+    parallelism: 4
     steps:
       - checkout
 
@@ -21,6 +21,7 @@ jobs:
 
       - run:
           name: Tests
+          parallel: true
           command: |
             TESTFILES=$(circleci tests glob tests/**/test*.py | circleci tests split --split-by=timings)
             python3 -m pytest $TESTFILES
