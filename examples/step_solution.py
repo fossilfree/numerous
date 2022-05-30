@@ -4,8 +4,8 @@ from numerous.engine.system.item import Item
 from numerous.engine.system import Subsystem
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
-from numerous.engine.simulation.solvers import SolverType
 import numpy as np
+
 
 class SuperSimpleStepTest(Item, EquationBase):
     def __init__(self, tag='simplestepping'):
@@ -18,11 +18,13 @@ class SuperSimpleStepTest(Item, EquationBase):
     def eval(self, scope):
         scope.x_dot = 0.1
 
+
 class System(Subsystem):
     def __init__(self, tag='sys'):
         super().__init__(tag)
         i = SuperSimpleStepTest()
         self.register_item(i)
+
 
 sys = System()
 model = Model(sys)
@@ -32,7 +34,7 @@ sim = Simulation(model, t_start=0, t_stop=t_stop, num=50, max_step=np.inf, metho
 finished = False
 dt = 2
 while not finished:
-    t, info = sim.step_solve(dt)
+    t, info = sim.step_solve(dt,1)
     print(t)
     if t >= t_stop:
         finished = True

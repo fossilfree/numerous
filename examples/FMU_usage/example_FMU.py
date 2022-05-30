@@ -31,28 +31,29 @@ class G(Item):
 class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
+
         fmu_filename = 'VanDerPol.fmu'
+
         fmu_subsystem = FMU_Subsystem(fmu_filename, "VanDerPol", debug_output=True)
         self.register_items([fmu_subsystem])
 
 
 subsystem1 = S3('q1')
+
 m1 = Model(subsystem1, use_llvm=True)
 s = Simulation(
     m1, t_start=0, t_stop=5, num=1000, num_inner=1, max_step=.1)
 
 s.solve()
 
-
 fig, ax = plt.subplots()
-# y = np.array(m1.historian_df["q1.Rectifier.t1.outputs"])
+
 y1 = np.array(m1.historian_df["q1.VanDerPol.t1.x0"])
 t = np.array(m1.historian_df["time"])
 ax.plot(t, y1)
-# ax.plot(t, y)
 
 
-ax.set(xlabel='time (s)', ylabel='outputs', title='Rectifier')
+ax.set(xlabel='time (s)', ylabel='outputs', title='Something')
 ax.grid()
 
 plt.show()
