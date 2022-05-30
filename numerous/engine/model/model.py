@@ -17,7 +17,7 @@ from numba.experimental import jitclass
 import pandas as pd
 
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
-from numerous.engine.model.utils import Imports, njit_and_compile_function
+from numerous.engine.model.utils import Imports
 from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
 from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping
 
