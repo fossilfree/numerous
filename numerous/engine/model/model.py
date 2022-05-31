@@ -38,6 +38,9 @@ from numerous.engine.model.ast_parser.parser_ast import process_mappings
 from numerous.engine.model.lowering.equations_generator import EquationGenerator
 from numerous.engine.system import SetNamespace
 
+from numerous.engine.system.external_mappings import ExternalMappingUnpacked
+
+
 import faulthandler
 import llvmlite.binding as llvm
 
@@ -133,9 +136,11 @@ class Model:
             self.logger_level = LoggerLevel.ALL
         else:
             self.logger_level = logger_level
-        external_mappings_unpacked = system.get_external_mappings()
-        self.is_external_data = True if len(external_mappings_unpacked) else False
-        self.external_mappings = ExternalMapping(external_mappings_unpacked) if len(external_mappings_unpacked) else EmptyMapping()
+
+        self.system_external_mappings_unpacked = system.get_external_mappings()
+
+        self.is_external_data = True if len(self.system_external_mappings_unpacked) else False
+        self.external_mappings = ExternalMapping(self.system_external_mappings_unpacked) if len(self.system_external_mappings_unpacked) else EmptyMapping()
 
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
@@ -415,9 +420,16 @@ class Model:
         self.info.update({"Solver": {}})
 
     def _reset(self):
-        for k, v in self._initial_variables_dict.items():
-            self.variables[k].value = v
-            self.var_write(v, self.vars_ordered_values[k])
+        self.set_variables(self._initial_variables_dict)
+
+    def set_variables(self, variables:dict):
+        for k, v in variables.items():
+            var_id = self.aliases[k]
+            self.variables[var_id].value = v
+            self.var_write(v, self.vars_ordered_values[var_id])
+
+    def get_variables_initial_values(self):
+        return {self.inverse_aliases[k]: v for k, v in self._initial_variables_dict.items()}
 
     def lower_model_codegen(self, tmp_vars):
 
@@ -764,6 +776,43 @@ class Model:
         data = self.create_historian_dict(historian_data)
         return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
 
+    def set_external_mappings(self, external_mappings, data_loader):
+        external_mappings_unpacked = [ExternalMappingUnpacked(external_mappings, data_loader)]
+        external_mappings_unpacked = self.system_external_mappings_unpacked + external_mappings_unpacked
+        self.is_external_data = True if len(external_mappings_unpacked) else False
+        self.external_mappings = ExternalMapping(external_mappings_unpacked) if len(
+            external_mappings_unpacked) else EmptyMapping()
+
+        number_of_external_mappings = 0
+        external_idx = []
+
+        for var in self.variables.values():
+            if self.external_mappings.is_mapped_var(self.variables, var.id, self.system.id):
+                external_idx.append(self.vars_ordered_values[var.id])
+                number_of_external_mappings += 1
+                self.external_mappings.add_df_idx(self.variables, var.id, self.system.id)
+        self.number_of_external_mappings = number_of_external_mappings
+        self.external_mappings.store_mappings()
+
+        self.external_idx = np.array(external_idx, dtype=np.int64)
+
+        self.numba_model.external_idx = self.external_idx
+        self.numba_model.external_mappings_time = self.external_mappings.external_mappings_time
+        self.numba_model.number_of_external_mappings = self.number_of_external_mappings
+        self.numba_model.external_mappings_numpy = self.external_mappings.external_mappings_numpy
+        self.numba_model.external_df_idx = self.external_mappings.external_df_idx
+        self.numba_model.approximation_type = self.external_mappings.interpolation_info
+        self.numba_model.is_external_data = self.is_external_data
+        self.numba_model.max_external_t = self.external_mappings.t_max
+
+        self.numba_model.map_external_data(0)
+
+        # if self.numba_model.is_external_data_update_needed(0):
+        self.numba_model.is_external_data = self.external_mappings.load_new_external_data_batch(0)
+        if self.numba_model.is_external_data:
+            self.numba_model.update_external_data(self.external_mappings.external_mappings_numpy,
+                                                  self.external_mappings.external_mappings_time)
+
     @classmethod
     def from_file(cls, param):
         system_, logger_level, imports, use_llvm, vars_ordered_values, variables, state_idx, \
@@ -852,3 +901,7 @@ class AliasedDataFrame(pd.DataFrame):
             return super().__getitem__(cols)
         else:
             return super().__getitem__(item)
+
+    def __iter__(self):
+        for k in self.aliases.keys():
+            yield k
