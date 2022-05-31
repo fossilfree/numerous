@@ -40,7 +40,7 @@ class ExternalMapping:
         self.external_mappings_time = []
 
         for external_mapping in self.external_mappings:
-            for element in external_mapping:
+            for element in external_mapping.external_mappings:
                 # TODO division round bugs? we can skip a row here
                 df = external_mapping.data_loader.load(element.data_frame_id, int(t / element.time_multiplier) - 1)
 
@@ -49,7 +49,7 @@ class ExternalMapping:
 
                 element.add_df(df)
         for external_mapping in self.external_mappings:
-            for element in external_mapping:
+            for element in external_mapping.external_mappings:
                 self.external_mappings_numpy.append(
                     element.df[[a_tuple[0] for a_tuple in list(element.dataframe_aliases.values())]]
                     .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
