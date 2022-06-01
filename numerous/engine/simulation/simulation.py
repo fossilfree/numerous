@@ -85,7 +85,7 @@ class Simulation:
         self.compiled_model = self.numba_model
 
     def solve(self):
-        self.reset()
+        #self.reset()
 
         sol, self.result_status = self.solver.solve()
 
@@ -95,7 +95,6 @@ class Simulation:
 
     def reset(self):
         self.__init_step()
-
         self.model.historian_df = None
         self.model.numba_model.historian_reinit()
 
@@ -107,6 +106,9 @@ class Simulation:
         if self.numba_model.is_external_data:
             self.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
                                                   self.model.external_mappings.external_mappings_time)
+
+        self.model._reset()
+
 
     def step(self, dt):
         try:
