@@ -420,7 +420,9 @@ class Model:
         self.info.update({"Solver": {}})
 
     def _reset(self):
-        self.set_variables(self._initial_variables_dict)
+        for k, v in self._initial_variables_dict.items():
+            self.variables[k].value = v
+            self.var_write(v, self.vars_ordered_values[k])
 
     def set_variables(self, variables:dict):
         for k, v in variables.items():
