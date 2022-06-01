@@ -25,7 +25,7 @@ from numerous.utils.data_loader import InMemoryDataLoader
 
 
 def _replace_name_str(str_v):
-    return str_v.replace(".", "_").replace("[", "_").replace("]", "_")
+    return str_v.replace(".", "_").replace("[", "_").replace("]", "_").replace(",", "_")
 
 
 class FMU_Subsystem(Subsystem, EquationBase):

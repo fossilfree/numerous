@@ -34,7 +34,7 @@ sim = Simulation(model, t_start=0, t_stop=t_stop, num=50, max_step=np.inf, metho
 finished = False
 dt = 2
 while not finished:
-    t, info = sim.step_solve(dt,1)
+    t, info = sim.step_solve(dt, 1)
     print(t)
     if t >= t_stop:
         finished = True

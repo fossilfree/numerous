@@ -228,11 +228,11 @@ class Model:
         """
         """
         notation:
-        - _idx for single integers / tuples, 
+        - _idx for single integers / tuples,
         - _idxs for lists / arrays of integers
         - _pos as counterpart to _from
         -  _flat
-        -  _3d 
+        -  _3d
         """
 
         def __get_mapping__idx(variable):
@@ -284,7 +284,7 @@ class Model:
         eq_used = []
         for item_id, namespaces in model_namespaces.items():
             for ns in namespaces:
-                ## Key : scope.tag Value: Variable or VariableSet
+                # Key : scope.tag Value: Variable or VariableSet
                 if ns.is_set:
                     tag_vars = ns.set_variables
                 else:
