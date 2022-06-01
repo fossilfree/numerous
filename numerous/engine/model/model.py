@@ -19,7 +19,7 @@ import pandas as pd
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
 from numerous.engine.model.utils import Imports, njit_and_compile_function
 from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
-from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping
+from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping, ExternalMappingUnpacked
 
 from numerous.utils.logger_levels import LoggerLevel
 
@@ -133,9 +133,11 @@ class Model:
             self.logger_level = LoggerLevel.ALL
         else:
             self.logger_level = logger_level
-        external_mappings_unpacked = system.get_external_mappings()
-        self.is_external_data = True if len(external_mappings_unpacked) else False
-        self.external_mappings = ExternalMapping(external_mappings_unpacked) if len(external_mappings_unpacked) else EmptyMapping()
+
+        self.system_external_mappings_unpacked = system.get_external_mappings()
+
+        self.is_external_data = True if len(self.system_external_mappings_unpacked) else False
+        self.external_mappings = ExternalMapping(self.system_external_mappings_unpacked) if len(self.system_external_mappings_unpacked) else EmptyMapping()
 
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
