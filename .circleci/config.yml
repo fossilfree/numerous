@@ -14,15 +14,16 @@ jobs:
              pip3 install -r linters/linter_requirements.txt
 
       - run:
+          name: Tests
+          command: |
+            python3 -m pytest
+
+      - run:
           name: Linters
           command: |
             branch=$(python3 linters/get_base_branch.py)
             git diff -U0 origin/${branch} | lint-diffs
 
-      - run:
-          name: Tests
-          command: |
-            python3 -m pytest
       - run:
           command: cat /sys/fs/cgroup/memory/memory.max_usage_in_bytes
           when: always
