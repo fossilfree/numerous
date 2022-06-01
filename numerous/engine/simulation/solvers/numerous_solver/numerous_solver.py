@@ -481,6 +481,13 @@ class Numerous_solver(BaseSolver):
         roller = (n, np.zeros(n), rb0)
         return roller
 
+    def load_external_data(self, t):
+        is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
+        external_mappings_numpy = self.model.external_mappings.external_mappings_numpy
+        external_mappings_time = self.model.external_mappings.external_mappings_time
+        self.numba_model.is_external_data = is_external_data
+        self.numba_model.update_external_data(external_mappings_numpy, external_mappings_time)
+
     def solve(self):
         """
         solve the model.
@@ -524,36 +531,38 @@ class Numerous_solver(BaseSolver):
 
         roller = self._init_roller(order)
         order_ = 0
-
-        info = self._solve(self.numba_model,
-                           solve_state, initial_step, order, order_, roller, strict_eval, outer_itermax, min_step,
-                           max_step, step_integrate_, self.events, self.actions, self.g,
-                           self.number_of_events, self.event_directions, self.run_event_action, self.timestamps,
-                           self.timestamps_actions, t_start, t_end,
-                           self.time, 1, atol)
-
-
-        while info.status == SolveStatus.Running:
-            if info.event_id == 1:
-                self.model.create_historian_df()
-                self.numba_model.historian_reinit()
-            elif info.event_id == 2:
-                is_external_data = self.model.external_mappings.load_new_external_data_batch(info.t)
-                external_mappings_numpy = self.model.external_mappings.external_mappings_numpy
-                external_mappings_time = self.model.external_mappings.external_mappings_time
-                self.numba_model.is_external_data = is_external_data
-                self.numba_model.update_external_data(external_mappings_numpy, external_mappings_time)
-            elif info.event_id == 3:
-                raise NotImplementedError
-
+        states = self.numba_model.get_states()
+        if states.shape[0] == 0:
+            for t in self.time[1:]:
+                self.numba_model.func(t, states)
+                if self.numba_model.is_external_data_update_needed(t):
+                    self.load_external_data(t)
+                self.numba_model.map_external_data(t)
+                self.numba_model.historian_update(t)
+        else:
             info = self._solve(self.numba_model,
-                               info.solve_state, info.dt, order, info.order_, info.roller, strict_eval, outer_itermax,
-                               min_step, max_step, step_integrate_, self.events, self.actions, self.g,
+                               solve_state, initial_step, order, order_, roller, strict_eval, outer_itermax, min_step,
+                               max_step, step_integrate_, self.events, self.actions, self.g,
                                self.number_of_events, self.event_directions, self.run_event_action, self.timestamps,
-                               self.timestamps_actions, info.t, t_end,
-                               self.time, info.ix_eval, atol)
+                               self.timestamps_actions, t_start, t_end,
+                               self.time, 1, atol)
 
+            while info.status == SolveStatus.Running:
+                if info.event_id == 1:
+                    self.model.create_historian_df()
+                    self.numba_model.historian_reinit()
+                elif info.event_id == 2:
+                    self.load_external_data(info.t)
+                elif info.event_id == 3:
+                    raise NotImplementedError
 
+                info = self._solve(self.numba_model,
+                                   info.solve_state, info.dt, order, info.order_, info.roller, strict_eval,
+                                   outer_itermax,
+                                   min_step, max_step, step_integrate_, self.events, self.actions, self.g,
+                                   self.number_of_events, self.event_directions, self.run_event_action, self.timestamps,
+                                   self.timestamps_actions, info.t, t_end,
+                                   self.time, info.ix_eval, atol)
         logging.info("Solve finished")
         return self.sol, self.result_status
 

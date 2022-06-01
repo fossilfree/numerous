@@ -1,9 +1,11 @@
+import os.path
+
 import pytest
 import pandas as pd
 import numpy as np
 from numerous.engine.system.external_mappings import ExternalMappingElement
 
-from numerous.utils.data_loader import InMemoryDataLoader
+from numerous.utils.data_loader import InMemoryDataLoader, LocalDataLoader
 from pytest import approx
 
 from numerous.engine.system.external_mappings.interpolation_type import InterpolationType
@@ -375,7 +377,38 @@ def test_external_data(use_llvm):
                               dataframe_aliases))
     data_loader = InMemoryDataLoader(df)
     s = Simulation(
+        Model(StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader),
+              use_llvm=use_llvm),
+        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
 
+    s.solve()
+    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
+    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
+
+
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_external_data_with_chunks_no_states(use_llvm, tmpdir):
+    external_mappings = []
+
+    data = {'time': np.arange(100),
+            'Dew Point Temperature {C}': np.arange(100) + 1,
+            'Dry Bulb Temperature {C}': np.arange(100) + 2,
+            }
+
+    df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
+    index_to_timestep_mapping = 'time'
+    index_to_timestep_mapping_start = 0
+    dataframe_aliases = {
+        'system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
+        'system_external.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE)
+    }
+    path = os.path.join(tmpdir, "x.csv")
+    df.to_csv(path)
+    external_mappings.append(ExternalMappingElement
+                             (path, index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
+                              dataframe_aliases))
+    data_loader = LocalDataLoader(chunksize=10)
+    s = Simulation(
         Model(StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader),
               use_llvm=use_llvm),
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
