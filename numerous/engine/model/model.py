@@ -38,6 +38,9 @@ from numerous.engine.model.ast_parser.parser_ast import process_mappings
 from numerous.engine.model.lowering.equations_generator import EquationGenerator
 from numerous.engine.system import SetNamespace
 
+from numerous.engine.system.external_mappings import ExternalMappingUnpacked
+
+
 import faulthandler
 import llvmlite.binding as llvm
 
