@@ -226,8 +226,7 @@ class Model:
     def assemble(self):
         """
         Assembles the model.
-        """
-        """
+
         notation:
         - _idx for single integers / tuples, 
         - _idxs for lists / arrays of integers
