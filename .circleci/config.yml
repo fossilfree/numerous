@@ -17,17 +17,18 @@ jobs:
             pip3 install -r linters/linter_requirements.txt
 
       - run:
-          name: Linters
-          command: |
-            branch=$(python3 linters/get_base_branch.py)
-            git diff -U0 origin/${branch} | lint-diffs
-
-      - run:
           name: Tests
           parallel: true
           command: |
             TESTFILES=$(circleci tests glob tests/{test*.py,*/test*.py} | circleci tests split --split-by=timings)
             python3 -m pytest $TESTFILES
+
+      - run:
+          name: Linters
+          command: |
+            branch=$(python3 linters/get_base_branch.py)
+            git diff -U0 origin/${branch} | lint-diffs
+
       - run:
           command: cat /sys/fs/cgroup/memory/memory.max_usage_in_bytes
           when: always
