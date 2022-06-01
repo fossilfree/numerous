@@ -228,11 +228,11 @@ class Model:
         Assembles the model.
 
         notation:
-        - _idx for single integers / tuples, 
+        - _idx for single integers / tuples,
         - _idxs for lists / arrays of integers
         - _pos as counterpart to _from
         -  _flat
-        -  _3d 
+        -  _3d
         """
 
         def __get_mapping__idx(variable):
