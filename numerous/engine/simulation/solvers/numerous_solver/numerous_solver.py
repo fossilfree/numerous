@@ -116,14 +116,6 @@ class Numerous_solver(BaseSolver):
             dt = initial_step
             y = numba_model.get_states()
             feps = np.finfo(1.0).eps  # 2.220446049250313e-16
-            if y.shape[0] == 0:
-                for t in t_eval[1:]:
-                    numba_model.func(t, y)
-                    numba_model.map_external_data(t)
-                    numba_model.historian_update(t)
-                return Info(status=SolveStatus.Finished, event_id=SolveEvent.NoneEvent, step_info=step_info,
-                            dt=dt, t=t, y=y, order_=order_, roller=roller, solve_state=_solve_state, ix_eval=ix_eval)
-
             t_previous = t0
             y_previous = np.copy(y)
 
