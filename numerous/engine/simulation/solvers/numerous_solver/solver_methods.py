@@ -179,7 +179,6 @@ class RK45(BaseMethod):
 class Euler(BaseMethod):
     def __init__(self, numerous_solver, **options):
 
-        submethod=options['submethod']
         self.order = 1
         self.max_factor = options.get('max_factor', 10)
         self.atol = options.get('atol', 1e-3)
@@ -194,22 +193,16 @@ class Euler(BaseMethod):
                 # return options['lp'](fun)
                 return fun
 
-
-
         @comp
         def euler(nm, t, dt, y, _not_used1, _not_used2, _solve_state):
-            #print(dt)
             step_info = 1
-
-            converged = False
-
-            tnew = t+dt
+            tnew = t + dt
 
             if len(y) == 0:
                 return t, y, True, step_info, _solve_state, 1e20
 
             fnew = nm.func(t, y)
-            ynew = y + fnew*dt
+            ynew = y + fnew * dt
 
             return tnew, ynew, True, step_info, _solve_state, 1e20
 

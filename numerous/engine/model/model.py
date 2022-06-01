@@ -38,9 +38,6 @@ from numerous.engine.model.ast_parser.parser_ast import process_mappings
 from numerous.engine.model.lowering.equations_generator import EquationGenerator
 from numerous.engine.system import SetNamespace
 
-from numerous.engine.system.external_mappings import ExternalMappingUnpacked
-
-
 import faulthandler
 import llvmlite.binding as llvm
 
@@ -237,7 +234,6 @@ class Model:
         - _pos as counterpart to _from
         -  _flat
         -  _3d 
-
         """
 
         def __get_mapping__idx(variable):
@@ -289,7 +285,7 @@ class Model:
         eq_used = []
         for item_id, namespaces in model_namespaces.items():
             for ns in namespaces:
-                ## Key : scope.tag Value: Variable or VariableSet
+                # Key : scope.tag Value: Variable or VariableSet
                 if ns.is_set:
                     tag_vars = ns.set_variables
                 else:
@@ -424,7 +420,7 @@ class Model:
             self.variables[k].value = v
             self.var_write(v, self.vars_ordered_values[k])
 
-    def set_variables(self, variables:dict):
+    def set_variables(self, variables: dict):
         for k, v in variables.items():
             var_id = self.aliases[k]
             self.variables[var_id].value = v

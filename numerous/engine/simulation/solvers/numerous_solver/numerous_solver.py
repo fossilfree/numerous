@@ -224,8 +224,8 @@ class Numerous_solver(BaseSolver):
                         else:
                             t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                         ix_eval += 1
-                        #dt = initial_step
-                        dt = min(dt, t_next_eval-t)
+
+                        dt = min(dt, t_next_eval - t)
                         te_array[0] = t + dt
 
                     t_start = t
