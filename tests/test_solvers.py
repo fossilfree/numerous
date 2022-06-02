@@ -19,6 +19,7 @@ class SimpleInt(Subsystem, EquationBase):
     def eval(self, scope):
         scope.x_dot = 1
 
+
 def test_euler():
     model = Model(SimpleInt(tag='system'))
 
@@ -28,8 +29,8 @@ def test_euler():
 
     df_1 = sim.model.historian_df
 
-
     assert approx(df_1['system.t1.x'], 0.01, 0.01) == df_1['time']
+
 
 def test_RK45():
     model = Model(SimpleInt(tag='system'))
@@ -39,6 +40,5 @@ def test_RK45():
     sim.solve()
 
     df_1 = sim.model.historian_df
-
 
     assert approx(df_1['system.t1.x'], 0.01, 0.01) == df_1['time']

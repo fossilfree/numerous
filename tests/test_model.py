@@ -355,7 +355,9 @@ class ExponentialDecay(Subsystem, EquationBase):
     def eval(self, scope):
         scope.x_dot = -scope.x * scope.alpha
 
+
 p1_val = 25
+
 
 class SetVar(Subsystem, EquationBase):
     def __init__(self, tag='setvar'):
@@ -399,39 +401,6 @@ def test_external_data(use_llvm):
     assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
     assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
 
-@pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_data_model(use_llvm):
-    external_mappings = []
-
-    data = {'time': np.arange(100),
-            'Dew Point Temperature {C}': np.arange(100) + 1,
-            'Dry Bulb Temperature {C}': np.arange(100) + 2,
-            }
-
-    df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
-    index_to_timestep_mapping = 'time'
-    index_to_timestep_mapping_start = 0
-    dataframe_aliases = {
-        'system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
-        'system_external.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE)
-    }
-    external_mappings.append(ExternalMappingElement
-                             ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
-                              dataframe_aliases))
-    data_loader = InMemoryDataLoader(df)
-
-    m =Model(StaticDataSystem('system_external', n=1),
-              use_llvm=use_llvm)
-
-    s = Simulation(
-        m,
-        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
-
-    m.set_external_mappings(external_mappings, data_loader=data_loader)
-
-    s.solve()
-    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
-    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
 
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_external_data_model(use_llvm):
@@ -454,8 +423,7 @@ def test_external_data_model(use_llvm):
                               dataframe_aliases))
     data_loader = InMemoryDataLoader(df)
 
-    m =Model(StaticDataSystem('system_external', n=1),
-              use_llvm=use_llvm)
+    m = Model(StaticDataSystem('system_external', n=1), use_llvm=use_llvm)
 
     s = Simulation(
         m,
@@ -466,6 +434,7 @@ def test_external_data_model(use_llvm):
     s.solve()
     assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
     assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
+
 
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_external_data_with_chunks_no_states(use_llvm, tmpdir):
@@ -570,6 +539,7 @@ def test_reset_model():
 
     assert approx(df_1['system.t1.x'].values) == df_2['system.t1.x'].values
 
+
 def test_set_variables():
     model = Model(SetVar(tag='system'))
     p1 = 1
@@ -580,8 +550,8 @@ def test_set_variables():
 
     df_1 = sim.model.historian_df
 
-
     assert (df_1['system.t1.p1'].values == p1).all()
+
 
 def test_get_init_variables():
     model = Model(SetVar(tag='system'))

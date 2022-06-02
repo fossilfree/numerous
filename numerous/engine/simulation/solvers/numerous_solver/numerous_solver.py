@@ -212,7 +212,7 @@ class Numerous_solver(BaseSolver):
                 else:
                     # Since we didnt roll back we can update t_start and rollback
                     # Check if we should update history at t eval
-                    if abs(t_next_eval -t) <= 10 * feps:
+                    if abs(t_next_eval - t) <= 10 * feps:
                         if not step_converged:
                             print("step not converged, but historian updated")
                         numba_model.historian_update(t)
@@ -221,7 +221,7 @@ class Numerous_solver(BaseSolver):
                         else:
                             t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                         ix_eval += 1
-                        #dt = initial_step
+
                         dt = min(max_step, dt)
                         te_array[0] = t + dt
 

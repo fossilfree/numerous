@@ -458,15 +458,15 @@ class Euler(BaseMethod):
 
             step_info = 1
 
-            tnew = t+dt
+            tnew = t + dt
 
             if len(y) == 0:
                 return tnew, y, True, step_info, _solve_state, 1e20
 
             fnew = nm.func(t, y)
 
-            ynew = y + fnew*dt
-            #TODO figure out if this call can be avoided
+            ynew = y + fnew * dt
+            # TODO figure out if this call can be avoided
             nm.func(tnew, ynew)
             return tnew, ynew, True, step_info, _solve_state, 1e20
 
