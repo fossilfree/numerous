@@ -84,8 +84,10 @@ class Simulation:
 
         self.compiled_model = self.numba_model
 
-    def solve(self):
         self.reset()
+
+    def solve(self):
+
 
         sol, self.result_status = self.solver.solve()
 
