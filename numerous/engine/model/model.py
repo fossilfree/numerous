@@ -898,3 +898,7 @@ class AliasedDataFrame(pd.DataFrame):
             return super().__getitem__(cols)
         else:
             return super().__getitem__(item)
+
+    def __iter__(self):
+        for k in self.aliases.keys():
+            yield k
