@@ -7,7 +7,9 @@ import numpy as np
 from numba import njit
 
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
-from .solver_methods import BaseMethod, RK45
+from .solver_methods import BaseMethod, RK45, Euler
+
+solver_methods = {'RK45': RK45, 'Euler': Euler}
 
 Info = namedtuple('Info', ['status', 'event_id', 'step_info', 'dt', 't', 'y', 'order_', 'roller', 'solve_state',
                            'ix_eval'])
@@ -77,7 +79,10 @@ class Numerous_solver(BaseSolver):
 
         self.method_options = odesolver_options
         try:
-            self.method = eval(kwargs.get('method', 'RK45'))
+            try:
+                self.method = solver_methods[kwargs.get('method', 'RK45')]
+            except KeyError:
+                raise ValueError(f"Unknown method {kwargs.get('method', 'RK45')}, allowed methods: {list(solver_methods.keys())}")
             self._method = self.method(self, **self.method_options)
             assert issubclass(self.method, BaseMethod), f"{self.method} is not a BaseMethod"
         except Exception as e:
@@ -207,7 +212,7 @@ class Numerous_solver(BaseSolver):
                 else:
                     # Since we didnt roll back we can update t_start and rollback
                     # Check if we should update history at t eval
-                    if t_next_eval <= (t + 10 * feps):
+                    if abs(t_next_eval -t) <= 10 * feps:
                         if not step_converged:
                             print("step not converged, but historian updated")
                         numba_model.historian_update(t)
@@ -216,7 +221,8 @@ class Numerous_solver(BaseSolver):
                         else:
                             t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                         ix_eval += 1
-                        dt = initial_step
+                        #dt = initial_step
+                        dt = min(max_step, dt)
                         te_array[0] = t + dt
 
                     t_start = t
