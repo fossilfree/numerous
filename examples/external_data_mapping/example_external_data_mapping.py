@@ -23,7 +23,6 @@ class Time(Item, EquationBase):
 
         dn.add_equations([self])
 
-
     @Equation()
     def diff(self, scope):
         scope.t_dot = 1
@@ -61,6 +60,5 @@ if __name__ == '__main__':
     )
 
     s.solve()
-
 
     assert (s.model.historian_df['sys.time.default.p1'] == df['p1']).all(), "All elements should be equal value!"
