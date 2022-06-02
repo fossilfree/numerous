@@ -419,6 +419,15 @@ class Model:
             self.variables[k].value = v
             self.var_write(v, self.vars_ordered_values[k])
 
+    def set_variables(self, variables: dict):
+        for k, v in variables.items():
+            var_id = self.aliases[k]
+            self.variables[var_id].value = v
+            self.var_write(v, self.vars_ordered_values[var_id])
+
+    def get_variables_initial_values(self):
+        return {self.inverse_aliases[k]: v for k, v in self._initial_variables_dict.items()}
+
     def lower_model_codegen(self, tmp_vars):
 
         logging.info('Lowering model')

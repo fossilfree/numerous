@@ -355,6 +355,20 @@ class ExponentialDecay(Subsystem, EquationBase):
     def eval(self, scope):
         scope.x_dot = -scope.x * scope.alpha
 
+p1_val = 25
+
+class SetVar(Subsystem, EquationBase):
+    def __init__(self, tag='setvar'):
+        super(SetVar, self).__init__(tag)
+        self.t1 = self.create_namespace('t1')
+        self.add_state('x', 1, logger_level=LoggerLevel.INFO)
+        self.add_parameter('p1', p1_val)
+        self.t1.add_equations([self])
+
+    @Equation()
+    def eval(self, scope):
+        scope.x_dot = 1
+
 
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_external_data(use_llvm):
@@ -488,3 +502,21 @@ def test_reset_model():
     df_2 = sim2.model.historian_df
 
     assert approx(df_1['system.t1.x'].values) == df_2['system.t1.x'].values
+
+def test_set_variables():
+    model = Model(SetVar(tag='system'))
+    p1 = 1
+
+    model.set_variables({'system.t1.p1': p1})
+    sim = Simulation(model=model, t_start=0, t_stop=1, num=3)
+    sim.solve()
+
+    df_1 = sim.model.historian_df
+
+
+    assert (df_1['system.t1.p1'].values == p1).all()
+
+def test_get_init_variables():
+    model = Model(SetVar(tag='system'))
+
+    assert model.get_variables_initial_values()['system.t1.p1'] == p1_val
