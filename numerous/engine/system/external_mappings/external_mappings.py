@@ -42,7 +42,7 @@ class ExternalMapping:
         for external_mapping in self.external_mappings:
             for element in external_mapping.external_mappings:
                 # TODO division round bugs? we can skip a row here
-                df = external_mapping.data_loader.load(element.data_frame_id, int(t / element.time_multiplier) - 1)
+                df = external_mapping.data_loader.load(element.data_frame_id, int(t / element.time_multiplier))
 
                 if df.empty:
                     return False
