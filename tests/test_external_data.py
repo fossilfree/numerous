@@ -160,7 +160,7 @@ def test_external_data_with_chunks_no_states(use_llvm, tmpdir):
     external_mappings.append(ExternalMappingElement
                              (path, index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
                               dataframe_aliases))
-    data_loader = LocalDataLoader(chunksize=1)
+    data_loader = LocalDataLoader(chunksize=10)
     s = Simulation(
         Model(StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader),
               use_llvm=use_llvm),
@@ -233,7 +233,7 @@ def analytical_solution(N_hits, g=9.81, f=0.05, x0=1):
 t_hits = analytical_solution(N_hits=10)
 
 
-@pytest.mark.parametrize("use_llvm", [False])
+@pytest.mark.parametrize("use_llvm", [True, False])
 def test_external_data_chunks_with_states(use_llvm, tmpdir):
     tmax = 5
     external_mappings = []
