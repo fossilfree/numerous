@@ -90,9 +90,10 @@ class CompiledModel:
                                    self.external_mappings_numpy[df_indx, :, var_idx])
             self.write_variables(value, self.external_idx[i])
 
-    def update_external_data(self, external_mappings_numpy, external_mappings_time):
+    def update_external_data(self, external_mappings_numpy, external_mappings_time, max_external_t):
         self.external_mappings_time = external_mappings_time
         self.external_mappings_numpy = external_mappings_numpy
+        self.max_external_t = max_external_t
 
     def is_external_data_update_needed(self, t):
         if self.is_external_data and t > self.max_external_t:

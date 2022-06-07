@@ -483,8 +483,9 @@ class Numerous_solver(BaseSolver):
         is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
         external_mappings_numpy = self.model.external_mappings.external_mappings_numpy
         external_mappings_time = self.model.external_mappings.external_mappings_time
+        max_external_t = self.model.external_mappings.t_max
         self.numba_model.is_external_data = is_external_data
-        self.numba_model.update_external_data(external_mappings_numpy, external_mappings_time)
+        self.numba_model.update_external_data(external_mappings_numpy, external_mappings_time, max_external_t)
 
     def solve(self):
         """
@@ -611,11 +612,7 @@ class Numerous_solver(BaseSolver):
             self.model.create_historian_df()
             self.numba_model.historian_reinit()
         elif info.event_id == 2:
-            is_external_data = self.model.external_mappings.load_new_external_data_batch(info.t)
-            external_mappings_numpy = self.model.external_mappings.external_mappings_numpy
-            external_mappings_time = self.model.external_mappings.external_mappings_time
-            self.numba_model.is_external_data = is_external_data
-            self.numba_model.update_external_data(external_mappings_numpy, external_mappings_time)
+            self.load_external_data(t)
         elif info.event_id == 3:
             raise NotImplementedError
 
