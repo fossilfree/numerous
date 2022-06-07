@@ -270,6 +270,6 @@ def test_external_data_chunks_with_states(use_llvm, tmpdir):
     data = df.groupby(df.columns[0]).min().to_records()[1:]
     t_hits_model = [x[0] for x in data]
     interp_model = [x[1] for x in data]
-    assert t_hits[:len(t_hits_model)] == approx(t_hits_model, rel=1e-1)
+    assert t_hits[:len(t_hits_model)] == approx(t_hits_model, rel=1e-1) # big accuracy lost may be a problem 
     assert [int(t_hit) + 1 for t_hit in t_hits[:len(t_hits_model)]] == approx(interp_model, rel=1e-3)
     assert expected_number_of_hits == len(t_hits_model)
