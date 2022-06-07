@@ -254,7 +254,7 @@ def test_external_data_chunks_with_states(use_llvm, tmpdir):
     external_mappings.append(ExternalMappingElement
                              (path, index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
                               dataframe_aliases))
-    data_loader = LocalDataLoader(chunksize=2)
+    data_loader = LocalDataLoader(chunksize=3)
 
     s = Simulation(
         Model(StaticDataSystemWithBall
