@@ -415,6 +415,7 @@ def test_get_init_variables():
 
     assert model.get_variables_initial_values()['system.t1.p1'] == p1_val
 
+
 class SimpleInt(Subsystem, EquationBase):
     def __init__(self, tag='integrate', external_mappings=None, data_loader=None):
         super().__init__(tag, external_mappings, data_loader)
@@ -463,6 +464,7 @@ def test_external_data_model_check_not_mapped(use_llvm):
     assert approx(np.array(s.model.historian_df['system_external.t1.not_to_map'])) == 100, 'This should not be mapped and thus not changed'
     assert approx(np.array(s.model.historian_df['system_external.t1.to_map_think_not'])) == 200, 'This should not be mapped and thus not changed'
 
+    
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_external_data_system_check_not_mapped(use_llvm):
     external_mappings = []
