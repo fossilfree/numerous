@@ -808,7 +808,8 @@ class Model:
         self.numba_model.is_external_data = self.external_mappings.load_new_external_data_batch(0)
         if self.numba_model.is_external_data:
             self.numba_model.update_external_data(self.external_mappings.external_mappings_numpy,
-                                                  self.external_mappings.external_mappings_time)
+                                                  self.external_mappings.external_mappings_time,
+                                                  self.external_mappings.t_max)
 
     @classmethod
     def from_file(cls, param):
