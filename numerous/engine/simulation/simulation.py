@@ -109,14 +109,6 @@ class Simulation:
                                                   self.model.external_mappings.external_mappings_time,
                                                   self.model.external_mappings.t_max)
 
-    def step(self, dt):
-        try:
-            stop = self.solver.solver_step(dt)
-        except Exception as e:
-            raise e
-
-        return stop
-
     def complete(self):
 
         list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,
