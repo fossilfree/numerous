@@ -6,7 +6,7 @@ from numerous.engine.system import Item, Subsystem
 from tests.test_equations import TestEq_input, Test_Eq, TestEq_ground
 
 
-class I(Item):
+class TestItem(Item):
     def __init__(self, tag, P, T, R):
         super().__init__(tag)
 
@@ -86,5 +86,3 @@ def test_clone_exception():
         system = S2N("S2", 2)
         model = Model(system)
         model.clone()
-
-
