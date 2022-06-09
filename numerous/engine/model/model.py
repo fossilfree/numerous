@@ -697,6 +697,7 @@ class Model:
                                              self.external_mappings.external_df_idx,
                                              self.external_mappings.interpolation_info,
                                              self.is_external_data, self.external_mappings.t_max,
+                                             self.external_mappings.t_min,
                                              self.external_idx
                                              )
 

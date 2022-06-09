@@ -143,9 +143,9 @@ def test_external_data(use_llvm):
 def test_external_data_with_chunks_no_states(use_llvm, tmpdir):
     external_mappings = []
 
-    data = {'time': np.arange(100),
-            'Dew Point Temperature {C}': np.arange(100) + 1,
-            'Dry Bulb Temperature {C}': np.arange(100) + 2,
+    data = {'time': np.arange(101),
+            'Dew Point Temperature {C}': np.arange(101) + 1,
+            'Dry Bulb Temperature {C}': np.arange(101) + 2,
             }
 
     df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
@@ -160,15 +160,15 @@ def test_external_data_with_chunks_no_states(use_llvm, tmpdir):
     external_mappings.append(ExternalMappingElement
                              (path, index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
                               dataframe_aliases))
-    data_loader = LocalDataLoader(chunksize=10)
+    data_loader = LocalDataLoader(chunksize=100000)
     s = Simulation(
         Model(StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader),
               use_llvm=use_llvm),
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
 
     s.solve()
-    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
-    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
+    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])) == np.arange(101) + 1
+    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101) + 2
 
 
 @pytest.mark.parametrize("use_llvm", [True, False])
@@ -176,9 +176,9 @@ def test_external_data_multiple(use_llvm):
     external_mappings = []
     external_mappings_outer = []
 
-    data = {'time': np.arange(100),
-            'Dew Point Temperature {C}': np.arange(100) + 1,
-            'Dry Bulb Temperature {C}': np.arange(100) + 2,
+    data = {'time': np.arange(101),
+            'Dew Point Temperature {C}': np.arange(101) + 1,
+            'Dry Bulb Temperature {C}': np.arange(101) + 2,
             }
 
     df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
@@ -208,15 +208,10 @@ def test_external_data_multiple(use_llvm):
         Model(system_outer, use_llvm=use_llvm),
         t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
     s.solve()
-    assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(
-        101
-    )[1:]
-    assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(
-        101)[1:] + 1
-    assert approx(np.array(s.model.historian_df['system_outer.tm0.test_nm.T_i1'])[1:]) == np.arange(
-        101)[1:]
-    assert approx(np.array(s.model.historian_df['system_outer.tm0.test_nm.T_i2'])[1:]) == np.arange(
-        101)[1:] + 1
+    assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i1'])) == np.arange(101) + 1
+    assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i2'])) == np.arange(101) + 2
+    assert approx(np.array(s.model.historian_df['system_outer.tm0.test_nm.T_i1'])) == np.arange(101) + 1
+    assert approx(np.array(s.model.historian_df['system_outer.tm0.test_nm.T_i2'])) == np.arange(101) + 2
 
 
 def analytical_solution(N_hits, g=9.81, f=0.05, x0=1):
@@ -270,6 +265,6 @@ def test_external_data_chunks_with_states(use_llvm, tmpdir):
     data = df.groupby(df.columns[0]).min().to_records()[1:]
     t_hits_model = [x[0] for x in data]
     interp_model = [x[1] for x in data]
-    assert t_hits[:len(t_hits_model)] == approx(t_hits_model, rel=1e-1)  # big accuracy lost may be a problem
+    assert t_hits[:len(t_hits_model)] == approx(t_hits_model, rel=1e-3)  # big accuracy lost may be a problem
     assert [int(t_hit) + 1 for t_hit in t_hits[:len(t_hits_model)]] == approx(interp_model, rel=1e-3)
     assert expected_number_of_hits == len(t_hits_model)
