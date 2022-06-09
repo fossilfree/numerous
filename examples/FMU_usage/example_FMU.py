@@ -32,9 +32,9 @@ class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
 
-        fmu_filename = 'VanDerPol.fmu'
+        fmu_filename = '/home/artem/fmus/PCU_RHU_EnergyMachines_01_modex_Linux.fmu'
 
-        fmu_subsystem = FMU_Subsystem(fmu_filename, "VanDerPol", debug_output=True)
+        fmu_subsystem = FMU_Subsystem(fmu_filename, "PCU_RHU", debug_output=True)
         self.register_items([fmu_subsystem])
 
 

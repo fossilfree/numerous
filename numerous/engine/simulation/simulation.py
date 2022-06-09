@@ -44,7 +44,6 @@ class Simulation:
             model._reset()
 
         time_, delta_t = np.linspace(t_start, t_stop, num + 1, retstep=True)
-        self.callbacks = []
         self.time = time_
         self.model = model
 

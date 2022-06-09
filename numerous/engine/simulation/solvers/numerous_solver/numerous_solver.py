@@ -66,7 +66,7 @@ class Numerous_solver(BaseSolver):
         self.options = kwargs
         self.info = None
 
-        feps = np.finfo(1.0).eps  # 2.220446049250313e-16#
+        feps = 2.220446049250313e-12
         odesolver_options = {'longer': kwargs.get('longer', 1.2), 'shorter': kwargs.get('shorter', 0.8),
                              'min_step': kwargs.get('min_step', 10 * feps), 'strict_eval': True,
                              'max_step': kwargs.get('max_step', np.inf), 'first_step': kwargs.get('first_step', None),
