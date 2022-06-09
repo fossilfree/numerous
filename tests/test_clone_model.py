@@ -1,8 +1,8 @@
-import os.path
+import pytest
 
-from numerous.engine.simulation import Simulation
-from numerous.engine.system import Subsystem, Item
 from numerous.engine.model import Model
+from numerous.engine.simulation import Simulation
+from numerous.engine.system import Item, Subsystem
 from tests.test_equations import TestEq_input, Test_Eq, TestEq_ground
 
 
@@ -61,19 +61,30 @@ class S2N(Subsystem):
         self.register_items(r_items)
 
 
-def test_cashing_model(monkeypatch, tmpdir):
+def test_clone_model():
     system = S2N("S2", 2)
-    tmpdir_path = str(tmpdir)
-    monkeypatch.setenv("EXPORT_MODEL_PATH", tmpdir_path)
-
-    model = Model(system, export_model=True)
+    model = Model(system, clonable=True)
     s1 = Simulation(model, t_start=0, t_stop=2, num=2)
     s1.solve()
-    assert os.path.exists(os.path.join(tmpdir, "S2.numerous"))
-    cached_model = Model.from_file(os.path.join(os.environ.get("EXPORT_MODEL_PATH"), "S2.numerous"))
-
-    s2 = Simulation(cached_model, t_start=0, t_stop=2, num=2)
+    s2 = Simulation(model.clone(), t_start=0, t_stop=2, num=2)
     s2.solve()
     assert all(s1.model.states_as_vector == s2.model.states_as_vector)
+
+
+def test_clone_model_multiple():
+    system = S2N("S2", 2)
+    model = Model(system, clonable=True)
+    s1 = Simulation(model, t_start=0, t_stop=2, num=2)
+    s1.solve()
+    s2 = Simulation(model.clone(clonable=True).clone(), t_start=0, t_stop=2, num=2)
+    s2.solve()
+    assert all(s1.model.states_as_vector == s2.model.states_as_vector)
+
+
+def test_clone_exception():
+    with pytest.raises(Exception, match="Model isn't clonable"):
+        system = S2N("S2", 2)
+        model = Model(system)
+        model.clone()
 
 
