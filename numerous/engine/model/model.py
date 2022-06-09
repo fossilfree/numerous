@@ -2,7 +2,7 @@ import itertools
 import os
 import pickle
 import sys
-from copy import copy
+from copy import copy, deepcopy
 from ctypes import CFUNCTYPE, c_int64, POINTER, c_double, c_void_p
 
 import numpy as np
@@ -124,7 +124,7 @@ class Model:
 
     def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
                  imports=None, historian=InMemoryHistorian(),
-                 use_llvm=True, save_to_file=False, generate_graph_pdf=False, export_model=False):
+                 use_llvm=True, save_to_file=False, generate_graph_pdf=False, export_model=False, clonable=False):
 
         self.path_to_variable = {}
         self.generate_graph_pdf = generate_graph_pdf
@@ -140,6 +140,7 @@ class Model:
 
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
+        self.clonable = clonable
         self.imports = Imports()
         self.imports.add_as_import("numpy", "np")
         self.imports.add_from_import("numba", "njit")
@@ -431,7 +432,7 @@ class Model:
 
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.variables, \
         self.state_idx, self.derivatives_idx = \
-            eq_gen.generate_equations(export_model=self.export_model)
+            eq_gen.generate_equations(export_model=self.export_model, clonable=self.clonable)
 
         for varname, ix in self.vars_ordered_values.items():
             var = self.variables[varname]
@@ -487,6 +488,11 @@ class Model:
                              eq_gen.generated_program.equations_llvm_opt, eq_gen.generated_program.max_var,
                              eq_gen.generated_program.n_deriv), handle, protocol=pickle.HIGHEST_PROTOCOL)
             logging.info('Model successfully exported to ' + filename)
+
+        if self.clonable:
+            self.equations_llvm_opt = eq_gen.generated_program.equations_llvm_opt
+            self.max_var = eq_gen.generated_program.max_var
+            self.n_deriv = eq_gen.generated_program.n_deriv
 
         # set after export (otherwise we get pickling error for var.write_variable=var_write)
         for varname, ix in self.vars_ordered_values.items():
@@ -823,6 +829,81 @@ class Model:
         setattr(CompiledModel, "write_variables", c3)
 
         model.set_functions(compiled_compute, var_func, var_write)
+        return model
+
+    def clone(self, clonable=False):
+        if not self.clonable:
+            raise Exception("Model isn't clonable")
+        system_ = self.system
+        logger_level = self.logger_level
+        use_llvm = self.use_llvm
+        model = Model(system=system_, assemble=False, logger_level=logger_level,
+                      use_llvm=use_llvm)
+        model.variables = self.variables
+        model.imports = self.imports
+        model.vars_ordered_values = self.vars_ordered_values
+        model.state_idx = self.state_idx
+        model.derivatives_idx = self.derivatives_idx
+        model.init_values = self.init_values
+        model.aliases = self.aliases
+
+        for equation in self.equations_llvm_opt:
+            llmod2 = llvm.parse_assembly(equation)
+            ee.add_module(llmod2)
+        ee.finalize_object()
+        cfptr = ee.get_function_address("kernel")
+
+        cfptr_var_r = ee.get_function_address("vars_r")
+        cfptr_var_w = ee.get_function_address("vars_w")
+
+        c_float_type = type(np.ctypeslib.as_ctypes(np.float64()))
+
+        diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type))(cfptr)
+
+        vars_r = CFUNCTYPE(POINTER(c_float_type), c_int64)(cfptr_var_r)
+
+        vars_w = CFUNCTYPE(c_void_p, c_double, c_int64)(cfptr_var_w)
+
+        n_deriv = self.n_deriv
+        max_var = self.max_var
+
+        @njit('float64[:](float64[:])')
+        def compiled_compute(y):
+            deriv_pointer = diff_(y.ctypes)
+            return carray(deriv_pointer, (n_deriv,)).copy()
+
+        @njit('float64[:]()')
+        def var_func():
+            variables_pointer = vars_r(0)
+            variables_array = carray(variables_pointer, (max_var,))
+
+            return variables_array.copy()
+
+        @njit('void(float64,int64)')
+        def var_write(var, idx):
+            vars_w(var, idx)
+
+        def c1(self, array_):
+            return compiled_compute(array_)
+
+        def c2(self):
+            return var_func()
+
+        def c3(self, value, idx):
+            return var_write(value, idx)
+
+        setattr(CompiledModel, "compiled_compute", c1)
+        setattr(CompiledModel, "read_variables", c2)
+        setattr(CompiledModel, "write_variables", c3)
+
+        model.set_functions(compiled_compute, var_func, var_write)
+
+        if clonable:
+            model.clonable = True
+            model.equations_llvm_opt = self.equations_llvm_opt
+            model.n_deriv = self.n_deriv
+            model.max_var = self.max_var
+
         return model
 
 
