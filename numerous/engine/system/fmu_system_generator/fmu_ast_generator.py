@@ -10,7 +10,7 @@ TERM_1_PTR = "term_1_ptr"
 NUMEROUS_FUNCTION = 'NumerousFunction'
 
 
-def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs):
+def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs, parameters_return_idx):
     args_lst = []
     for arg_id in input_args:
         args_lst.append(ast.arg(arg=arg_id))
@@ -39,6 +39,12 @@ def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs):
     return_elts = []
     return_exp = []
     for zero_assign_ptr, arr_id in output_ptrs:
+        shape = ast.Attribute(value=ast.Name(id=arr_id, ctx=ast.Load()), attr=SHAPE, ctx=ast.Load())
+        dtype_kw = ast.Attribute(value=ast.Name(id=arr_id, ctx=ast.Load()), attr=DTYPE, ctx=ast.Load())
+        _keywords = ast.keyword(arg=DTYPE, value=dtype_kw)
+        return_elts.append(carray_call(add_address_as_void_pointer(zero_assign_ptr), shape, _keywords))
+    for ix in parameters_return_idx:
+        zero_assign_ptr, arr_id = zero_assign_ptrs[ix]
         shape = ast.Attribute(value=ast.Name(id=arr_id, ctx=ast.Load()), attr=SHAPE, ctx=ast.Load())
         dtype_kw = ast.Attribute(value=ast.Name(id=arr_id, ctx=ast.Load()), attr=DTYPE, ctx=ast.Load())
         _keywords = ast.keyword(arg=DTYPE, value=dtype_kw)
@@ -566,9 +572,11 @@ def generate_event_action(len_q, variables):
     return event_action_fun, event_action_fun_2
 
 
-def generate_eq_call(deriv_names, var_names):
+def generate_eq_call(deriv_names, var_names, params_names):
     elts = []
     for d_name in deriv_names:
+        elts.append(ast.Attribute(value=ast.Name(id='scope', ctx=ast.Load()), attr=d_name, ctx=ast.Store()))
+    for d_name in params_names:
         elts.append(ast.Attribute(value=ast.Name(id='scope', ctx=ast.Load()), attr=d_name, ctx=ast.Store()))
 
     if len(deriv_names) > 1:

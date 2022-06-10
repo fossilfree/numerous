@@ -203,6 +203,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
                 var_names_ordered_ns.append(namespace_ + "." + _replace_name_str(variable.name))
                 var_names_ordered.append(_replace_name_str(variable.name))
 
+        states_names_ordered = [x.split(".")[1] for x in var_states_ordered]
+
         fmu.enterContinuousTimeMode()
 
         q1, equation_call_wrapper = generate_eval_llvm(idx_tuple_array, [idx_tuple_array[i] for i in deriv_idx],
@@ -218,7 +220,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         equation_call = namespace["equation_call"]
 
         q = generate_fmu_eval(var_names_ordered, ptr_tuple_array,
-                              [ptr_tuple_array[i] for i in deriv_idx])
+                              [ptr_tuple_array[i] for i in deriv_idx],
+                              set(range(len_q)).difference(deriv_idx + states_idx))
         module_func = ast.Module(body=[q], type_ignores=[])
         if debug_output:
             print(ast.unparse(module_func))
@@ -331,7 +334,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_action_2 = namespace["event_action_2"]
         event_action_2.lines = ast.unparse(ast.Module(body=[b1], type_ignores=[]))
         if len(deriv_names_ordered) > 0:
-            gec = generate_eq_call(deriv_names_ordered, var_names_ordered)
+            gec = generate_eq_call(deriv_names_ordered, var_names_ordered,[x for x in var_names_ordered if x not in states_names_ordered])
             if debug_output:
                 print(ast.unparse(gec))
             code = compile(ast.parse(ast.unparse(gec)), filename='fmu_eval', mode='exec')
