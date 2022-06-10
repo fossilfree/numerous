@@ -2,6 +2,12 @@ from numba import int32, float64, boolean, int64, njit, types, typed
 import numpy as np
 import numpy.typing as npt
 
+try:
+    FEPS = np.finfo(1.0).eps
+except:
+    FEPS = 2.220446049250313e-16
+
+
 # key and value types
 kv_ty = (types.unicode_type, float64)
 
@@ -32,7 +38,7 @@ numba_model_spec = [
 
 @njit
 def step_approximation(t, time_array, data_array):
-    idx = np.searchsorted(time_array, t, side='right') - 1
+    idx = np.searchsorted(time_array, t+100*FEPS, side='right') - 1
     return data_array[idx]
 
 
@@ -41,7 +47,7 @@ class CompiledModel:
                  global_vars, number_of_timesteps, start_time, historian_max_size,
                  external_mappings_time, number_of_external_mappings,
                  external_mappings_numpy, external_df_idx, interpolation_info,
-                 is_external_data, t_max, external_idx):
+                 is_external_data, t_max, t_min, external_idx):
         self.external_idx = external_idx
         self.external_mappings_time = external_mappings_time
         self.number_of_external_mappings = number_of_external_mappings
@@ -51,6 +57,7 @@ class CompiledModel:
         self.approximation_type = interpolation_info
         self.is_external_data = is_external_data
         self.max_external_t = t_max
+        self.min_external_t = t_min
         self.global_vars = global_vars
         self.deriv_idx = deriv_idx
         self.state_idx = state_idx

@@ -687,8 +687,12 @@ class Model:
             class CompiledModel_instance(tmp):
                 pass
 
-        NM_instance = CompiledModel_instance(self.init_values, self.derivatives_idx, self.state_idx,
-                                             self.global_vars, number_of_timesteps, start_time,
+        NM_instance = CompiledModel_instance(self.init_values,
+                                             self.derivatives_idx,
+                                             self.state_idx,
+                                             self.global_vars,
+                                             number_of_timesteps,
+                                             start_time,
                                              self.historian.get_historian_max_size(number_of_timesteps,
                                                                                    len(self.events)),
                                              self.external_mappings.external_mappings_time,
@@ -696,7 +700,8 @@ class Model:
                                              self.external_mappings.external_mappings_numpy,
                                              self.external_mappings.external_df_idx,
                                              self.external_mappings.interpolation_info,
-                                             self.is_external_data, self.external_mappings.t_max,
+                                             self.is_external_data,
+                                             self.external_mappings.t_max,
                                              self.external_mappings.t_min,
                                              self.external_idx
                                              )

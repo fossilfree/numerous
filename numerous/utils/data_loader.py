@@ -16,13 +16,15 @@ class DataLoader(ABC):
         pass
 
 
-class LocalDataLoader(DataLoader):
+class CSVDataLoader(DataLoader):
 
     def __init__(self, chunksize=1000):
-        super(LocalDataLoader, self).__init__()
+        super(CSVDataLoader, self).__init__()
         self.chunksize = chunksize
         self.is_chunks = False
         self._skiprows = 0
+        self.df = pd.DataFrame()
+        self.t_ix = None
         if self.chunksize:
             self.is_chunks = True
 
@@ -40,11 +42,18 @@ class LocalDataLoader(DataLoader):
                 break
 
     def load(self, df_id: str, t: float) -> DataFrame:
+        if not self.df.empty and t < min(self.df.iloc[:, self.t_ix]):
+            self._skiprows = 0
+
         if self.is_chunks:
             chunks = pd.read_csv(df_id, header=0, skiprows=self._skiprows, chunksize=self.chunksize)
-            return pd.concat(self._valid(chunks, t))
+            df = pd.concat(self._valid(chunks, t))
         else:
-            return pd.read_csv(df_id, header=0)
+            df = pd.read_csv(df_id, header=0)
+
+        self.df = df
+        return df
+
 
 
 class InMemoryDataLoader(DataLoader):

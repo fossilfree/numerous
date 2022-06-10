@@ -24,7 +24,7 @@ class Simulation:
                Not unique tag that will be used in reports or printed output.
     """
 
-    def __init__(self, model: Model, t_start: float = 0, t_stop: float = 20000, num: int = 1000, num_inner: int = 1,
+    def __init__(self, model: Model, t_start: float = 0, t_stop: float = 20000, num: int = 1000,
                  max_event_steps: int = 100,
                  start_datetime: datetime = datetime.now(), **kwargs):
         """
@@ -64,7 +64,7 @@ class Simulation:
         timestamp_action_function = model.generate_event_action_ast(model.timestamp_events)
         timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
         self.solver = Numerous_solver(time_, delta_t, model, self.numba_model,
-                                      num_inner, max_event_steps, self.model.states_as_vector,
+                                      max_event_steps, self.model.states_as_vector,
                                       numba_compiled_solver=model.use_llvm,
                                       events=(event_function, action_function), event_directions=event_directions,
                                       timestamp_events=(timestamp_action_function, timestamps),
@@ -107,7 +107,8 @@ class Simulation:
         if self.numba_model.is_external_data:
             self.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
                                                   self.model.external_mappings.external_mappings_time,
-                                                  self.model.external_mappings.t_max)
+                                                  self.model.external_mappings.t_max,
+                                                  self.model.external_mappings.t_min)
 
     def complete(self):
 

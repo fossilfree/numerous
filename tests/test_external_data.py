@@ -1,20 +1,37 @@
-import os.path
-
 import pytest
+import math
+import shutil
+import os.path
 import pandas as pd
 import numpy as np
-from numerous.engine.system.external_mappings import ExternalMappingElement
 
-from numerous.utils.data_loader import InMemoryDataLoader, LocalDataLoader
 from pytest import approx
 
+from numerous.engine.system.external_mappings import ExternalMappingElement
+from numerous.utils.data_loader import InMemoryDataLoader, CSVDataLoader
+from numerous.utils.historian import InMemoryHistorian
 from numerous.engine.system.external_mappings.interpolation_type import InterpolationType
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
-
-from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay, LoggerLevel
+from numerous.engine.system import Subsystem, Item
 from numerous.multiphysics import EquationBase, Equation
 
+try:
+    FEPS = np.finfo(1.0).eps
+except:
+    FEPS = 2.220446049250313e-16
+
+def analytical_solution(N_hits, g=9.81, f=0.05, x0=1):
+    t_hits = []
+    summation = 0
+    for i in range(N_hits):
+        summation += (2 * (1 - f) ** (i))
+        t_hit = np.sqrt(2 * x0 / g) * (summation - 1)
+        t_hits.append(t_hit)
+    t_hits = np.array(t_hits)
+    return t_hits
+
+t_hits = analytical_solution(N_hits=10)
 
 class StaticDataTest(EquationBase, Item):
     def __init__(self, tag="tm"):
@@ -105,70 +122,72 @@ class StaticDataSystemWithBall(Subsystem):
         self.register_items(o_s)
 
 
-@pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_data(use_llvm):
-    external_mappings = []
+def step_solver(sim, t0: float, tmax: float, dt: float):
+    t_ = t0
+    while t_ <= tmax:
+        t_new, t_ = sim.step_solve(t_, dt)
 
-    data = {'time': np.arange(100),
-            'Dew Point Temperature {C}': np.arange(100) + 1,
-            'Dry Bulb Temperature {C}': np.arange(100) + 2,
-            }
+    sim.model.create_historian_df()
+    df = sim.model.historian_df
+    return df
 
-    df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
-    index_to_timestep_mapping = 'time'
-    index_to_timestep_mapping_start = 0
-    dataframe_aliases = {
-        'system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
-        'system_external.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE)
-    }
-    external_mappings.append(ExternalMappingElement
-                             ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
-                              dataframe_aliases))
-    data_loader = InMemoryDataLoader(df)
-    Model(
-        StaticDataSystemWithBall('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader),
-        use_llvm=use_llvm)
+def normal_solver(sim, t0: float, tmax: float, dt: float):
+    sim.solve()
 
-    s = Simulation(
-        Model(StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader),
-              use_llvm=use_llvm),
-        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
+    df = sim.model.historian_df
+    return df
 
-    s.solve()
-    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
-    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
+def inmemorydataloader(df=None, **kwargs):
+    return InMemoryDataLoader(df=df)
+
+def csvdataloader(chunksize=1, **kwargs):
+    return CSVDataLoader(chunksize=chunksize)
+
+@pytest.fixture
+def tmpdir():
+    os.mkdir('tmp')
+    yield 'tmp'
+    shutil.rmtree('tmp')
 
 
-@pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_data_with_chunks_no_states(use_llvm, tmpdir):
-    external_mappings = []
+@pytest.fixture
+def external_data():
+    def fn(t0=0, tmax=5, dt_data=0.5):
+        data = {'time': np.arange(t0, tmax + dt_data, dt_data),
+                'Dew Point Temperature {C}': np.arange(t0, tmax + dt_data, dt_data) + 1,
+                }
+        return data
+    yield fn
 
-    data = {'time': np.arange(101),
-            'Dew Point Temperature {C}': np.arange(101) + 1,
-            'Dry Bulb Temperature {C}': np.arange(101) + 2,
-            }
+@pytest.fixture
+def simulation(tmpdir: tmpdir):
+    def fn(data, dt_eval=0.1, chunksize=1, historian_max_size=None, t0=0, tmax=5, max_step=0.1, dataloader=csvdataloader,
+           system=StaticDataSystemWithBall):
+        external_mappings = []
 
-    df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
-    index_to_timestep_mapping = 'time'
-    index_to_timestep_mapping_start = 0
-    dataframe_aliases = {
-        'system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
-        'system_external.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE)
-    }
-    path = os.path.join(tmpdir, "x.csv")
-    df.to_csv(path)
-    external_mappings.append(ExternalMappingElement
-                             (path, index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
-                              dataframe_aliases))
-    data_loader = LocalDataLoader(chunksize=100000)
-    s = Simulation(
-        Model(StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader),
-              use_llvm=use_llvm),
-        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
+        df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}'])
+        index_to_timestep_mapping = 'time'
+        index_to_timestep_mapping_start = 0
 
-    s.solve()
-    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])) == np.arange(101) + 1
-    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101) + 2
+        dataframe_aliases = {
+            'system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
+        }
+        path = os.path.join(tmpdir, "x.csv")
+        df.to_csv(path)
+        external_mappings.append(ExternalMappingElement
+                                 (path, index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
+                                  dataframe_aliases))
+        data_loader = dataloader(df=df, chunksize=chunksize)
+
+        historian=InMemoryHistorian()
+        historian.max_size = historian_max_size
+        s = Simulation(
+            Model(system
+                  ('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader),
+                  historian=historian),
+            t_start=t0, t_stop=tmax, num=len(np.arange(0, tmax, dt_eval)), max_step=max_step)
+        return s
+    yield fn
 
 
 @pytest.mark.parametrize("use_llvm", [True, False])
@@ -206,65 +225,53 @@ def test_external_data_multiple(use_llvm):
                                data_loader=data_loader)
     s = Simulation(
         Model(system_outer, use_llvm=use_llvm),
-        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
+        t_start=0, t_stop=100.0, num=100, max_step=0.1)
     s.solve()
     assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i1'])) == np.arange(101) + 1
     assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i2'])) == np.arange(101) + 2
     assert approx(np.array(s.model.historian_df['system_outer.tm0.test_nm.T_i1'])) == np.arange(101) + 1
     assert approx(np.array(s.model.historian_df['system_outer.tm0.test_nm.T_i2'])) == np.arange(101) + 2
 
+@pytest.mark.parametrize("chunksize", [1, 10000])
+@pytest.mark.parametrize("historian_max_size", [1, 10000])
+@pytest.mark.parametrize("solver", [step_solver, normal_solver])
+@pytest.mark.parametrize("dataloader", [inmemorydataloader, csvdataloader])
+@pytest.mark.parametrize("system", [StaticDataSystem, StaticDataSystemWithBall])
+def test_external_data_chunks_and_historian_update(external_data: external_data, simulation: simulation,
+                                                   solver, chunksize, historian_max_size, dataloader, system):
 
-def analytical_solution(N_hits, g=9.81, f=0.05, x0=1):
-    t_hits = []
-    summation = 0
-    for i in range(N_hits):
-        summation += (2 * (1 - f) ** (i))
-        t_hit = np.sqrt(2 * x0 / g) * (summation - 1)
-        t_hits.append(t_hit)
-    t_hits = np.array(t_hits)
-    return t_hits
-
-
-t_hits = analytical_solution(N_hits=10)
-
-
-@pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_data_chunks_with_states(use_llvm, tmpdir):
+    t0 = 0
     tmax = 5
-    external_mappings = []
+    dt = 0.1
+    dt_data = 0.5
+    data = external_data(t0, tmax, dt_data)
+    s = simulation(data=data, chunksize=chunksize, historian_max_size=historian_max_size, t0=t0, max_step=dt,
+                   dt_eval=dt, tmax=tmax,
+                   dataloader=dataloader, system=system)
+    df = solver(s, t0, tmax, dt)
 
-    data = {'time': np.arange(6),
-            'Dew Point Temperature {C}': np.arange(6) + 1,
-            }
+    for ix in df.index:
+        t = df['time'][ix]
+        ix_data = math.floor(t / dt_data + FEPS * 100)
+        v0 = data['Dew Point Temperature {C}'][ix_data]
+        v = df['system_external.tm0.test_nm.T1'][ix]
 
-    df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}'])
-    index_to_timestep_mapping = 'time'
-    index_to_timestep_mapping_start = 0
+        assert v == v0, f"expected {v0} but got {v}"
 
-    dataframe_aliases = {
-        'system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
-    }
-    path = os.path.join(tmpdir, "x.csv")
-    df.to_csv(path)
-    external_mappings.append(ExternalMappingElement
-                             (path, index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
-                              dataframe_aliases))
-    data_loader = LocalDataLoader(chunksize=3)
+    if system == StaticDataSystemWithBall:
+        t_hit_model=np.unique(df['system_external.ball.t1.t_hit'])[1:]
+        t_hit_analytical = analytical_solution(len(t_hit_model))
+        assert t_hit_model == pytest.approx(t_hit_analytical, 1e-3), "event detection inaccurate"
 
-    s = Simulation(
-        Model(StaticDataSystemWithBall
-              ('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader),
-              use_llvm=use_llvm),
-        t_start=0, t_stop=5, num=100, num_inner=100, max_step=.1)
-
+def test_csvdataloader_reset(external_data: external_data, simulation: simulation):
+    t0 = 0
+    tmax = 5
+    dt = 0.1
+    dt_data = 0.5
+    data = external_data(t0, tmax, dt_data)
+    chunksize = 1
+    historian_max_size = 10000
+    s = simulation(data=data, chunksize=chunksize, historian_max_size=historian_max_size, t0=t0, tmax=tmax, max_step=dt,
+                   dt_eval=dt, dataloader=csvdataloader, system=StaticDataSystemWithBall)
     s.solve()
-    df = s.model.historian_df
-    expected_number_of_hits = len(t_hits[t_hits <= tmax])
-
-    df = df[['system_external.ball.t1.t_hit', 'system_external.tm0.test_nm.T_i1']]
-    data = df.groupby(df.columns[0]).min().to_records()[1:]
-    t_hits_model = [x[0] for x in data]
-    interp_model = [x[1] for x in data]
-    assert t_hits[:len(t_hits_model)] == approx(t_hits_model, rel=1e-3)  # big accuracy lost may be a problem
-    assert [int(t_hit) + 1 for t_hit in t_hits[:len(t_hits_model)]] == approx(interp_model, rel=1e-3)
-    assert expected_number_of_hits == len(t_hits_model)
+    s.solve()
