@@ -93,7 +93,7 @@ class Numerous_solver(BaseSolver):
             for idx in np.argwhere(modified_mask):
                 numba_model.write_variables(modified_variables[idx[0]], idx[0])
 
-        def get_solver_event_id(t):
+        def get_solver_event_id(t, numba_model):
             if numba_model.is_store_required() and not numba_model.is_external_data_update_needed(t):
                 return SolveEvent.Historian
             elif not numba_model.is_store_required() and numba_model.is_external_data_update_needed(t):
@@ -133,6 +133,9 @@ class Numerous_solver(BaseSolver):
 
             t_previous = t0
             y_previous = np.copy(y)
+
+            # Define event derivatives, values and event guess times
+            te_array = np.zeros(2)
 
             def handle_converged(t, dt, ix_eval, t_next_eval):
                 if abs(t_next_eval - t) < 100 * FEPS:
@@ -176,8 +179,7 @@ class Numerous_solver(BaseSolver):
                 y = rb[2][0:order, :]
                 return y
 
-            # Define event derivatives, values and event guess times
-            te_array = np.zeros(2)
+
             # 0 index is used to keep next time step defined by solver
             te_array[0] = t
             # 1 index is used to keep next time to eval/save the solution
@@ -231,7 +233,7 @@ class Numerous_solver(BaseSolver):
                     if abs(t-t_end) <= 100*FEPS:
                         solve_status = SolveStatus.Finished
                         break
-                    if get_solver_event_id(t) == SolveEvent.Historian:
+                    if get_solver_event_id(t, numba_model) == SolveEvent.Historian:
                         solve_status = SolveStatus.Running
                         break
 
@@ -349,7 +351,7 @@ class Numerous_solver(BaseSolver):
 
                 if step_converged:
                     numba_model.map_external_data(t)
-                    solve_event_id = get_solver_event_id(t)
+                    solve_event_id = get_solver_event_id(t, numba_model)
                     if solve_event_id > 0:
                         ix_eval, t_start, t_next_eval, t_new_test, dt = \
                             handle_converged(t, dt, ix_eval, t_next_eval)
@@ -363,7 +365,7 @@ class Numerous_solver(BaseSolver):
 
 
 
-            return Info(status=solve_status, event_id=get_solver_event_id(t), step_info=step_info,
+            return Info(status=solve_status, event_id=get_solver_event_id(t, numba_model), step_info=step_info,
                         dt=dt, t=t, y=np.ascontiguousarray(y), order_=order_, roller=roller, solve_state=_solve_state,
                         ix_eval=ix_eval, g=g, initial_step=initial_step)
 
@@ -509,7 +511,7 @@ class Numerous_solver(BaseSolver):
             self.numba_model.map_external_data(t)
         self.numba_model.func(t, states)
         t += dt
-        solve_event_id = self.get_solver_event_id(t)
+        solve_event_id = self.get_solver_event_id(t, self.numba_model)
         if solve_event_id == SolveEvent.Historian:
             self.model.create_historian_df()
             self.numba_model.historian_reinit()
