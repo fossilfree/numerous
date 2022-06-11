@@ -1,12 +1,7 @@
-import pytest
-
 from numerous.multiphysics.equation_decorators import Equation
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
-from numerous.engine.system import Subsystem, ItemsStructure
-from pytest import approx
-from numerous.engine import model, simulation
-from numerous.engine.simulation.solvers.base_solver import solver_types
+from numerous.engine.system import Subsystem
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation, SolverType
 
