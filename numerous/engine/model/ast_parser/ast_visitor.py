@@ -79,6 +79,23 @@ class AstVisitor(ast.NodeVisitor):
         self.mapped_stack.append([is_mapped])
         self.node_number_stack.append([en])
 
+    def visit_AugAssign(self, node: ast.AugAssign) -> Any:
+        operation=node.op
+        target=node.target
+        value=node.value
+
+        new_value = ast.BinOp()
+
+        new_value.left=target
+        new_value.right=value
+        new_value.op=operation
+
+        new_assign=ast.Assign()
+        new_assign.targets=[target]
+        new_assign.value=new_value
+
+        self.visit_Assign(new_assign)
+
     def visit_Assign(self, node: ast.Assign):
         for target in node.targets:
             if self._is_assign_target_supported(target):
