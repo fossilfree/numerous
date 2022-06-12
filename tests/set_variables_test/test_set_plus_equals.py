@@ -34,12 +34,14 @@ if __name__ == '__main__':
     k=1
     x=1
     test_system = TestSystem(k=k, x=x)
-    test_model = Model(test_system, use_llvm=False)
+    test_model = Model(test_system, use_llvm=False, save_to_file=True)
 
-    test_simulation = Simulation(test_model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=1, num=10,
-                                  num_inner=10, max_step=1)
+
+
+    test_simulation = Simulation(test_model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=100, num=10,
+                                  num_inner=1, max_step=1)
     test_simulation.solve()
 
     result=test_simulation.model.historian_df["test_sys.test_eq.mechanics.x"]
 
-    print(result)
+    print("Result:",list(result))

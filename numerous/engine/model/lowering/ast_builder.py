@@ -120,6 +120,8 @@ class ASTBuilder:
 
             return global_kernel, var_func, var_write
         else:
+
+            print(code)
             exec(code, kernel_module.__dict__)
 
             def var_func():
@@ -127,6 +129,7 @@ class ASTBuilder:
 
             def var_write(value, idx):
                 np.put(kernel_module.kernel_variables, [idx], value)
+
 
             return kernel_module.global_kernel, var_func, var_write,
 
