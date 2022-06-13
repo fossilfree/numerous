@@ -568,19 +568,8 @@ class Numerous_solver(BaseSolver):
             g = self.info.g
             initial_step = self.info.initial_step
 
-        return (dt,
-                strict_eval,
-                step_integrate_,
-                solve_state,
-                roller,
-                order_,
-                order,
-                initial_step,
-                dt,
-                min_step,
-                max_step,
-                atol,
-                g)
+        return dt, strict_eval, step_integrate_, solve_state, roller, order_, order, initial_step, dt, min_step, \
+               max_step, atol, g
 
     def solve(self):
         """
