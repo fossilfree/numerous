@@ -219,8 +219,8 @@ def test_1_item_model(ms1):
     assert item.t1.P.value == 100
 
 
-#@pytest.mark.parametrize("use_llvm", [True, False])
-def test_callback_step_item_model(ms3):
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_callback_step_item_model(ms3, use_llvm):
     def action(time, variables):
         if abs(time - 119) < variables['S3.5.t1.tol']:
             raise ValueError("Overflow of state. time:119")
@@ -233,12 +233,12 @@ def test_callback_step_item_model(ms3):
             raise ValueError("Overflow of state. time:119")
 
     def condition2(time, states):
-        return 118-time
+        return 118 - time
 
     m1 = Model(ms3)
     m1.add_event("simple", condition, action)
     m1.add_event("simple2", condition2, action2)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, atol=TOL)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, use_llvm=use_llvm, atol=TOL)
     with pytest.raises(ValueError, match=r".*time:119*"):
         s1.solve()
 

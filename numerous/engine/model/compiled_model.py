@@ -4,7 +4,7 @@ import numpy.typing as npt
 
 try:
     FEPS = np.finfo(1.0).eps
-except:
+except AttributeError:
     FEPS = 2.220446049250313e-16
 
 
