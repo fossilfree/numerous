@@ -6,6 +6,7 @@ from enum import IntEnum, unique
 
 import numpy as np
 from numba import njit
+from copy import deepcopy
 
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
 from .solver_methods import BaseMethod, RK45
@@ -128,6 +129,7 @@ class Numerous_solver(BaseSolver):
             imax = 100
             step_info = 0
             t = t0
+            t_start = t0
             dt = dt_0
             numba_model.map_external_data(t)
             y = numba_model.get_states()
@@ -138,14 +140,22 @@ class Numerous_solver(BaseSolver):
             # Define event derivatives, values and event guess times
             te_array = np.zeros(2)
 
-            def handle_converged(t, dt, ix_eval, t_next_eval):
+            def is_internal_historian_update_needed(t_next_eval, t):
                 if abs(t_next_eval - t) < 100 * FEPS:
+                    return True
+                return False
+
+            def handle_converged(t, dt, ix_eval, t_next_eval):
+
+                if is_internal_historian_update_needed(t_next_eval, t):
                     numba_model.historian_update(t)
                     if strict_eval:
                         te_array[1] = t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                     else:
                         t_next_eval = t_eval[ix_eval + 1] if ix_eval + 1 < len(t_eval) else t_eval[-1]
                     ix_eval += 1
+                    if ix_eval > len(t_eval):
+                        a=1
                     dt = initial_step
                     te_array[0] = t + dt
 
@@ -225,23 +235,6 @@ class Numerous_solver(BaseSolver):
                         # t_new_test = t_rollback
                         # TODO: make more specific error raising here!
                         raise ValueError('Cannot go back longer than rollback point!')
-                else:
-                    # Since we didnt roll back we can update t_start and rollback
-                    # Check if we should update history at t eval
-
-                    numba_model.map_external_data(t)
-                    ix_eval, t_start, t_next_eval, t_new_test, dt = \
-                        handle_converged(t, dt, ix_eval, t_next_eval)
-
-                    if abs(t - t_end) <= 100 * FEPS:
-                        solve_status = SolveStatus.Finished
-                        break
-                    if get_solver_event_id(t, numba_model) >= SolveEvent.Historian:
-                        solve_status = SolveStatus.Running
-                        break
-
-                    order_ = add_ring_buffer(t, y, roller, order_)
-
 
                 dt_ = min([t_next_eval - t_start, t_new_test - t_start])
                 # solve from start to new test by calling the step function
@@ -353,21 +346,32 @@ class Numerous_solver(BaseSolver):
                         t = t_previous
                         y = y_previous
 
+                        solve_event_id = get_solver_event_id(t, numba_model)
+                        if solve_event_id == SolveEvent.Historian:
+                            break
+
+
                 if step_converged:
 
                     solve_event_id = get_solver_event_id(t, numba_model)
-                    if solve_event_id > 0:
+                    if solve_event_id == SolveEvent.ExternalDataUpdate:
+                        break
+
+                    numba_model.map_external_data(t)
+
+                    if is_internal_historian_update_needed(t_next_eval, t):
                         ix_eval, t_start, t_next_eval, t_new_test, dt = \
                             handle_converged(t, dt, ix_eval, t_next_eval)
 
-                        if abs(t-t_end) < 100*FEPS:
-                            solve_status = SolveStatus.Finished
+                        solve_event_id = get_solver_event_id(t, numba_model)
+                        if solve_event_id == SolveEvent.Historian:
+                            break
 
-                        return Info(status=solve_status, event_id=solve_event_id, step_info=step_info,
-                                    dt=dt, t=t, y=np.ascontiguousarray(y), order_=order_, roller=roller,
-                                    solve_state=_solve_state, ix_eval=ix_eval, g=g, initial_step=initial_step)
+                    order_ = add_ring_buffer(t, y, roller, order_)
 
-
+                    if abs(t-t_end) < 100*FEPS:
+                        solve_status = SolveStatus.Finished
+                        break
 
             return Info(status=solve_status, event_id=get_solver_event_id(t, numba_model), step_info=step_info,
                         dt=dt, t=t, y=np.ascontiguousarray(y), order_=order_, roller=roller, solve_state=_solve_state,
@@ -527,9 +531,51 @@ class Numerous_solver(BaseSolver):
 
         states = self.numba_model.get_states()
         t += dt
+        if t > self.time[-1]:
+            return
         self.numba_model.map_external_data(t)
         self.numba_model.func(t, states)  # update mappings
         self.numba_model.historian_update(t)
+
+    def _init_solve(self, info=None):
+
+        max_step = self.method_options.get('max_step')
+        min_step = self.method_options.get('min_step')
+        rtol = self.method_options.get('rtol')
+        atol = self.method_options.get('atol')
+        strict_eval = self.method_options.get('strict_eval')
+        step_integrate_ = self._method.step_func
+        order = self._method.order
+
+        if not info:
+            t_start = self.time[0]
+
+            # Call the solver
+
+            y0 = deepcopy(self.y0)
+
+            # Set options
+
+            initial_step = self.select_initial_step(self.numba_model, t_start, y0, 1, order - 1, rtol,
+                                                    atol)  # np.min([100000000*min_step, max_step])
+            dt = initial_step
+
+            # figure out solve_state init
+            solve_state = self._method.get_solver_state(len(y0))
+
+            roller = self._init_roller(order)
+            order_ = 0
+        else:
+
+            dt = self.info.dt  # internal solver step size
+            order_ = self.info.order_
+            roller = self.info.roller
+            solve_state = self.info.solve_state
+            g = self.info.g
+            initial_step = self.info.initial_step
+
+        return dt, strict_eval, step_integrate_, solve_state, roller, order_, order, initial_step, dt, min_step, \
+               max_step, atol
 
     def solve(self):
         """
@@ -551,37 +597,37 @@ class Numerous_solver(BaseSolver):
                 self._no_state_solver_step(t, dt)
             return self.sol, self.result_status
 
-        # try:
-        t_start = self.time[0]
-        t_end = self.time[-1]
+        self._solver(self.time)
 
-        # Call the solver
-        from copy import deepcopy
-        y0 = deepcopy(self.y0)
+        logging.info("Solve finished")
+        return self.sol, self.result_status
 
-        # Set options
+    def solver_step(self, t, delta_t=None):
 
-        max_step = self.method_options.get('max_step')
-        min_step = self.method_options.get('min_step')
-        rtol = self.method_options.get('rtol')
-        atol = self.method_options.get('atol')
+        if self.use_no_state_solver():
+            self._no_state_solver_step(t, delta_t)
+            return t+delta_t, t+delta_t
 
-        order = self._method.order
+        if delta_t is None:
+            delta_t = self.delta_t
 
-        initial_step = self.select_initial_step(self.numba_model, t_start, y0, 1, order - 1, rtol,
-                                                atol)  # np.min([100000000*min_step, max_step])
-        dt = initial_step
+        n = math.floor(t / delta_t + FEPS * 100) + 1
+        t_eval = np.linspace(t, n * delta_t, 2)
+        t_end = t_eval[-1]
 
-        strict_eval = self.method_options.get('strict_eval')
+        info = self._solver(t_eval, info=self.info)
 
-        step_integrate_ = self._method.step_func
+        self.info = info
 
-        # figure out solve_state init
-        solve_state = self._method.get_solver_state(len(y0))
+        return t_end, self.info.t
 
-        roller = self._init_roller(order)
-        order_ = 0
+    def _solver(self, t_eval, info=None):
 
+        dt, strict_eval, step_integrate_, solve_state, roller, order_, order, initial_step, dt, min_step, max_step, \
+            atol = self._init_solve(info)
+
+        t_start = t_eval[0]
+        t_end = t_eval[-1]
 
         info = self._solve(self.numba_model,
                            solve_state, initial_step, dt, order, order_, roller, strict_eval, min_step,
@@ -589,7 +635,7 @@ class Numerous_solver(BaseSolver):
                            self.number_of_events, self.event_directions, self.run_event_action,
                            self.get_solver_event_id, self.timestamps,
                            self.timestamps_actions, t_start, t_end,
-                           self.time, 1, atol)
+                           t_eval, 1, atol)
 
         while info.status == SolveStatus.Running:
             if info.event_id == SolveEvent.Historian:
@@ -609,75 +655,9 @@ class Numerous_solver(BaseSolver):
                                self.get_solver_event_id,
                                self.timestamps,
                                self.timestamps_actions, info.t, t_end,
-                               self.time, info.ix_eval, atol)
-        logging.info("Solve finished")
-        return self.sol, self.result_status
+                               t_eval, info.ix_eval, atol)
 
-    def solver_step(self, t, delta_t=None):
-
-        if self.use_no_state_solver():
-            self._no_state_solver_step(t, delta_t)
-            return t+delta_t, t+delta_t
-
-        solve_state = self._method.get_solver_state(len(self.y0))
-        t_start = t
-
-        if delta_t is None:
-            delta_t = self.delta_t
-
-        strict_eval = self.method_options.get('strict_eval')
-
-        max_step = self.method_options.get('max_step')
-        min_step = self.method_options.get('min_step')
-        rtol = self.method_options.get('rtol')
-        atol = self.method_options.get('atol')
-        order = self._method.order
-        g = self.g
-        if self.info:
-            dt = self.info.dt  # internal solver step size
-            order_ = self.info.order_
-            roller = self.info.roller
-            solve_state = self.info.solve_state
-            g = self.info.g
-            initial_step = self.info.initial_step
-
-            assert self.info.t == t_start, f"solver time {self.info.t} does not match external time " \
-                                           f"{t_start}"
-
-            if self.info.event_id == SolveEvent.Historian:
-                self.model.create_historian_df()
-                self.numba_model.historian_reinit()
-            elif self.info.event_id == SolveEvent.ExternalDataUpdate:
-                self.load_external_data(t)
-            elif self.info.event_id == SolveEvent.HistorianAndExternalUpdate:
-                self.model.create_historian_df()
-                self.numba_model.historian_reinit()
-                self.load_external_data(t)
-        else:
-            roller = self._init_roller(order)
-            order_ = 0
-
-            dt = self.select_initial_step(self.numba_model, t_start, self.y0, 1, order - 1, rtol,
-                                          atol)
-            initial_step = dt
-
-        n = math.floor(t / delta_t + FEPS * 100)+1
-        t_eval = np.linspace(t, n*delta_t, 2)
-        t_end = t_eval[-1]
-
-        step_integrate_ = self._method.step_func
-        info = self._solve(self.numba_model,
-                           solve_state, initial_step, dt, order, order_, roller, strict_eval, min_step,
-                           max_step, step_integrate_, self.events, self.actions, g,
-                           self.number_of_events, self.event_directions,
-                           self.run_event_action,
-                           self.get_solver_event_id,
-                           self.timestamps, self.timestamps_actions,
-                           t_start, t_end, t_eval, 1, atol)
-
-        self.info = info
-
-        return t_end, self.info.t
+        return info
 
     def register_endstep(self, __end_step):
         self.__end_step = __end_step

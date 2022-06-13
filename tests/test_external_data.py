@@ -127,7 +127,7 @@ class StaticDataSystemWithBall(Subsystem):
 
 def step_solver(sim, t0: float, tmax: float, dt: float):
     t_ = t0
-    while t_ <= tmax:
+    while t_ < tmax:
         t_new, t_ = sim.step_solve(t_, dt)
 
     sim.model.create_historian_df()
@@ -192,7 +192,7 @@ def simulation(tmpdir: tmpdir):
         return s
     yield fn
 
-@pytest.mark.parametrize("system", [StaticDataSystemWithBall])
+@pytest.mark.parametrize("system", [StaticDataSystem, StaticDataSystemWithBall])
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_external_data_multiple(use_llvm, system, external_data):
     external_mappings = []
@@ -252,13 +252,13 @@ def test_external_data_multiple(use_llvm, system, external_data):
         assert v2 == v0, f"expected {v0} but got {v2} at {t}"
         assert v3 == v0, f"expected {v0} but got {v3} at {t}"
         assert v4 == v0, f"expected {v0} but got {v4} at {t}"
+        assert v3 == v4, f"expected {v3} but got {v4} at {t}"
 
         assert z1 == z0, f"expected {z0} but got {z1} at {t}"
         assert z2 == z0, f"expected {z0} but got {z2} at {t}"
         assert z3 == z0, f"expected {z0} but got {z3} at {t}"
         assert z4 == z0, f"expected {z0} but got {z4} at {t}"
-
-    a=1
+        assert z3 == z4, f"expected {z3} but got {z4} at {t}"
 
 
 @pytest.mark.parametrize("chunksize", [1, 10000])
@@ -284,13 +284,21 @@ def test_external_data_chunks_and_historian_update(external_data: external_data,
         ix_data = math.floor(t / dt_data + FEPS * 100)
         v0 = data['Dew Point Temperature {C}'][ix_data]
         v = df['system_external.tm0.test_nm.T1'][ix]
+        v1 = df['system_external.tm0.test_nm.T_i1'][ix]
 
         assert v == v0, f"expected {v0} but got {v}"
+        assert v1 == v, f"expected {v} but got {v1}"
 
+    t_hit_analytical = []
     if system == StaticDataSystemWithBall:
+        t_hit_analytical = analytical_solution(tmax)
         t_hit_model=np.unique(df['system_external.ball.t1.t_hit'])[1:]
-        t_hit_analytical = analytical_solution(len(t_hit_model))
+        assert len(t_hit_model) == len(t_hit_analytical), "not all events were detected"
         assert t_hit_model == pytest.approx(t_hit_analytical, 1e-3), "event detection inaccurate"
+
+    assert len(df['system_external.tm0.test_nm.T1']) - len(t_hit_analytical) == len(np.arange(0, tmax + dt, dt)), \
+        "output length not as expected"
+
 
 def test_csvdataloader_reset(external_data: external_data, simulation: simulation):
     t0 = 0
