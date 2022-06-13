@@ -121,7 +121,6 @@ class ASTBuilder:
             return global_kernel, var_func, var_write
         else:
 
-            print(code)
             exec(code, kernel_module.__dict__)
 
             def var_func():

@@ -30,7 +30,7 @@ class TestSystem(Subsystem):
         super().__init__(tag)
         self.register_item(TestEQ(k=k,x0=x))
 
-if __name__ == '__main__':
+def test_augmented_assign():
     k=1
     x=1
     test_system = TestSystem(k=k, x=x)
@@ -44,4 +44,5 @@ if __name__ == '__main__':
 
     result=test_simulation.model.historian_df["test_sys.test_eq.mechanics.x"]
 
-    print("Result:",list(result))
+    assert list(result)[0] == 2
+    assert list(result)[1] == 3
