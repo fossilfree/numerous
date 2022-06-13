@@ -1,14 +1,7 @@
-import os.path
-
 import pytest
-import pandas as pd
-import numpy as np
-from numerous.engine.system.external_mappings import ExternalMappingElement
 
-from numerous.utils.data_loader import InMemoryDataLoader, LocalDataLoader
 from pytest import approx
 
-from numerous.engine.system.external_mappings.interpolation_type import InterpolationType
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 

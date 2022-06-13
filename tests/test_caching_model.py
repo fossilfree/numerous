@@ -73,7 +73,7 @@ class S2N(Subsystem):
         self.register_items(r_items)
 
 
-def test_cashing_model(monkeypatch, tmpdir):
+def test_caching_model(monkeypatch, tmpdir):
     system = S2N("S2", 2)
     tmpdir_path = str(tmpdir)
     monkeypatch.setenv("EXPORT_MODEL_PATH", tmpdir_path)

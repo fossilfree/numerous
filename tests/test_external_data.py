@@ -248,17 +248,17 @@ def test_external_data_multiple(use_llvm, system, external_data):
         z3 = df['system_outer.system_external.tm0.test_nm.T2'][ix]
         z4 = df['system_outer.system_external.tm0.test_nm.T_i2'][ix]
 
-        assert v1 == v0, f"expected {v0} but got {v1} at {t}"
-        assert v2 == v0, f"expected {v0} but got {v2} at {t}"
-        assert v3 == v0, f"expected {v0} but got {v3} at {t}"
-        assert v4 == v0, f"expected {v0} but got {v4} at {t}"
-        assert v3 == v4, f"expected {v3} but got {v4} at {t}"
+        assert v1 == pytest.approx(v0), f"expected {v0} but got {v1} at {t}"
+        assert v2 == pytest.approx(v0), f"expected {v0} but got {v2} at {t}"
+        assert v3 == pytest.approx(v0), f"expected {v0} but got {v3} at {t}"
+        assert v4 == pytest.approx(v0), f"expected {v0} but got {v4} at {t}"
+        assert v3 == pytest.approx(v4), f"expected {v3} but got {v4} at {t}"
 
-        assert z1 == z0, f"expected {z0} but got {z1} at {t}"
-        assert z2 == z0, f"expected {z0} but got {z2} at {t}"
-        assert z3 == z0, f"expected {z0} but got {z3} at {t}"
-        assert z4 == z0, f"expected {z0} but got {z4} at {t}"
-        assert z3 == z4, f"expected {z3} but got {z4} at {t}"
+        assert z1 == pytest.approx(z0), f"expected {z0} but got {z1} at {t}"
+        assert z2 == pytest.approx(z0), f"expected {z0} but got {z2} at {t}"
+        assert z3 == pytest.approx(z0), f"expected {z0} but got {z3} at {t}"
+        assert z4 == pytest.approx(z0), f"expected {z0} but got {z4} at {t}"
+        assert z3 == pytest.approx(z4), f"expected {z3} but got {z4} at {t}"
 
 
 @pytest.mark.parametrize("chunksize", [1, 10000])
@@ -286,8 +286,8 @@ def test_external_data_chunks_and_historian_update(external_data: external_data,
         v = df['system_external.tm0.test_nm.T1'][ix]
         v1 = df['system_external.tm0.test_nm.T_i1'][ix]
 
-        assert v == v0, f"expected {v0} but got {v}"
-        assert v1 == v, f"expected {v} but got {v1}"
+        assert v == pytest.approx(v0), f"expected {v0} but got {v}"
+        assert v1 == pytest.approx(v), f"expected {v} but got {v1}"
 
     t_hit_analytical = []
     if system == StaticDataSystemWithBall:
