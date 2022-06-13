@@ -2,6 +2,8 @@ import itertools
 import os
 import pickle
 import sys
+
+from copy import copy, deepcopy
 from ctypes import CFUNCTYPE, c_int64, POINTER, c_double, c_void_p
 
 import numpy as np
@@ -19,7 +21,7 @@ from numerous.engine.model.aliased_dataframe import AliasedDataFrame
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
 from numerous.engine.model.utils import Imports
 from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
-from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping
+from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping, ExternalMappingUnpacked
 
 from numerous.utils.logger_levels import LoggerLevel
 
@@ -134,6 +136,7 @@ class Model:
         else:
             self.logger_level = logger_level
         external_mappings_unpacked = system.get_external_mappings()
+        self.system_external_mappings = external_mappings_unpacked
         self.is_external_data = True if len(external_mappings_unpacked) else False
         self.external_mappings = ExternalMapping(external_mappings_unpacked) if len(
             external_mappings_unpacked) else EmptyMapping()
@@ -420,6 +423,15 @@ class Model:
             self.variables[k].value = v
             self.var_write(v, self.vars_ordered_values[k])
 
+    def set_variables(self, variables: dict):
+        for k, v in variables.items():
+            var_id = self.aliases[k]
+            self.variables[var_id].value = v
+            self.var_write(v, self.vars_ordered_values[var_id])
+
+    def get_variables_initial_values(self):
+        return {self.inverse_aliases[k]: v for k, v in self._initial_variables_dict.items()}
+
     def lower_model_codegen(self, tmp_vars):
 
         logging.info('Lowering model')
@@ -432,7 +444,7 @@ class Model:
 
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.variables, \
         self.state_idx, self.derivatives_idx = \
-            eq_gen.generate_equations(export_model=self.export_model)
+            eq_gen.generate_equations(export_model=self.export_model, clonable=self.clonable)
 
         for varname, ix in self.vars_ordered_values.items():
             var = self.variables[varname]
@@ -716,7 +728,55 @@ class Model:
         self.numba_model = NM_instance
         return self.numba_model
 
-    def set_functions(self, compiled_compute, var_func, var_write):
+    def set_functions(self, equations_llvm_opt, n_deriv, max_var):
+        for equation in equations_llvm_opt:
+            llmod2 = llvm.parse_assembly(equation)
+            ee.add_module(llmod2)
+        ee.finalize_object()
+        cfptr = ee.get_function_address("kernel")
+
+        cfptr_var_r = ee.get_function_address("vars_r")
+        cfptr_var_w = ee.get_function_address("vars_w")
+
+        c_float_type = type(np.ctypeslib.as_ctypes(np.float64()))
+
+        diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type))(cfptr)
+
+        vars_r = CFUNCTYPE(POINTER(c_float_type), c_int64)(cfptr_var_r)
+
+        vars_w = CFUNCTYPE(c_void_p, c_double, c_int64)(cfptr_var_w)
+
+        n_deriv = n_deriv
+        max_var = max_var
+
+        @njit('float64[:](float64[:])')
+        def compiled_compute(y):
+            deriv_pointer = diff_(y.ctypes)
+            return carray(deriv_pointer, (n_deriv,)).copy()
+
+        @njit('float64[:]()')
+        def var_func():
+            variables_pointer = vars_r(0)
+            variables_array = carray(variables_pointer, (max_var,))
+
+            return variables_array.copy()
+
+        @njit('void(float64,int64)')
+        def var_write(var, idx):
+            vars_w(var, idx)
+
+        def c1(self, array_):
+            return compiled_compute(array_)
+
+        def c2(self):
+            return var_func()
+
+        def c3(self, value, idx):
+            return var_write(value, idx)
+
+        setattr(CompiledModel, "compiled_compute", c1)
+        setattr(CompiledModel, "read_variables", c2)
+        setattr(CompiledModel, "write_variables", c3)
 
         for varname, ix in self.vars_ordered_values.items():
             var = self.variables[varname]
@@ -769,6 +829,44 @@ class Model:
         data = self.create_historian_dict(historian_data)
         return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
 
+    def set_external_mappings(self, external_mappings, data_loader):
+        external_mappings_unpacked = [ExternalMappingUnpacked(external_mappings, data_loader)]
+        external_mappings_unpacked = self.system_external_mappings + external_mappings_unpacked
+        self.is_external_data = True if len(external_mappings_unpacked) else False
+        self.external_mappings = ExternalMapping(external_mappings_unpacked) if len(
+            external_mappings_unpacked) else EmptyMapping()
+
+        number_of_external_mappings = 0
+        external_idx = []
+
+        for var in self.variables.values():
+            if self.external_mappings.is_mapped_var(self.variables, var.id, self.system.id):
+                external_idx.append(self.vars_ordered_values[var.id])
+                number_of_external_mappings += 1
+                self.external_mappings.add_df_idx(self.variables, var.id, self.system.id)
+        self.number_of_external_mappings = number_of_external_mappings
+        self.external_mappings.store_mappings()
+
+        self.external_idx = np.array(external_idx, dtype=np.int64)
+
+        self.numba_model.external_idx = self.external_idx
+        self.numba_model.external_mappings_time = self.external_mappings.external_mappings_time
+        self.numba_model.number_of_external_mappings = self.number_of_external_mappings
+        self.numba_model.external_mappings_numpy = self.external_mappings.external_mappings_numpy
+        self.numba_model.external_df_idx = self.external_mappings.external_df_idx
+        self.numba_model.approximation_type = self.external_mappings.interpolation_info
+        self.numba_model.is_external_data = self.is_external_data
+        self.numba_model.max_external_t = self.external_mappings.t_max
+
+        self.numba_model.map_external_data(0)
+
+        # if self.numba_model.is_external_data_update_needed(0):
+        self.numba_model.is_external_data = self.external_mappings.load_new_external_data_batch(0)
+        if self.numba_model.is_external_data:
+            self.numba_model.update_external_data(self.external_mappings.external_mappings_numpy,
+                                                  self.external_mappings.external_mappings_time,
+                                                  self.external_mappings.t_max)
+
     @classmethod
     def from_file(cls, param):
         system_, logger_level, imports, use_llvm, vars_ordered_values, variables, state_idx, \
@@ -782,51 +880,32 @@ class Model:
         model.derivatives_idx = derivatives_idx
         model.init_values = init_values
         model.aliases = aliases
-        for equation in equations_llvm_opt:
-            llmod2 = llvm.parse_assembly(equation)
-            ee.add_module(llmod2)
-        ee.finalize_object()
-        cfptr = ee.get_function_address("kernel")
 
-        cfptr_var_r = ee.get_function_address("vars_r")
-        cfptr_var_w = ee.get_function_address("vars_w")
+        model.set_functions(equations_llvm_opt, n_deriv, max_var)
+        return model
 
-        c_float_type = type(np.ctypeslib.as_ctypes(np.float64()))
+    def clone(self, clonable=False):
+        if not self.clonable:
+            raise Exception("Model isn't clonable")
+        system_ = self.system
+        logger_level = self.logger_level
+        use_llvm = self.use_llvm
+        model = Model(system=system_, assemble=False, logger_level=logger_level,
+                      use_llvm=use_llvm)
+        model.variables = self.variables
+        model.imports = self.imports
+        model.vars_ordered_values = self.vars_ordered_values
+        model.state_idx = self.state_idx
+        model.derivatives_idx = self.derivatives_idx
+        model.init_values = self.init_values
+        model.aliases = self.aliases
 
-        diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type))(cfptr)
+        model.set_functions(self.equations_llvm_opt, self.n_deriv, self.max_var)
 
-        vars_r = CFUNCTYPE(POINTER(c_float_type), c_int64)(cfptr_var_r)
+        if clonable:
+            model.clonable = True
+            model.equations_llvm_opt = self.equations_llvm_opt
+            model.n_deriv = self.n_deriv
+            model.max_var = self.max_var
 
-        vars_w = CFUNCTYPE(c_void_p, c_double, c_int64)(cfptr_var_w)
-
-        @njit('float64[:](float64[:])')
-        def compiled_compute(y):
-            deriv_pointer = diff_(y.ctypes)
-            return carray(deriv_pointer, (n_deriv,)).copy()
-
-        @njit('float64[:]()')
-        def var_func():
-            variables_pointer = vars_r(0)
-            variables_array = carray(variables_pointer, (max_var,))
-
-            return variables_array.copy()
-
-        @njit('void(float64,int64)')
-        def var_write(var, idx):
-            vars_w(var, idx)
-
-        def c1(self, array_):
-            return compiled_compute(array_)
-
-        def c2(self):
-            return var_func()
-
-        def c3(self, value, idx):
-            return var_write(value, idx)
-
-        setattr(CompiledModel, "compiled_compute", c1)
-        setattr(CompiledModel, "read_variables", c2)
-        setattr(CompiledModel, "write_variables", c3)
-
-        model.set_functions(compiled_compute, var_func, var_write)
         return model
