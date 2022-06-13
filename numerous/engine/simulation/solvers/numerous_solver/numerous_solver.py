@@ -19,6 +19,7 @@ try:
 except AttributeError:
     FEPS = 2.220446049250313e-16
 
+
 @unique
 class SolveStatus(IntEnum):
     Running = 0
@@ -186,7 +187,6 @@ class Numerous_solver(BaseSolver):
             def get_order_y(rb, order):
                 y = rb[2][0:order, :]
                 return y
-
 
             # 0 index is used to keep next time step defined by solver
             te_array[0] = t
@@ -558,6 +558,7 @@ class Numerous_solver(BaseSolver):
 
             roller = self._init_roller(order)
             order_ = 0
+            g = self.g
         else:
 
             dt = self.info.dt  # internal solver step size
@@ -567,8 +568,19 @@ class Numerous_solver(BaseSolver):
             g = self.info.g
             initial_step = self.info.initial_step
 
-        return dt, strict_eval, step_integrate_, solve_state, roller, order_, order, initial_step, dt, min_step, \
-               max_step, atol
+        return (dt,
+                strict_eval,
+                step_integrate_,
+                solve_state,
+                roller,
+                order_,
+                order,
+                initial_step,
+                dt,
+                min_step,
+                max_step,
+                atol,
+                g)
 
     def solve(self):
         """
@@ -627,14 +639,14 @@ class Numerous_solver(BaseSolver):
     def _solver(self, t_eval, info=None):
 
         dt, strict_eval, step_integrate_, solve_state, roller, order_, order, initial_step, dt, min_step, max_step, \
-            atol = self._init_solve(info)
+        atol, g = self._init_solve(info)
 
         t_start = t_eval[0]
         t_end = t_eval[-1]
 
         info = self._solve(self.numba_model,
                            solve_state, initial_step, dt, order, order_, roller, strict_eval, min_step,
-                           max_step, step_integrate_, self.events, self.actions, self.g,
+                           max_step, step_integrate_, self.events, self.actions, g,
                            self.number_of_events, self.event_directions, self.run_event_action,
                            self.get_solver_event_id, self.timestamps,
                            self.timestamps_actions, t_start, t_end,
