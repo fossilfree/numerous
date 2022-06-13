@@ -328,7 +328,6 @@ class Numerous_solver(BaseSolver):
                         dt = initial_step
                         g = events(t, get_variables_modified(y_previous))
                     else:
-
                         numba_model.set_states(y_event)
 
                         run_event_action(actions, t_event, numba_model, event_ix)
