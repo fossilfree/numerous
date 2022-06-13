@@ -5,8 +5,6 @@ import os.path
 import pandas as pd
 import numpy as np
 
-from pytest import approx
-
 from numerous.engine.system.external_mappings import ExternalMappingElement
 from numerous.utils.data_loader import InMemoryDataLoader, CSVDataLoader
 from numerous.utils.historian import InMemoryHistorian
@@ -18,8 +16,9 @@ from numerous.multiphysics import EquationBase, Equation
 
 try:
     FEPS = np.finfo(1.0).eps
-except:
+except AttributeError:
     FEPS = 2.220446049250313e-16
+
 
 def analytical_solution(tmax, g=9.81, f=0.05, x0=1):
     t_hits = []
@@ -35,6 +34,7 @@ def analytical_solution(tmax, g=9.81, f=0.05, x0=1):
 
     t_hits = np.array(t_hits)
     return t_hits
+
 
 class StaticDataTest(EquationBase, Item):
     def __init__(self, tag="tm"):
@@ -134,17 +134,21 @@ def step_solver(sim, t0: float, tmax: float, dt: float):
     df = sim.model.historian_df
     return df
 
+
 def normal_solver(sim, t0: float, tmax: float, dt: float):
     sim.solve()
 
     df = sim.model.historian_df
     return df
 
+
 def inmemorydataloader(df=None, **kwargs):
     return InMemoryDataLoader(df=df)
 
+
 def csvdataloader(chunksize=1, **kwargs):
     return CSVDataLoader(chunksize=chunksize)
+
 
 @pytest.fixture
 def tmpdir():
@@ -161,6 +165,7 @@ def external_data():
                 }
         return data
     yield fn
+
 
 @pytest.fixture
 def simulation(tmpdir: tmpdir):
@@ -182,7 +187,7 @@ def simulation(tmpdir: tmpdir):
                                   dataframe_aliases))
         data_loader = dataloader(df=df, chunksize=chunksize)
 
-        historian=InMemoryHistorian()
+        historian = InMemoryHistorian()
         historian.max_size = historian_max_size
         s = Simulation(
             Model(system
@@ -191,6 +196,7 @@ def simulation(tmpdir: tmpdir):
             t_start=t0, t_stop=tmax, num=len(np.arange(0, tmax, dt_eval)), max_step=max_step)
         return s
     yield fn
+
 
 @pytest.mark.parametrize("system", [StaticDataSystem, StaticDataSystemWithBall])
 @pytest.mark.parametrize("use_llvm", [True, False])
@@ -203,7 +209,7 @@ def test_external_data_multiple(use_llvm, system, external_data):
     dt_data = 0.1
     dt_eval = 0.1
     data = external_data(t0, tmax, dt_data)
-    data.update({'Dry Bulb Temperature {C}': data['Dew Point Temperature {C}']+1})
+    data.update({'Dry Bulb Temperature {C}': data['Dew Point Temperature {C}'] + 1})
 
     df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
     index_to_timestep_mapping = 'time'
@@ -292,7 +298,7 @@ def test_external_data_chunks_and_historian_update(external_data: external_data,
     t_hit_analytical = []
     if system == StaticDataSystemWithBall:
         t_hit_analytical = analytical_solution(tmax)
-        t_hit_model=np.unique(df['system_external.ball.t1.t_hit'])[1:]
+        t_hit_model = np.unique(df['system_external.ball.t1.t_hit'])[1:]
         assert len(t_hit_model) == len(t_hit_analytical), "not all events were detected"
         assert t_hit_model == pytest.approx(t_hit_analytical, 1e-3), "event detection inaccurate"
 

@@ -16,7 +16,7 @@ Info = namedtuple('Info', ['status', 'event_id', 'step_info', 'initial_step', 'd
 
 try:
     FEPS = np.finfo(1.0).eps
-except:
+except AttributeError:
     FEPS = 2.220446049250313e-16
 
 @unique
@@ -357,7 +357,7 @@ class Numerous_solver(BaseSolver):
                     ix_eval, t_start, t_next_eval, t_new_test, dt = \
                         handle_converged(t, dt, ix_eval, t_next_eval)
 
-                    if abs(t-t_end) < 100*FEPS:
+                    if abs(t - t_end) < 100 * FEPS:
                         solve_status = SolveStatus.Finished
                         break
 
@@ -366,8 +366,6 @@ class Numerous_solver(BaseSolver):
                         break
 
                     order_ = add_ring_buffer(t, y, roller, order_)
-
-
 
             return Info(status=solve_status, event_id=get_solver_event_id(t, numba_model), step_info=step_info,
                         dt=dt, t=t, y=np.ascontiguousarray(y), order_=order_, roller=roller, solve_state=_solve_state,
@@ -588,7 +586,7 @@ class Numerous_solver(BaseSolver):
         logging.info('Solve started')
 
         if self.use_no_state_solver():
-            dt = self.time[1]-self.time[0]
+            dt = self.time[1] - self.time[0]
             for t in self.time[0:-1]:
                 self._no_state_solver_step(t, dt)
             return self.sol, self.result_status
@@ -602,7 +600,7 @@ class Numerous_solver(BaseSolver):
 
         if self.use_no_state_solver():
             self._no_state_solver_step(t, delta_t)
-            return t+delta_t, t+delta_t
+            return t + delta_t, t + delta_t
 
         if delta_t is None:
             delta_t = self.delta_t
