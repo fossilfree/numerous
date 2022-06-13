@@ -33,12 +33,18 @@ numba_model_spec = [
     ('max_external_t', float64),
     ('min_external_t', float64),
     ('external_idx', int64[:]),
+    ('previous_external_mappings', float64[:])
 ]
 
 
 @njit
+def closest_time_idx(t, time_array):
+    return np.searchsorted(time_array, t + 100 * FEPS, side='right') - 1
+
+
+@njit
 def step_approximation(t, time_array, data_array):
-    idx = np.searchsorted(time_array, t+100*FEPS, side='right') - 1
+    idx = closest_time_idx(t, time_array)
     return data_array[idx]
 
 
@@ -71,6 +77,7 @@ class CompiledModel:
         self.historian_data = np.empty(
             (len(init_vars) + 1, self.historian_max_size), dtype=np.float64)
         self.historian_data.fill(np.nan)
+        self.previous_external_mappings = np.zeros(self.number_of_external_mappings)
 
     def vectorized_full_jacobian(self, t, y, dt):
         h = 1e-8
@@ -88,7 +95,13 @@ class CompiledModel:
         return np.ascontiguousarray(jac)
 
     def map_external_data(self, t):
+
+        if not self.is_external_data:
+            return
+
+        next_values = np.zeros(self.number_of_external_mappings)
         for i in range(self.number_of_external_mappings):
+
             df_indx = self.external_df_idx[i][0]
             var_idx = self.external_df_idx[i][1]
             value = np.interp(t, self.external_mappings_time[df_indx],
@@ -96,7 +109,17 @@ class CompiledModel:
                 self.approximation_type[i] else \
                 step_approximation(t, self.external_mappings_time[df_indx],
                                    self.external_mappings_numpy[df_indx, :, var_idx])
+            next_values[i] = value
+
+        if np.array_equal(next_values, self.previous_external_mappings):  # No need to update if no values were changed
+            return
+
+        self.previous_external_mappings = next_values
+
+        for i, value in enumerate(next_values):
             self.write_variables(value, self.external_idx[i])
+
+        self.func(t, self.get_states())
 
     def update_external_data(self, external_mappings_numpy, external_mappings_time, max_external_t, min_external_t):
         self.external_mappings_time = external_mappings_time

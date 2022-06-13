@@ -40,6 +40,7 @@ class Numerous_solver(BaseSolver):
                  timestamp_events,
                  **kwargs):
         super().__init__()
+        numba_compiled_solver = False
 
         def get_variables_modified(y_):
             old_states = numba_model.get_states()
@@ -227,17 +228,20 @@ class Numerous_solver(BaseSolver):
                 else:
                     # Since we didnt roll back we can update t_start and rollback
                     # Check if we should update history at t eval
+
+                    numba_model.map_external_data(t)
                     ix_eval, t_start, t_next_eval, t_new_test, dt = \
                         handle_converged(t, dt, ix_eval, t_next_eval)
 
-                    if abs(t-t_end) <= 100*FEPS:
+                    if abs(t - t_end) <= 100 * FEPS:
                         solve_status = SolveStatus.Finished
                         break
-                    if get_solver_event_id(t, numba_model) == SolveEvent.Historian:
+                    if get_solver_event_id(t, numba_model) >= SolveEvent.Historian:
                         solve_status = SolveStatus.Running
                         break
 
                     order_ = add_ring_buffer(t, y, roller, order_)
+
 
                 dt_ = min([t_next_eval - t_start, t_new_test - t_start])
                 # solve from start to new test by calling the step function
@@ -350,7 +354,7 @@ class Numerous_solver(BaseSolver):
                         y = y_previous
 
                 if step_converged:
-                    numba_model.map_external_data(t)
+
                     solve_event_id = get_solver_event_id(t, numba_model)
                     if solve_event_id > 0:
                         ix_eval, t_start, t_next_eval, t_new_test, dt = \
@@ -506,11 +510,10 @@ class Numerous_solver(BaseSolver):
             return True
 
     def _no_state_solver_step(self, t, dt):
-        states = self.numba_model.get_states()
-        if t == 0:
-            self.numba_model.map_external_data(t)
-        self.numba_model.func(t, states)
-        t += dt
+        '''
+        This method calculates the model variables using mappings, which are pushed through using the .func method of
+        the numba_model class. It assumes that the first step has already been saved in the historian.
+        '''
         solve_event_id = self.get_solver_event_id(t, self.numba_model)
         if solve_event_id == SolveEvent.Historian:
             self.model.create_historian_df()
@@ -521,7 +524,11 @@ class Numerous_solver(BaseSolver):
             self.model.create_historian_df()
             self.numba_model.historian_reinit()
             self.load_external_data(t)
+
+        states = self.numba_model.get_states()
+        t += dt
         self.numba_model.map_external_data(t)
+        self.numba_model.func(t, states)  # update mappings
         self.numba_model.historian_update(t)
 
     def solve(self):
@@ -540,7 +547,7 @@ class Numerous_solver(BaseSolver):
 
         if self.use_no_state_solver():
             dt = self.time[1]-self.time[0]
-            for t in self.time:
+            for t in self.time[0:-1]:
                 self._no_state_solver_step(t, dt)
             return self.sol, self.result_status
 

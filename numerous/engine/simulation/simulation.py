@@ -76,6 +76,7 @@ class Simulation:
 
         logging.info("Compiling Numba equations and initializing historian")
         compilation_start = time.time()
+        self.numba_model.map_external_data(t_start)
         self.numba_model.func(t_start, self.numba_model.get_states())
         self.numba_model.historian_update(t_start)
         compilation_finished = time.time()
@@ -94,13 +95,16 @@ class Simulation:
         return sol
 
     def reset(self):
+        #  TODO: currently, this method assumes solve start time to be 0
+
         self.__init_step()
 
         self.model.historian_df = None
         self.model.numba_model.historian_reinit()
 
-        self.numba_model.historian_update(0)
         self.numba_model.map_external_data(0)
+        self.numba_model.func(0, self.numba_model.get_states())
+        self.numba_model.historian_update(0)
 
         if self.numba_model.is_external_data_update_needed(0):
             self.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(0)

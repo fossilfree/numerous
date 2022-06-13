@@ -21,17 +21,20 @@ try:
 except:
     FEPS = 2.220446049250313e-16
 
-def analytical_solution(N_hits, g=9.81, f=0.05, x0=1):
+def analytical_solution(tmax, g=9.81, f=0.05, x0=1):
     t_hits = []
     summation = 0
-    for i in range(N_hits):
+    i = 0
+    while True:
         summation += (2 * (1 - f) ** (i))
         t_hit = np.sqrt(2 * x0 / g) * (summation - 1)
+        if t_hit > tmax:
+            break
         t_hits.append(t_hit)
+        i += 1
+
     t_hits = np.array(t_hits)
     return t_hits
-
-t_hits = analytical_solution(N_hits=10)
 
 class StaticDataTest(EquationBase, Item):
     def __init__(self, tag="tm"):
@@ -189,16 +192,18 @@ def simulation(tmpdir: tmpdir):
         return s
     yield fn
 
-
+@pytest.mark.parametrize("system", [StaticDataSystemWithBall])
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_data_multiple(use_llvm):
+def test_external_data_multiple(use_llvm, system, external_data):
     external_mappings = []
     external_mappings_outer = []
 
-    data = {'time': np.arange(101),
-            'Dew Point Temperature {C}': np.arange(101) + 1,
-            'Dry Bulb Temperature {C}': np.arange(101) + 2,
-            }
+    t0 = 0
+    tmax = 5
+    dt_data = 0.1
+    dt_eval = 0.1
+    data = external_data(t0, tmax, dt_data)
+    data.update({'Dry Bulb Temperature {C}': data['Dew Point Temperature {C}']+1})
 
     df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
     index_to_timestep_mapping = 'time'
@@ -219,18 +224,42 @@ def test_external_data_multiple(use_llvm):
                                      dataframe_aliases_outer)))
     data_loader = InMemoryDataLoader(df)
     system_outer = OuterSystem('system_outer',
-                               StaticDataSystem('system_external', n=1, external_mappings=external_mappings,
+                               system('system_external', n=1, external_mappings=external_mappings,
                                                 data_loader=data_loader),
                                external_mappings=external_mappings_outer,
                                data_loader=data_loader)
     s = Simulation(
         Model(system_outer, use_llvm=use_llvm),
-        t_start=0, t_stop=100.0, num=100, max_step=0.1)
+        t_start=0, t_stop=tmax, num=len(np.arange(0, tmax, dt_eval)), max_step=0.1)
     s.solve()
-    assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i1'])) == np.arange(101) + 1
-    assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i2'])) == np.arange(101) + 2
-    assert approx(np.array(s.model.historian_df['system_outer.tm0.test_nm.T_i1'])) == np.arange(101) + 1
-    assert approx(np.array(s.model.historian_df['system_outer.tm0.test_nm.T_i2'])) == np.arange(101) + 2
+    df = s.model.historian_df
+
+    for ix in df.index:
+        t = df['time'][ix]
+        ix_data = math.floor(t / dt_data + FEPS * 100)
+        v0 = data['Dew Point Temperature {C}'][ix_data]
+        z0 = data['Dry Bulb Temperature {C}'][ix_data]
+        v1 = df['system_outer.tm0.test_nm.T1'][ix]
+        v2 = df['system_outer.tm0.test_nm.T_i1'][ix]
+        v3 = df['system_outer.system_external.tm0.test_nm.T1'][ix]
+        v4 = df['system_outer.system_external.tm0.test_nm.T_i1'][ix]
+        z1 = df['system_outer.tm0.test_nm.T2'][ix]
+        z2 = df['system_outer.tm0.test_nm.T_i2'][ix]
+        z3 = df['system_outer.system_external.tm0.test_nm.T2'][ix]
+        z4 = df['system_outer.system_external.tm0.test_nm.T_i2'][ix]
+
+        assert v1 == v0, f"expected {v0} but got {v1} at {t}"
+        assert v2 == v0, f"expected {v0} but got {v2} at {t}"
+        assert v3 == v0, f"expected {v0} but got {v3} at {t}"
+        assert v4 == v0, f"expected {v0} but got {v4} at {t}"
+
+        assert z1 == z0, f"expected {z0} but got {z1} at {t}"
+        assert z2 == z0, f"expected {z0} but got {z2} at {t}"
+        assert z3 == z0, f"expected {z0} but got {z3} at {t}"
+        assert z4 == z0, f"expected {z0} but got {z4} at {t}"
+
+    a=1
+
 
 @pytest.mark.parametrize("chunksize", [1, 10000])
 @pytest.mark.parametrize("historian_max_size", [1, 10000])
