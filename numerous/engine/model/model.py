@@ -717,7 +717,6 @@ class Model:
         return self.numba_model
 
     def set_functions(self, equations_llvm_opt, n_deriv, max_var):
-
         for equation in equations_llvm_opt:
             llmod2 = llvm.parse_assembly(equation)
             ee.add_module(llmod2)
