@@ -753,10 +753,10 @@ class Model:
     def create_historian_df(self):
         if self.historian_df is not None:
             import pandas as pd
-            self.historian_df = AliasedDataFrame(pd.concat([self.historian_df,
+            self.historian_df = AliasedDataFrame(pd.concat([self.historian_df.df,
                                                             self._generate_history_df(
                                                                 self.generate_not_nan_history_array(),
-                                                                rename_columns=False)],
+                                                                rename_columns=False).df],
                                                            axis=0, sort=False, ignore_index=True),
                                                  aliases=self.aliases, rename_columns=True)
 
