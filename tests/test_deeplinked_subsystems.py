@@ -127,7 +127,7 @@ def test_system_link_Success1(use_llvm):
     assert approx(np.array(
         df['works_deeplink.linkersubsystem_deeplink_2.item_5.item_4.item_3.item_2.item_1.boundary_deeplink.t1.x'])[1:],
                   rel=1) == \
-           expected(len(df.index[:-1]), (N_outer - 1) * N_inner, 0.9)
+           expected(len(df.df.index[:-1]), (N_outer - 1) * N_inner, 0.9)
 
 
 @pytest.mark.parametrize("use_llvm", [True, False])
@@ -141,8 +141,7 @@ def test_system_link_Success2(use_llvm):
 
     sim.solve()
     df = sim.model.historian_df
-
     assert approx(
         np.array(df['doesnotwork_deeplink.inlet_2.item_5.item_4.item_3.item_2.item_1.boundary_deeplink.t1.x'])[1:],
         rel=1) == \
-           expected(len(df.index[:-1]), (N_outer - 1) * N_inner, 0.9)
+           expected(len(df.df.index[:-1]), (N_outer - 1) * N_inner, 0.9)

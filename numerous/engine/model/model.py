@@ -2,7 +2,6 @@ import itertools
 import os
 import pickle
 import sys
-from copy import copy
 from ctypes import CFUNCTYPE, c_int64, POINTER, c_double, c_void_p
 
 import numpy as np
@@ -15,6 +14,7 @@ from numba.core.registry import CPUDispatcher
 
 from numba.experimental import jitclass
 import pandas as pd
+from numerous.engine.model.aliased_dataframe import AliasedDataFrame
 
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
 from numerous.engine.model.utils import Imports
@@ -29,7 +29,7 @@ from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
 
 from numerous.engine.system.subsystem import Subsystem, ItemSet
-from numerous.engine.variables import VariableType, SetOfVariables
+from numerous.engine.variables import VariableType
 
 from numerous.engine.model.ast_parser.parser_ast import parse_eq
 from numerous.engine.model.graph_representation.graph import Graph
@@ -124,7 +124,7 @@ class Model:
 
     def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
                  imports=None, historian=InMemoryHistorian(),
-                 use_llvm=True, save_to_file=False, generate_graph_pdf=False, export_model=False):
+                 use_llvm=True, save_to_file=False, generate_graph_pdf=False, export_model=False, clonable=False):
 
         self.path_to_variable = {}
         self.generate_graph_pdf = generate_graph_pdf
@@ -140,6 +140,7 @@ class Model:
 
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
+        self.clonable = clonable
         self.imports = Imports()
         self.imports.add_as_import("numpy", "np")
         self.imports.add_from_import("numba", "njit")
@@ -488,6 +489,11 @@ class Model:
                              eq_gen.generated_program.n_deriv), handle, protocol=pickle.HIGHEST_PROTOCOL)
             logging.info('Model successfully exported to ' + filename)
 
+        if self.clonable:
+            self.equations_llvm_opt = eq_gen.generated_program.equations_llvm_opt
+            self.max_var = eq_gen.generated_program.max_var
+            self.n_deriv = eq_gen.generated_program.n_deriv
+
         # set after export (otherwise we get pickling error for var.write_variable=var_write)
         for varname, ix in self.vars_ordered_values.items():
             var = self.variables[varname]
@@ -824,30 +830,3 @@ class Model:
 
         model.set_functions(compiled_compute, var_func, var_write)
         return model
-
-
-class AliasedDataFrame(pd.DataFrame):
-    _metadata = ['aliases']
-
-    def __init__(self, data, aliases={}, rename_columns=True):
-        super().__init__(data)
-        self.aliases = aliases
-        self.rename_columns = rename_columns
-        if self.rename_columns:
-            tmp = copy(list(data.keys()))
-            for key in tmp:
-                if key in self.aliases.keys():
-                    data[self.aliases[key]] = data.pop(key)
-            super().__init__(data)
-
-    def __getitem__(self, item):
-        if self.rename_columns:
-            if not isinstance(item, list):
-                col = self.aliases[item] if item in self.aliases else item
-                return super().__getitem__(col)
-
-            cols = [self.aliases[i] if i in self.aliases else i for i in item]
-
-            return super().__getitem__(cols)
-        else:
-            return super().__getitem__(item)
