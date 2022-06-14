@@ -1,10 +1,14 @@
 import pytest
 import numpy as np
+import pandas as pd
 
 from pytest import approx
 
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
+from numerous.engine.system.external_mappings import ExternalMappingElement
+from numerous.engine.system.external_mappings.interpolation_type import InterpolationType
+from numerous.utils.data_loader import InMemoryDataLoader
 
 from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay, LoggerLevel
 from numerous.multiphysics import EquationBase, Equation
@@ -272,6 +276,7 @@ def test_chain_item_binding_model_nested(ms3, use_llvm):
 
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_chain_item_binding_model_nested2(ms3, use_llvm):
+
     ms4 = Subsystem('new_s4')
     ms4.register_item(ms3)
     ms5 = Subsystem('new_s5')
@@ -284,8 +289,8 @@ def test_chain_item_binding_model_nested2(ms3, use_llvm):
     m1 = Model(ms7, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     s1.solve()
-    assert len(m1.path_variables) == 50
-    assert len(m1.variables) == 25
+    assert len(m1.path_variables) == 52
+    assert len(m1.variables) == 26
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
 
@@ -369,7 +374,6 @@ class SetVar(Subsystem, EquationBase):
 
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_static_system(use_llvm):
-    import numpy as np
     s = Simulation(Model(StaticDataSystem('system_static', n=1), use_llvm=use_llvm), t_start=0, t_stop=100.0, num=100,
                    num_inner=100, max_step=.1)
     s.solve()

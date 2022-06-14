@@ -31,7 +31,7 @@ class OverloadAction(Enum):
 class VariableDescription:
     tag: str
     type: VariableType = VariableType.PARAMETER
-    initial_value: Any = None
+    initial_value: [float, int] = None
     id: str = None
     variable_idx: int = 0
     logger_level: LoggerLevel = LoggerLevel.ALL
@@ -182,10 +182,9 @@ class Variable(MappedValue):
         self.size = 0
         self.temporary_variable = False
         if base_variable:
-
-            self._value = base_variable.value
+            self.value = base_variable.value
         else:
-            self._value = detailed_variable_description.initial_value
+            self.value = detailed_variable_description.initial_value
         self.item = detailed_variable_description.item
         self.metadata = detailed_variable_description.metadata
         self.mapping = detailed_variable_description.mapping
@@ -212,7 +211,8 @@ class Variable(MappedValue):
         try:
             float(value)
         except ValueError:
-            print(value)
+            raise ValueError(f"Only numeric values allowed in variables (attempted to set value='{value}' in "
+                             f"{self.id})")
         self._value = value
         if self.llvm_idx is not None:
             self.write_variable(value, self.llvm_idx)

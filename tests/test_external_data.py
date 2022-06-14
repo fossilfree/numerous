@@ -53,6 +53,21 @@ class StaticDataTest(EquationBase, Item):
         scope.T_i1 = scope.T1
         scope.T_i2 = scope.T2
 
+class SubSubSystem(Subsystem):
+    def __init__(self, tag='system', n=3, external_mappings=None, data_loader=None):
+        super(SubSubSystem, self).__init__(tag=tag, external_mappings=external_mappings, data_loader=data_loader)
+        o_s = []
+        for i in range(n):
+            o = StaticDataSystem('sub' + str(i))
+            o_s.append(o)
+
+        for i in reversed(range(n-1)):
+            o = o_s[i]
+            o_sub = o_s[i+1]
+            o.register_item(o_sub)
+
+        self.register_item(o_s[0])
+
 
 class StaticDataSystem(Subsystem):
     def __init__(self, tag, n=1, external_mappings=None, data_loader=None):
@@ -170,7 +185,8 @@ def external_data():
 @pytest.fixture
 def simulation(tmpdir: tmpdir):
     def fn(data, dt_eval=0.1, chunksize=1, historian_max_size=None, t0=0, tmax=5, max_step=0.1, dataloader=csvdataloader,
-           system=StaticDataSystemWithBall):
+           system=StaticDataSystemWithBall, mapped_name="Dew Point Temperature {C}",
+           variable_name='system_external.tm0.test_nm.T1'):
         external_mappings = []
 
         df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}'])
@@ -178,7 +194,7 @@ def simulation(tmpdir: tmpdir):
         index_to_timestep_mapping_start = 0
 
         dataframe_aliases = {
-            'system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
+            variable_name: (mapped_name, InterpolationType.PIESEWISE),
         }
         path = os.path.join(tmpdir, "x.csv")
         df.to_csv(path)
@@ -191,7 +207,7 @@ def simulation(tmpdir: tmpdir):
         historian.max_size = historian_max_size
         s = Simulation(
             Model(system
-                  ('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader),
+                  ('system_external', external_mappings=external_mappings, data_loader=data_loader),
                   historian=historian),
             t_start=t0, t_stop=tmax, num=len(np.arange(0, tmax, dt_eval)), max_step=max_step)
         return s
@@ -318,3 +334,20 @@ def test_csvdataloader_reset(external_data: external_data, simulation: simulatio
                    dt_eval=dt, dataloader=csvdataloader, system=StaticDataSystemWithBall)
     s.solve()
     s.solve()
+
+def test_wrong_mapping(external_data: external_data, simulation: simulation):
+    t0 = 0
+    tmax = 5
+    dt = 0.1
+    dt_data = 0.5
+    data = external_data(t0, tmax, dt_data)
+    chunksize = 10000
+    historian_max_size = 10000
+    with pytest.raises(ValueError, match=r"No variable named*"):
+        simulation(data=data, chunksize=chunksize, historian_max_size=historian_max_size, t0=t0, tmax=tmax,
+                       max_step=dt, dt_eval=dt, dataloader=csvdataloader, system=StaticDataSystem,
+                       variable_name='does.not.exist')
+
+    simulation(data=data, chunksize=chunksize, historian_max_size=historian_max_size, t0=t0, tmax=tmax,
+                       max_step=dt, dt_eval=dt, dataloader=csvdataloader, system=SubSubSystem,
+                       variable_name='system_external.sub0.sub1.sub2.tm0.test_nm.T1')
