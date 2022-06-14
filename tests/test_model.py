@@ -1,10 +1,14 @@
 import pytest
 import numpy as np
+import pandas as pd
 
 from pytest import approx
 
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
+from numerous.engine.system.external_mappings import ExternalMappingElement
+from numerous.engine.system.external_mappings.interpolation_type import InterpolationType
+from numerous.utils.data_loader import InMemoryDataLoader
 
 from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay, LoggerLevel
 from numerous.multiphysics import EquationBase, Equation
