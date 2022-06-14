@@ -13,14 +13,15 @@ class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
 
-        fmu_filename = '_01_modex_Linux.fmu'
+        fmu_filename = '/home/artem/fmus/PCU_RHU_EnergyMachines_01_modex_Linux.fmu'
         fmu_subsystem = FMU_Subsystem(fmu_filename, "PCU_RHU", debug_output=True)
+        # fmu_subsystem.t1.variables["h"].value = 19
         self.register_items([fmu_subsystem])
 
 
 subsystem1 = S3('q1')
 
-m1 = Model(subsystem1, use_llvm=False)
+m1 = Model(subsystem1, use_llvm=True)
 s = Simulation(
     m1, t_start=0, t_stop=0.2, num=100, num_inner=1, max_step=.1)
 
