@@ -246,7 +246,6 @@ class ASTBuilder:
             for arg in args:
                 arg_idxs.append(self.variable_names[arg])
             target_idx = self.variable_names[target[0]]
-            print(target_idx)
             if len(args) == 1:
                 temp=(ast.Assign(targets=[ast.Subscript(value=GLOBAL_ARRAY,
                                                                    slice=ast.Index(
