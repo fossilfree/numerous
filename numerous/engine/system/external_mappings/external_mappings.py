@@ -82,7 +82,7 @@ class ExternalMapping:
         for path in variables[var_id].path.path[system_id]:
             for columns in self.external_columns:
                 for column in columns:
-                    if column in path:
+                    if column == path:
                         return True
 
 

@@ -9,7 +9,9 @@ from numba import njit
 from copy import deepcopy
 
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
-from .solver_methods import BaseMethod, RK45
+from .solver_methods import BaseMethod, RK45, Euler
+
+solver_methods = {'RK45': RK45, 'Euler': Euler}
 
 Info = namedtuple('Info', ['status', 'event_id', 'step_info', 'initial_step', 'dt', 't', 'y', 'order_', 'roller',
                            'solve_state', 'ix_eval', 'g'])
@@ -81,7 +83,10 @@ class Numerous_solver(BaseSolver):
 
         self.method_options = odesolver_options
         try:
-            self.method = eval(kwargs.get('method', 'RK45'))
+            try:
+                self.method = solver_methods[kwargs.get('method', 'RK45')]
+            except KeyError:
+                raise ValueError(f"Unknown method {kwargs.get('method', 'RK45')}, allowed methods: {list(solver_methods.keys())}")
             self._method = self.method(self, **self.method_options)
             assert issubclass(self.method, BaseMethod), f"{self.method} is not a BaseMethod"
         except Exception as e:
