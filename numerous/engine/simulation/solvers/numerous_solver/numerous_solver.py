@@ -628,7 +628,7 @@ class Numerous_solver(BaseSolver):
     def _solver(self, t_eval, info=None):
 
         dt, strict_eval, step_integrate_, solve_state, roller, order_, order, initial_step, dt, min_step, max_step, \
-        atol, g = self._init_solve(info)
+            atol, g = self._init_solve(info)
 
         t_start = t_eval[0]
         t_end = t_eval[-1]
