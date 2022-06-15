@@ -26,6 +26,10 @@ class AliasedDataFrame:
         else:
             return self.df[names]
 
+    @property
+    def index(self):
+        return self.df.index
+
     def get(self, names: str | Sequence[str]):
         if self.rename_columns:
             if isinstance(names, str):
