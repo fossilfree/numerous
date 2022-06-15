@@ -1,3 +1,4 @@
+import numpy as np
 from numerous.multiphysics import EquationBase, Equation
 
 
@@ -35,10 +36,11 @@ class Test_Eq(EquationBase):
 class TestEq_ground(EquationBase):
     __test__ = False
 
-    def __init__(self, TG=10, RG=2):
+    def __init__(self, TG=10, RG=2, tol=1e-6):
         super().__init__(tag='ground_eq')
         self.add_constant('T', TG)
         self.add_constant('R', RG)
+        self.add_constant('tol', tol)
 
 
 class TestEq_dictState(EquationBase):

@@ -24,7 +24,7 @@ class Simulation:
                Not unique tag that will be used in reports or printed output.
     """
 
-    def __init__(self, model: Model, t_start: float = 0, t_stop: float = 20000, num: int = 1000, num_inner: int = 1,
+    def __init__(self, model: Model, t_start: float = 0, t_stop: float = 20000, num: int = 1000,
                  max_event_steps: int = 100,
                  start_datetime: datetime = datetime.now(), **kwargs):
         """
@@ -64,7 +64,7 @@ class Simulation:
         timestamp_action_function = model.generate_event_action_ast(model.timestamp_events)
         timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
         self.solver = Numerous_solver(time_, delta_t, model, self.numba_model,
-                                      num_inner, max_event_steps, self.model.states_as_vector,
+                                      max_event_steps, self.model.states_as_vector,
                                       numba_compiled_solver=model.use_llvm,
                                       events=(event_function, action_function), event_directions=event_directions,
                                       timestamp_events=(timestamp_action_function, timestamps),
@@ -76,6 +76,7 @@ class Simulation:
 
         logging.info("Compiling Numba equations and initializing historian")
         compilation_start = time.time()
+        self.numba_model.map_external_data(t_start)
         self.numba_model.func(t_start, self.numba_model.get_states())
         self.numba_model.historian_update(t_start)
         compilation_finished = time.time()
@@ -96,28 +97,24 @@ class Simulation:
         return sol
 
     def reset(self):
+        #  TODO: currently, this method assumes solve start time to be 0
+
         self.__init_step()
 
         self.model.historian_df = None
         self.model.numba_model.historian_reinit()
 
-        self.numba_model.historian_update(0)
         self.numba_model.map_external_data(0)
+        self.numba_model.func(0, self.numba_model.get_states())
+        self.numba_model.historian_update(0)
 
         if self.numba_model.is_external_data_update_needed(0):
             self.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(0)
         if self.numba_model.is_external_data:
             self.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
                                                   self.model.external_mappings.external_mappings_time,
-                                                  self.model.external_mappings.t_max)
-
-    def step(self, dt):
-        try:
-            stop = self.solver.solver_step(dt)
-        except Exception as e:
-            raise e
-
-        return stop
+                                                  self.model.external_mappings.t_max,
+                                                  self.model.external_mappings.t_min)
 
     def complete(self):
 
