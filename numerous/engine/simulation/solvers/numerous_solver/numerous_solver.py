@@ -502,6 +502,9 @@ class Numerous_solver(BaseSolver):
         external_mappings_time = self.model.external_mappings.external_mappings_time
         max_external_t = self.model.external_mappings.t_max
         min_external_t = self.model.external_mappings.t_min
+
+        if t > max_external_t:
+            raise ValueError(f"No more external data at t={t} (t_max={max_external_t}")
         self.numba_model.is_external_data = is_external_data
         self.numba_model.update_external_data(external_mappings_numpy, external_mappings_time, max_external_t,
                                               min_external_t)

@@ -861,6 +861,7 @@ class Model:
         self.numba_model.approximation_type = self.external_mappings.interpolation_info
         self.numba_model.is_external_data = self.is_external_data
         self.numba_model.max_external_t = self.external_mappings.t_max
+        self.numba_model.min_external_t = self.external_mappings.t_min
 
         self.numba_model.map_external_data(0)
 
@@ -869,7 +870,7 @@ class Model:
         if self.numba_model.is_external_data:
             self.numba_model.update_external_data(self.external_mappings.external_mappings_numpy,
                                                   self.external_mappings.external_mappings_time,
-                                                  self.external_mappings.t_max)
+                                                  self.external_mappings.t_max, self.external_mappings.t_min)
 
     @classmethod
     def from_file(cls, param):

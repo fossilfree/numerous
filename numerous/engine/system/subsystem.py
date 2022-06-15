@@ -153,15 +153,23 @@ class Subsystem(ConnectorItem):
         self.update_variables_path(item)
         self.registered_items.update({item.id: item})
 
+    def _find_variable(self, item, varname):
+        variables = item.get_variables()
+        for variable in variables:
+            for path in variable[0].path.path.values():
+                if path[0] == varname:
+                    return True
+        return False
+
     def find_variable(self, varname):
+        if self._find_variable(self, varname):
+            return True
+
         for item in self.registered_items.values():
             if isinstance(item, Subsystem):
                 return item.find_variable(varname)
-            variables = item.get_variables()
-            for variable in variables:
-                for path in variable[0].path.path.values():
-                    if path[0] == varname:
-                        return True
+            if self._find_variable(item, varname):
+                return True
         return False
 
     def _get_external_mappings(self):

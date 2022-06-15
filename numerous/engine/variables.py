@@ -210,7 +210,7 @@ class Variable(MappedValue):
     def value(self, value):
         try:
             float(value)
-        except ValueError:
+        except (ValueError, TypeError):
             raise ValueError(f"Only numeric values allowed in variables (attempted to set value='{value}' in "
                              f"{self.id})")
         self._value = value

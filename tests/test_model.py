@@ -1,14 +1,10 @@
 import pytest
 import numpy as np
-import pandas as pd
 
 from pytest import approx
 
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
-from numerous.engine.system.external_mappings import ExternalMappingElement
-from numerous.engine.system.external_mappings.interpolation_type import InterpolationType
-from numerous.utils.data_loader import InMemoryDataLoader
 
 from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay, LoggerLevel
 from numerous.multiphysics import EquationBase, Equation
@@ -415,81 +411,6 @@ def test_get_init_variables():
     assert model.get_variables_initial_values()['system.t1.p1'] == p1_val
 
 
-class SimpleInt(Subsystem, EquationBase):
-    def __init__(self, tag='integrate', external_mappings=None, data_loader=None):
-        super().__init__(tag, external_mappings, data_loader)
-        self.t1 = self.create_namespace('t1')
-        self.add_state('x', 0, logger_level=LoggerLevel.INFO)
-        self.add_parameter('to_map', 0)
-        self.add_parameter('not_to_map', 100)
-        self.add_parameter('to_map_think_not', 200)
-
-        self.t1.add_equations([self])
-
-    @Equation()
-    def eval(self, scope):
-        scope.x_dot = 1
 
 
-@pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_data_model_check_not_mapped(use_llvm):
-    external_mappings = []
 
-    data = {'time': np.arange(100),
-            'to_map': np.arange(100),
-            }
-
-    df = pd.DataFrame(data)
-    index_to_timestep_mapping = 'time'
-    index_to_timestep_mapping_start = 0
-    dataframe_aliases = {
-        'system_external.t1.to_map': ("to_map", InterpolationType.PIESEWISE),
-    }
-    external_mappings.append(ExternalMappingElement
-                             ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
-                              dataframe_aliases))
-    data_loader = InMemoryDataLoader(df)
-
-    m = Model(SimpleInt('system_external'), use_llvm=use_llvm)
-
-    s = Simulation(
-        m,
-        t_start=0, t_stop=100.0, num=100, num_inner=1, max_step=1)
-
-    m.set_external_mappings(external_mappings, data_loader=data_loader)
-
-    s.solve()
-    assert approx(np.array(s.model.historian_df['system_external.t1.to_map'])[1:-1]) == np.arange(101)[1:-1], 'This variable should have the values as being mapped'
-    assert approx(np.array(s.model.historian_df['system_external.t1.not_to_map'])) == 100, 'This should not be mapped and thus not changed'
-    assert approx(np.array(s.model.historian_df['system_external.t1.to_map_think_not'])) == 200, 'This should not be mapped and thus not changed'
-
-
-@pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_data_system_check_not_mapped(use_llvm):
-    external_mappings = []
-
-    data = {'time': np.arange(100),
-            'to_map': np.arange(100),
-            }
-
-    df = pd.DataFrame(data)
-    index_to_timestep_mapping = 'time'
-    index_to_timestep_mapping_start = 0
-    dataframe_aliases = {
-        'system_external.t1.to_map': ("to_map", InterpolationType.PIESEWISE),
-    }
-    external_mappings.append(ExternalMappingElement
-                             ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
-                              dataframe_aliases))
-    data_loader = InMemoryDataLoader(df)
-
-    m = Model(SimpleInt('system_external', data_loader=data_loader, external_mappings=external_mappings), use_llvm=use_llvm)
-
-    s = Simulation(
-        m,
-        t_start=0, t_stop=100.0, num=100, num_inner=1, max_step=1)
-
-    s.solve()
-    assert approx(np.array(s.model.historian_df['system_external.t1.to_map'])[1:-1]) == np.arange(101)[1:-1], 'This variable should have the values as being mapped'
-    assert approx(np.array(s.model.historian_df['system_external.t1.not_to_map'])) == 100, 'This should not be mapped and thus not changed'
-    assert approx(np.array(s.model.historian_df['system_external.t1.to_map_think_not'])) == 200, 'This should REALLY not be mapped and thus not changed'
