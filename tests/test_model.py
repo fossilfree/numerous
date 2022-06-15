@@ -409,8 +409,3 @@ def test_get_init_variables():
     model = Model(SetVar(tag='system'))
 
     assert model.get_variables_initial_values()['system.t1.p1'] == p1_val
-
-
-
-
-
