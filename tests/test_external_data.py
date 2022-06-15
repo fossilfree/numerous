@@ -61,9 +61,9 @@ class SubSubSystem(Subsystem):
             o = StaticDataSystem('sub' + str(i))
             o_s.append(o)
 
-        for i in reversed(range(n-1)):
+        for i in reversed(range(n - 1)):
             o = o_s[i]
-            o_sub = o_s[i+1]
+            o_sub = o_s[i + 1]
             o.register_item(o_sub)
 
         self.register_item(o_s[0])
