@@ -2,6 +2,7 @@ import itertools
 import os
 import pickle
 import sys
+
 from copy import copy, deepcopy
 from ctypes import CFUNCTYPE, c_int64, POINTER, c_double, c_void_p
 
@@ -15,6 +16,7 @@ from numba.core.registry import CPUDispatcher
 
 from numba.experimental import jitclass
 import pandas as pd
+from numerous.engine.model.aliased_dataframe import AliasedDataFrame
 
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
 from numerous.engine.model.utils import Imports
@@ -29,7 +31,7 @@ from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
 
 from numerous.engine.system.subsystem import Subsystem, ItemSet
-from numerous.engine.variables import VariableType, SetOfVariables
+from numerous.engine.variables import VariableType
 
 from numerous.engine.model.ast_parser.parser_ast import parse_eq
 from numerous.engine.model.graph_representation.graph import Graph
@@ -817,10 +819,10 @@ class Model:
     def create_historian_df(self):
         if self.historian_df is not None:
             import pandas as pd
-            self.historian_df = AliasedDataFrame(pd.concat([self.historian_df,
+            self.historian_df = AliasedDataFrame(pd.concat([self.historian_df.df,
                                                             self._generate_history_df(
                                                                 self.generate_not_nan_history_array(),
-                                                                rename_columns=False)],
+                                                                rename_columns=False).df],
                                                            axis=0, sort=False, ignore_index=True),
                                                  aliases=self.aliases, rename_columns=True)
 
@@ -914,34 +916,3 @@ class Model:
             model.max_var = self.max_var
 
         return model
-
-
-class AliasedDataFrame(pd.DataFrame):
-    _metadata = ['aliases']
-
-    def __init__(self, data, aliases={}, rename_columns=True):
-        super().__init__(data)
-        self.aliases = aliases
-        self.rename_columns = rename_columns
-        if self.rename_columns:
-            tmp = copy(list(data.keys()))
-            for key in tmp:
-                if key in self.aliases.keys():
-                    data[self.aliases[key]] = data.pop(key)
-            super().__init__(data)
-
-    def __getitem__(self, item):
-        if self.rename_columns:
-            if not isinstance(item, list):
-                col = self.aliases[item] if item in self.aliases else item
-                return super().__getitem__(col)
-
-            cols = [self.aliases[i] if i in self.aliases else i for i in item]
-
-            return super().__getitem__(cols)
-        else:
-            return super().__getitem__(item)
-
-    def __iter__(self):
-        for k in self.aliases.keys():
-            yield k
