@@ -28,5 +28,3 @@ def test_throw_error():
     with pytest.raises(ValueError, match=r"Only numeric values allowed in variables*"):
         sys = FloatVariables()
         sys.t1.var1.value = "test"
-
-

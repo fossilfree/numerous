@@ -53,6 +53,7 @@ class StaticDataTest(EquationBase, Item):
         scope.T_i1 = scope.T1
         scope.T_i2 = scope.T2
 
+
 class SubSubSystem(Subsystem):
     def __init__(self, tag='system', n=3, external_mappings=None, data_loader=None):
         super(SubSubSystem, self).__init__(tag=tag, external_mappings=external_mappings, data_loader=data_loader)
@@ -334,6 +335,7 @@ def test_csvdataloader_reset(external_data: external_data, simulation: simulatio
                    dt_eval=dt, dataloader=csvdataloader, system=StaticDataSystemWithBall)
     s.solve()
     s.solve()
+
 
 def test_wrong_mapping(external_data: external_data, simulation: simulation):
     t0 = 0
