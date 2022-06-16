@@ -183,6 +183,10 @@ class FMU_Subsystem(Subsystem, EquationBase):
         var_states_ordered = []
         var_names_ordered_ns = []
         deriv_names_ordered = []
+        input_idx = []
+        input_var_names_ordered = []
+        output_idx = []
+        output_var_names_ordered = []
         for idx, variable in enumerate(model_description.modelVariables):
             if variable.valueReference not in self.value_ref_used:
                 continue
@@ -202,13 +206,19 @@ class FMU_Subsystem(Subsystem, EquationBase):
             else:
                 var_names_ordered_ns.append(namespace_ + "." + _replace_name_str(variable.name))
                 var_names_ordered.append(_replace_name_str(variable.name))
+            if variable.valueReference in self.input_ref:
+                input_idx.append(self.value_ref_used.index(variable.valueReference))
+                input_var_names_ordered.append(_replace_name_str(variable.name))
+            if variable.valueReference in self.output_ref:
+                output_idx.append(self.value_ref_used.index(variable.valueReference))
+                output_var_names_ordered.append(_replace_name_str(variable.name))
 
         states_names_ordered = [x.split(".")[1] for x in var_states_ordered]
 
         fmu.enterContinuousTimeMode()
 
         q1, equation_call_wrapper = generate_eval_llvm(idx_tuple_array, [idx_tuple_array[i] for i in deriv_idx],
-                                                       states_idx, var_order)
+                                                       states_idx, var_order,output_idx)
         module_func = ast.Module(body=[q1, equation_call_wrapper], type_ignores=[])
         if debug_output:
             print(ast.unparse(module_func))
@@ -221,7 +231,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         q = generate_fmu_eval(var_names_ordered, ptr_tuple_array,
                               [ptr_tuple_array[i] for i in deriv_idx],
-                              set(range(len_q)).difference(deriv_idx + states_idx))
+                              output_idx, output_var_names_ordered)
         module_func = ast.Module(body=[q], type_ignores=[])
         if debug_output:
             print(ast.unparse(module_func))
@@ -334,7 +344,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_action_2 = namespace["event_action_2"]
         event_action_2.lines = ast.unparse(ast.Module(body=[b1], type_ignores=[]))
         if len(deriv_names_ordered) > 0:
-            gec = generate_eq_call(deriv_names_ordered, var_names_ordered,[x for x in var_names_ordered if x not in states_names_ordered])
+            gec = generate_eq_call(deriv_names_ordered, var_names_ordered,input_var_names_ordered,output_var_names_ordered,
+                                   [x for x in var_names_ordered if x not in states_names_ordered])
             if debug_output:
                 print(ast.unparse(gec))
             code = compile(ast.parse(ast.unparse(gec)), filename='fmu_eval', mode='exec')
@@ -360,6 +371,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         value_ref_used = []
         derivatives_names = []
         states = []
+        input_ref = []
+        output_ref = []
 
         for variable in model_description.modelVariables:
             if variable.derivative:
@@ -416,6 +429,10 @@ class FMU_Subsystem(Subsystem, EquationBase):
                 if not variable.derivative:
                     if self.import_all or variable.causality == 'input' or variable.causality == 'output':
                         value_ref_used.append(variable.valueReference)
+                        if variable.causality == 'input':
+                            input_ref.append(variable.valueReference)
+                        if variable.causality == 'output':
+                            output_ref.append(variable.valueReference)
                         self.add_parameter(_replace_name_str(variable.name), 0.0)
 
         # TODO another types and tunable
@@ -439,4 +456,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
             self.external_mappings = ExternalMappingUnpacked(external_mappings, data_loader)
         else:
             self.external_mappings = None
+        self.input_ref = input_ref
+        self.output_ref = output_ref
         return value_ref_used
