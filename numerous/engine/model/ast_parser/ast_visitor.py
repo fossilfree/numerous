@@ -146,6 +146,31 @@ class AstVisitor(ast.NodeVisitor):
         self.mapped_stack.append(list(chain.from_iterable(mapped)))
         self.node_number_stack.append(list(chain.from_iterable(en)))
 
+    def visit_Subscript(self, node: ast.Subscript):
+        sl = node.slice
+        if isinstance(sl, ast.Slice):
+            raise Exception('Slices are not supported right now')
+        if isinstance(sl, ast.Tuple):
+            for el in sl.elts:
+                if isinstance(el, ast.Slice):
+                    raise Exception('Slices are not supported right now')
+        en = self.graph.add_node(Node(ao=Node, file=self.eq_file,
+                                      name=self.eq_key, ln=self.eq_lineno,
+                                      label="subscript", ctx=node.ctx, node_type=NodeTypes.SUBSCRIPT,
+                                      ast_type=ast.Subscript))
+        self.traverse(node.value)
+        self.mapped_stack.pop()
+        start = self.node_number_stack.pop()
+        self.graph.add_edge(Edge(start=start[0], end=en,
+                                 e_type=str_to_edgetype("subscript_value"), branches=self.branches.copy()))
+        self.traverse(node.slice)
+        mapped = self.mapped_stack.pop()
+        start = self.node_number_stack.pop()
+        self.graph.add_edge(Edge(start=start[0], end=en,
+                                 e_type=str_to_edgetype("slice"), branches=self.branches.copy()))
+        self.node_number_stack.append([en])
+        self.mapped_stack.append(mapped)
+
     def visit_BinOp(self, node: ast.BinOp):
         op_sym = get_op_sym(node.op)
         en = self.graph.add_node(Node(ao=node, file=self.eq_file, name=self.eq_key,

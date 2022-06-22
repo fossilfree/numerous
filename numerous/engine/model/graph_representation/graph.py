@@ -14,7 +14,7 @@ class Node:
                  label=None, ast_type=None, vectorized=None, item_id=None, node_type=None, ops=None, func=None,
                  id=None, local_id=None, scope_var=None,
                  ast_op=None, value=None, is_set_var=None, set_var_ix=None, subgraph_test=None,
-                 subgraph_body=None):
+                 subgraph_body=None, ctx=None):
         self.key = key
         self.ao = ao
         self.file = file
@@ -38,6 +38,7 @@ class Node:
         self.subgraph_test = subgraph_test
         self.subgraph_body = subgraph_body
         self.node_n = -1
+        self.ctx = ctx
 
 
 class Edge:
@@ -199,7 +200,7 @@ class Graph:
         def filter_function(edge):
             if edge.deleted:
                 return False
-            if getattr(edge, attr) == val :
+            if getattr(edge, attr) == val:
                 return True
             else:
                 return False

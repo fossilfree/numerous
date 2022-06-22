@@ -34,6 +34,7 @@ class NodeTypes(IntEnum):
     ASSIGNTUPLE = 6
     IF = 7
     FMU_EQUATION = 8
+    SUBSCRIPT = 9
 
 
 def recurse_Attribute(attr, sep='.'):

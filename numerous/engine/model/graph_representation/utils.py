@@ -39,6 +39,8 @@ class EdgeType(IntEnum):
     TEST = 11
     COMP = 12
     DEP = 13
+    SLICE = 14
+    SUBSCRIPT_VALUE = 15
 
 
 def str_to_edgetype(a):
@@ -52,3 +54,7 @@ def str_to_edgetype(a):
         return EdgeType.ORELSE
     if a == 'test':
         return EdgeType.TEST
+    if a == 'subscript_value':
+        return EdgeType.SUBSCRIPT_VALUE
+    if a == 'slice':
+        return EdgeType.SLICE
