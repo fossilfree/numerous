@@ -19,7 +19,7 @@ class SubsciptTest(EquationBase, Item):
     @Equation()
     def eval(self, scope):
         y = np.arange(44, 98)
-        scope.x = y[int(0)]
+        scope.x = y[0]
 
 
 class SubscriptSystem(Subsystem):
