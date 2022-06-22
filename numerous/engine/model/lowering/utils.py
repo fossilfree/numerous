@@ -88,8 +88,8 @@ class Vardef:
         else:
             _ctx = ast.Store()
         if self.llvm:
-            return ast.Subscript(slice=ast.Index(value=ast.Num(n=0, lineno=0,col_offset=0), lineno=0,col_offset=0), value=ast.Call(
-                args=[ast.Name(id=var.replace('scope.', 's_'), lineno=0,col_offset=0, ctx=ast.Load()), ast.Tuple(ctx=ast.Load(),elts=[ast.Num(n=1,lineno=0,col_offset=0)], lineno=0,col_offset=0)],
+            return ast.Subscript(slice=ast.Index(value=ast.Constant(value=0, lineno=0,col_offset=0), lineno=0,col_offset=0), value=ast.Call(
+                args=[ast.Name(id=var.replace('scope.', 's_'), lineno=0,col_offset=0, ctx=ast.Load()), ast.Tuple(ctx=ast.Load(),elts=[ast.Constant(value=1,lineno=0,col_offset=0)], lineno=0,col_offset=0)],
                 func=ast.Name(id='carray', lineno=0,col_offset=0, ctx=ast.Load()),
                 keywords=[], lineno=0,col_offset=0), lineno=0,col_offset=0, ctx=_ctx)
         else:

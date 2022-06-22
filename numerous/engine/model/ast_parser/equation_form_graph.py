@@ -21,11 +21,8 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
         elif na == ast.Name:
             return var_def(nk, ctxread, read)
 
-        elif na == ast.Num:
-            return ast.Call(args=[ast.Num(value=g.get(n, 'value'),
-                                          lineno=0, col_offset=0)], func=ast.Name(id='float64', lineno=0, col_offset=0,
-                                                                                  ctx=ast.Load()),
-                            keywords=[], lineno=0, col_offset=0)
+        elif na == ast.Constant:
+            return ast.Constant(value=g.get(n, 'value'))
 
         elif na == ast.BinOp:
 

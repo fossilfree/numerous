@@ -131,7 +131,7 @@ class AstVisitor(ast.NodeVisitor):
     def visit_Constant(self, node: ast.Constant):
         source_id = self.CONSTANT_LABEL + str(node.value)
         en = self.graph.add_node(Node(ao=node, file=self.eq_file, name=self.eq_key, ln=self.eq_lineno,
-                                      label=source_id, ast_type=ast.Num, value=node.value,
+                                      label=source_id, ast_type=ast.Constant, value=node.value,
                                       node_type=NodeTypes.VAR))
         self.mapped_stack.append([None])
         self.node_number_stack.append([en])
@@ -273,7 +273,7 @@ def connect_equation_node(equation_graph, mappings_graph, node, is_set, include_
                         pass
 
             elif include_local and equation_graph.get(n, attr='key') and \
-                    not equation_graph.get(n, attr='ast_type') == ast.Num:
+                    not equation_graph.get(n, attr='ast_type') == ast.Constant:
                 var_key = equation_graph.get(n, attr='key')
                 neq = mappings_graph.add_node(Node(key=var_key, node_type=NodeTypes.VAR,
                                                    is_set_var=is_set, ast_type=equation_graph.get(n, attr='ast_type'),

@@ -20,7 +20,7 @@ jobs:
           name: Tests
           parallel: true
           command: |
-            TESTFILES=$(circleci tests glob tests/{test*.py,*/test*.py} | circleci tests split --split-by=timings)
+            TESTFILES=$(circleci tests glob tests/{test*.py,*/test*.py, */*/*/test.py} | circleci tests split --split-by=timings)
             python3 -m pytest $TESTFILES
 
       - run:

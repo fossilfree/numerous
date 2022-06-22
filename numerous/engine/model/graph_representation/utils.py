@@ -20,7 +20,7 @@ class Vardef:
             self.vars_inds_map.append(var)
         ix = self.vars_inds_map.index(var)
 
-        return ast.Subscript(slice=ast.Index(value=ast.Num(n=ix)), value=ast.Name(id='l'))
+        return ast.Subscript(slice=ast.Index(value=ast.Constant(value=ix)), value=ast.Name(id='l'))
 
 
 @unique
