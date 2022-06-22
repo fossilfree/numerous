@@ -18,7 +18,7 @@ class SubsciptTest(EquationBase, Item):
 
     @Equation()
     def eval(self, scope):
-        y = np.arange(44, 98)
+        y = np.arange(44, 333)
         scope.x = y[0]
 
 
