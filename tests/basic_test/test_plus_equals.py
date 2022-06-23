@@ -42,10 +42,9 @@ def test_augmented_assign(use_llvm):
     test_system = TestSystem(k=k, x=x)
     test_model = Model(test_system, use_llvm=use_llvm, save_to_file=True)
 
-    test_simulation = Simulation(test_model, solver_type=SolverType.NUMEROUS, t_start=0, t_stop=100, num=10,
+    test_simulation = Simulation(test_model, t_start=0, t_stop=100, num=10,
                                  num_inner=1, max_step=1)
     test_simulation.solve()
 
     result = test_simulation.model.historian_df["test_sys.test_eq.mechanics.p"]
-    print(result)
     assert list(result)[0] == 2.0
