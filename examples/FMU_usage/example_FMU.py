@@ -1,7 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-from numerous.multiphysics import EquationBase, Equation
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 from numerous.engine.system import Item, Subsystem
@@ -12,7 +11,7 @@ class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
 
-        fmu_filename = '_01_modex_Linux.fmu'
+        fmu_filename = '/home/artem/fmus/PCU_RHU_EnergyMachines_01_modex_Linux.fmu'
         fmu_subsystem = FMU_Subsystem(fmu_filename, "PCU_RHU", debug_output=True)
         # fmu_subsystem.t1.variables["h"].value = 19
         self.register_items([fmu_subsystem])
