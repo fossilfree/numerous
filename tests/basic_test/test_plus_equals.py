@@ -3,8 +3,9 @@ from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
 from numerous.engine.system import Subsystem
 from numerous.engine.model import Model
-from numerous.engine.simulation import Simulation, SolverType
+from numerous.engine.simulation import Simulation
 import pytest
+
 
 class TestEQ(EquationBase, Item):
     """
@@ -32,6 +33,7 @@ class TestSystem(Subsystem):
     def __init__(self, k, x, tag="test_sys"):
         super().__init__(tag)
         self.register_item(TestEQ(k=k, x0=x))
+
 
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_augmented_assign(use_llvm):
