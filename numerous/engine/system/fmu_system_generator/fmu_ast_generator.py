@@ -10,7 +10,7 @@ TERM_1_PTR = "term_1_ptr"
 NUMEROUS_FUNCTION = 'NumerousFunction'
 
 
-def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs, parameters_return_idx,fmu_output_args):
+def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs, parameters_return_idx, fmu_output_args):
     args_lst = []
     for arg_id in input_args:
         if arg_id not in fmu_output_args:
@@ -36,7 +36,6 @@ def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs, parameters_retu
             eq_call_args.append(ast.Name(id=arg_id, ctx=ast.Load()))
 
     eq_call_args.append(ast.Constant(value=0.1))
-    # eq_expr__ = [ast.Expr(value=ast.Call(func=ast.Name(id='print', ctx=ast.Load()), args=[ast.Name(id='x1', ctx=ast.Load())], keywords=[]))]
     eq_expr = [ast.Expr(value=ast.Call(func=ast.Name(id=EQ_CALL), args=eq_call_args, keywords=[], ctx=ast.Load()),
                         keywords=[])]
     return_elts = []
@@ -578,7 +577,7 @@ def generate_event_action(len_q, variables):
     return event_action_fun, event_action_fun_2
 
 
-def generate_eq_call(deriv_names, var_names,input_var_names_ordered,output_var_names_ordered, params_names):
+def generate_eq_call(deriv_names, var_names, input_var_names_ordered, output_var_names_ordered, params_names):
     elts = []
     for d_name in deriv_names:
         elts.append(ast.Attribute(value=ast.Name(id='scope', ctx=ast.Load()), attr=d_name, ctx=ast.Store()))

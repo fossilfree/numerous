@@ -159,9 +159,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         len_q = len(self.value_ref_used)
         var_order = [x.valueReference for x in model_description.modelVariables
-                     if x.valueReference in self.value_ref_used and
-                     (x.type != "String" and x.type != "Boolean")
-                     ]
+                     if x.valueReference in self.value_ref_used and (x.type != "String" and x.type != "Boolean")]
 
         term_1 = np.array([0], dtype=np.int32)
         term_1_ptr = term_1.ctypes.data
@@ -218,7 +216,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         fmu.enterContinuousTimeMode()
 
         q1, equation_call_wrapper = generate_eval_llvm(idx_tuple_array, [idx_tuple_array[i] for i in deriv_idx],
-                                                       states_idx, var_order,output_idx)
+                                                       states_idx, var_order, output_idx)
         module_func = ast.Module(body=[q1, equation_call_wrapper], type_ignores=[])
         if debug_output:
             print(ast.unparse(module_func))
@@ -344,7 +342,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_action_2 = namespace["event_action_2"]
         event_action_2.lines = ast.unparse(ast.Module(body=[b1], type_ignores=[]))
         if len(deriv_names_ordered) > 0:
-            gec = generate_eq_call(deriv_names_ordered, var_names_ordered,input_var_names_ordered,output_var_names_ordered,
+            gec = generate_eq_call(deriv_names_ordered, var_names_ordered, input_var_names_ordered,
+                                   output_var_names_ordered,
                                    [x for x in var_names_ordered if x not in states_names_ordered])
             if debug_output:
                 print(ast.unparse(gec))
