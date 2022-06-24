@@ -15,8 +15,10 @@ def generate_event_condition_ast(event_functions: list[NumerousEvent],
     directions_array = []
     body = [ast.Assign(targets=[ast.Name(id=array_label)], lineno=0,
                        value=ast.List(elts=[], ctx=ast.Load()))]
-
+    compiled_functions = {}
     for event in event_functions:
+        if event.compiled_functions:
+            compiled_functions.update(event.compiled_functions)
         directions_array.append(event.direction)
         body.append(event.condition)
         body.append(ast.Expr(value=ast.Call(
@@ -37,27 +39,48 @@ def generate_event_condition_ast(event_functions: list[NumerousEvent],
                                                 kwonlyargs=[], kw_defaults=[], defaults=[]),
                              body=body, decorator_list=[], lineno=0)
 
-    return [njit_and_compile_function(body_r, from_imports)], np.array(directions_array)
+    return [njit_and_compile_function(body_r, from_imports, compiled_functions=compiled_functions)], np.array(
+        directions_array, dtype=np.float)
+
+
+class VariablesVisitor(ast.NodeVisitor):
+    def __init__(self, path_to_root_str, model, idx_type):
+        self.path_to_root_str = path_to_root_str
+        self.model = model
+        self.idx_type = idx_type
+
+    def generic_visit(self, node):
+        if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
+            if isinstance(node.slice.value, str):
+                for (var_path, var) in self.model.path_to_variable.items():
+                    if var_path.startswith(self.path_to_root_str):
+                        var_path = var_path[len(self.path_to_root_str):]
+                    if var_path == node.slice.value:
+                        node.slice.value = self.model._get_var_idx(var, self.idx_type)[0]
+            if isinstance(node.slice.value, str):
+                raise KeyError(f'No such variable: {node.slice.value}')
+
+        ast.NodeVisitor.generic_visit(self, node)
 
 
 def _replace_path_strings(model, function, idx_type, path_to_root=[]):
-    lines = inspect.getsource(function)
+    if hasattr(function, 'lines'):
+        lines = function.lines
+    else:
+        lines = inspect.getsource(function)
     path_to_root_str = ".".join(path_to_root) + "."
-    path_to_root_str_len = len(path_to_root_str)
-    for (var_path, var) in model.path_to_variable.items():
-        if var_path.startswith(path_to_root_str):
-            var_path = var_path[path_to_root_str_len:]
-        if var_path in lines:
-            lines = lines.replace('[\'' + var_path + '\']', str(model._get_var_idx(var, idx_type)))
     func = ast.parse(lines.strip()).body[0]
+    VariablesVisitor(path_to_root_str, model, idx_type).generic_visit(func)
     return func
 
 
 def generate_event_action_ast(event_functions: list[NumerousEvent],
                               from_imports: list[tuple[str, str]]) -> CPUDispatcher:
     body = []
-
+    compiled_functions = {}
     for idx, event in enumerate(event_functions):
+        if event.compiled_functions:
+            compiled_functions.update(event.compiled_functions)
         body.append(event.action)
         body.append(ast.If(test=ast.Compare(left=ast.Name(id='a_idx', ctx=ast.Load()), ops=[ast.Eq()],
                                             comparators=[ast.Constant(value=idx)]),
@@ -74,4 +97,4 @@ def generate_event_action_ast(event_functions: list[NumerousEvent],
                                                 kwonlyargs=[], kw_defaults=[], defaults=[]),
                              body=body, decorator_list=[], lineno=0)
 
-    return njit_and_compile_function(body_r, from_imports)
+    return njit_and_compile_function(body_r, from_imports, compiled_functions=compiled_functions)

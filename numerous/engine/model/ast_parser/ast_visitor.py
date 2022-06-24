@@ -79,6 +79,23 @@ class AstVisitor(ast.NodeVisitor):
         self.mapped_stack.append([is_mapped])
         self.node_number_stack.append([en])
 
+    def visit_AugAssign(self, node: ast.AugAssign) -> Any:
+        operation = node.op
+        target = node.target
+        value = node.value
+
+        new_value = ast.BinOp()
+
+        new_value.left = target
+        new_value.right = value
+        new_value.op = operation
+
+        new_assign = ast.Assign()
+        new_assign.targets = [target]
+        new_assign.value = new_value
+
+        self.visit_Assign(new_assign)
+
     def visit_Assign(self, node: ast.Assign):
         for target in node.targets:
             if self._is_assign_target_supported(target):
@@ -131,7 +148,7 @@ class AstVisitor(ast.NodeVisitor):
     def visit_Constant(self, node: ast.Constant):
         source_id = self.CONSTANT_LABEL + str(node.value)
         en = self.graph.add_node(Node(ao=node, file=self.eq_file, name=self.eq_key, ln=self.eq_lineno,
-                                      label=source_id, ast_type=ast.Num, value=node.value,
+                                      label=source_id, ast_type=ast.Constant, value=node.value,
                                       node_type=NodeTypes.VAR))
         self.mapped_stack.append([None])
         self.node_number_stack.append([en])
@@ -145,6 +162,31 @@ class AstVisitor(ast.NodeVisitor):
             mapped.append(self.mapped_stack.pop())
         self.mapped_stack.append(list(chain.from_iterable(mapped)))
         self.node_number_stack.append(list(chain.from_iterable(en)))
+
+    def visit_Subscript(self, node: ast.Subscript):
+        sl = node.slice
+        if isinstance(sl, ast.Slice):
+            raise Exception('Slices are not supported right now')
+        if isinstance(sl, ast.Tuple):
+            for el in sl.elts:
+                if isinstance(el, ast.Slice):
+                    raise Exception('Slices are not supported right now')
+        en = self.graph.add_node(Node(ao=Node, file=self.eq_file,
+                                      name=self.eq_key, ln=self.eq_lineno,
+                                      label="subscript", ctx=node.ctx, node_type=NodeTypes.SUBSCRIPT,
+                                      ast_type=ast.Subscript))
+        self.traverse(node.value)
+        self.mapped_stack.pop()
+        start = self.node_number_stack.pop()
+        self.graph.add_edge(Edge(start=start[0], end=en,
+                                 e_type=str_to_edgetype("subscript_value"), branches=self.branches.copy()))
+        self.traverse(node.slice)
+        mapped = self.mapped_stack.pop()
+        start = self.node_number_stack.pop()
+        self.graph.add_edge(Edge(start=start[0], end=en,
+                                 e_type=str_to_edgetype("slice"), branches=self.branches.copy()))
+        self.node_number_stack.append([en])
+        self.mapped_stack.append(mapped)
 
     def visit_BinOp(self, node: ast.BinOp):
         op_sym = get_op_sym(node.op)
@@ -248,7 +290,7 @@ def connect_equation_node(equation_graph, mappings_graph, node, is_set, include_
                         pass
 
             elif include_local and equation_graph.get(n, attr='key') and \
-                    not equation_graph.get(n, attr='ast_type') == ast.Num:
+                    not equation_graph.get(n, attr='ast_type') == ast.Constant:
                 var_key = equation_graph.get(n, attr='key')
                 neq = mappings_graph.add_node(Node(key=var_key, node_type=NodeTypes.VAR,
                                                    is_set_var=is_set, ast_type=equation_graph.get(n, attr='ast_type'),

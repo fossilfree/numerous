@@ -6,7 +6,7 @@ from numerous.engine.system.item import Item
 from numerous.engine.system import Subsystem, ItemsStructure
 from pytest import approx
 from numerous.engine import model, simulation
-from numerous.engine.simulation.solvers.base_solver import solver_types
+
 
 
 class Simple(EquationBase, Item):
@@ -41,18 +41,13 @@ class SimpleSystem(Subsystem):
         self.register_items(simples, tag="simples", structure=ItemsStructure.SET)
 
 
-
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_simple_set_model(solver, use_llvm):
+def test_simple_set_model(use_llvm):
     n = 100
     subsystem = SimpleSystem('system', k=.1, n=n, x0=[0]*n)
 
-    s = simulation.Simulation(
-        model.Model(subsystem,use_llvm=use_llvm),
-        t_start=0, t_stop=1, num=100, num_inner=100, max_step=1,
-        solver_type = solver
-    )
+    s = simulation.Simulation(model.Model(subsystem, use_llvm=use_llvm), t_start=0, t_stop=1, num=100, num_inner=100,
+                              max_step=1)
     # Solve and plot
     s.solve()
     for i in range(n):

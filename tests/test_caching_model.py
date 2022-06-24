@@ -1,21 +1,9 @@
 import os.path
-from enum import Enum
-
-import numpy as np
-import pytest
 
 from numerous.engine.simulation import Simulation
 from numerous.engine.system import Subsystem, Item
 from numerous.engine.model import Model
 from tests.test_equations import TestEq_input, Test_Eq, TestEq_ground
-
-
-class SolverType(Enum):
-    SOLVER_IVP = 0
-    NUMEROUS = 1
-
-
-solver_types = [SolverType.NUMEROUS, SolverType.SOLVER_IVP]
 
 
 class I(Item):
@@ -73,18 +61,18 @@ class S2N(Subsystem):
         self.register_items(r_items)
 
 
-def test_cashing_model(monkeypatch, tmpdir):
+def test_caching_model(monkeypatch, tmpdir):
     system = S2N("S2", 2)
     tmpdir_path = str(tmpdir)
     monkeypatch.setenv("EXPORT_MODEL_PATH", tmpdir_path)
 
     model = Model(system, export_model=True)
-    s1 = Simulation(model, t_start=0, t_stop=2, num=2, solver_type=SolverType.NUMEROUS)
+    s1 = Simulation(model, t_start=0, t_stop=2, num=2)
     s1.solve()
     assert os.path.exists(os.path.join(tmpdir, "S2.numerous"))
     cached_model = Model.from_file(os.path.join(os.environ.get("EXPORT_MODEL_PATH"), "S2.numerous"))
 
-    s2 = Simulation(cached_model, t_start=0, t_stop=2, num=2, solver_type=SolverType.NUMEROUS)
+    s2 = Simulation(cached_model, t_start=0, t_stop=2, num=2)
     s2.solve()
     assert all(s1.model.states_as_vector == s2.model.states_as_vector)
 

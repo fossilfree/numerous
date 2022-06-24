@@ -5,7 +5,7 @@ from numerous.multiphysics.equation_decorators import Equation
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system import Item, Subsystem
 from numerous.engine.model import Model
-from numerous.engine.simulation.solvers.base_solver import solver_types
+
 
 
 
@@ -59,13 +59,12 @@ class Main(Subsystem):
         self.register_item(system)
 
 
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [False,True])
-def test_deriv_order(solver, use_llvm):
+def test_deriv_order(use_llvm):
     m = Main()
     model = Model(m, use_llvm=use_llvm)
     import numpy as np
-    expected = np.array([2.5, 3., 1., 1.])
+    expected = np.array([3, 2.5, 1., 1.])
     assert approx(model.compiled_compute(np.array([0., 0., 0., 0.]))) == expected
-    expected_2 = [3.3, 3.6, 1.6, 1.4]
+    expected_2 = [3.4, 3.7, 1.3, 1.8]
     assert approx(model.compiled_compute(np.array([1., 2., 3., 4.]))) == expected_2

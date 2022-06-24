@@ -1,4 +1,5 @@
 import ast
+import re
 
 from numerous.engine.model.graph_representation import MappingsGraph, Graph
 from numerous.engine.model.graph_representation.utils import EdgeType
@@ -20,11 +21,8 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
         elif na == ast.Name:
             return var_def(nk, ctxread, read)
 
-        elif na == ast.Num:
-            return ast.Call(args=[ast.Num(value=g.get(n, 'value'),
-                                          lineno=0, col_offset=0)], func=ast.Name(id='float64', lineno=0, col_offset=0,
-                                                                                  ctx=ast.Load()),
-                            keywords=[], lineno=0, col_offset=0)
+        elif na == ast.Constant:
+            return ast.Constant(value=g.get(n, 'value'))
 
         elif na == ast.BinOp:
 
@@ -88,6 +86,18 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
             ast_Comp = ast.Compare(left=left_ast, comparators=comp_ast, ops=g.get(n, 'ops'), lineno=0, col_offset=0)
 
             return ast_Comp
+        elif na == ast.Subscript:
+            val_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.SUBSCRIPT_VALUE)[1][0][0]
+
+            val_ast = node_to_ast(val_node, g, var_def, ctxread=ctxread)
+
+            slice_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.SLICE)[1][0][0]
+
+            slice_ast = node_to_ast(slice_node, g, var_def, ctxread=ctxread)
+
+            ast_subscript = ast.Subscript(value=val_ast, slice=slice_ast, ctx=g.get(n, 'ctx'), lineno=0, col_offset=0)
+            return ast_subscript
+
         raise TypeError(f'Cannot convert {n},{na}')
     except:
         print(n)
@@ -187,16 +197,30 @@ def function_body_from_graph(g, var_def_, lineno_count=1, level=0):
             body.append(process_if_node(func_body, func_test))
     return body
 
+# TODO need to Refactor later, quick fix, very bad code
+
+
+def tokenize_string(f):
+    return re.split("([\w\.]+)", f)
+
 
 def replace_closure_function(func, replacements, eq_prefix):
     f1 = ast.unparse(func)
     if replacements:
-        keys = list(replacements.keys())
-        for key in keys:
+        tokenized = tokenize_string(f1)
+        for i in range(len(tokenized)):
+            key = None
+            token = tokenized[i]
+            if token in replacements:
+                key = token
+            if token.startswith('s_') and token[2:] == token:
+                key = token[2:]
+            if key is None:
+                continue
             eq_key = (eq_prefix + key).replace('.', '_')
-            f1 = f1.replace(key, eq_key)
+            tokenized[i] = token.replace(key, eq_key)
             replacements[eq_key] = replacements[key]
-            replacements.pop(key)
+            f1 = ''.join(tokenized)
     return f1
 
 

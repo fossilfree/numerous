@@ -2,16 +2,30 @@ version: 2.1
 jobs:
   build:
     docker:
-        - image: cimg/python:3.10
-
+     - image: cimg/base:current-22.04
+    parallelism: 8
     steps:
       - checkout
+
 
       - run:
           name: Install packages
           command: |
-             pip3 install -r requirements.txt
-             pip3 install -r linters/linter_requirements.txt
+            sudo apt-get update
+            sudo apt-get -y install python3-pip
+            pip3 install -r requirements.txt
+            pip3 install -r linters/linter_requirements.txt
+
+      - run:
+          name: Tests
+          parallel: true
+          command: |
+            TESTFILES=$(circleci tests glob tests/{test*.py,*/test*.py} | circleci tests split --split-by=timings)
+            mkdir test-results
+            python3 -m pytest $TESTFILES --junitxml=test-results/junit.xml
+            
+      - store_test_results:
+          path: test-results
 
       - run:
           name: Linters
@@ -19,10 +33,6 @@ jobs:
             branch=$(python3 linters/get_base_branch.py)
             git diff -U0 origin/${branch} | lint-diffs
 
-      - run:
-          name: Tests
-          command: |
-            python3 -m pytest
       - run:
           command: cat /sys/fs/cgroup/memory/memory.max_usage_in_bytes
           when: always

@@ -20,7 +20,7 @@ def wrap_module(body):
         if not hasattr(i, "_fields"):
             setattr(i, "_fields", [])
     mod.body = body
-    mod.type_ignores=[]
+    mod.type_ignores = []
     setattr(mod, "_fields", [])
     return mod
 
@@ -82,18 +82,22 @@ class Vardef:
             _ctx = ast.Store()
         return ast.Name(id=var.replace('scope.', 's_'), lineno=0, col_offset=0, ctx=_ctx)
 
-    def format_target(self, var,read):
+    def format_target(self, var, read):
         if read:
             _ctx = ast.Load()
         else:
             _ctx = ast.Store()
         if self.llvm:
-            return ast.Subscript(slice=ast.Index(value=ast.Num(n=0, lineno=0,col_offset=0), lineno=0,col_offset=0), value=ast.Call(
-                args=[ast.Name(id=var.replace('scope.', 's_'), lineno=0,col_offset=0, ctx=ast.Load()), ast.Tuple(ctx=ast.Load(),elts=[ast.Num(n=1,lineno=0,col_offset=0)], lineno=0,col_offset=0)],
-                func=ast.Name(id='carray', lineno=0,col_offset=0, ctx=ast.Load()),
-                keywords=[], lineno=0,col_offset=0), lineno=0,col_offset=0, ctx=_ctx)
+            return ast.Subscript(
+                slice=ast.Index(value=ast.Constant(value=0, lineno=0, col_offset=0), lineno=0, col_offset=0),
+                value=ast.Call(
+                    args=[ast.Name(id=var.replace('scope.', 's_'), lineno=0, col_offset=0, ctx=ast.Load()),
+                          ast.Tuple(ctx=ast.Load(), elts=[ast.Constant(value=1, lineno=0, col_offset=0)], lineno=0,
+                                    col_offset=0)],
+                    func=ast.Name(id='carray', lineno=0, col_offset=0, ctx=ast.Load()),
+                    keywords=[], lineno=0, col_offset=0), lineno=0, col_offset=0, ctx=_ctx)
         else:
-            return ast.Name(id=var.replace('scope.', 's_'), lineno=0,col_offset=0, ctx=_ctx)
+            return ast.Name(id=var.replace('scope.', 's_'), lineno=0, col_offset=0, ctx=_ctx)
 
     def order_variables(self, order_data):
         for (var, var_id, used) in order_data:
@@ -107,7 +111,7 @@ class Vardef:
             if tmp_v in self.targets:
                 self.trgs_order.append(tmp_v)
 
-    def var_def(self, var,ctxread, read=True):
+    def var_def(self, var, ctxread, read=True):
         if not var in self.vars_inds_map:
             self.vars_inds_map.append(var)
         if read and 'scope.' in var:
@@ -125,28 +129,28 @@ class Vardef:
 
     def get_order_args(self, form=True):
         if form:
-            result = [self.format(a,False) for a in self.args_order]
+            result = [self.format(a, False) for a in self.args_order]
         else:
             result = self.args
         result_2 = []
         for name in result:
-            result_2.append(ast.arg(arg=name.id,  lineno=0, col_offset=0))
+            result_2.append(ast.arg(arg=name.id, lineno=0, col_offset=0))
         return result_2
 
     def get_order_trgs(self, form=True):
         if form:
-            return [self.format(a,False) for a in self.trgs_order]
+            return [self.format(a, False) for a in self.trgs_order]
         else:
             return self.args
 
     def get_args(self, form=True):
         if form:
-            return [self.format(a,False) for a in self.args]
+            return [self.format(a, False) for a in self.args]
         else:
             return self.args
 
     def get_targets(self, form=True):
         if form:
-            return [self.format(a,False) for a in self.targets]
+            return [self.format(a, False) for a in self.targets]
         else:
             return self.targets

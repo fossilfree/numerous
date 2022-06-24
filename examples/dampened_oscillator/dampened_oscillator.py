@@ -175,10 +175,8 @@ if __name__ == "__main__":
 
     subsystem = OscillatorSystem('system', k=0.01, c=0.001, a=0, n=2, x0=[1, 2, 3])
     # Define simulation
-    s = simulation.Simulation(
-        model.Model(subsystem, use_llvm=False),
-        t_start=0, t_stop=500.0, num=1000, num_inner=100, max_step=1
-    )
+    s = simulation.Simulation(model.Model(subsystem, use_llvm=False), t_start=0, t_stop=500.0, num=1000, num_inner=100,
+                              max_step=1)
     # Solve and plot
     tic = time()
     s.solve()

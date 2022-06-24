@@ -2,7 +2,8 @@ import itertools
 import os
 import pickle
 import sys
-from copy import copy
+
+from copy import copy, deepcopy
 from ctypes import CFUNCTYPE, c_int64, POINTER, c_double, c_void_p
 
 import numpy as np
@@ -15,11 +16,12 @@ from numba.core.registry import CPUDispatcher
 
 from numba.experimental import jitclass
 import pandas as pd
+from numerous.engine.model.aliased_dataframe import AliasedDataFrame
 
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
-from numerous.engine.model.utils import Imports, njit_and_compile_function
-from numerous.engine.model.external_mappings import ExternalMapping, EmptyMapping
+from numerous.engine.model.utils import Imports
 from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
+from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping, ExternalMappingUnpacked
 
 from numerous.utils.logger_levels import LoggerLevel
 
@@ -78,9 +80,16 @@ class ModelNamespace:
             for v in vs:
                 variables___.append(v)
             variables__.append(variables___)
+
         variables__ = [list(x) for x in zip(*variables__)]
         variables__ = list(itertools.chain(*variables__))
-        return variables__
+        variables_ordered = [None] * len(variables__)
+        if self.is_set:
+            for i, v in enumerate(variables__):
+                v.detailed_description.variable_idx = i
+        for variable in variables__:
+            variables_ordered[variable.detailed_description.variable_idx] = variable
+        return variables_ordered
 
 
 class ModelAssembler:
@@ -116,8 +125,8 @@ class Model:
     """
 
     def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
-                 external_mappings=None, data_loader=None, imports=None, historian=InMemoryHistorian(),
-                 use_llvm=True, save_to_file=False, generate_graph_pdf=False, export_model=False):
+                 imports=None, historian=InMemoryHistorian(),
+                 use_llvm=True, save_to_file=False, generate_graph_pdf=False, export_model=False, clonable=False):
 
         self.path_to_variable = {}
         self.generate_graph_pdf = generate_graph_pdf
@@ -126,12 +135,15 @@ class Model:
             self.logger_level = LoggerLevel.ALL
         else:
             self.logger_level = logger_level
+        external_mappings_unpacked = system.get_external_mappings()
+        self.system_external_mappings = external_mappings_unpacked
+        self.is_external_data = True if len(external_mappings_unpacked) else False
+        self.external_mappings = ExternalMapping(external_mappings_unpacked) if len(
+            external_mappings_unpacked) else EmptyMapping()
 
-        self.is_external_data = True if external_mappings else False
-        self.external_mappings = ExternalMapping(external_mappings,
-                                                 data_loader) if external_mappings else EmptyMapping()
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
+        self.clonable = clonable
         self.imports = Imports()
         self.imports.add_as_import("numpy", "np")
         self.imports.add_from_import("numba", "njit")
@@ -191,21 +203,21 @@ class Model:
             self.validate()
 
     def __add_item(self, item):
-        model_namespaces = []
+        model_namespaces = {}
         if item.id in self.model_items:
             return model_namespaces
 
         self.model_items.update({item.id: item})
-        model_namespaces.append((item.id, self.create_model_namespaces(item)))
+        model_namespaces[item.id] = self.create_model_namespaces(item)
         if isinstance(item, ItemSet):
             return model_namespaces
         if isinstance(item, Connector):
             for binded_item in item.get_binded_items():
                 if not binded_item.part_of_set:
-                    model_namespaces.extend(self.__add_item(binded_item))
+                    model_namespaces.update(self.__add_item(binded_item))
         if isinstance(item, Subsystem):
             for registered_item in item.registered_items.values():
-                model_namespaces.extend(self.__add_item(registered_item))
+                model_namespaces.update(self.__add_item(registered_item))
         return model_namespaces
 
     def __get_mapping__variable(self, variable, depth):
@@ -225,7 +237,6 @@ class Model:
         - _pos as counterpart to _from
         -  _flat
         -  _3d
-
         """
 
         def __get_mapping__idx(variable):
@@ -238,14 +249,13 @@ class Model:
         assemble_start = time.time()
 
         # 1. Create list of model namespaces
-        model_namespaces = [_ns
-                            for item in self.system.registered_items.values() if not item.part_of_set
-                            for _ns in self.__add_item(item)]
+        model_namespaces = {item_id: _ns
+                            for item_id, _ns in self.__add_item(self.system).items()}
 
         # 2. Compute dictionaries
         # equation_dict <scope_id, [Callable]>
         # scope_variables <variable_id, Variable>
-        for variables, equation_dict in map(ModelAssembler.namespace_parser, model_namespaces):
+        for variables, equation_dict in map(ModelAssembler.namespace_parser, model_namespaces.items()):
             self.equation_dict.update(equation_dict)
             self.variables.update(variables)
 
@@ -276,16 +286,15 @@ class Model:
             v.top_item = self.system.id
 
         eq_used = []
-        for ns in model_namespaces:
-            # will be false for empty namespaces. Ones without equations and variables.
-            if ns[1]:
+        for item_id, namespaces in model_namespaces.items():
+            for ns in namespaces:
                 # Key : scope.tag Value: Variable or VariableSet
-                if ns[1][0].is_set:
-                    tag_vars = ns[1][0].set_variables
+                if ns.is_set:
+                    tag_vars = ns.set_variables
                 else:
-                    tag_vars = {v.tag: v for k, v in ns[1][0].variables.items()}
+                    tag_vars = {v.tag: v for k, v in ns.variables.items()}
 
-                parse_eq(model_namespace=ns[1][0], item_id=ns[0], mappings_graph=self.mappings_graph,
+                parse_eq(model_namespace=ns, item_id=item_id, mappings_graph=self.mappings_graph,
                          scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
                          scoped_equations=self.scoped_equations, parsed_eq=self.equations_top, eq_used=eq_used)
         self.eq_used = eq_used
@@ -334,6 +343,7 @@ class Model:
             self.mappings_graph.as_graphviz(self.system.tag, force=True)
         self.lower_model_codegen(tmp_vars)
         self.assembly_tail()
+        self._initial_variables_dict = {k: v.value for k, v in self.variables.items()}
 
     def assembly_tail(self):
         self.logged_aliases = {}
@@ -380,9 +390,9 @@ class Model:
                 external_idx.append(self.vars_ordered_values[var.id])
                 number_of_external_mappings += 1
                 self.external_mappings.add_df_idx(self.variables, var.id, self.system.id)
-
         self.number_of_external_mappings = number_of_external_mappings
         self.external_mappings.store_mappings()
+
         self.external_idx = np.array(external_idx, dtype=np.int64)
         self.generate_path_to_varaible()
 
@@ -390,8 +400,12 @@ class Model:
         for item in self.model_items.values():
             if item.events:
                 for event in item.events:
-                    event.condition = _replace_path_strings(self, event.condition, "state", item.path)
-                    event.action = _replace_path_strings(self, event.action, "var", item.path)
+                    if event.compiled:
+                        pass
+                    else:
+                        event.condition = _replace_path_strings(self, event.condition, "var", item.path)
+                        event.action = _replace_path_strings(self, event.action, "var", item.path)
+
                     self.events.append(event)
             if item.timestamp_events:
                 for event in item.timestamp_events:
@@ -403,6 +417,20 @@ class Model:
         self.info.update({"Number of equation scopes": len(self.equation_dict)})
         self.info.update({"Number of equations": len(self.compiled_eq)})
         self.info.update({"Solver": {}})
+
+    def _reset(self):
+        for k, v in self._initial_variables_dict.items():
+            self.variables[k].value = v
+            self.var_write(v, self.vars_ordered_values[k])
+
+    def set_variables(self, variables: dict):
+        for k, v in variables.items():
+            var_id = self.aliases[k]
+            self.variables[var_id].value = v
+            self.var_write(v, self.vars_ordered_values[var_id])
+
+    def get_variables_initial_values(self):
+        return {self.inverse_aliases[k]: v for k, v in self._initial_variables_dict.items()}
 
     def lower_model_codegen(self, tmp_vars):
 
@@ -416,7 +444,7 @@ class Model:
 
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.variables, \
         self.state_idx, self.derivatives_idx = \
-            eq_gen.generate_equations(export_model=self.export_model)
+            eq_gen.generate_equations(export_model=self.export_model, clonable=self.clonable)
 
         for varname, ix in self.vars_ordered_values.items():
             var = self.variables[varname]
@@ -466,12 +494,17 @@ class Model:
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             with open(filename, 'wb') as handle:
                 sys.setrecursionlimit(100000)
-                pickle.dump((self.system, self.logger_level, self.external_mappings,
+                pickle.dump((self.system, self.logger_level,
                              self.imports, self.use_llvm, self.vars_ordered_values, self.variables,
                              self.state_idx, self.derivatives_idx, self.init_values, self.aliases,
                              eq_gen.generated_program.equations_llvm_opt, eq_gen.generated_program.max_var,
                              eq_gen.generated_program.n_deriv), handle, protocol=pickle.HIGHEST_PROTOCOL)
             logging.info('Model successfully exported to ' + filename)
+
+        if self.clonable:
+            self.equations_llvm_opt = eq_gen.generated_program.equations_llvm_opt
+            self.max_var = eq_gen.generated_program.max_var
+            self.n_deriv = eq_gen.generated_program.n_deriv
 
         # set after export (otherwise we get pickling error for var.write_variable=var_write)
         for varname, ix in self.vars_ordered_values.items():
@@ -543,7 +576,7 @@ class Model:
         ----------
         items : list of :class:`numerous.engine.system.Item`
             set of items with given tag
-               """
+        """
         return [item for item in self.model_items.values() if item.tag == item_tag]
 
     @property
@@ -570,8 +603,7 @@ class Model:
         return ""
 
     def add_event(self, key, condition, action, terminal=True, direction=-1, compiled=False):
-        condition = _replace_path_strings(self, condition, "state")
-
+        condition = _replace_path_strings(self, condition, "var")
         action = _replace_path_strings(self, action, "var")
         event = NumerousEvent(key, condition, action, compiled, terminal, direction)
         self.events.append(event)
@@ -593,36 +625,16 @@ class Model:
     def generate_mock_timestamp_event(self):
         def action(t, v):
             i = 1
+
         self.add_timestamp_event("mock", action, [-1])
 
-    def generate_event_condition_ast(self, is_numerous_solver: bool) -> tuple[list[CPUDispatcher], npt.ArrayLike]:
-        if len(self.events) == 0 and is_numerous_solver:
+    def generate_event_condition_ast(self) -> tuple[list[CPUDispatcher], npt.ArrayLike]:
+        if len(self.events) == 0:
             self.generate_mock_event()
-        if is_numerous_solver:
-            return generate_event_condition_ast(self.events, self.imports.from_imports)
-        else:
-            result = []
-            directions = []
-            for event in self.events:
-                if event.compiled:
-                    compiled_event = event
-                else:
-                    compiled_event = njit_and_compile_function(event.condition, self.imports.from_imports)
-                compiled_event.terminal = event.terminal
-                compiled_event.direction = event.direction
-                directions.append(event.direction)
-                result.append(compiled_event)
-            return result, np.array(directions)
+        return generate_event_condition_ast(self.events, self.imports.from_imports)
 
-    def generate_event_action_ast(self, events, is_numerous_solver: bool) -> list[CPUDispatcher]:
-        if is_numerous_solver:
-            return [generate_event_action_ast(events, self.imports.from_imports)]
-        else:
-            result = []
-            for event in events:
-                compiled_event = njit_and_compile_function(event.action, self.imports.from_imports)
-                result.append(compiled_event)
-            return result
+    def generate_event_action_ast(self, events) -> list[CPUDispatcher]:
+        return [generate_event_action_ast(events, self.imports.from_imports)]
 
     def _get_var_idx(self, var, idx_type):
         if idx_type == "state":
@@ -658,6 +670,7 @@ class Model:
             for eq in namespace.associated_equations.values():
                 equations = []
                 ids = []
+
                 for equation in eq.equations:
                     equations.append(equation)
                 for vardesc in eq.variables_descriptions:
@@ -692,8 +705,12 @@ class Model:
             class CompiledModel_instance(tmp):
                 pass
 
-        NM_instance = CompiledModel_instance(self.init_values, self.derivatives_idx, self.state_idx,
-                                             self.global_vars, number_of_timesteps, start_time,
+        NM_instance = CompiledModel_instance(self.init_values,
+                                             self.derivatives_idx,
+                                             self.state_idx,
+                                             self.global_vars,
+                                             number_of_timesteps,
+                                             start_time,
                                              self.historian.get_historian_max_size(number_of_timesteps,
                                                                                    len(self.events)),
                                              self.external_mappings.external_mappings_time,
@@ -701,7 +718,9 @@ class Model:
                                              self.external_mappings.external_mappings_numpy,
                                              self.external_mappings.external_df_idx,
                                              self.external_mappings.interpolation_info,
-                                             self.is_external_data, self.external_mappings.t_max,
+                                             self.is_external_data,
+                                             self.external_mappings.t_max,
+                                             self.external_mappings.t_min,
                                              self.external_idx
                                              )
 
@@ -715,7 +734,55 @@ class Model:
         self.numba_model = NM_instance
         return self.numba_model
 
-    def set_functions(self, compiled_compute, var_func, var_write):
+    def set_functions(self, equations_llvm_opt, n_deriv, max_var):
+        for equation in equations_llvm_opt:
+            llmod2 = llvm.parse_assembly(equation)
+            ee.add_module(llmod2)
+        ee.finalize_object()
+        cfptr = ee.get_function_address("kernel")
+
+        cfptr_var_r = ee.get_function_address("vars_r")
+        cfptr_var_w = ee.get_function_address("vars_w")
+
+        c_float_type = type(np.ctypeslib.as_ctypes(np.float64()))
+
+        diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type))(cfptr)
+
+        vars_r = CFUNCTYPE(POINTER(c_float_type), c_int64)(cfptr_var_r)
+
+        vars_w = CFUNCTYPE(c_void_p, c_double, c_int64)(cfptr_var_w)
+
+        n_deriv = n_deriv
+        max_var = max_var
+
+        @njit('float64[:](float64[:])')
+        def compiled_compute(y):
+            deriv_pointer = diff_(y.ctypes)
+            return carray(deriv_pointer, (n_deriv,)).copy()
+
+        @njit('float64[:]()')
+        def var_func():
+            variables_pointer = vars_r(0)
+            variables_array = carray(variables_pointer, (max_var,))
+
+            return variables_array.copy()
+
+        @njit('void(float64,int64)')
+        def var_write(var, idx):
+            vars_w(var, idx)
+
+        def c1(self, array_):
+            return compiled_compute(array_)
+
+        def c2(self):
+            return var_func()
+
+        def c3(self, value, idx):
+            return var_write(value, idx)
+
+        setattr(CompiledModel, "compiled_compute", c1)
+        setattr(CompiledModel, "read_variables", c2)
+        setattr(CompiledModel, "write_variables", c3)
 
         for varname, ix in self.vars_ordered_values.items():
             var = self.variables[varname]
@@ -752,10 +819,10 @@ class Model:
     def create_historian_df(self):
         if self.historian_df is not None:
             import pandas as pd
-            self.historian_df = AliasedDataFrame(pd.concat([self.historian_df,
+            self.historian_df = AliasedDataFrame(pd.concat([self.historian_df.df,
                                                             self._generate_history_df(
                                                                 self.generate_not_nan_history_array(),
-                                                                rename_columns=False)],
+                                                                rename_columns=False).df],
                                                            axis=0, sort=False, ignore_index=True),
                                                  aliases=self.aliases, rename_columns=True)
 
@@ -768,13 +835,50 @@ class Model:
         data = self.create_historian_dict(historian_data)
         return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
 
+    def set_external_mappings(self, external_mappings, data_loader):
+        external_mappings_unpacked = [ExternalMappingUnpacked(external_mappings, data_loader)]
+        external_mappings_unpacked = self.system_external_mappings + external_mappings_unpacked
+        self.is_external_data = True if len(external_mappings_unpacked) else False
+        self.external_mappings = ExternalMapping(external_mappings_unpacked) if len(
+            external_mappings_unpacked) else EmptyMapping()
+
+        number_of_external_mappings = 0
+        external_idx = []
+
+        for var in self.variables.values():
+            if self.external_mappings.is_mapped_var(self.variables, var.id, self.system.id):
+                external_idx.append(self.vars_ordered_values[var.id])
+                number_of_external_mappings += 1
+                self.external_mappings.add_df_idx(self.variables, var.id, self.system.id)
+        self.number_of_external_mappings = number_of_external_mappings
+        self.external_mappings.store_mappings()
+
+        self.external_idx = np.array(external_idx, dtype=np.int64)
+
+        self.numba_model.external_idx = self.external_idx
+        self.numba_model.external_mappings_time = self.external_mappings.external_mappings_time
+        self.numba_model.number_of_external_mappings = self.number_of_external_mappings
+        self.numba_model.external_mappings_numpy = self.external_mappings.external_mappings_numpy
+        self.numba_model.external_df_idx = self.external_mappings.external_df_idx
+        self.numba_model.approximation_type = self.external_mappings.interpolation_info
+        self.numba_model.is_external_data = self.is_external_data
+        self.numba_model.max_external_t = self.external_mappings.t_max
+        self.numba_model.min_external_t = self.external_mappings.t_min
+
+        self.numba_model.map_external_data(0)
+
+        # if self.numba_model.is_external_data_update_needed(0):
+        self.numba_model.is_external_data = self.external_mappings.load_new_external_data_batch(0)
+        if self.numba_model.is_external_data:
+            self.numba_model.update_external_data(self.external_mappings.external_mappings_numpy,
+                                                  self.external_mappings.external_mappings_time,
+                                                  self.external_mappings.t_max, self.external_mappings.t_min)
+
     @classmethod
     def from_file(cls, param):
-        system_, logger_level, external_mappings, imports, use_llvm, vars_ordered_values, variables, state_idx, \
+        system_, logger_level, imports, use_llvm, vars_ordered_values, variables, state_idx, \
         derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(open(param, "rb"))
-        if isinstance(external_mappings, EmptyMapping):
-            external_mappings = None
-        model = Model(system=system_, assemble=False, logger_level=logger_level, external_mappings=external_mappings,
+        model = Model(system=system_, assemble=False, logger_level=logger_level,
                       use_llvm=use_llvm)
         model.variables = variables
         model.imports = imports
@@ -783,78 +887,32 @@ class Model:
         model.derivatives_idx = derivatives_idx
         model.init_values = init_values
         model.aliases = aliases
-        for equation in equations_llvm_opt:
-            llmod2 = llvm.parse_assembly(equation)
-            ee.add_module(llmod2)
-        ee.finalize_object()
-        cfptr = ee.get_function_address("kernel")
 
-        cfptr_var_r = ee.get_function_address("vars_r")
-        cfptr_var_w = ee.get_function_address("vars_w")
-
-        c_float_type = type(np.ctypeslib.as_ctypes(np.float64()))
-
-        diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type))(cfptr)
-
-        vars_r = CFUNCTYPE(POINTER(c_float_type), c_int64)(cfptr_var_r)
-
-        vars_w = CFUNCTYPE(c_void_p, c_double, c_int64)(cfptr_var_w)
-
-        @njit('float64[:](float64[:])')
-        def compiled_compute(y):
-            deriv_pointer = diff_(y.ctypes)
-            return carray(deriv_pointer, (n_deriv,)).copy()
-
-        @njit('float64[:]()')
-        def var_func():
-            variables_pointer = vars_r(0)
-            variables_array = carray(variables_pointer, (max_var,))
-
-            return variables_array.copy()
-
-        @njit('void(float64,int64)')
-        def var_write(var, idx):
-            vars_w(var, idx)
-
-        def c1(self, array_):
-            return compiled_compute(array_)
-
-        def c2(self):
-            return var_func()
-
-        def c3(self, value, idx):
-            return var_write(value, idx)
-
-        setattr(CompiledModel, "compiled_compute", c1)
-        setattr(CompiledModel, "read_variables", c2)
-        setattr(CompiledModel, "write_variables", c3)
-
-        model.set_functions(compiled_compute, var_func, var_write)
+        model.set_functions(equations_llvm_opt, n_deriv, max_var)
         return model
 
+    def clone(self, clonable=False):
+        if not self.clonable:
+            raise Exception("Model isn't clonable")
+        system_ = self.system
+        logger_level = self.logger_level
+        use_llvm = self.use_llvm
+        model = Model(system=system_, assemble=False, logger_level=logger_level,
+                      use_llvm=use_llvm)
+        model.variables = self.variables
+        model.imports = self.imports
+        model.vars_ordered_values = self.vars_ordered_values
+        model.state_idx = self.state_idx
+        model.derivatives_idx = self.derivatives_idx
+        model.init_values = self.init_values
+        model.aliases = self.aliases
 
-class AliasedDataFrame(pd.DataFrame):
-    _metadata = ['aliases']
+        model.set_functions(self.equations_llvm_opt, self.n_deriv, self.max_var)
 
-    def __init__(self, data, aliases={}, rename_columns=True):
-        super().__init__(data)
-        self.aliases = aliases
-        self.rename_columns = rename_columns
-        if self.rename_columns:
-            tmp = copy(list(data.keys()))
-            for key in tmp:
-                if key in self.aliases.keys():
-                    data[self.aliases[key]] = data.pop(key)
-            super().__init__(data)
+        if clonable:
+            model.clonable = True
+            model.equations_llvm_opt = self.equations_llvm_opt
+            model.n_deriv = self.n_deriv
+            model.max_var = self.max_var
 
-    def __getitem__(self, item):
-        if self.rename_columns:
-            if not isinstance(item, list):
-                col = self.aliases[item] if item in self.aliases else item
-                return super().__getitem__(col)
-
-            cols = [self.aliases[i] if i in self.aliases else i for i in item]
-
-            return super().__getitem__(cols)
-        else:
-            return super().__getitem__(item)
+        return model
