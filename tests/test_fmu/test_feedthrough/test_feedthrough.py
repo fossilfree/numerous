@@ -20,6 +20,7 @@ class S3(Subsystem):
         self.register_items([fmu_subsystem])
 
 
+@pytest.mark.xfail
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_feedthrough(use_llvm):
     subsystem = S3('q1')

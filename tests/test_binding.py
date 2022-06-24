@@ -45,12 +45,12 @@ def two_way_connector_item():
         def __init__(self, tag):
             super(TestConductor, self).__init__(tag)
             self.create_namespace('test_namespace')
-            self.side1.test_namespace.create_variable(name='T')
+            self.side1.test_namespace.create_variable(name='T', value=-1)
             self.side1.test_namespace.create_variable(name='P')
             var_desc = VariableDescription(tag='P1', initial_value=11,
                                            type=VariableType.PARAMETER)
             self.test_namespace.create_variable_from_desc(var_desc)
-            self.side2.test_namespace.create_variable(name='T')
+            self.side2.test_namespace.create_variable(name='T', value=-1)
 
     return TestConductor('test_connector')
 
@@ -62,7 +62,7 @@ def test_binding_multiple_add(two_way_connector_item, simple_item_1):
 
 
 def test_binding_1(two_way_connector_item, simple_item_1):
-    assert two_way_connector_item.side1.test_namespace.T.value is None
+    assert two_way_connector_item.side1.test_namespace.T.value == -1
     two_way_connector_item.bind(side1=simple_item_1)
 
     assert two_way_connector_item.side1.test_namespace.T.value == 0
@@ -76,7 +76,7 @@ def test_binding_1(two_way_connector_item, simple_item_1):
 
 
 def test_binding_2(two_way_connector_item, simple_item_1):
-    assert two_way_connector_item.side1.test_namespace.T.value is None
+    assert two_way_connector_item.side1.test_namespace.T.value == -1
     two_way_connector_item.side1.test_namespace.P = two_way_connector_item.test_namespace.P1
     assert simple_item_1.test_namespace.P.value == 0
     two_way_connector_item.bind(side1=simple_item_1)
@@ -87,8 +87,8 @@ def test_binding_2(two_way_connector_item, simple_item_1):
 
 
 def test_binding_3(two_way_connector_item, simple_item_1, simple_item_2):
-    assert two_way_connector_item.side1.test_namespace.T.value is None
-    assert two_way_connector_item.side2.test_namespace.T.value is None
+    assert two_way_connector_item.side1.test_namespace.T.value == -1
+    assert two_way_connector_item.side2.test_namespace.T.value == -1
     two_way_connector_item.bind(side1=simple_item_1, side2=simple_item_2)
 
     assert two_way_connector_item.side1.test_namespace.T.value == 0
