@@ -120,6 +120,7 @@ class ASTBuilder:
 
             return global_kernel, var_func, var_write
         else:
+
             exec(code, kernel_module.__dict__)
 
             def var_func():
@@ -127,6 +128,7 @@ class ASTBuilder:
 
             def var_write(value, idx):
                 np.put(kernel_module.kernel_variables, [idx], value)
+
 
             return kernel_module.global_kernel, var_func, var_write,
 
@@ -246,7 +248,6 @@ class ASTBuilder:
             for arg in args:
                 arg_idxs.append(self.variable_names[arg])
             target_idx = self.variable_names[target[0]]
-            print(target_idx)
             if len(args) == 1:
                 temp=(ast.Assign(targets=[ast.Subscript(value=GLOBAL_ARRAY,
                                                                    slice=ast.Index(

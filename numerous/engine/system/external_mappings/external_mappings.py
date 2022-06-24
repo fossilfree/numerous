@@ -10,7 +10,7 @@ class ExternalMapping:
         self.external_mappings_time = []
         self.external_mappings_time = []
         self.external_columns = []
-        self.interpoaltion_type = []
+        self.interpolation_type = []
         self.t_max = 0
         for external_mapping in self.external_mappings:
             for element in external_mapping.external_mappings:
@@ -19,7 +19,7 @@ class ExternalMapping:
         for external_mapping in self.external_mappings:
             for element in external_mapping.external_mappings:
                 self.external_columns.append(list(element.dataframe_aliases.keys()))
-                self.interpoaltion_type.append([a_tuple[1] for a_tuple in list(element.dataframe_aliases.values())])
+                self.interpolation_type.append([a_tuple[1] for a_tuple in list(element.dataframe_aliases.values())])
                 self.external_mappings_numpy.append(
                     element.df[[a_tuple[0] for a_tuple in list(element.dataframe_aliases.values())]]
                     .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
@@ -28,10 +28,11 @@ class ExternalMapping:
                     .to_numpy(dtype=np.float64)[element.index_to_timestep_mapping_start:])
                 # TODO extend for multiple dataframes
                 self.t_max = np.max(self.external_mappings_time[0])
+                self.t_min = np.min(self.external_mappings_time[0])
 
         self.external_mappings_numpy = np.array(self.external_mappings_numpy, dtype=np.float64)
         self.external_mappings_time = np.array(self.external_mappings_time, dtype=np.float64)
-        self.interpoaltion_type = [item for sublist in self.interpoaltion_type for item in sublist]
+        self.interpolation_type = [item for sublist in self.interpolation_type for item in sublist]
         self.external_df_idx = []
         self.interpolation_info = []
 
@@ -42,7 +43,7 @@ class ExternalMapping:
         for external_mapping in self.external_mappings:
             for element in external_mapping.external_mappings:
                 # TODO division round bugs? we can skip a row here
-                df = external_mapping.data_loader.load(element.data_frame_id, int(t / element.time_multiplier) - 1)
+                df = external_mapping.data_loader.load(element.data_frame_id, t)
 
                 if df.empty:
                     return False
@@ -61,6 +62,7 @@ class ExternalMapping:
         self.external_mappings_time = np.array(self.external_mappings_time, dtype=np.float64)
         # TODO extend for multiple dataframes
         self.t_max = np.max(self.external_mappings_time[0])
+        self.t_min = np.min(self.external_mappings_time[0])
         return True
 
     def store_mappings(self):
@@ -74,13 +76,13 @@ class ExternalMapping:
                     if column in path:
                         self.external_df_idx.append((i, index))
                         self.interpolation_info.append(
-                            self.interpoaltion_type[index].value == InterpolationType.LINEAR.value)
+                            self.interpolation_type[index].value == InterpolationType.LINEAR.value)
 
     def is_mapped_var(self, variables, var_id, system_id):
         for path in variables[var_id].path.path[system_id]:
             for columns in self.external_columns:
                 for column in columns:
-                    if column in path:
+                    if column == path:
                         return True
 
 
@@ -117,6 +119,7 @@ class EmptyMapping:
         self.external_mappings_time = np.empty([0, 0], dtype=np.float64)
         self.external_df_idx = np.empty([0, 0], dtype=np.int64)
         self.t_max = 0
+        self.t_min = 0
         self.interpolation_info = np.empty([0], dtype=bool)
 
     def store_mappings(self):

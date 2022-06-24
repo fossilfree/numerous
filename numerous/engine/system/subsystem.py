@@ -153,13 +153,45 @@ class Subsystem(ConnectorItem):
         self.update_variables_path(item)
         self.registered_items.update({item.id: item})
 
-    def get_external_mappings(self):
+    def _find_variable(self, item, varname):
+        variables = item.get_variables()
+        for variable in variables:
+            for path in variable[0].path.path.values():
+                if path[0] == varname:
+                    return True
+        return False
+
+    def find_variable(self, varname):
+        if self._find_variable(self, varname):
+            return True
+
+        for item in self.registered_items.values():
+            if isinstance(item, Subsystem):
+                return item.find_variable(varname)
+            if self._find_variable(item, varname):
+                return True
+        return False
+
+    def _get_external_mappings(self):
         external_mappings = []
         if self.external_mappings is not None:
             external_mappings.append(self.external_mappings)
         for item in self.registered_items.values():
             if isinstance(item, Subsystem):
-                external_mappings.extend(item.get_external_mappings())
+                external_mappings.extend(item._get_external_mappings())
+
+        return external_mappings
+
+    def get_external_mappings(self):
+        external_mappings = self._get_external_mappings()
+
+        for external_mapping in external_mappings:
+            for mapping in external_mapping.external_mappings:
+                for alias in mapping.dataframe_aliases:
+                    if not self.find_variable(alias):
+                        raise ValueError(f"No variable named '{alias}' in system '{self.tag}' "
+                                         f"(could not map external data")
+
         return external_mappings
 
 

@@ -1,14 +1,8 @@
-import os.path
-
 import pytest
-import pandas as pd
 import numpy as np
-from numerous.engine.system.external_mappings import ExternalMappingElement
 
-from numerous.utils.data_loader import InMemoryDataLoader, LocalDataLoader
 from pytest import approx
 
-from numerous.engine.system.external_mappings.interpolation_type import InterpolationType
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 
@@ -16,7 +10,7 @@ from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoW
 from numerous.multiphysics import EquationBase, Equation
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 
-
+TOL = 1e-6
 @pytest.fixture
 def test_eq1():
     class TestEq1(EquationBase):
@@ -134,6 +128,7 @@ def ms3():
 
             t1 = self.create_namespace('t1')
 
+
             t1.add_equations([TestEq_input(P=P, T=T, R=R)])
             ##this line has to be after t1.add_equations since t1 inside output is created there
             self.output.t1.create_variable(name='T')
@@ -157,7 +152,7 @@ def ms3():
             super().__init__(tag)
 
             t1 = self.create_namespace('t1')
-            t1.add_equations([TestEq_ground(TG=TG, RG=RG)])
+            t1.add_equations([TestEq_ground(TG=TG, RG=RG, tol=TOL)])
 
             # ##since we asked for variable T in binding we have to create variable T and map it to TG
             # t1.create_variable('T')
@@ -227,24 +222,24 @@ def test_1_item_model(ms1):
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_callback_step_item_model(ms3, use_llvm):
     def action(time, variables):
-        if int(time) == 119:
+        if abs(time - 119) < variables['S3.5.t1.tol']:
             raise ValueError("Overflow of state. time:119")
 
     def condition(time, states):
-        return 500 - states['S3.3.t1.T']
+        return 119 - time
 
     def action2(time, variables):
-        if int(time) == 118:
+        if abs(time - 118) < variables['S3.5.t1.tol']:
             raise ValueError("Overflow of state. time:119")
 
     def condition2(time, states):
-        return 500 - states['S3.3.t1.T']
+        return 118 - time
 
-    m1 = Model(ms3, use_llvm=use_llvm)
+    m1 = Model(ms3)
     m1.add_event("simple", condition, action)
     m1.add_event("simple2", condition2, action2)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
-    with pytest.raises(ValueError, match=r".*time:119.*"):
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, use_llvm=use_llvm, atol=TOL)
+    with pytest.raises(ValueError, match=r".*time:119*"):
         s1.solve()
 
 
@@ -277,6 +272,7 @@ def test_chain_item_binding_model_nested(ms3, use_llvm):
 
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_chain_item_binding_model_nested2(ms3, use_llvm):
+
     ms4 = Subsystem('new_s4')
     ms4.register_item(ms3)
     ms5 = Subsystem('new_s5')
@@ -289,8 +285,8 @@ def test_chain_item_binding_model_nested2(ms3, use_llvm):
     m1 = Model(ms7, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     s1.solve()
-    assert len(m1.path_variables) == 50
-    assert len(m1.variables) == 25
+    assert len(m1.path_variables) == 52
+    assert len(m1.variables) == 26
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
 
@@ -356,118 +352,24 @@ class ExponentialDecay(Subsystem, EquationBase):
         scope.x_dot = -scope.x * scope.alpha
 
 
-@pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_data(use_llvm):
-    external_mappings = []
-
-    data = {'time': np.arange(100),
-            'Dew Point Temperature {C}': np.arange(100) + 1,
-            'Dry Bulb Temperature {C}': np.arange(100) + 2,
-            }
-
-    df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
-    index_to_timestep_mapping = 'time'
-    index_to_timestep_mapping_start = 0
-    dataframe_aliases = {
-        'system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
-        'system_external.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE)
-    }
-    external_mappings.append(ExternalMappingElement
-                             ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
-                              dataframe_aliases))
-    data_loader = InMemoryDataLoader(df)
-    s = Simulation(
-        Model(StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader),
-              use_llvm=use_llvm),
-        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
-
-    s.solve()
-    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
-    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
+p1_val = 25
 
 
-@pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_data_with_chunks_no_states(use_llvm, tmpdir):
-    external_mappings = []
+class SetVar(Subsystem, EquationBase):
+    def __init__(self, tag='setvar'):
+        super(SetVar, self).__init__(tag)
+        self.t1 = self.create_namespace('t1')
+        self.add_state('x', 1, logger_level=LoggerLevel.INFO)
+        self.add_parameter('p1', p1_val)
+        self.t1.add_equations([self])
 
-    data = {'time': np.arange(100),
-            'Dew Point Temperature {C}': np.arange(100) + 1,
-            'Dry Bulb Temperature {C}': np.arange(100) + 2,
-            }
-
-    df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
-    index_to_timestep_mapping = 'time'
-    index_to_timestep_mapping_start = 0
-    dataframe_aliases = {
-        'system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
-        'system_external.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE)
-    }
-    path = os.path.join(tmpdir, "x.csv")
-    df.to_csv(path)
-    external_mappings.append(ExternalMappingElement
-                             (path, index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
-                              dataframe_aliases))
-    data_loader = LocalDataLoader(chunksize=10)
-    s = Simulation(
-        Model(StaticDataSystem('system_external', n=1, external_mappings=external_mappings, data_loader=data_loader),
-              use_llvm=use_llvm),
-        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
-
-    s.solve()
-    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(101)[1:]
-    assert approx(np.array(s.model.historian_df['system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(101)[1:] + 1
-
-
-@pytest.mark.parametrize("use_llvm", [True, False])
-def test_external_data_multiple(use_llvm):
-    external_mappings = []
-    external_mappings_outer = []
-
-    data = {'time': np.arange(100),
-            'Dew Point Temperature {C}': np.arange(100) + 1,
-            'Dry Bulb Temperature {C}': np.arange(100) + 2,
-            }
-
-    df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
-    index_to_timestep_mapping = 'time'
-    index_to_timestep_mapping_start = 0
-    dataframe_aliases = {
-        'system_outer.system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
-        'system_outer.system_external.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE),
-    }
-    dataframe_aliases_outer = {
-        'system_outer.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
-        'system_outer.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE),
-    }
-    external_mappings.append(ExternalMappingElement
-                             ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
-                              dataframe_aliases))
-    external_mappings_outer.append((ExternalMappingElement
-                                    ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
-                                     dataframe_aliases_outer)))
-    data_loader = InMemoryDataLoader(df)
-    system_outer = OuterSystem('system_outer',
-                               StaticDataSystem('system_external', n=1, external_mappings=external_mappings,
-                                                data_loader=data_loader),
-                               external_mappings=external_mappings_outer,
-                               data_loader=data_loader)
-    s = Simulation(
-        Model(system_outer, use_llvm=use_llvm),
-        t_start=0, t_stop=100.0, num=100, num_inner=100, max_step=.1)
-    s.solve()
-    assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i1'])[1:]) == np.arange(
-        101)[1:]
-    assert approx(np.array(s.model.historian_df['system_outer.system_external.tm0.test_nm.T_i2'])[1:]) == np.arange(
-        101)[1:] + 1
-    assert approx(np.array(s.model.historian_df['system_outer.tm0.test_nm.T_i1'])[1:]) == np.arange(
-        101)[1:]
-    assert approx(np.array(s.model.historian_df['system_outer.tm0.test_nm.T_i2'])[1:]) == np.arange(
-        101)[1:] + 1
+    @Equation()
+    def eval(self, scope):
+        scope.x_dot = 1
 
 
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_static_system(use_llvm):
-    import numpy as np
     s = Simulation(Model(StaticDataSystem('system_static', n=1), use_llvm=use_llvm), t_start=0, t_stop=100.0, num=100,
                    num_inner=100, max_step=.1)
     s.solve()
@@ -488,3 +390,22 @@ def test_reset_model():
     df_2 = sim2.model.historian_df
 
     assert approx(df_1['system.t1.x'].values) == df_2['system.t1.x'].values
+
+
+def test_set_variables():
+    model = Model(SetVar(tag='system'))
+    p1 = 1
+
+    model.set_variables({'system.t1.p1': p1})
+    sim = Simulation(model=model, t_start=0, t_stop=1, num=3)
+    sim.solve()
+
+    df_1 = sim.model.historian_df
+
+    assert (df_1['system.t1.p1'].values == p1).all()
+
+
+def test_get_init_variables():
+    model = Model(SetVar(tag='system'))
+
+    assert model.get_variables_initial_values()['system.t1.p1'] == p1_val

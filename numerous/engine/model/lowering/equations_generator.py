@@ -401,7 +401,7 @@ class EquationGenerator:
             for k, v in mapping_dict.items():
                 self.generated_program.add_mapping(v, [k])
 
-    def generate_equations(self, export_model=False):
+    def generate_equations(self, export_model=False, clonable=False):
         logging.info('Generate kernel')
         # Generate the ast for the python kernel
         for n in self.topo_sorted_nodes:
@@ -419,6 +419,7 @@ class EquationGenerator:
 
         deriv_idx = []
         state_idx = []
+        save_to_file = export_model or clonable
         for k, v in self.values_order.items():
             if k in self.deriv:
                 deriv_idx.append(v)
@@ -428,7 +429,7 @@ class EquationGenerator:
             logging.info('Generating llvm')
             diff, var_func, var_write = self.generated_program.generate(imports=self.imports,
                                                                         system_tag=self.system_tag,
-                                                                        save_to_file=export_model)
+                                                                        save_to_file=save_to_file)
 
             return diff, var_func, var_write, self.values_order, self.scope_variables, np.array(state_idx,
                                                                                                 dtype=np.int64), \
@@ -438,6 +439,6 @@ class EquationGenerator:
 
             global_kernel, var_func, var_write = self.generated_program.generate(self.imports,
                                                                                  system_tag=self.system_tag,
-                                                                                 save_to_file=export_model)
+                                                                                 save_to_file=save_to_file)
             return global_kernel, var_func, var_write, self.values_order, self.scope_variables, \
                    np.array(state_idx, dtype=np.int64), np.array(deriv_idx, dtype=np.int64)
