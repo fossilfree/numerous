@@ -32,9 +32,10 @@ class FMU_Subsystem(Subsystem, EquationBase):
     """
     """
 
-    def __init__(self, fmu_filename: str, tag: str, fmu_in: str = None, debug_output=False):
+    def __init__(self, fmu_filename: str, tag: str, fmu_in: str = None, debug_output=False, import_all=False):
         super().__init__(tag)
         self.model_description = None
+        self.import_all = import_all
         input = None
         fmi_call_logger = None
         start_values = {}
@@ -51,7 +52,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         self.dataframe_aliases = {}
         model_description = read_model_description(fmu_filename, validate=validate)
         self.model_description = model_description
-        self.set_variables(self.model_description)
+        self.value_ref_used = self.set_variables(self.model_description)
         required_paths = ['resources', 'binaries/']
         tempdir = extract(fmu_filename, include=lambda n: n.startswith(tuple(required_paths)))
         unzipdir = tempdir
@@ -155,12 +156,10 @@ class FMU_Subsystem(Subsystem, EquationBase):
         newDiscreteStates = getattr(fmu.dll, "fmi2NewDiscreteStates")
         newDiscreteStates.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
         newDiscreteStates.restype = ctypes.c_uint
-        number_of_string_vars = len([x.valueReference for x in model_description.modelVariables if x.type == "String"])
-        number_of_bool_vars = len([x.valueReference for x in model_description.modelVariables if x.type == "Boolean"])
 
-        len_q = len(model_description.modelVariables) - number_of_string_vars - number_of_bool_vars
-        var_order = [x.valueReference for x in model_description.modelVariables if
-                     (x.type != "String" and x.type != "Boolean")]
+        len_q = len(self.value_ref_used)
+        var_order = [x.valueReference for x in model_description.modelVariables
+                     if x.valueReference in self.value_ref_used and (x.type != "String" and x.type != "Boolean")]
 
         term_1 = np.array([0], dtype=np.int32)
         term_1_ptr = term_1.ctypes.data
@@ -182,26 +181,42 @@ class FMU_Subsystem(Subsystem, EquationBase):
         var_states_ordered = []
         var_names_ordered_ns = []
         deriv_names_ordered = []
+        input_idx = []
+        input_var_names_ordered = []
+        output_idx = []
+        output_var_names_ordered = []
         for idx, variable in enumerate(model_description.modelVariables):
+            if variable.valueReference not in self.value_ref_used:
+                continue
             if variable.type == 'String':
                 continue
             if variable.type == 'Boolean':
                 continue
+
             if variable.derivative:
-                deriv_idx.append(idx)
-                states_idx.append([(index, x) for index, x in enumerate(model_description.modelVariables) if
-                                   x.name == variable.derivative.name][0][0])
+                deriv_idx.append(self.value_ref_used.index(variable.valueReference))
+                states_idx.append(self.value_ref_used.index(
+                    [x.valueReference for index, x in enumerate(model_description.modelVariables) if
+                     x.name == variable.derivative.name][0]))
                 var_names_ordered_ns.append(namespace_ + "." + _replace_name_str(variable.derivative.name) + "_dot")
                 deriv_names_ordered.append(_replace_name_str(variable.derivative.name) + "_dot")
                 var_states_ordered.append(namespace_ + "." + _replace_name_str(variable.derivative.name))
             else:
                 var_names_ordered_ns.append(namespace_ + "." + _replace_name_str(variable.name))
                 var_names_ordered.append(_replace_name_str(variable.name))
+            if variable.valueReference in self.input_ref:
+                input_idx.append(self.value_ref_used.index(variable.valueReference))
+                input_var_names_ordered.append(_replace_name_str(variable.name))
+            if variable.valueReference in self.output_ref:
+                output_idx.append(self.value_ref_used.index(variable.valueReference))
+                output_var_names_ordered.append(_replace_name_str(variable.name))
+
+        states_names_ordered = [x.split(".")[1] for x in var_states_ordered]
 
         fmu.enterContinuousTimeMode()
 
         q1, equation_call_wrapper = generate_eval_llvm(idx_tuple_array, [idx_tuple_array[i] for i in deriv_idx],
-                                                       states_idx, var_order)
+                                                       states_idx, var_order, output_idx)
         module_func = ast.Module(body=[q1, equation_call_wrapper], type_ignores=[])
         if debug_output:
             print(ast.unparse(module_func))
@@ -213,7 +228,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         equation_call = namespace["equation_call"]
 
         q = generate_fmu_eval(var_names_ordered, ptr_tuple_array,
-                              [ptr_tuple_array[i] for i in deriv_idx])
+                              [ptr_tuple_array[i] for i in deriv_idx],
+                              output_idx, output_var_names_ordered)
         module_func = ast.Module(body=[q], type_ignores=[])
         if debug_output:
             print(ast.unparse(module_func))
@@ -326,7 +342,9 @@ class FMU_Subsystem(Subsystem, EquationBase):
         event_action_2 = namespace["event_action_2"]
         event_action_2.lines = ast.unparse(ast.Module(body=[b1], type_ignores=[]))
         if len(deriv_names_ordered) > 0:
-            gec = generate_eq_call(deriv_names_ordered, var_names_ordered)
+            gec = generate_eq_call(deriv_names_ordered, var_names_ordered, input_var_names_ordered,
+                                   output_var_names_ordered,
+                                   [x for x in var_names_ordered if x not in states_names_ordered])
             if debug_output:
                 print(ast.unparse(gec))
             code = compile(ast.parse(ast.unparse(gec)), filename='fmu_eval', mode='exec')
@@ -349,17 +367,17 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
     def set_variables(self, model_description):
         derivatives = []
+        value_ref_used = []
         derivatives_names = []
         states = []
+        input_ref = []
+        output_ref = []
 
         for variable in model_description.modelVariables:
             if variable.derivative:
                 derivatives.append(variable)
                 derivatives_names.append(_replace_name_str(variable.derivative.name))
-                # if variable.derivative.start:
-                #     start = variable.derivative.start
-                # else:
-                #     start = 0
+
                 states.append(variable.derivative)
         for variable in model_description.modelVariables:
             if variable.type == 'String':
@@ -371,10 +389,12 @@ class FMU_Subsystem(Subsystem, EquationBase):
                     start = variable.start
                 else:
                     start = 0
+                value_ref_used.append(variable.valueReference)
                 self.add_state(_replace_name_str(variable.name), float(start), create_derivative=False)
                 continue
 
             if variable in derivatives:
+                value_ref_used.append(variable.valueReference)
                 self.add_derivative(derivatives_names[derivatives.index(variable)])
                 continue
             if variable.initial == 'exact':
@@ -384,19 +404,35 @@ class FMU_Subsystem(Subsystem, EquationBase):
                             start = int(variable.start is True)
                         else:
                             start = float(variable.start)
-                        self.add_constant(_replace_name_str(variable.name), start)
+                        if self.import_all or variable.causality == 'input' or variable.causality == 'output':
+                            value_ref_used.append(variable.valueReference)
+                            self.add_constant(_replace_name_str(variable.name), start)
                     else:
-                        self.add_constant(_replace_name_str(variable.name), 0.0)
+                        if self.import_all or variable.causality == 'input' or variable.causality == 'output':
+                            value_ref_used.append(variable.valueReference)
+                            self.add_constant(_replace_name_str(variable.name), 0.0)
                 if variable.variability == 'discrete':
                     if variable.start == "false":
-                        self.add_parameter(_replace_name_str(variable.name), 0.0)
+                        if self.import_all or variable.causality == 'input' or variable.causality == 'output':
+                            value_ref_used.append(variable.valueReference)
+                            self.add_parameter(_replace_name_str(variable.name), 0.0)
                     if variable.start == "true":
-                        self.add_parameter(_replace_name_str(variable.name), 1.0)
+                        if self.import_all or variable.causality == 'input' or variable.causality == 'output':
+                            value_ref_used.append(variable.valueReference)
+                            self.add_parameter(_replace_name_str(variable.name), 1.0)
                 if variable.variability == 'tunable':
-                    self.add_parameter(_replace_name_str(variable.name), float(variable.start))
+                    if self.import_all or variable.causality == 'input' or variable.causality == 'output':
+                        value_ref_used.append(variable.valueReference)
+                        self.add_parameter(_replace_name_str(variable.name), float(variable.start))
             else:
                 if not variable.derivative:
-                    self.add_parameter(_replace_name_str(variable.name), 0.0)
+                    if self.import_all or variable.causality == 'input' or variable.causality == 'output':
+                        value_ref_used.append(variable.valueReference)
+                        if variable.causality == 'input':
+                            input_ref.append(variable.valueReference)
+                        if variable.causality == 'output':
+                            output_ref.append(variable.valueReference)
+                        self.add_parameter(_replace_name_str(variable.name), 0.0)
 
         # TODO another types and tunable
         for variable in model_description.modelVariables:
@@ -406,7 +442,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                 else:
                     self.dataframe_aliases[variable.name] = (variable.name, InterpolationType.LINEAR)
 
-        if len(self.dataframe_aliases) > 0:
+        if self.fmu_input is not None:
             data_loader = InMemoryDataLoader(self.fmu_input)
             index_to_timestep_mapping = 'time'
             index_to_timestep_mapping_start = 0
@@ -419,3 +455,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
             self.external_mappings = ExternalMappingUnpacked(external_mappings, data_loader)
         else:
             self.external_mappings = None
+        self.input_ref = input_ref
+        self.output_ref = output_ref
+        return value_ref_used

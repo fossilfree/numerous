@@ -10,10 +10,11 @@ TERM_1_PTR = "term_1_ptr"
 NUMEROUS_FUNCTION = 'NumerousFunction'
 
 
-def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs):
+def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs, parameters_return_idx, fmu_output_args):
     args_lst = []
     for arg_id in input_args:
-        args_lst.append(ast.arg(arg=arg_id))
+        if arg_id not in fmu_output_args:
+            args_lst.append(ast.arg(arg=arg_id))
     args = ast.arguments(posonlyargs=[], args=args_lst, kwonlyargs=[],
                          kw_defaults=[], defaults=[])
 
@@ -29,16 +30,23 @@ def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs):
 
     for zero_assign_ptr, _ in zero_assign_ptrs:
         eq_call_args.append(add_address_as_void_pointer(zero_assign_ptr))
+
     for arg_id in input_args:
-        eq_call_args.append(ast.Name(id=arg_id, ctx=ast.Load()))
+        if arg_id not in fmu_output_args:
+            eq_call_args.append(ast.Name(id=arg_id, ctx=ast.Load()))
 
     eq_call_args.append(ast.Constant(value=0.1))
-    # eq_expr__ = [ast.Expr(value=ast.Call(func=ast.Name(id='print', ctx=ast.Load()), args=[ast.Name(id='x1', ctx=ast.Load())], keywords=[]))]
     eq_expr = [ast.Expr(value=ast.Call(func=ast.Name(id=EQ_CALL), args=eq_call_args, keywords=[], ctx=ast.Load()),
                         keywords=[])]
     return_elts = []
     return_exp = []
     for zero_assign_ptr, arr_id in output_ptrs:
+        shape = ast.Attribute(value=ast.Name(id=arr_id, ctx=ast.Load()), attr=SHAPE, ctx=ast.Load())
+        dtype_kw = ast.Attribute(value=ast.Name(id=arr_id, ctx=ast.Load()), attr=DTYPE, ctx=ast.Load())
+        _keywords = ast.keyword(arg=DTYPE, value=dtype_kw)
+        return_elts.append(carray_call(add_address_as_void_pointer(zero_assign_ptr), shape, _keywords))
+    for ix in parameters_return_idx:
+        zero_assign_ptr, arr_id = zero_assign_ptrs[ix]
         shape = ast.Attribute(value=ast.Name(id=arr_id, ctx=ast.Load()), attr=SHAPE, ctx=ast.Load())
         dtype_kw = ast.Attribute(value=ast.Name(id=arr_id, ctx=ast.Load()), attr=DTYPE, ctx=ast.Load())
         _keywords = ast.keyword(arg=DTYPE, value=dtype_kw)
@@ -91,9 +99,12 @@ def list_from_var_order(var_order: list):
     return ast.List(elts_, ctx=ast.Load())
 
 
-def generate_eval_llvm(assign_ptrs, output_args, states_idx, var_order: list):
+def generate_eval_llvm(assign_ptrs, output_args, states_idx, var_order: list, output_idx):
     args_lst = [ast.arg(arg="event"), ast.arg(arg="term")]
     output_args_as_list = [item for t in output_args for item in t]
+    for idx_o in output_idx:
+        for x in [item for item in assign_ptrs[idx_o]]:
+            output_args_as_list.append(x)
     for assign_ptr, arr_id in assign_ptrs:
         args_lst.append(ast.arg(arg=arr_id))
     for assign_ptr, arr_id in assign_ptrs:
@@ -566,10 +577,13 @@ def generate_event_action(len_q, variables):
     return event_action_fun, event_action_fun_2
 
 
-def generate_eq_call(deriv_names, var_names):
+def generate_eq_call(deriv_names, var_names, input_var_names_ordered, output_var_names_ordered, params_names):
     elts = []
     for d_name in deriv_names:
         elts.append(ast.Attribute(value=ast.Name(id='scope', ctx=ast.Load()), attr=d_name, ctx=ast.Store()))
+    for d_name in params_names:
+        if d_name not in input_var_names_ordered:
+            elts.append(ast.Attribute(value=ast.Name(id='scope', ctx=ast.Load()), attr=d_name, ctx=ast.Store()))
 
     if len(deriv_names) > 1:
         trg = [ast.Tuple(elts=elts, ctx=ast.Store())]
@@ -578,7 +592,8 @@ def generate_eq_call(deriv_names, var_names):
 
     args = []
     for v_name in var_names:
-        args.append(ast.Attribute(value=ast.Name(id='scope', ctx=ast.Load()), attr=v_name, ctx=ast.Load()))
+        if v_name not in output_var_names_ordered:
+            args.append(ast.Attribute(value=ast.Name(id='scope', ctx=ast.Load()), attr=v_name, ctx=ast.Load()))
 
     return ast.Module(body=[ast.FunctionDef(name='eval',
                                             args=ast.arguments(posonlyargs=[],
