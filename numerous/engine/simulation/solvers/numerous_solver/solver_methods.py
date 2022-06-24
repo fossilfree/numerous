@@ -176,8 +176,6 @@ class RK45(BaseMethod):
                 self.error_exponent, True)
 
 
-
-
 class LevenbergMarquardt(BaseMethod):
     def __init__(self, numerous_solver, **options):
         self.order = 5
@@ -436,3 +434,44 @@ class LevenbergMarquardt(BaseMethod):
                  )
 
         return state
+
+
+class Euler(BaseMethod):
+    def __init__(self, numerous_solver, **options):
+
+        self.order = 1
+        self.max_factor = options.get('max_factor', 10)
+        self.atol = options.get('atol', 1e-3)
+        self.rtol = options.get('rtol', 1e-3)
+
+        profile = numerous_solver.numba_compiled_solver
+
+        def comp(fun):
+            if profile:
+                return njit(fun)
+            else:
+                # return options['lp'](fun)
+                return fun
+
+        @comp
+        def euler(nm, t, dt, y, _not_used1, _not_used2, _solve_state):
+
+            step_info = 1
+
+            tnew = t + dt
+
+            if len(y) == 0:
+                return tnew, y, True, step_info, _solve_state, 1e20
+
+            fnew = nm.func(t, y)
+
+            ynew = y + fnew * dt
+            # TODO figure out if this call can be avoided
+            nm.func(tnew, ynew)
+            return tnew, ynew, True, step_info, _solve_state, 1e20
+
+        self.step_func = euler
+
+    def get_solver_state(self, *args, **kwargs):
+        return (0.0, 0.0, 0.0, self.max_factor, self.atol, self.rtol, 0.0, 1, self.order,
+                1, True)

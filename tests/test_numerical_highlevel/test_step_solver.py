@@ -122,10 +122,7 @@ if __name__ == '__main__':
     subsystem = ThermalSystem('system', n=n, T0=T0)
     # Define simulation
     n=100
-    s = simulation.Simulation(
-        model.Model(subsystem),
-        t_start=0, t_stop=500.0, num=n, num_inner=1, max_step=1000
-    )
+    s = simulation.Simulation(model.Model(subsystem), t_start=0, t_stop=500.0, num=n, num_inner=1, max_step=1000)
     # Solve and plot
 
     time_ = np.logspace(0,4,n)

@@ -121,10 +121,7 @@ if __name__ == '__main__':
     T0=[150, 50]
     subsystem = ThermalSystem('system', n=n, T0=T0)
     # Define simulation
-    s = simulation.Simulation(
-        model.Model(subsystem),
-        t_start=0, t_stop=500.0, num=100, num_inner=10, max_step=10
-    )
+    s = simulation.Simulation(model.Model(subsystem), t_start=0, t_stop=500.0, num=100, num_inner=10, max_step=10)
     # Solve and plot
     tic = time()
     s.solve()

@@ -31,8 +31,9 @@ class OverloadAction(Enum):
 class VariableDescription:
     tag: str
     type: VariableType = VariableType.PARAMETER
-    initial_value: Any = None
+    initial_value: [float, int] = None
     id: str = None
+    variable_idx: int = 0
     logger_level: LoggerLevel = LoggerLevel.ALL
     alias: str = None
     update: bool = False
@@ -50,7 +51,7 @@ class DetailedVariableDescription(VariableDescription):
 
 class MappedValue(object):
     def __init__(self, id):
-        self.id = str(id).replace("-","_")
+        self.id = str(id).replace("-", "_")
         self.mapping = None
         self.sum_mapping = []
         self.special_mapping = False
@@ -181,10 +182,9 @@ class Variable(MappedValue):
         self.size = 0
         self.temporary_variable = False
         if base_variable:
-
-            self._value = base_variable.value
+            self.value = base_variable.value
         else:
-            self._value = detailed_variable_description.initial_value
+            self.value = detailed_variable_description.initial_value
         self.item = detailed_variable_description.item
         self.metadata = detailed_variable_description.metadata
         self.mapping = detailed_variable_description.mapping
@@ -210,8 +210,9 @@ class Variable(MappedValue):
     def value(self, value):
         try:
             float(value)
-        except ValueError:
-            print(value)
+        except (ValueError, TypeError):
+            raise ValueError(f"Only numeric values allowed in variables (attempted to set value='{value}' in "
+                             f"{self.id})")
         self._value = value
         if self.llvm_idx is not None:
             self.write_variable(value, self.llvm_idx)
@@ -231,7 +232,7 @@ class Variable(MappedValue):
     @staticmethod
     def create(namespace, v_id, tag,
                v_type, value, item, metadata,
-               mapping, update_counter, allow_update, logger_level, alias):
+               mapping, update_counter, allow_update, logger_level, variable_idx, alias):
         return Variable(DetailedVariableDescription(tag=tag,
                                                     id=v_id,
                                                     type=v_type,
@@ -243,6 +244,7 @@ class Variable(MappedValue):
                                                     update_counter=update_counter,
                                                     allow_update=allow_update,
                                                     logger_level=logger_level,
+                                                    variable_idx=variable_idx,
                                                     alias=alias))
 
 
@@ -262,6 +264,7 @@ class _VariableFactory:
                                update_counter=0,
                                allow_update=(var_desc.type != VariableType.CONSTANT),
                                logger_level=var_desc.logger_level,
+                               variable_idx=var_desc.variable_idx,
                                alias=var_desc.alias,
                                )
 
@@ -279,6 +282,7 @@ class _VariableFactory:
                              allow_update=(variable_description.type != VariableType.CONSTANT),
                              logger_level=variable_description.logger_level,
                              alias=variable_description.alias,
+                             variable_idx=0
                              )
 
         return v1

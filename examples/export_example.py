@@ -75,6 +75,7 @@ class S2N(Subsystem):
 
 model_filename = "./export_model/S2.numerous"
 import sys
+
 sys.setrecursionlimit(100000)
 if not os.path.isfile(model_filename):
     Ms_3 = S2N("S2", 1000)
@@ -87,16 +88,14 @@ if not os.path.isfile(model_filename):
     # 4.
     print("model compilation time ", end - start)
 
-
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=SolverType.NUMEROUS)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     s1.solve()
     print(list(m1.states_as_vector[::-1]))
 else:
     start = time.time()
-    # 1.7976946830749512
     m1 = Model.from_file(model_filename)
     end = time.time()
-    print("model from file  ",end - start)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, solver_type=SolverType.NUMEROUS)
+    print("model from file  ", end - start)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     s1.solve()
     print(list(m1.states_as_vector[::-1]))

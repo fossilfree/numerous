@@ -11,5 +11,11 @@ ignore =
     ANN002,
     ANN003,
     R504,
+    F401,
+    F403,
+    W605,
+    E127,
+    E122,
+
 show-source = true
 suppress-none-returning=true

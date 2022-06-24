@@ -73,7 +73,7 @@ def ms2():
 def run_model(ms, solver, use_llvm):
     # print(type(ms2))
     m1 = Model(system=ms, use_llvm=use_llvm)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10, solver_type=solver)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=10)
     s1.solve()
     return s1
 

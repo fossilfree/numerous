@@ -1,5 +1,6 @@
 import logging
 import uuid
+import deprecation
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.variables import Variable, VariableDescription, _VariableFactory, SetOfVariables
 
@@ -46,7 +47,9 @@ class VariableNamespaceBase:
         else:
             object.__setattr__(self, name, value)
 
-    def create_variable(self, name):
+    @deprecation.deprecated(deprecated_in="0.3", removed_in="0.4",
+                            details='use add_constant, add_parameter, or add_state')
+    def create_variable(self, name, value=0):
         """
         Creates a variable in the namespaces with given name.
 
@@ -56,7 +59,7 @@ class VariableNamespaceBase:
             Name of a 'Variable'
 
         """
-        self.create_variable_from_desc(VariableDescription(tag=name))
+        self.create_variable_from_desc(VariableDescription(tag=name, initial_value=value))
 
     def create_variable_from_desc(self, variable_description):
         """

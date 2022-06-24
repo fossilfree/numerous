@@ -62,6 +62,7 @@ class Item(Node):
         """
         return VariableNamespace(self, DEFAULT_NAMESPACE, is_connector=isinstance(self, Connector))
 
+
     def create_namespace(self, tag):
         """
         Creating a namespace.
@@ -101,7 +102,7 @@ class Item(Node):
                                  .format(namespace.tag, self.tag))
             else:
                 self.registered_namespaces.update({namespace.tag: namespace})
-            namespace.registered=True
+            namespace.registered = True
         else:
             raise ValueError(f'Cannot register namespace {namespace.tag} more than once!')
 
@@ -121,10 +122,12 @@ class Item(Node):
                 variables_result.append((variable, vn))
         return variables_result
 
-    def add_event(self, key, condition, action, terminal=True, direction=-1,compiled=False):
+    def add_event(self, key, condition, action, compiled_functions=None, terminal=True, direction=-1, compiled=False):
         condition = condition
         action = action
-        event = NumerousEvent(key, condition, action, compiled, terminal, direction)
+        event = NumerousEvent(key, condition, action, compiled, terminal, direction,
+                              compiled_functions=compiled_functions)
+
         self.events.append(event)
 
     def add_timestamp_event(self, key, action, timestamps):
@@ -133,7 +136,7 @@ class Item(Node):
         self.timestamp_events.append(event)
 
     def _increase_level(self):
-        self.level = self.level+1
+        self.level = self.level + 1
 
     def get_item(self, item_path):
         """
