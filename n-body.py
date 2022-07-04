@@ -1,8 +1,9 @@
 from numerous.engine.model import Model
-from numerous.engine.simulation import Simulation, SolverType
+from numerous.engine.simulation import Simulation
 from numerous.engine.system.item import Item
 import numpy as np
 import matplotlib.pyplot as plt
+
 
 from numerous.engine.system import EquationBase, Subsystem
 from numerous.multiphysics import Equation
@@ -11,7 +12,11 @@ from numerous.multiphysics import Equation
 def plot(bodies):
     fig = plt.figure(figsize=(10, 10))
     subplot = fig.add_subplot(projection='3d')
-    for i in bodies:
+    colors = ['aqua', 'aquamarine', 'black', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'forestgreen', 'fuchsia', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'hotpink', 'indianred', 'indigo', 'lawngreen', 'lightcoral', 'lightgreen', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lime', 'limegreen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'navy', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegreen', 'palevioletred', 'peru', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'springgreen', 'steelblue', 'tan', 'teal', 'tomato', 'turquoise', 'yellow', 'yellowgreen']
+    colorcount=len(colors)
+    for n,i in enumerate(bodies):
+        color=colors[n%colorcount]
+        print(n, color)
         x, y, z = i
         sublists = []
         for i in range(len(x)):
@@ -19,7 +24,7 @@ def plot(bodies):
             sublists.append(current)
         r = np.array(sublists)
 
-        subplot.plot(r[:, 0], r[:, 1], r[:, 2], 'k')
+        subplot.plot(r[:, 0], r[:, 1], r[:, 2], color)
         subplot.plot([r[0, 0]], [r[0, 1]], [r[0, 2]], 'ko')
 
     plt.legend(['Trajectory', 'Starting Position'])
@@ -65,9 +70,9 @@ class Oribtal(EquationBase, Item):
         scope.step = -1
 
         G = 6.67259e-20
-        m_0 = 1e26
-        m_1 = 1e26
-        m_2 = 1e26
+        m_0 = 1e20
+        m_1 = 1e20
+        m_2 = 1e20
 
         scope.step = 1
 
@@ -154,17 +159,17 @@ class Oribtal(EquationBase, Item):
 
         scope.step = 8
 
-        scope.vx_0_dot = G * m_2 * (scope.rx_2 - scope.rx_0) / norm_r20 ** 3  + G * m_1 * (scope.rx_1 - scope.rx_0) / norm_r10 ** 3
+        scope.vx_0_dot = G * m_2 * (scope.rx_2 - scope.rx_0) / norm_r20 ** 3 + G * m_1 * (scope.rx_1 - scope.rx_0) / norm_r10 ** 3
         scope.vy_0_dot = G * m_2 * (scope.ry_2 - scope.ry_0) / norm_r20 ** 3 + G * m_1 * (scope.ry_1 - scope.ry_0) / norm_r10 ** 3
-        scope.vz_0_dot = G * m_2 * (scope.rz_2 - scope.rz_0) / norm_r20 ** 3  +  G * m_1 * (scope.rz_1 - scope.rz_0) / norm_r10 ** 3
+        scope.vz_0_dot = G * m_2 * (scope.rz_2 - scope.rz_0) / norm_r20 ** 3 + G * m_1 * (scope.rz_1 - scope.rz_0) / norm_r10 ** 3
 
-        scope.vx_1_dot =  G * m_2 * (scope.rx_2 - scope.rx_1) / norm_r21 ** 3 +  G * m_0 * (scope.rx_0 - scope.rx_1) / norm_r10 ** 3
-        scope.vy_1_dot =  G * m_2 * (scope.ry_2 - scope.ry_1) / norm_r21 ** 3 + G * m_0 * (scope.ry_0 - scope.ry_1) / norm_r10 ** 3
+        scope.vx_1_dot = G * m_2 * (scope.rx_2 - scope.rx_1) / norm_r21 ** 3 + G * m_0 * (scope.rx_0 - scope.rx_1) / norm_r10 ** 3
+        scope.vy_1_dot = G * m_2 * (scope.ry_2 - scope.ry_1) / norm_r21 ** 3 + G * m_0 * (scope.ry_0 - scope.ry_1) / norm_r10 ** 3
         scope.vz_1_dot = G * m_2 * (scope.rz_2 - scope.rz_1) / norm_r21 ** 3 + G * m_0 * (scope.rz_0 - scope.rz_1) / norm_r10 ** 3
 
-        scope.vx_2_dot = G * m_1 * (scope.rx_1 - scope.rx_2) / norm_r21 ** 3 + G * m_0 * (scope.rx_0 - scope.rx_2) / norm_r20 ** 3
-        scope.vy_2_dot = G * m_1 * (scope.ry_1 - scope.ry_2) / norm_r21 ** 3 + G * m_0 * (scope.ry_0 - scope.ry_2) / norm_r20 ** 3
-        scope.vz_2_dot = G * m_0 * (scope.rz_0 - scope.rz_2) / norm_r20 ** 3 +  G * m_1 * (scope.rz_1 - scope.rz_2) / norm_r21 ** 3
+        scope.vx_2_dot = G * m_1 * (scope.rx_1 - scope.rx_2) / norm_r21 ** 3 + G * m_2 * (scope.rx_0 - scope.rx_2) / norm_r20 ** 3
+        scope.vy_2_dot = G * m_1 * (scope.ry_1 - scope.ry_2) / norm_r21 ** 3 + G * m_2 * (scope.ry_0 - scope.ry_2) / norm_r20 ** 3
+        scope.vz_2_dot = G * m_0 * (scope.rz_0 - scope.rz_2) / norm_r20 ** 3 + G * m_2 * (scope.rz_1 - scope.rz_2) / norm_r21 ** 3
 
         scope.rx_0_dot = scope.vx_0
         scope.ry_0_dot = scope.vy_0
@@ -191,11 +196,11 @@ if __name__ == '__main__':
 
     inital_bodies = [
         [
-            [0.5, 0, 0], [0, 0, 0]
+            [-10, 0, 0], [0, 1, 1]
         ], [
-            [0, 0.5, 0], [0, 0, 0]
+            [0, 0, 0], [0, 1, 0]
         ], [
-            [0, 0, 0.5], [0, 0, 0]
+            [10, 0, 0], [0, 1, -1]
         ]
     ]
 
@@ -210,8 +215,8 @@ if __name__ == '__main__':
     print(y0)
     nbody_system = Nbody(initial=y0, mu=earth_mu)
     nbody_model = Model(nbody_system, use_llvm=True)
-    nbody_simulation = Simulation(nbody_model, solver_type=SolverType.SOLVER_IVP, t_start=0, t_stop=3000, num=5000,
-                                  num_inner=1, max_step=1)
+    nbody_simulation = Simulation(nbody_model, t_start=0, t_stop=1000000, num=1000,
+                                 max_step=1, method="Euler")
     nbody_simulation.solve()
 
     x_0 = np.array(nbody_simulation.model.historian_df["nbody.orbit.mechanics.rx_0"])
