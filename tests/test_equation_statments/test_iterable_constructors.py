@@ -36,20 +36,6 @@ class SetTest(EquationBase, Item):
         scope.x = sorted(list(s))[2]
 
 
-class TupleTest(EquationBase, Item):
-    def __init__(self, tag="tm"):
-        Item.__init__(self, tag)
-        EquationBase.__init__(self, tag)
-        self.add_parameter('x', 0)
-        mechanics = self.create_namespace('test_nm')
-        mechanics.add_equations([self])
-
-    @Equation()
-    def eval(self, scope):
-        x = (44, 2)
-        scope.x = x[0]
-
-
 class System(Subsystem):
     def __init__(self, tag, *items):
         super().__init__(tag)
