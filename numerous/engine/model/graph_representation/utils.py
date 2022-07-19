@@ -41,6 +41,7 @@ class EdgeType(IntEnum):
     DEP = 13
     SLICE = 14
     SUBSCRIPT_VALUE = 15
+    ELEMENT = 16
 
 
 def str_to_edgetype(a):
