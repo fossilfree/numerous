@@ -43,7 +43,7 @@ class System(Subsystem):
 
 
 @pytest.mark.parametrize("use_llvm", [True, False],)
-@pytest.mark.parametrize("test", [ListTest, SetTest, TupleTest])
+@pytest.mark.parametrize("test", [ListTest, SetTest])
 def test_subscript(use_llvm, test):
     model_ = model.Model(System('m_system', test('tm3')), use_llvm=use_llvm)
     s = simulation.Simulation(model_, t_start=0, t_stop=3, num=1, num_inner=1)
