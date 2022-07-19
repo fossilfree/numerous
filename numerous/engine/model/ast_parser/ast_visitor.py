@@ -71,6 +71,7 @@ class AstVisitor(ast.NodeVisitor):
     def visit_Set(self, node: ast.Set) -> Any:
         self._visit_iterable(node=node, ast_type=ast.Set)
 
+# TODO rewrite tuple as set and list
     def visit_Tuple(self, node: ast.Tuple):
         en = []
         mapped = []
