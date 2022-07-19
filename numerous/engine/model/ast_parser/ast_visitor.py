@@ -72,7 +72,15 @@ class AstVisitor(ast.NodeVisitor):
         self._visit_iterable(node=node, ast_type=ast.Set)
 
     def visit_Tuple(self, node: ast.Tuple):
-        self._visit_iterable(node=node, ast_type=ast.Tuple, ctx=node.ctx)
+        en = []
+        mapped = []
+        for el in node.elts:
+            self.traverse(el)
+            en.append(self.node_number_stack.pop())
+            mapped.append(self.mapped_stack.pop())
+        self.mapped_stack.append(list(chain.from_iterable(mapped)))
+        self.node_number_stack.append(list(chain.from_iterable(en)))
+
 
     def _visit_iterable(self, node, ast_type, ctx=None):
         en = self.graph.add_node(Node(ao=Node, file=self.eq_file,

@@ -18,7 +18,7 @@ class ListTest(EquationBase, Item):
 
     @Equation()
     def eval(self, scope):
-        y = [44,2,3]
+        y = [44, 2, 3]
         scope.x = y[0]
 
 
@@ -46,7 +46,7 @@ class TupleTest(EquationBase, Item):
 
     @Equation()
     def eval(self, scope):
-        x =  (44,2)
+        x = (44, 2)
         scope.x = x[0]
 
 
