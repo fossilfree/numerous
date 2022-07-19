@@ -50,4 +50,3 @@ def test_subscript(use_llvm, test):
     s.solve()
     expected = 44
     assert s.model.historian_df['m_system.tm3.test_nm.x'][1] == expected
-
