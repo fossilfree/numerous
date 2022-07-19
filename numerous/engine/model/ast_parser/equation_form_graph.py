@@ -98,6 +98,18 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
             ast_subscript = ast.Subscript(value=val_ast, slice=slice_ast, ctx=g.get(n, 'ctx'), lineno=0, col_offset=0)
             return ast_subscript
 
+        elif na in [ast.List, ast.Set, ast.Tuple]:
+            elts = [ii[0] for ii in g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.ELEMENT)[1]]
+            elts_ast = []
+            for a in elts:
+                a_ast = node_to_ast(a, g, var_def, ctxread=ctxread)
+                elts_ast.append(a_ast)
+
+            return na(elts=elts_ast, ctx=g.get(n, 'ctx'))
+
+        raise TypeError(f'Cannot convert {n},{na}')
+
+
         raise TypeError(f'Cannot convert {n},{na}')
     except:
         print(n)
