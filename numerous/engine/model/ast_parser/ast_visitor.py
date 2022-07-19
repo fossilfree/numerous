@@ -82,7 +82,6 @@ class AstVisitor(ast.NodeVisitor):
         self.mapped_stack.append(list(chain.from_iterable(mapped)))
         self.node_number_stack.append(list(chain.from_iterable(en)))
 
-
     def _visit_iterable(self, node, ast_type, ctx=None):
         en = self.graph.add_node(Node(ao=Node, file=self.eq_file,
                                       name=self.eq_key, ln=self.eq_lineno,
