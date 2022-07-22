@@ -130,8 +130,8 @@ class AstVisitor(ast.NodeVisitor):
     def visit_Name(self, node: ast.Name):
         self._process_named_node(node, ast_type=ast.Name, static_key=True, node_type=NodeTypes.VAR)
 
-    #TODO: Enable Subscript visitation
-    #def visit_Subscript(self, node: ast.Subscript):
+    # TODO: Enable Subscript visitation
+    # def visit_Subscript(self, node: ast.Subscript):
     #    self._process_named_node(node, ast_type=ast.Subscript, static_key=True, node_type=NodeTypes.V)
 
     def _select_scope_var(self, source_id: str):
@@ -297,26 +297,13 @@ def connect_equation_node(equation_graph, mappings_graph, node, is_set, include_
                                                    label=var_key),
                                               ignore_existing=True)
 
-                targeted = False
-                read = False
-
                 end_edges = equation_graph.get_edges_for_node(end_node=n)
 
                 try:
                     next(end_edges)
                     mappings_graph.add_edge(
-                        Edge(start=eq_node_idx, end=neq, e_type=EdgeType.TARGET, arg_local='local'))
-                    targeted = True
+                        Edge(start=eq_node_idx, end=neq, e_type=EdgeType.TARGET, arg_local=True))
                 except StopIteration:
                     pass
-
-                if not targeted and not read:
-                    start_edges = equation_graph.get_edges_for_node(start_node=n)
-                    try:
-                        next(start_edges)
-                        mappings_graph.add_edge(Edge(neq, eq_node_idx, e_type=EdgeType.ARGUMENT, arg_local=sv.id if (
-                            sv := equation_graph.get(n, 'scope_var')) else 'local'))
-                    except StopIteration:
-                        pass
 
     return eq_node_idx

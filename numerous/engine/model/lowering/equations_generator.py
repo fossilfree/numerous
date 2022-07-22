@@ -188,20 +188,20 @@ class EquationGenerator:
             self.equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.ARGUMENT))
         # Determine the local arguments names
         args_local = [self.equation_graph.key_map[ae[0]] for i, ae in zip(a_indcs, a_edges) if
-                      not self.equation_graph.edges_c[i].arg_local == 'local']
+                      not self.equation_graph.edges_c[i].is_local]
 
         # Determine the local arguments names
         args_scope_var = [self.equation_graph.edges_c[i].arg_local for i, ae in zip(a_indcs, a_edges) if
-                          not self.equation_graph.edges_c[i].arg_local == 'local']
+                          not self.equation_graph.edges_c[i].is_local]
 
         # Find the targets by looking for target edges
         t_indcs, t_edges = list(
             self.equation_graph.get_edges_for_node_filter(start_node=n, attr='e_type', val=EdgeType.TARGET))
         targets_local = [self.equation_graph.key_map[te[1]] for i, te in zip(t_indcs, t_edges) if
-                         not self.equation_graph.edges_c[i].arg_local == 'local']
+                         not self.equation_graph.edges_c[i].is_local]
         targets_scope_var = [self.equation_graph.edges_c[i].arg_local for i, ae in zip(t_indcs, t_edges)
                              if
-                             not self.equation_graph.edges_c[i].arg_local == 'local']
+                             not self.equation_graph.edges_c[i].is_local]
 
         # Record targeted and read variables
         if self.equation_graph.nodes[n].vectorized:

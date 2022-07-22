@@ -42,12 +42,13 @@ class Node:
 
 
 class Edge:
-    def __init__(self, start=-1, end=-1, e_type=EdgeType.UNDEFINED, label=None, arg_local=None, mappings=None,
-                 branches=None):
+    def __init__(self, start=-1, end=-1, e_type=EdgeType.UNDEFINED, label=None,
+                 arg_local=None, is_local=False, mappings=None,branches=None):
         self.start = start
         self.end = end
         self.e_type = e_type
-        self.arg_local = arg_local
+        self.is_local = is_local
+        self.arg_local=arg_local
         self.branches = branches
         self.label = label
         self.mappings = mappings
@@ -300,7 +301,7 @@ class Graph:
                 cg.as_graphviz('cyclic', force=True)
                 for n in self.cyclic_path:
                     print(" ".join([str(self.key_map[n]), '          ' + str(
-                        self.get(n, 'file'))]))
+                        self.nodes[n].file)]))
 
                 self.cyclic_dependency = self.lower_graph.cyclic_dependency
                 raise ValueError('Cyclic path detected: ', self.cyclic_path)
