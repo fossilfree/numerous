@@ -1,8 +1,4 @@
 import logging
-import os
-import sys
-import time
-import types
 
 import numpy as np
 
@@ -20,7 +16,9 @@ from numerous.utils.string_utils import d_u
 
 class EquationGenerator:
     def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations,
-                 temporary_variables, system_tag="", use_llvm=True, imports=None, eq_used=[]):
+                 temporary_variables, system_tag="", use_llvm=True, imports=None, eq_used=None):
+        if eq_used is None:
+            eq_used = []
         self.filename = filename
         self.imports = imports
         self.system_tag = system_tag
@@ -92,13 +90,13 @@ class EquationGenerator:
         # Create a kernel of assignments and calls
 
         self.eq_vardefs = {}
-        # Loop over equation functions and generate code for each equation.
 
         used_eq = {}
 
+        # Loop over equation functions and generate code for each equation.
         for eq_key, eq in equations.items():
             if eq_key in eq_used:
-                used_eq[eq_key]=eq
+                used_eq[eq_key] = eq
         self._parse_equations(used_eq)
 
         self.all_targeted = []
@@ -151,17 +149,19 @@ class EquationGenerator:
                     replacements=eq.replacements,
                     replace_name=eq_key
                 )
-                self.llvm_names.update(self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids,
-                                                             replacements=eq.replacements,replace_name=eq_key))
+                self.llvm_names.update(
+                    self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids,
+                                                                 replacements=eq.replacements, replace_name=eq_key))
 
             else:
                 func, args, target_ids = function_from_graph_generic(eq.graph,
-                                                                     var_def_=vardef, arg_metadata=eq.graph.arg_metadata,
+                                                                     var_def_=vardef,
+                                                                     arg_metadata=eq.graph.arg_metadata,
                                                                      replacements=eq.replacements,
                                                                      replace_name=eq_key
                                                                      )
                 self.generated_program.add_external_function(func, None, len(args), target_ids,
-                                                             replacements=eq.replacements,replace_name=eq_key)
+                                                             replacements=eq.replacements, replace_name=eq_key)
 
             vardef.llvm_target_ids = target_ids
             vardef.args_order = args
@@ -175,12 +175,11 @@ class EquationGenerator:
         raise ValueError("No variable found for id {}", var_id)
 
     def _process_equation_node(self, n):
-
         eq_key = self.scoped_equations[self.equation_graph.key_map[n]]
 
         # Define the function to call for this eq
-        ext_func = recurse_Attribute(self.equation_graph.get(n, 'func'))
-        item_id = self.equation_graph.get(n, 'item_id')
+        ext_func = recurse_Attribute(self.equation_graph.nodes[n].func)
+        item_id = self.equation_graph.nodes[n].item_id
 
         vardef = self.eq_vardefs[eq_key]
 
@@ -203,9 +202,9 @@ class EquationGenerator:
         targets_scope_var = [self.equation_graph.edges_c[i].arg_local for i, ae in zip(t_indcs, t_edges)
                              if
                              not self.equation_graph.edges_c[i].arg_local == 'local']
-        set_size = 0
+
         # Record targeted and read variables
-        if self.equation_graph.get(n, 'vectorized'):
+        if self.equation_graph.nodes[n].vectorized:
 
             # Map of scope.?? vars and set variable names
             scope_vars = {'scope.' + self.set_variables[k].tag: v for k, v in
@@ -217,8 +216,7 @@ class EquationGenerator:
             # Record all targeted variables
             for t in vardef.targets:
                 self.all_targeted_set_vars.append(scope_vars[t])
-                ##TODO check that they all the same size
-                set_size = self.set_variables[scope_vars[t]].get_size()
+
             # Record all read variables
             for a in vardef.args:
                 self.all_read_set_vars.append(scope_vars[a])
@@ -240,7 +238,7 @@ class EquationGenerator:
                                   vardef.targets]
 
         # Generate ast for this equation callcompiled_function_from_graph_generic_llvm
-        if self.equation_graph.get(n, 'vectorized'):
+        if self.equation_graph.nodes[n].vectorized:
 
             llvm_args = []
             for t in vardef.args_order:
@@ -249,7 +247,7 @@ class EquationGenerator:
                 for i in range(set_var.get_size()):
                     llvm_args_.append(set_var.get_var_by_idx(i).id)
                 llvm_args.append(llvm_args_)
-            ##reshape to correct format
+            #reshape to correct format
             llvm_args = [list(x) for x in zip(*llvm_args)]
             self.generated_program.add_set_call(self.get_external_function_name(ext_func), llvm_args,
                                                 vardef.llvm_target_ids)
@@ -278,7 +276,7 @@ class EquationGenerator:
         t = target_edges[0][1]
 
         # If the target is a set variable
-        if (t_sv := self.equation_graph.get(t, 'scope_var')).size > 0:
+        if (t_sv := self.equation_graph.nodes[t].scope_var).size > 0:
 
             self.all_targeted_set_vars.append(self.equation_graph.key_map[t])
 
@@ -287,7 +285,7 @@ class EquationGenerator:
 
             # make a list of assignments to each index in t
             for v_ix, v in zip(v_indcs, value_edges):
-                if (nt := self.equation_graph.get(v[0], 'node_type')) == NodeTypes.VAR or nt == NodeTypes.TMP:
+                if (nt := self.equation_graph.nodes[v[0]].node_type) == NodeTypes.VAR or nt == NodeTypes.TMP:
 
                     if (mix := self.equation_graph.edges_c[v_ix].mappings) == ':':
                         mappings[':'].append(self.equation_graph.key_map[v[0]])
@@ -348,7 +346,7 @@ class EquationGenerator:
                 self.generated_program.add_mapping(v, [k])
         else:
             # Register targeted variables
-            if is_set_var := self.equation_graph.get(t, attr='is_set_var'):
+            if is_set_var := self.equation_graph.nodes[t].is_set_var:
                 self.all_targeted_set_vars.append(self.equation_graph.key_map[t])
             else:
 
@@ -360,7 +358,7 @@ class EquationGenerator:
                 []]
 
             for v, vi in zip(value_edges, v_indcs):
-                if self.equation_graph.get(v[0], 'is_set_var'):
+                if self.equation_graph.nodes[v[0]].is_set_var:
                     self.all_read_set_vars.append(self.equation_graph.key_map[v[0]])
 
                 else:
@@ -406,7 +404,7 @@ class EquationGenerator:
         # Generate the ast for the python kernel
         for n in self.topo_sorted_nodes:
             # Add the equation calls
-            if (nt := self.equation_graph.get(n, 'node_type')) == NodeTypes.EQUATION:
+            if (nt := self.equation_graph.nodes[n].node_type) == NodeTypes.EQUATION:
                 self._process_equation_node(n)
             # # Add the sum statements
             elif nt == NodeTypes.SUM:

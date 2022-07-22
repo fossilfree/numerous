@@ -63,7 +63,7 @@ class MappingsGraph(Graph):
 
     def variables(self):
         for n in self.node_map.values():
-            if self.get(n, 'node_type') == NodeTypes.VAR:
+            if self.nodes[n].node_type == NodeTypes.VAR:
                 yield n
 
     def remove_chains(self):

@@ -261,9 +261,9 @@ class AstVisitor(ast.NodeVisitor):
 def connect_equation_node(equation_graph, mappings_graph, node, is_set, include_local=False):
     eq_node_idx = mappings_graph.add_node(node)
     for n in range(equation_graph.node_counter):
-        if equation_graph.get(n, attr='node_type') == NodeTypes.VAR:
-            if equation_graph.get(n, attr='scope_var'):
-                sv = equation_graph.get(n, 'scope_var')
+        if equation_graph.nodes[n].node_type == NodeTypes.VAR:
+            if equation_graph.nodes[n].scope_var:
+                sv = equation_graph.nodes[n].scope_var
                 neq = mappings_graph.add_node(Node(key=sv.id, node_type=NodeTypes.VAR, scope_var=sv,
                                                    is_set_var=is_set, label=sv.get_path_dot()),
                                               ignore_existing=True)

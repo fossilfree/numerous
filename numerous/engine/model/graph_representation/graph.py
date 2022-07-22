@@ -145,11 +145,6 @@ class Graph:
     def remove_edge(self, edge_n):
         self.edges_c[edge_n].deleted = True
 
-    def get(self, node, attr):
-        return getattr(self.nodes[node], attr)
-
-    def set(self, node, attr, val):
-        setattr(self.nodes[node], attr, val)
 
     def get_where_node_attr(self, attr, val, not_=False):
         def filter_function(node):

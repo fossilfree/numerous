@@ -14,7 +14,7 @@ def get_eq_prefix():
 def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
     nk = g.key_map[n]
     try:
-        if (na := g.get(n, 'ast_type')) == ast.Attribute:
+        if (na := g.nodes[n].ast_type) == ast.Attribute:
 
             return var_def(nk, ctxread, read)
 
@@ -34,7 +34,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
 
             right_ast = node_to_ast(right_node, g, var_def, ctxread=ctxread)
 
-            ast_binop = ast.BinOp(left=left_ast, right=right_ast, op=g.get(n, 'ast_op'), lineno=0, col_offset=0)
+            ast_binop = ast.BinOp(left=left_ast, right=right_ast, op=g.nodes[n].ast_op, lineno=0, col_offset=0)
             return ast_binop
 
         elif na == ast.UnaryOp:
@@ -42,7 +42,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
 
             operand_ast = node_to_ast(operand, g, var_def, ctxread=ctxread)
 
-            ast_unop = ast.UnaryOp(operand=operand_ast, op=g.get(n, 'ast_op'), lineno=0, col_offset=0)
+            ast_unop = ast.UnaryOp(operand=operand_ast, op=g.nodes[n].ast_op, lineno=0, col_offset=0)
             return ast_unop
 
         elif na == ast.Call:
@@ -182,14 +182,14 @@ def function_body_from_graph(g, var_def_, lineno_count=1, level=0):
     targets = []
     for n in top_nodes:
         lineno_count += 1
-        if (at := g.get(n, 'ast_type')) == ast.Assign or at == ast.AugAssign:
+        if (at := g.nodes[n].ast_type) == ast.Assign or at == ast.AugAssign:
             value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE)[1][0][0]
 
             value_ast = node_to_ast(value_node, g, var_def, ctxread=True)
             body.append(process_assign_node(g.get_edges_for_node_filter(start_node=n, attr='e_type',
                                                                         val=EdgeType.TARGET)[1],
                                             g, var_def, value_ast, at, targets))
-        if (g.get(n, 'ast_type')) == ast.If:
+        if g.nodes[n].ast_type == ast.If:
             func_body = function_body_from_graph(g.nodes[n].subgraph_body, var_def_,
                                                  lineno_count=lineno_count, level=level + 1)
             func_test = compare_expresion_from_graph(g.nodes[n].subgraph_test, var_def_,
