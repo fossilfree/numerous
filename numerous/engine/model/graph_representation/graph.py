@@ -43,12 +43,12 @@ class Node:
 
 class Edge:
     def __init__(self, start=-1, end=-1, e_type=EdgeType.UNDEFINED, label=None,
-                 arg_local=None, is_local=False, mappings=None,branches=None):
+                 arg_local=None, is_local=False, mappings=None, branches=None):
         self.start = start
         self.end = end
         self.e_type = e_type
         self.is_local = is_local
-        self.arg_local=arg_local
+        self.arg_local = arg_local
         self.branches = branches
         self.label = label
         self.mappings = mappings
@@ -145,7 +145,6 @@ class Graph:
 
     def remove_edge(self, edge_n):
         self.edges_c[edge_n].deleted = True
-
 
     def get_where_node_attr(self, attr, val, not_=False):
         def filter_function(node):
