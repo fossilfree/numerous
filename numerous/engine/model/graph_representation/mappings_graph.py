@@ -104,7 +104,7 @@ class MappingsGraph(Graph):
                 va = e[1].copy()
                 if va in self.vars_assignments and len(self.vars_assignments[va]) > 1:
                     # Make new temp var
-                    sv = self.get(e[1], 'scope_var')
+                    sv = self.nodes[e[1]].scope_var
                     tmp_key = sv.tag + str(self.key_map[va]) + '_tmp'
                     tmp_label = sv.tag + str(self.key_map[va]) + '_label' + '_tmp'
                     # Create fake scope variables for tmp setvar

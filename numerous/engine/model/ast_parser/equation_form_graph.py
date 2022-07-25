@@ -22,8 +22,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
             return var_def(nk, ctxread, read)
 
         elif na == ast.Constant:
-            return ast.Constant(value=g.get(n, 'value'))
-
+            return ast.Constant(value=g.nodes[n].value)
         elif na == ast.BinOp:
 
             left_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.LEFT)[1][0][0]
@@ -53,7 +52,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
                 a_ast = node_to_ast(a, g, var_def, ctxread=ctxread)
                 args_ast.append(a_ast)
 
-            ast_Call = ast.Call(args=args_ast, func=g.get(n, 'func'), keywords=[], lineno=0, col_offset=0)
+            ast_Call = ast.Call(args=args_ast, func=g.nodes[n].func, keywords=[], lineno=0, col_offset=0)
 
             return ast_Call
 
@@ -83,7 +82,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
 
             left_ast = node_to_ast(left, g, var_def, ctxread=ctxread)
 
-            ast_Comp = ast.Compare(left=left_ast, comparators=comp_ast, ops=g.get(n, 'ops'), lineno=0, col_offset=0)
+            ast_Comp = ast.Compare(left=left_ast, comparators=comp_ast, ops=g.nodes[n].ops, lineno=0, col_offset=0)
 
             return ast_Comp
         elif na == ast.Subscript:
@@ -95,7 +94,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
 
             slice_ast = node_to_ast(slice_node, g, var_def, ctxread=ctxread)
 
-            ast_subscript = ast.Subscript(value=val_ast, slice=slice_ast, ctx=g.get(n, 'ctx'), lineno=0, col_offset=0)
+            ast_subscript = ast.Subscript(value=val_ast, slice=slice_ast, ctx=g.nodes[n].ctx, lineno=0, col_offset=0)
             return ast_subscript
 
         raise TypeError(f'Cannot convert {n},{na}')
@@ -169,7 +168,7 @@ def compare_expresion_from_graph(g, var_def_, lineno_count=1):
     body = []
     for n in top_nodes:
         lineno_count += 1
-        if g.get(n, 'ast_type') == ast.Compare:
+        if g.nodes[n].ast_type == ast.Compare:
             body.append(node_to_ast(n, g, var_def, ctxread=True))
     return body
 

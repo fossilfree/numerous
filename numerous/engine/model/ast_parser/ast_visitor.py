@@ -289,11 +289,11 @@ def connect_equation_node(equation_graph, mappings_graph, node, is_set, include_
                     except StopIteration:
                         pass
 
-            elif include_local and equation_graph.get(n, attr='key') and \
-                    not equation_graph.get(n, attr='ast_type') == ast.Constant:
-                var_key = equation_graph.get(n, attr='key')
+            elif include_local and equation_graph.nodes[n].key and \
+                    not equation_graph.nodes[n].ast_type == ast.Constant:
+                var_key = equation_graph.nodes[n].key
                 neq = mappings_graph.add_node(Node(key=var_key, node_type=NodeTypes.VAR,
-                                                   is_set_var=is_set, ast_type=equation_graph.get(n, attr='ast_type'),
+                                                   is_set_var=is_set, ast_type=equation_graph.nodes[n].ast_type,
                                                    label=var_key),
                                               ignore_existing=True)
 
