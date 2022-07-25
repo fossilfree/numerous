@@ -185,7 +185,7 @@ class EquationGenerator:
 
         # Find the arguments by looking for edges of arg type
         a_indcs, a_edges = list(
-            self.equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.ARGUMENT))
+            self.equation_graph.get_edges_type_for_node_filter(end_node=n, val=EdgeType.ARGUMENT))
         # Determine the local arguments names
         args_local = [self.equation_graph.key_map[ae[0]] for i, ae in zip(a_indcs, a_edges) if
                       not self.equation_graph.edges_c[i].is_local]
@@ -196,7 +196,7 @@ class EquationGenerator:
 
         # Find the targets by looking for target edges
         t_indcs, t_edges = list(
-            self.equation_graph.get_edges_for_node_filter(start_node=n, attr='e_type', val=EdgeType.TARGET))
+            self.equation_graph.get_edges_type_for_node_filter(start_node=n, val=EdgeType.TARGET))
         targets_local = [self.equation_graph.key_map[te[1]] for i, te in zip(t_indcs, t_edges) if
                          not self.equation_graph.edges_c[i].is_local]
         targets_scope_var = [self.equation_graph.edges_c[i].arg_local for i, ae in zip(t_indcs, t_edges)
@@ -266,9 +266,9 @@ class EquationGenerator:
 
     def _process_sum_node(self, n):
         t_indcs, target_edges = list(
-            self.equation_graph.get_edges_for_node_filter(start_node=n, attr='e_type', val=EdgeType.TARGET))
+            self.equation_graph.get_edges_type_for_node_filter(start_node=n, val=EdgeType.TARGET))
         v_indcs, value_edges = list(
-            self.equation_graph.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE))
+            self.equation_graph.get_edges_type_for_node_filter(end_node=n, val=EdgeType.VALUE))
 
         # assume single target
         if lte := len(target_edges) != 1:

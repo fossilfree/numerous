@@ -174,7 +174,7 @@ class Graph:
 
         return zip(np.argwhere(end_ix), end_)
 
-    def get_edges_for_node_filter(self, attr, start_node: int = None, end_node: int = None, val=None):
+    def get_edges_type_for_node_filter(self, start_node: int = None, end_node: int = None, val=None):
         if start_node and end_node:
             raise ValueError('arg cant have both start and end!')
         ix = []
@@ -195,7 +195,7 @@ class Graph:
         def filter_function(edge):
             if edge.deleted:
                 return False
-            if getattr(edge, attr) == val:
+            if edge.e_type == val:
                 return True
             else:
                 return False

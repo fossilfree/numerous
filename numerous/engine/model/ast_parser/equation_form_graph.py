@@ -25,11 +25,11 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
             return ast.Constant(value=g.nodes[n].value)
         elif na == ast.BinOp:
 
-            left_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.LEFT)[1][0][0]
+            left_node = g.get_edges_type_for_node_filter(end_node=n, val=EdgeType.LEFT)[1][0][0]
 
             left_ast = node_to_ast(left_node, g, var_def, ctxread=ctxread)
 
-            right_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.RIGHT)[1][0][0]
+            right_node = g.get_edges_type_for_node_filter(end_node=n, val=EdgeType.RIGHT)[1][0][0]
 
             right_ast = node_to_ast(right_node, g, var_def, ctxread=ctxread)
 
@@ -37,7 +37,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
             return ast_binop
 
         elif na == ast.UnaryOp:
-            operand = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.OPERAND)[1][0][0]
+            operand = g.get_edges_type_for_node_filter(end_node=n, val=EdgeType.OPERAND)[1][0][0]
 
             operand_ast = node_to_ast(operand, g, var_def, ctxread=ctxread)
 
@@ -46,7 +46,7 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
 
         elif na == ast.Call:
 
-            args = [ii[0] for ii in g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.ARGUMENT)[1]]
+            args = [ii[0] for ii in g.get_edges_type_for_node_filter(end_node=n, val=EdgeType.ARGUMENT)[1]]
             args_ast = []
             for a in args:
                 a_ast = node_to_ast(a, g, var_def, ctxread=ctxread)
@@ -58,13 +58,13 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
 
         elif na == ast.IfExp:
 
-            body = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.BODY)[1][0][0]
+            body = g.get_edges_type_for_node_filter(end_node=n, val=EdgeType.BODY)[1][0][0]
             body_ast = node_to_ast(body, g, var_def, ctxread=ctxread)
 
-            orelse = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.ORELSE)[1][0][0]
+            orelse = g.get_edges_type_for_node_filter(end_node=n, val=EdgeType.ORELSE)[1][0][0]
             orelse_ast = node_to_ast(orelse, g, var_def, ctxread=ctxread)
 
-            test = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.TEST)[1][0][0]
+            test = g.get_edges_type_for_node_filter(end_node=n, val=EdgeType.TEST)[1][0][0]
             test_ast = node_to_ast(test, g, var_def, ctxread=ctxread)
 
             ast_ifexp = ast.IfExp(body=body_ast, orelse=orelse_ast, test=test_ast, lineno=0, col_offset=0)
@@ -72,13 +72,13 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
             return ast_ifexp
 
         elif na == ast.Compare:
-            comp = [ii[0] for ii in g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.COMP)[1]]
+            comp = [ii[0] for ii in g.get_edges_type_for_node_filter(end_node=n, val=EdgeType.COMP)[1]]
             comp_ast = []
             for a in comp:
                 a_ast = node_to_ast(a, g, var_def, ctxread=ctxread)
                 comp_ast.append(a_ast)
 
-            left = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.LEFT)[1][0][0]
+            left = g.get_edges_type_for_node_filter(end_node=n, val=EdgeType.LEFT)[1][0][0]
 
             left_ast = node_to_ast(left, g, var_def, ctxread=ctxread)
 
@@ -86,11 +86,11 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
 
             return ast_Comp
         elif na == ast.Subscript:
-            val_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.SUBSCRIPT_VALUE)[1][0][0]
+            val_node = g.get_edges_type_for_node_filter(end_node=n, val=EdgeType.SUBSCRIPT_VALUE)[1][0][0]
 
             val_ast = node_to_ast(val_node, g, var_def, ctxread=ctxread)
 
-            slice_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.SLICE)[1][0][0]
+            slice_node = g.get_edges_type_for_node_filter(end_node=n, val=EdgeType.SLICE)[1][0][0]
 
             slice_ast = node_to_ast(slice_node, g, var_def, ctxread=ctxread)
 
@@ -182,11 +182,11 @@ def function_body_from_graph(g, var_def_, lineno_count=1, level=0):
     for n in top_nodes:
         lineno_count += 1
         if (at := g.nodes[n].ast_type) == ast.Assign or at == ast.AugAssign:
-            value_node = g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.VALUE)[1][0][0]
+            value_node = g.get_edges_type_for_node_filter(end_node=n, val=EdgeType.VALUE)[1][0][0]
 
             value_ast = node_to_ast(value_node, g, var_def, ctxread=True)
-            body.append(process_assign_node(g.get_edges_for_node_filter(start_node=n, attr='e_type',
-                                                                        val=EdgeType.TARGET)[1],
+            body.append(process_assign_node(g.get_edges_type_for_node_filter(start_node=n,
+                                                                             val=EdgeType.TARGET)[1],
                                             g, var_def, value_ast, at, targets))
         if g.nodes[n].ast_type == ast.If:
             func_body = function_body_from_graph(g.nodes[n].subgraph_body, var_def_,
