@@ -247,7 +247,7 @@ class EquationGenerator:
                 for i in range(set_var.get_size()):
                     llvm_args_.append(set_var.get_var_by_idx(i).id)
                 llvm_args.append(llvm_args_)
-            #reshape to correct format
+            # reshape to correct format
             llvm_args = [list(x) for x in zip(*llvm_args)]
             self.generated_program.add_set_call(self.get_external_function_name(ext_func), llvm_args,
                                                 vardef.llvm_target_ids)
