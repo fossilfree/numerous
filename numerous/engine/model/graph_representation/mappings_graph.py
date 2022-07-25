@@ -70,9 +70,9 @@ class MappingsGraph(Graph):
         for target in self.variables():
             # Get target
             target_edges_indcs_edge_type_target, target_edges_edge_type_target = self.get_edges_type_for_node_filter(
-                end_node=target,  val=EdgeType.TARGET)
+                end_node=target, val=EdgeType.TARGET)
             target_edges_indcs_edge_type_mapping, target_edges_edge_type_mapping = self.get_edges_type_for_node_filter(
-                end_node=target,  val=EdgeType.MAPPING)
+                end_node=target, val=EdgeType.MAPPING)
             target_edges_indcs = target_edges_indcs_edge_type_target + target_edges_indcs_edge_type_mapping
             target_edges = target_edges_edge_type_target + target_edges_edge_type_mapping
             for edge, edge_ix in zip(target_edges, target_edges_indcs):
