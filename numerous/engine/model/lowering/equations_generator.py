@@ -62,8 +62,6 @@ class EquationGenerator:
         self.temporary_variables = temporary_variables
 
         self.values_order = {}
-
-        self.scope_var_node = {}
         self.scalar_variables = {}
 
         self._parse_variables()
@@ -99,16 +97,7 @@ class EquationGenerator:
                 used_eq[eq_key] = eq
         self._parse_equations(used_eq)
 
-        self.all_targeted = []
-        self.all_read = []
-        self.all_targeted_set_vars = []
-        self.all_read_set_vars = []
-
-    def _parse_variable(self, full_tag, sv, sv_id):
-
-        if full_tag not in self.scope_var_node:
-            self.scope_var_node[full_tag] = sv
-
+    def _parse_variable(self, full_tag, sv):
         # If a scope_variable is part of a set it should be referenced alone
         if sv.set_var:
             if not sv.set_var.id in self.set_variables:
@@ -120,10 +109,10 @@ class EquationGenerator:
         for ix, (sv_id, sv) in enumerate(self.scope_variables.items()):
             full_tag = d_u(sv.id)
             self.values_order[full_tag] = ix
-            self._parse_variable(full_tag, sv, sv_id)
+            self._parse_variable(full_tag, sv)
         for ix, (sv_id, sv) in enumerate(self.temporary_variables.items()):
             full_tag = d_u(sv.id)
-            self._parse_variable(full_tag, sv, sv_id)
+            self._parse_variable(full_tag, sv)
 
     def get_external_function_name(self, ext_func):
         if self.llvm:
@@ -213,13 +202,7 @@ class EquationGenerator:
             # Put the information of args and targets in the scope_var attr of the graph node for those equation
             self.equation_graph.nodes[n].scope_var = {'args': [scope_vars[a] for a in vardef.args],
                                                       'targets': [scope_vars[a] for a in vardef.targets]}
-            # Record all targeted variables
-            for t in vardef.targets:
-                self.all_targeted_set_vars.append(scope_vars[t])
 
-            # Record all read variables
-            for a in vardef.args:
-                self.all_read_set_vars.append(scope_vars[a])
         else:
             # Map of scope.?? vars and global-scope variable names
             scope_vars = {'scope.' + self.scope_variables[k].tag: v for k, v in
@@ -228,14 +211,6 @@ class EquationGenerator:
             # Put the information of args and targets in the scope_var attr of the graph node for those equation
             self.equation_graph.nodes[n].scope_var = {'args': [scope_vars[a] for a in vardef.args],
                                                       'targets': [scope_vars[a] for a in vardef.targets]}
-            for a in vardef.args:
-                if (sva := scope_vars[a]) in self.set_variables:
-                    self.all_read_set_vars.append(sva)
-                else:
-                    self.all_read.append(sva)
-
-            self.all_targeted += [scope_vars[t] for t in
-                                  vardef.targets]
 
         # Generate ast for this equation callcompiled_function_from_graph_generic_llvm
         if self.equation_graph.nodes[n].vectorized:
@@ -277,8 +252,6 @@ class EquationGenerator:
 
         # If the target is a set variable
         if (t_sv := self.equation_graph.nodes[t].scope_var).size > 0:
-
-            self.all_targeted_set_vars.append(self.equation_graph.key_map[t])
 
             l_mapping = t_sv.size
             mappings = {':': [], 'ix': []}
@@ -346,11 +319,7 @@ class EquationGenerator:
                 self.generated_program.add_mapping(v, [k])
         else:
             # Register targeted variables
-            if is_set_var := self.equation_graph.nodes[t].is_set_var:
-                self.all_targeted_set_vars.append(self.equation_graph.key_map[t])
-            else:
-
-                self.all_targeted.append(self.equation_graph.key_map[t])
+            is_set_var = self.equation_graph.nodes[t].is_set_var
 
             target_indcs_map = [[] for i in
                                 range(len(
@@ -358,12 +327,6 @@ class EquationGenerator:
                 []]
 
             for v, vi in zip(value_edges, v_indcs):
-                if self.equation_graph.nodes[v[0]].is_set_var:
-                    self.all_read_set_vars.append(self.equation_graph.key_map[v[0]])
-
-                else:
-                    self.all_read.append(self.equation_graph.key_map[v[0]])
-
                 maps = self.equation_graph.edges_c[vi].mappings
 
                 if maps == ':':
