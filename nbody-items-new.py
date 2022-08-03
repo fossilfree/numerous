@@ -130,19 +130,15 @@ class Body_0(Item, EquationBase):
         scope.ry_2_dot = scope.vy_2
         scope.rz_2_dot = scope.vz_2
 
-    def connect(self, body_1, body_2):
-        self.mechanics.rx_1 = body_1.mechanics.rx_1
-        self.mechanics.ry_1 = body_1.mechanics.ry_1
-        self.mechanics.rz_1 = body_1.mechanics.rz_1
-        self.mechanics.vx_1 = body_1.mechanics.vx_1
-        self.mechanics.vy_1 = body_1.mechanics.vy_1
-        self.mechanics.vz_1 = body_1.mechanics.vz_1
-        self.mechanics.rx_2 = body_2.mechanics.rx_2
-        self.mechanics.ry_2 = body_2.mechanics.ry_2
-        self.mechanics.rz_2 = body_2.mechanics.rz_2
-        self.mechanics.vx_2 = body_2.mechanics.vx_2
-        self.mechanics.vy_2 = body_2.mechanics.vy_2
-        self.mechanics.vz_2 = body_2.mechanics.vz_2
+    def connect(self, bodies:list, current:int):
+        for ind,body in enumerate(bodies):
+            if ind != current:
+                self.mechanics.__setattr__(f'rx_{ind}', body.mechanics[f'rx_{ind}'])
+                self.mechanics.__setattr__(f'ry_{ind}', body.mechanics[f'ry_{ind}'])
+                self.mechanics.__setattr__(f'rz_{ind}', body.mechanics[f'rz_{ind}'])
+                self.mechanics.__setattr__(f'vx_{ind}', body.mechanics[f'vx_{ind}'])
+                self.mechanics.__setattr__(f'vy_{ind}', body.mechanics[f'vy_{ind}'])
+                self.mechanics.__setattr__(f'vz_{ind}', body.mechanics[f'vz_{ind}'])
 
 
 class Body_1(Item, EquationBase):
@@ -168,7 +164,6 @@ class Body_1(Item, EquationBase):
         self.add_state('vy_2')
         self.add_state('vz_2')
         mechanics.add_equations([self])
-        self.mechanics_namespace=mechanics
 
     @Equation()
     def diffy_q(self, scope):
@@ -225,19 +220,15 @@ class Body_1(Item, EquationBase):
         scope.ry_2_dot = scope.vy_2
         scope.rz_2_dot = scope.vz_2
 
-    def connect(self, body_0, body_2):
-        self.mechanics.rx_0 = body_0.mechanics.rx_0
-        self.mechanics.ry_0 = body_0.mechanics.ry_0
-        self.mechanics.rz_0 = body_0.mechanics.rz_0
-        self.mechanics.vx_0 = body_0.mechanics.vx_0
-        self.mechanics.vy_0 = body_0.mechanics.vy_0
-        self.mechanics.vz_0 = body_0.mechanics.vz_0
-        self.mechanics.rx_2 = body_2.mechanics.rx_2
-        self.mechanics.ry_2 = body_2.mechanics.ry_2
-        self.mechanics.rz_2 = body_2.mechanics.rz_2
-        self.mechanics.vx_2 = body_2.mechanics.vx_2
-        self.mechanics.vy_2 = body_2.mechanics.vy_2
-        self.mechanics.vz_2 = body_2.mechanics.vz_2
+    def connect(self, bodies: list, current: int):
+        for ind, body in enumerate(bodies):
+            if ind != current:
+                self.mechanics.__setattr__(f'rx_{ind}', body.mechanics[f'rx_{ind}'])
+                self.mechanics.__setattr__(f'ry_{ind}', body.mechanics[f'ry_{ind}'])
+                self.mechanics.__setattr__(f'rz_{ind}', body.mechanics[f'rz_{ind}'])
+                self.mechanics.__setattr__(f'vx_{ind}', body.mechanics[f'vx_{ind}'])
+                self.mechanics.__setattr__(f'vy_{ind}', body.mechanics[f'vy_{ind}'])
+                self.mechanics.__setattr__(f'vz_{ind}', body.mechanics[f'vz_{ind}'])
 
 class Body_2(Item, EquationBase):
     def __init__(self, initial, tag='initialvalue'):
@@ -318,19 +309,15 @@ class Body_2(Item, EquationBase):
         scope.ry_2_dot = scope.vy_2
         scope.rz_2_dot = scope.vz_2
 
-    def connect(self, body_0, body_1):
-        self.mechanics.rx_0 = body_0.mechanics.rx_0
-        self.mechanics.ry_0 = body_0.mechanics.ry_0
-        self.mechanics.rz_0 = body_0.mechanics.rz_0
-        self.mechanics.vx_0 = body_0.mechanics.vx_0
-        self.mechanics.vy_0 = body_0.mechanics.vy_0
-        self.mechanics.vz_0 = body_0.mechanics.vz_0
-        self.mechanics.rx_1 = body_1.mechanics.rx_1
-        self.mechanics.ry_1 = body_1.mechanics.ry_1
-        self.mechanics.rz_1 = body_1.mechanics.rz_1
-        self.mechanics.vx_1 = body_1.mechanics.vx_1
-        self.mechanics.vy_1 = body_1.mechanics.vy_1
-        self.mechanics.vz_1 = body_1.mechanics.vz_1
+    def connect(self, bodies: list, current: int):
+        for ind, body in enumerate(bodies):
+            if ind != current:
+                self.mechanics.__setattr__(f'rx_{ind}', body.mechanics[f'rx_{ind}'])
+                self.mechanics.__setattr__(f'ry_{ind}', body.mechanics[f'ry_{ind}'])
+                self.mechanics.__setattr__(f'rz_{ind}', body.mechanics[f'rz_{ind}'])
+                self.mechanics.__setattr__(f'vx_{ind}', body.mechanics[f'vx_{ind}'])
+                self.mechanics.__setattr__(f'vy_{ind}', body.mechanics[f'vy_{ind}'])
+                self.mechanics.__setattr__(f'vz_{ind}', body.mechanics[f'vz_{ind}'])
 
 class Nbody(Subsystem):
     def __init__(self, initial, mu, tag="nbody"):
@@ -338,9 +325,9 @@ class Nbody(Subsystem):
         body_0 = Body_0(initial=initial, tag='b0')
         body_1 = Body_1(initial=initial, tag='b1')
         body_2 = Body_2(initial=initial, tag='b2')
-        body_0.connect(body_1,body_2)
-        body_1.connect(body_0, body_2)
-        body_2.connect(body_0, body_1)
+        body_0.connect([body_0, body_1, body_2], 0)
+        body_1.connect([body_0, body_1, body_2], 1)
+        body_2.connect([body_0, body_1, body_2], 2)
         self.register_item(body_0)
         self.register_item(body_1)
         self.register_item(body_2)
@@ -368,14 +355,11 @@ if __name__ == '__main__':
     y0 = []
     for i in inital_bodies:
         y0 += i[0] + i[1]
-    print(y0)
     nbody_system = Nbody(initial=y0, mu=earth_mu)
     nbody_model = Model(nbody_system, use_llvm=True)
     nbody_simulation = Simulation(nbody_model, t_start=0, t_stop=100, num=1000,
                                   max_step=1, method="Euler")
     nbody_simulation.solve()
-
-    print(nbody_simulation.model.historian_df.__dict__)
 
     x_0 = np.array(nbody_simulation.model.historian_df["nbody.b0.mechanics.rx_0"])
     y_0 = np.array(nbody_simulation.model.historian_df["nbody.b0.mechanics.ry_0"])
