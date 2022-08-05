@@ -167,7 +167,8 @@ class Subsystem(ConnectorItem):
 
         for item in self.registered_items.values():
             if isinstance(item, Subsystem):
-                return item.find_variable(varname)
+                if item.find_variable(varname):
+                    return True
             if self._find_variable(item, varname):
                 return True
         return False
