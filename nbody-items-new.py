@@ -79,7 +79,6 @@ class Body_0(Item, EquationBase):
     def diffy_q(self, scope):
         G = 6.67259e-20
         m_0 = 1e20
-        m_1 = 1e20
         m_2 = 1e20
         # create pos diff
         rx10 = scope.rx_1 - scope.rx_0
@@ -90,21 +89,9 @@ class Body_0(Item, EquationBase):
         ry21 = scope.ry_2 - scope.ry_1
         rz21 = scope.rz_2 - scope.rz_1
 
-        rx20 = scope.rx_2 - scope.rx_0
-        ry20 = scope.ry_2 - scope.ry_0
-        rz20 = scope.rz_2 - scope.rz_0
-
         # normalize differences
         norm_r10 = (rx10 ** 2 + ry10 ** 2 + rz10 ** 2) ** (1 / 2)
         norm_r21 = (rx21 ** 2 + ry21 ** 2 + rz21 ** 2) ** (1 / 2)
-        norm_r20 = (rx20 ** 2 + ry20 ** 2 + rz20 ** 2) ** (1 / 2)
-
-        scope.vx_0_dot = G * m_2 * (scope.rx_2 - scope.rx_0) / norm_r20 ** 3 + G * m_1 * (
-                scope.rx_1 - scope.rx_0) / norm_r10 ** 3
-        scope.vy_0_dot = G * m_2 * (scope.ry_2 - scope.ry_0) / norm_r20 ** 3 + G * m_1 * (
-                scope.ry_1 - scope.ry_0) / norm_r10 ** 3
-        scope.vz_0_dot = G * m_2 * (scope.rz_2 - scope.rz_0) / norm_r20 ** 3 + G * m_1 * (
-                scope.rz_1 - scope.rz_0) / norm_r10 ** 3
 
         scope.vx_1_dot = G * m_2 * (scope.rx_2 - scope.rx_1) / norm_r21 ** 3 + G * m_0 * (
                 scope.rx_0 - scope.rx_1) / norm_r10 ** 3
@@ -112,23 +99,9 @@ class Body_0(Item, EquationBase):
                 scope.ry_0 - scope.ry_1) / norm_r10 ** 3
         scope.vz_1_dot = G * m_2 * (scope.rz_2 - scope.rz_1) / norm_r21 ** 3 + G * m_0 * (
                 scope.rz_0 - scope.rz_1) / norm_r10 ** 3
-
-        scope.vx_2_dot = G * m_1 * (scope.rx_1 - scope.rx_2) / norm_r21 ** 3 + G * m_2 * (
-                scope.rx_0 - scope.rx_2) / norm_r20 ** 3
-        scope.vy_2_dot = G * m_1 * (scope.ry_1 - scope.ry_2) / norm_r21 ** 3 + G * m_2 * (
-                scope.ry_0 - scope.ry_2) / norm_r20 ** 3
-        scope.vz_2_dot = G * m_0 * (scope.rz_0 - scope.rz_2) / norm_r20 ** 3 + G * m_2 * (
-                scope.rz_1 - scope.rz_2) / norm_r21 ** 3
-
-        scope.rx_0_dot = scope.vx_0
-        scope.ry_0_dot = scope.vy_0
-        scope.rz_0_dot = scope.vz_0
         scope.rx_1_dot = scope.vx_1
         scope.ry_1_dot = scope.vy_1
         scope.rz_1_dot = scope.vz_1
-        scope.rx_2_dot = scope.vx_2
-        scope.ry_2_dot = scope.vy_2
-        scope.rz_2_dot = scope.vz_2
 
     def connect(self, bodies:list, current:int):
         for ind,body in enumerate(bodies):
@@ -364,7 +337,6 @@ if __name__ == '__main__':
     x_0 = np.array(nbody_simulation.model.historian_df["nbody.b0.mechanics.rx_0"])
     y_0 = np.array(nbody_simulation.model.historian_df["nbody.b0.mechanics.ry_0"])
     z_0 = np.array(nbody_simulation.model.historian_df["nbody.b0.mechanics.rz_0"])
-
     x_1 = np.array(nbody_simulation.model.historian_df["nbody.b1.mechanics.rx_1"])
     y_1 = np.array(nbody_simulation.model.historian_df["nbody.b1.mechanics.ry_1"])
     z_1 = np.array(nbody_simulation.model.historian_df["nbody.b1.mechanics.rz_1"])
