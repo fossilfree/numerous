@@ -1,4 +1,3 @@
-import logging
 import time
 import math
 from collections import namedtuple
@@ -9,6 +8,7 @@ from numba import njit
 from copy import deepcopy
 
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
+from numerous.utils import logger as log
 from .solver_methods import BaseMethod, RK45, Euler
 
 solver_methods = {'RK45': RK45, 'Euler': Euler}
@@ -379,7 +379,7 @@ class Numerous_solver(BaseSolver):
 
     def compile_solver(self):
 
-        logging.info("Compiling Numerous Solver")
+        log.info("Compiling Numerous Solver")
         generation_start = time.time()
 
         argtypes = []
@@ -422,7 +422,7 @@ class Numerous_solver(BaseSolver):
         _solve = self._non_compiled_solve.compile(tuple(argtypes))
 
         generation_finish = time.time()
-        logging.info(f"Solver compiled, compilation time: {generation_finish - generation_start}")
+        log.info(f"Solver compiled, compilation time: {generation_finish - generation_start}")
 
         return _solve
 
@@ -591,7 +591,7 @@ class Numerous_solver(BaseSolver):
         """
         self.result_status = "Success"
         self.sol = None
-        logging.info('Solve started')
+        log.info('Solve started')
 
         if self.use_no_state_solver():
             dt = self.time[1] - self.time[0]
@@ -601,7 +601,7 @@ class Numerous_solver(BaseSolver):
 
         self._solver(self.time)
 
-        logging.info("Solve finished")
+        log.info("Solve finished")
         return self.sol, self.result_status
 
     def solver_step(self, t, delta_t=None):

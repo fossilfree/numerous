@@ -4,7 +4,7 @@ import logging
 import os
 from ctypes import CFUNCTYPE, POINTER, c_double, c_void_p, c_int64
 from numba import carray, cfunc, njit
-from numerous.utils import config
+from numerous.utils import config, logger as log
 import faulthandler
 import numpy as np
 
@@ -201,7 +201,7 @@ class LLVMBuilder:
 
     def detailed_print(self, *args, sep=' '):
         if config.PRINT_LLVM:
-            logging.info(sep.join(map(str, args)))
+            log.info(sep.join(map(str, args)))
 
     def save_module(self, filename):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
