@@ -20,6 +20,7 @@ jobs:
           name: Tests
           parallel: true
           command: |
+            mkdir .circleci/resources
             cp -f .circleci/resources/pytest_build_config.ini tests/pytest.ini
             TESTFILES=$(circleci tests glob tests/{test*.py,*/test*.py} | circleci tests split --split-by=timings)
             mkdir test-results
