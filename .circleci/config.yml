@@ -20,11 +20,9 @@ jobs:
           name: Tests
           parallel: true
           command: |
-            mkdir .circleci/resources
-            cp -f .circleci/resources/pytest_build_config.ini tests/pytest.ini
             TESTFILES=$(circleci tests glob tests/{test*.py,*/test*.py} | circleci tests split --split-by=timings)
-            mkdir test-results
-            python3 -m pytest $TESTFILES --junitxml=test-results/junit.xml
+            mkdir -p test-results
+            python3 -m pytest --verbose $TESTFILES --junitxml=test-results/junit.xml
             
       - store_test_results:
           path: test-results
