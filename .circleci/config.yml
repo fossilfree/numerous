@@ -20,7 +20,7 @@ jobs:
           name: Tests
           parallel: true
           command: |  
-            TESTFILES=$((test_bouncing_ball_event.py::test_variable_error[True]) | circleci tests split --split-by=timings --timings-type=testname)
+            TESTFILES=$(("test_bouncing_ball_event.py::test_variable_error[True]") | circleci tests split --split-by=timings --timings-type=testname)
             mkdir -p test-results
             python3 -m pytest --verbose $TESTFILES --junitxml=test-results/junit.xml
             
