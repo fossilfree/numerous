@@ -20,7 +20,7 @@ jobs:
           name: Tests
           parallel: true
           command: |  
-            TESTFILES=$((pytest --co -q --disable-warnings | head -n -2) | circleci tests split --split-by=timings --timings-type=testname)
+            TESTFILES=$((pytest --co -q --disable-warnings | head -n -2) | circleci tests split --split-by=timings --timings-type=testname) > /dev/null
             mkdir -p test-results
             python3 -m pytest --verbose $TESTFILES --junitxml=test-results/junit.xml
             
