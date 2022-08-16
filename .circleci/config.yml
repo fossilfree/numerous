@@ -22,7 +22,7 @@ jobs:
           command: |  
             TESTFILES=$((pytest --co -q --disable-warnings | head -n -2) | circleci tests split --split-by=timings --timings-type=testname)
             mkdir -p test-results
-            python3 -m pytest --verbose $TESTFILES --junit-family=xunit1 --junitxml=test-results/junit.xml
+            python3 -m pytest --verbose $TESTFILES --junitxml=test-results/junit.xml
             python3 tests/utils/get_test_names.py
             
       - store_test_results:
