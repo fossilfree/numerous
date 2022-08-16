@@ -19,9 +19,8 @@ jobs:
       - run:
           name: Tests
           parallel: true
-          command: |
-            echo $(pytest --co -q --disable-warnings | head -n -2)
-            TESTFILES=$((pytest --co -q --disable-warnings | head -n -2) | circleci tests split --split-by=timings --timings-type=testname)
+          command: |  
+            TESTFILES=$((test_bouncing_ball_event.py::test_variable_error[True]) | circleci tests split --split-by=timings --timings-type=testname)
             mkdir -p test-results
             python3 -m pytest --verbose $TESTFILES --junitxml=test-results/junit.xml
             
