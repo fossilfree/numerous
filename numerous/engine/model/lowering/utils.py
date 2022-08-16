@@ -1,8 +1,8 @@
-import logging
 from enum import IntEnum, unique
 
 import ast
 
+from numerous.utils import logger as log
 
 @unique
 class VarTypes(IntEnum):
@@ -35,7 +35,7 @@ def generate_code_file(mod_body, file, imports, external_functions_source=False,
                                           level=0))
 
     mod = wrap_module(mod_body)
-    logging.info('Generating Source')
+    log.info('Generating Source')
     source = names + ast.unparse(mod)
     return source
 

@@ -5,6 +5,7 @@ import numpy as np
 from graphviz import Digraph
 from .utils import EdgeType, TemporaryKeyGenerator
 from .lower_graph import multi_replace, _Graph
+from numerous.utils import logger as log
 
 tmp_generator = TemporaryKeyGenerator().generate
 
@@ -137,7 +138,7 @@ class Graph:
         self.nodes[node_n].deleted = True
 
     def clean(self):
-        logging.info('Cleaning eq graph')
+        log.info('Cleaning eq graph')
         self.lower_graph = None
         self.node_edges = None
         return self
@@ -290,7 +291,7 @@ class Graph:
         return cg
 
     def topological_nodes(self, ignore_cyclic=True):
-        logging.info('Starting topological sort')
+        log.info('Starting topological sort')
         if not self.lower_graph:
             self.make_lower_graph()
 
@@ -312,7 +313,7 @@ class Graph:
             else:
                 self.lower_graph.topological_sorted_nodes[-len(unsorted_nodes):] = list(unsorted_nodes)
 
-        logging.info("Topological sort finished")
+        log.info("Topological sort finished")
         return self.lower_graph.topological_sorted_nodes
 
     def get_dependants_graph(self, node):

@@ -40,6 +40,8 @@ from numerous.engine.model.ast_parser.parser_ast import process_mappings
 from numerous.engine.model.lowering.equations_generator import EquationGenerator
 from numerous.engine.system import SetNamespace
 
+from numerous.utils import logger as log
+
 import faulthandler
 import llvmlite.binding as llvm
 
@@ -108,13 +110,6 @@ class ModelAssembler:
 
         return variables_, equation_dict
 
-
-import logging
-
-logging.basicConfig(
-    format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
-    level=logging.INFO,
-    datefmt='%Y-%m-%d %H:%M:%S')
 
 
 class Model:
@@ -245,7 +240,7 @@ class Model:
             else:
                 return variable.idx_in_scope[0]
 
-        logging.info("Assembling numerous Model")
+        log.info("Assembling numerous Model")
         assemble_start = time.time()
 
         # 1. Create list of model namespaces
@@ -281,7 +276,7 @@ class Model:
         self.scoped_equations = {}
         self.equations_top = {}
 
-        logging.info('Parsing equations starting')
+        log.info('Parsing equations starting')
         for v in self.variables.values():
             v.top_item = self.system.id
 
@@ -298,14 +293,14 @@ class Model:
                          scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
                          scoped_equations=self.scoped_equations, parsed_eq=self.equations_top, eq_used=eq_used)
         self.eq_used = eq_used
-        logging.info('Parsing equations completed')
+        log.info('Parsing equations completed')
 
         # Process mappings add update the global graph
-        logging.info('Process mappings')
+        log.info('Process mappings')
         self.mappings_graph = process_mappings(mappings, self.mappings_graph, self.variables)
         self.mappings_graph.build_node_edges()
 
-        logging.info('Mappings processed')
+        log.info('Mappings processed')
 
         # Process variables
         states = []
@@ -333,7 +328,7 @@ class Model:
 
         self.special_indcs = [self.states_end_ix, self.deriv_end_ix, self.mapping_end_ix]
 
-        logging.info('Variables sorted')
+        log.info('Variables sorted')
 
         self.mappings_graph = MappingsGraph.from_graph(self.mappings_graph)
         self.mappings_graph.remove_chains()
@@ -434,7 +429,7 @@ class Model:
 
     def lower_model_codegen(self, tmp_vars):
 
-        logging.info('Lowering model')
+        log.info('Lowering model')
 
         eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py",
                                    equation_graph=self.mappings_graph,
@@ -499,7 +494,7 @@ class Model:
                              self.state_idx, self.derivatives_idx, self.init_values, self.aliases,
                              eq_gen.generated_program.equations_llvm_opt, eq_gen.generated_program.max_var,
                              eq_gen.generated_program.n_deriv), handle, protocol=pickle.HIGHEST_PROTOCOL)
-            logging.info('Model successfully exported to ' + filename)
+            log.info('Model successfully exported to ' + filename)
 
         if self.clonable:
             self.equations_llvm_opt = eq_gen.generated_program.equations_llvm_opt
@@ -515,7 +510,7 @@ class Model:
                        None) is None:  # added to temporary variables - maybe put in generate_equations?
                 setattr(var, 'logger_level', LoggerLevel.ALL)
 
-        logging.info("Lowering model finished")
+        log.info("Lowering model finished")
 
     def generate_path_to_varaible(self):
         for k, v in self.aliases.items():
