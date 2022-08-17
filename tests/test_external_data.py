@@ -442,17 +442,6 @@ def test_external_data_system_check_not_mapped(use_llvm):
         'This should REALLY not be mapped and thus not changed'
 
 
-class OtherStaticDataSystem(Subsystem):
-    def __init__(self, tag, n=1, external_mappings=None, data_loader=None):
-        super().__init__(tag, external_mappings, data_loader)
-        o_s = []
-        for i in range(n):
-            o = StaticDataTest('tm' + str(i))
-            o_s.append(o)
-        # Register the items to the subsystem to make it recognize them.
-        self.register_items(o_s)
-
-
 class TwoSystemInside(Subsystem):
     def __init__(self, tag, system, n=1, external_mappings=None, data_loader=None):
         super().__init__(tag, external_mappings, data_loader)
