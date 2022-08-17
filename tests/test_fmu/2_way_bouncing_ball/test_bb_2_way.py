@@ -18,7 +18,6 @@ class S3(Subsystem):
 
 
 @pytest.mark.parametrize("use_llvm", [True, False])
-@pytest.mark.xfail(strict=False)
 def test_bounsing_ball_2_way_pos_hits(use_llvm):
     subsystem1 = S3('q1')
     m1 = Model(subsystem1, use_llvm=use_llvm)
@@ -33,7 +32,6 @@ def test_bounsing_ball_2_way_pos_hits(use_llvm):
 
 
 @pytest.mark.parametrize("use_llvm", [True, False])
-@pytest.mark.xfail(strict=False)
 def test_bounsing_ball_2_way_t_hits(use_llvm):
     subsystem1 = S3('q1')
     m1 = Model(subsystem1, use_llvm=use_llvm)
