@@ -452,9 +452,7 @@ class OtherStaticDataSystem(Subsystem):
         # Register the items to the subsystem to make it recognize them.
         self.register_items(o_s)
 
-
-
-
+        
 class TwoSystemInside(Subsystem):
     def __init__(self, tag, system, n=1, external_mappings=None, data_loader=None):
         super().__init__(tag, external_mappings, data_loader)
@@ -465,8 +463,6 @@ class TwoSystemInside(Subsystem):
 
         # Register the items to the subsystem to make it recognize them.
         self.register_items(o_s)
-
-
 
 
 @pytest.mark.parametrize("use_llvm", [True, False])
@@ -492,12 +488,11 @@ def test_get_external_system_fix(use_llvm, external_data: external_data):
 
     data_loader = InMemoryDataLoader(df)
     system_outer = TwoSystemInside('system_outer',
-                               StaticDataSystem('system_external', n=1, external_mappings=external_mappings,
-                                      data_loader=data_loader),
-                               data_loader=data_loader)
+                                   StaticDataSystem('system_external', n=1, external_mappings=external_mappings,
+                                                    data_loader=data_loader),
+                                    data_loader=data_loader)
     dt_eval = 0.1
     s = Simulation(
         Model(system_outer, use_llvm=use_llvm),
         t_start=0, t_stop=tmax, num=len(np.arange(0, tmax, dt_eval)), max_step=0.1)
     s.solve()
-
