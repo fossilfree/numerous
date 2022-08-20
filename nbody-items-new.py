@@ -51,9 +51,9 @@ earth_mu = 398600.0
 G = 6.67259e-20  # (km**3/kg/s**2)
 
 
-class Body_0(Item, EquationBase):
+class Body(Item, EquationBase):
     def __init__(self, initial, tag='initialvalue'):
-        super(Body_0, self).__init__(tag)
+        super(Body, self).__init__(tag)
         mechanics = self.create_namespace('mechanics')
         self.add_state('rx_0', initial[0])
         self.add_state('ry_0', initial[1])
@@ -103,208 +103,38 @@ class Body_0(Item, EquationBase):
         scope.ry_1_dot = scope.vy_1
         scope.rz_1_dot = scope.vz_1
 
-    def connect(self, bodies:list, current:int):
-        for ind,body in enumerate(bodies):
-            if ind != current:
-                self.mechanics.__setattr__(f'rx_{ind}', body.mechanics[f'rx_{ind}'])
-                self.mechanics.__setattr__(f'ry_{ind}', body.mechanics[f'ry_{ind}'])
-                self.mechanics.__setattr__(f'rz_{ind}', body.mechanics[f'rz_{ind}'])
-                self.mechanics.__setattr__(f'vx_{ind}', body.mechanics[f'vx_{ind}'])
-                self.mechanics.__setattr__(f'vy_{ind}', body.mechanics[f'vy_{ind}'])
-                self.mechanics.__setattr__(f'vz_{ind}', body.mechanics[f'vz_{ind}'])
-
-
-class Body_1(Item, EquationBase):
-    def __init__(self, initial, tag='initialvalue'):
-        super(Body_1, self).__init__(tag)
-        mechanics = self.create_namespace('mechanics')
-        self.add_state('rx_0')
-        self.add_state('ry_0')
-        self.add_state('rz_0')
-        self.add_state('vx_0')
-        self.add_state('vy_0')
-        self.add_state('vz_0')
-        self.add_state('rx_1', initial[6])
-        self.add_state('ry_1', initial[7])
-        self.add_state('rz_1', initial[8])
-        self.add_state('vx_1', initial[9])
-        self.add_state('vy_1', initial[10])
-        self.add_state('vz_1', initial[11])
-        self.add_state('rx_2')
-        self.add_state('ry_2')
-        self.add_state('rz_2')
-        self.add_state('vx_2')
-        self.add_state('vy_2')
-        self.add_state('vz_2')
-        mechanics.add_equations([self])
-
-    @Equation()
-    def diffy_q(self, scope):
-        G = 6.67259e-20
-        m_0 = 1e20
-        m_1 = 1e20
-        m_2 = 1e20
-        # create pos diff
-        rx10 = scope.rx_1 - scope.rx_0
-        ry10 = scope.ry_1 - scope.ry_0
-        rz10 = scope.rz_1 - scope.rz_0
-
-        rx21 = scope.rx_2 - scope.rx_1
-        ry21 = scope.ry_2 - scope.ry_1
-        rz21 = scope.rz_2 - scope.rz_1
-
-        rx20 = scope.rx_2 - scope.rx_0
-        ry20 = scope.ry_2 - scope.ry_0
-        rz20 = scope.rz_2 - scope.rz_0
-
-        # normalize differences
-        norm_r10 = (rx10 ** 2 + ry10 ** 2 + rz10 ** 2) ** (1 / 2)
-        norm_r21 = (rx21 ** 2 + ry21 ** 2 + rz21 ** 2) ** (1 / 2)
-        norm_r20 = (rx20 ** 2 + ry20 ** 2 + rz20 ** 2) ** (1 / 2)
-
-        scope.vx_0_dot = G * m_2 * (scope.rx_2 - scope.rx_0) / norm_r20 ** 3 + G * m_1 * (
-                scope.rx_1 - scope.rx_0) / norm_r10 ** 3
-        scope.vy_0_dot = G * m_2 * (scope.ry_2 - scope.ry_0) / norm_r20 ** 3 + G * m_1 * (
-                scope.ry_1 - scope.ry_0) / norm_r10 ** 3
-        scope.vz_0_dot = G * m_2 * (scope.rz_2 - scope.rz_0) / norm_r20 ** 3 + G * m_1 * (
-                scope.rz_1 - scope.rz_0) / norm_r10 ** 3
-
-        scope.vx_1_dot = G * m_2 * (scope.rx_2 - scope.rx_1) / norm_r21 ** 3 + G * m_0 * (
-                scope.rx_0 - scope.rx_1) / norm_r10 ** 3
-        scope.vy_1_dot = G * m_2 * (scope.ry_2 - scope.ry_1) / norm_r21 ** 3 + G * m_0 * (
-                scope.ry_0 - scope.ry_1) / norm_r10 ** 3
-        scope.vz_1_dot = G * m_2 * (scope.rz_2 - scope.rz_1) / norm_r21 ** 3 + G * m_0 * (
-                scope.rz_0 - scope.rz_1) / norm_r10 ** 3
-
-        scope.vx_2_dot = G * m_1 * (scope.rx_1 - scope.rx_2) / norm_r21 ** 3 + G * m_2 * (
-                scope.rx_0 - scope.rx_2) / norm_r20 ** 3
-        scope.vy_2_dot = G * m_1 * (scope.ry_1 - scope.ry_2) / norm_r21 ** 3 + G * m_2 * (
-                scope.ry_0 - scope.ry_2) / norm_r20 ** 3
-        scope.vz_2_dot = G * m_0 * (scope.rz_0 - scope.rz_2) / norm_r20 ** 3 + G * m_2 * (
-                scope.rz_1 - scope.rz_2) / norm_r21 ** 3
-
-        scope.rx_0_dot = scope.vx_0
-        scope.ry_0_dot = scope.vy_0
-        scope.rz_0_dot = scope.vz_0
-        scope.rx_1_dot = scope.vx_1
-        scope.ry_1_dot = scope.vy_1
-        scope.rz_1_dot = scope.vz_1
-        scope.rx_2_dot = scope.vx_2
-        scope.ry_2_dot = scope.vy_2
-        scope.rz_2_dot = scope.vz_2
-
-    def connect(self, bodies: list, current: int):
-        for ind, body in enumerate(bodies):
-            if ind != current:
-                self.mechanics.__setattr__(f'rx_{ind}', body.mechanics[f'rx_{ind}'])
-                self.mechanics.__setattr__(f'ry_{ind}', body.mechanics[f'ry_{ind}'])
-                self.mechanics.__setattr__(f'rz_{ind}', body.mechanics[f'rz_{ind}'])
-                self.mechanics.__setattr__(f'vx_{ind}', body.mechanics[f'vx_{ind}'])
-                self.mechanics.__setattr__(f'vy_{ind}', body.mechanics[f'vy_{ind}'])
-                self.mechanics.__setattr__(f'vz_{ind}', body.mechanics[f'vz_{ind}'])
-
-class Body_2(Item, EquationBase):
-    def __init__(self, initial, tag='initialvalue'):
-        super(Body_2, self).__init__(tag)
-        mechanics = self.create_namespace('mechanics')
-        self.add_state('rx_0')
-        self.add_state('ry_0')
-        self.add_state('rz_0')
-        self.add_state('vx_0')
-        self.add_state('vy_0')
-        self.add_state('vz_0')
-        self.add_state('rx_1')
-        self.add_state('ry_1')
-        self.add_state('rz_1')
-        self.add_state('vx_1')
-        self.add_state('vy_1')
-        self.add_state('vz_1')
-        self.add_state('rx_2', initial[12])
-        self.add_state('ry_2', initial[13])
-        self.add_state('rz_2', initial[14])
-        self.add_state('vx_2', initial[15])
-        self.add_state('vy_2', initial[16])
-        self.add_state('vz_2', initial[17])
-        mechanics.add_equations([self])
-
-    @Equation()
-    def diffy_q(self, scope):
-        G = 6.67259e-20
-        m_0 = 1e20
-        m_1 = 1e20
-        m_2 = 1e20
-        # create pos diff
-        rx10 = scope.rx_1 - scope.rx_0
-        ry10 = scope.ry_1 - scope.ry_0
-        rz10 = scope.rz_1 - scope.rz_0
-
-        rx21 = scope.rx_2 - scope.rx_1
-        ry21 = scope.ry_2 - scope.ry_1
-        rz21 = scope.rz_2 - scope.rz_1
-
-        rx20 = scope.rx_2 - scope.rx_0
-        ry20 = scope.ry_2 - scope.ry_0
-        rz20 = scope.rz_2 - scope.rz_0
-
-        # normalize differences
-        norm_r10 = (rx10 ** 2 + ry10 ** 2 + rz10 ** 2) ** (1 / 2)
-        norm_r21 = (rx21 ** 2 + ry21 ** 2 + rz21 ** 2) ** (1 / 2)
-        norm_r20 = (rx20 ** 2 + ry20 ** 2 + rz20 ** 2) ** (1 / 2)
-
-        scope.vx_0_dot = G * m_2 * (scope.rx_2 - scope.rx_0) / norm_r20 ** 3 + G * m_1 * (
-                scope.rx_1 - scope.rx_0) / norm_r10 ** 3
-        scope.vy_0_dot = G * m_2 * (scope.ry_2 - scope.ry_0) / norm_r20 ** 3 + G * m_1 * (
-                scope.ry_1 - scope.ry_0) / norm_r10 ** 3
-        scope.vz_0_dot = G * m_2 * (scope.rz_2 - scope.rz_0) / norm_r20 ** 3 + G * m_1 * (
-                scope.rz_1 - scope.rz_0) / norm_r10 ** 3
-
-        scope.vx_1_dot = G * m_2 * (scope.rx_2 - scope.rx_1) / norm_r21 ** 3 + G * m_0 * (
-                scope.rx_0 - scope.rx_1) / norm_r10 ** 3
-        scope.vy_1_dot = G * m_2 * (scope.ry_2 - scope.ry_1) / norm_r21 ** 3 + G * m_0 * (
-                scope.ry_0 - scope.ry_1) / norm_r10 ** 3
-        scope.vz_1_dot = G * m_2 * (scope.rz_2 - scope.rz_1) / norm_r21 ** 3 + G * m_0 * (
-                scope.rz_0 - scope.rz_1) / norm_r10 ** 3
-
-        scope.vx_2_dot = G * m_1 * (scope.rx_1 - scope.rx_2) / norm_r21 ** 3 + G * m_2 * (
-                scope.rx_0 - scope.rx_2) / norm_r20 ** 3
-        scope.vy_2_dot = G * m_1 * (scope.ry_1 - scope.ry_2) / norm_r21 ** 3 + G * m_2 * (
-                scope.ry_0 - scope.ry_2) / norm_r20 ** 3
-        scope.vz_2_dot = G * m_0 * (scope.rz_0 - scope.rz_2) / norm_r20 ** 3 + G * m_2 * (
-                scope.rz_1 - scope.rz_2) / norm_r21 ** 3
-
-        scope.rx_0_dot = scope.vx_0
-        scope.ry_0_dot = scope.vy_0
-        scope.rz_0_dot = scope.vz_0
-        scope.rx_1_dot = scope.vx_1
-        scope.ry_1_dot = scope.vy_1
-        scope.rz_1_dot = scope.vz_1
-        scope.rx_2_dot = scope.vx_2
-        scope.ry_2_dot = scope.vy_2
-        scope.rz_2_dot = scope.vz_2
-
-    def connect(self, bodies: list, current: int):
-        for ind, body in enumerate(bodies):
-            if ind != current:
-                self.mechanics.__setattr__(f'rx_{ind}', body.mechanics[f'rx_{ind}'])
-                self.mechanics.__setattr__(f'ry_{ind}', body.mechanics[f'ry_{ind}'])
-                self.mechanics.__setattr__(f'rz_{ind}', body.mechanics[f'rz_{ind}'])
-                self.mechanics.__setattr__(f'vx_{ind}', body.mechanics[f'vx_{ind}'])
-                self.mechanics.__setattr__(f'vy_{ind}', body.mechanics[f'vy_{ind}'])
-                self.mechanics.__setattr__(f'vz_{ind}', body.mechanics[f'vz_{ind}'])
-
 class Nbody(Subsystem):
     def __init__(self, initial, mu, tag="nbody"):
         super(Nbody, self).__init__(tag)
-        body_0 = Body_0(initial=initial, tag='b0')
-        body_1 = Body_1(initial=initial, tag='b1')
-        body_2 = Body_2(initial=initial, tag='b2')
-        body_0.connect([body_0, body_1, body_2], 0)
-        body_1.connect([body_0, body_1, body_2], 1)
-        body_2.connect([body_0, body_1, body_2], 2)
+        body_0 = Body(initial=initial, tag='b0')
+        body_1 = Body(initial=initial, tag='b1')
+        body_2 = Body(initial=initial, tag='b2')
+
         self.register_item(body_0)
         self.register_item(body_1)
         self.register_item(body_2)
+        self.connect_bodies()
 
+    def connect_bodies(self):
+        print(self.registered_items)
+        x={}
+        c=0
+        for i in self.registered_items.keys():
+            x.update({i:c})
+            c+=1
+        print(x)
+        for idx0 in self.registered_items.keys():
+            for idx1 in self.registered_items.keys():
+                if idx0 != idx1:
+                    print(idx0, idx1)
+                    #body_0 = self.registered_items[idx0]
+                    #body_1 = self.registered_items[idx1]
+                    self.registered_items[idx0].mechanics.__setattr__(f'rx_{x[idx0]}', self.registered_items[idx1].mechanics[f'rx_{x[idx1]}'])
+                    self.registered_items[idx0].mechanics.__setattr__(f'ry_{x[idx0]}', self.registered_items[idx1].mechanics[f'ry_{x[idx1]}'])
+                    self.registered_items[idx0].mechanics.__setattr__(f'rz_{x[idx0]}', self.registered_items[idx1].mechanics[f'rz_{x[idx1]}'])
+                    self.registered_items[idx0].mechanics.__setattr__(f'vx_{x[idx0]}', self.registered_items[idx1].mechanics[f'vx_{x[idx1]}'])
+                    self.registered_items[idx0].mechanics.__setattr__(f'vy_{x[idx0]}', self.registered_items[idx1].mechanics[f'vy_{x[idx1]}'])
+                    self.registered_items[idx0].mechanics.__setattr__(f'vz_{x[idx0]}', self.registered_items[idx1].mechanics[f'vz_{x[idx1]}'])
 
 if __name__ == '__main__':
     r_mag = earth_radius + 500.0
