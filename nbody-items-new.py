@@ -116,17 +116,17 @@ class Nbody(Subsystem):
         self.connect_bodies()
 
     def connect_bodies(self):
-        print(self.registered_items)
+        #print(self.registered_items)
         x={}
         c=0
         for i in self.registered_items.keys():
             x.update({i:c})
             c+=1
-        print(x)
+        #print(x)
         for idx0 in self.registered_items.keys():
             for idx1 in self.registered_items.keys():
                 if idx0 != idx1:
-                    print(idx0, idx1)
+                    #print(idx0, idx1, x[idx0], x[idx1], self.registered_items[idx0].mechanics.__dict__)
                     #body_0 = self.registered_items[idx0]
                     #body_1 = self.registered_items[idx1]
                     self.registered_items[idx0].mechanics.__setattr__(f'rx_{x[idx0]}', self.registered_items[idx1].mechanics[f'rx_{x[idx1]}'])
