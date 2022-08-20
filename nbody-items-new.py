@@ -52,15 +52,15 @@ G = 6.67259e-20  # (km**3/kg/s**2)
 
 
 class Body(Item, EquationBase):
-    def __init__(self, initial, tag='initialvalue'):
+    def __init__(self, initial, tag='initialvalue',id=0):
         super(Body, self).__init__(tag)
         mechanics = self.create_namespace('mechanics')
-        self.add_state('rx_0', initial[0])
-        self.add_state('ry_0', initial[1])
-        self.add_state('rz_0', initial[2])
-        self.add_state('vx_0', initial[3])
-        self.add_state('vy_0', initial[4])
-        self.add_state('vz_0', initial[5])
+        self.add_state('rx_0', initial[0+id*6])
+        self.add_state('ry_0', initial[1+id*6])
+        self.add_state('rz_0', initial[2+id*6])
+        self.add_state('vx_0', initial[3+id*6])
+        self.add_state('vy_0', initial[4+id*6])
+        self.add_state('vz_0', initial[5+id*6])
         self.add_state('rx_1')
         self.add_state('ry_1')
         self.add_state('rz_1')
@@ -106,9 +106,9 @@ class Body(Item, EquationBase):
 class Nbody(Subsystem):
     def __init__(self, initial, mu, tag="nbody"):
         super(Nbody, self).__init__(tag)
-        body_0 = Body(initial=initial, tag='b0')
-        body_1 = Body(initial=initial, tag='b1')
-        body_2 = Body(initial=initial, tag='b2')
+        body_0 = Body(initial=initial, tag='b0',id=0)
+        body_1 = Body(initial=initial, tag='b1',id=1)
+        body_2 = Body(initial=initial, tag='b2',id=2)
 
         self.register_item(body_0)
         self.register_item(body_1)
