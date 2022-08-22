@@ -123,18 +123,20 @@ class Nbody(Subsystem):
             x.update({i:c})
             c+=1
         #print(x)
-        for idx0 in self.registered_items.keys():
-            for idx1 in self.registered_items.keys():
-                if idx0 != idx1:
-                    #print(idx0, idx1, x[idx0], x[idx1], self.registered_items[idx0].mechanics.__dict__)
+        for id0 in self.registered_items.keys():
+            bind=1
+            for id1 in self.registered_items.keys():
+                if id0 != id1:
+                    print(id0, id1, x[id0], x[id1],bind)
                     #body_0 = self.registered_items[idx0]
                     #body_1 = self.registered_items[idx1]
-                    self.registered_items[idx0].mechanics.__setattr__(f'rx_{x[idx0]}', self.registered_items[idx1].mechanics[f'rx_{x[idx1]}'])
-                    self.registered_items[idx0].mechanics.__setattr__(f'ry_{x[idx0]}', self.registered_items[idx1].mechanics[f'ry_{x[idx1]}'])
-                    self.registered_items[idx0].mechanics.__setattr__(f'rz_{x[idx0]}', self.registered_items[idx1].mechanics[f'rz_{x[idx1]}'])
-                    self.registered_items[idx0].mechanics.__setattr__(f'vx_{x[idx0]}', self.registered_items[idx1].mechanics[f'vx_{x[idx1]}'])
-                    self.registered_items[idx0].mechanics.__setattr__(f'vy_{x[idx0]}', self.registered_items[idx1].mechanics[f'vy_{x[idx1]}'])
-                    self.registered_items[idx0].mechanics.__setattr__(f'vz_{x[idx0]}', self.registered_items[idx1].mechanics[f'vz_{x[idx1]}'])
+                    self.registered_items[id0].mechanics.__setattr__(f'rx_{bind}', self.registered_items[id1].mechanics['rx_0'])
+                    self.registered_items[id0].mechanics.__setattr__(f'ry_{bind}', self.registered_items[id1].mechanics['ry_0'])
+                    self.registered_items[id0].mechanics.__setattr__(f'rz_{bind}', self.registered_items[id1].mechanics['rz_0'])
+                    self.registered_items[id0].mechanics.__setattr__(f'vx_{bind}', self.registered_items[id1].mechanics['vx_0'])
+                    self.registered_items[id0].mechanics.__setattr__(f'vy_{bind}', self.registered_items[id1].mechanics['vy_0'])
+                    self.registered_items[id0].mechanics.__setattr__(f'vz_{bind}', self.registered_items[id1].mechanics['vz_0'])
+                    bind+=1
 
 if __name__ == '__main__':
     r_mag = earth_radius + 500.0
@@ -167,13 +169,13 @@ if __name__ == '__main__':
     x_0 = np.array(nbody_simulation.model.historian_df["nbody.b0.mechanics.rx_0"])
     y_0 = np.array(nbody_simulation.model.historian_df["nbody.b0.mechanics.ry_0"])
     z_0 = np.array(nbody_simulation.model.historian_df["nbody.b0.mechanics.rz_0"])
-    x_1 = np.array(nbody_simulation.model.historian_df["nbody.b1.mechanics.rx_1"])
-    y_1 = np.array(nbody_simulation.model.historian_df["nbody.b1.mechanics.ry_1"])
-    z_1 = np.array(nbody_simulation.model.historian_df["nbody.b1.mechanics.rz_1"])
+    x_1 = np.array(nbody_simulation.model.historian_df["nbody.b1.mechanics.rx_0"])
+    y_1 = np.array(nbody_simulation.model.historian_df["nbody.b1.mechanics.ry_0"])
+    z_1 = np.array(nbody_simulation.model.historian_df["nbody.b1.mechanics.rz_0"])
 
-    x_2 = np.array(nbody_simulation.model.historian_df["nbody.b2.mechanics.rx_2"])
-    y_2 = np.array(nbody_simulation.model.historian_df["nbody.b2.mechanics.ry_2"])
-    z_2 = np.array(nbody_simulation.model.historian_df["nbody.b2.mechanics.rz_2"])
+    x_2 = np.array(nbody_simulation.model.historian_df["nbody.b2.mechanics.rx_0"])
+    y_2 = np.array(nbody_simulation.model.historian_df["nbody.b2.mech   anics.ry_0"])
+    z_2 = np.array(nbody_simulation.model.historian_df["nbody.b2.mechanics.rz_0"])
 
     print(len(x_2))
     print(x_0)
