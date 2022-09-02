@@ -1,3 +1,4 @@
+import math
 import types as ptypes
 import ctypes
 import ast
@@ -12,6 +13,7 @@ from fmpy.simulation import apply_start_values, Input
 from fmpy.util import auto_interval
 
 from numerous.engine.system.external_mappings import InterpolationType, ExternalMappingElement
+from numerous.engine.system.fmu_system_generator.fmu_functions_wrapper import get_fmu_functions
 from numerous.multiphysics import EquationBase, Equation, NumerousFunction
 
 from numerous.engine.system import Subsystem, ExternalMappingUnpacked
@@ -116,46 +118,32 @@ class FMU_Subsystem(Subsystem, EquationBase):
         input.apply(start_time)
         fmu.exitInitializationMode()
 
-        getreal = getattr(fmu.dll, "fmi2GetReal")
         component = fmu.component
 
-        getreal.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
-        getreal.restype = ctypes.c_uint
+        getreal, set_time, fmi2SetC, fmi2SetReal, completedIntegratorStep,\
+        get_event_indicators, enter_event_mode,enter_cont_mode, newDiscreteStates=get_fmu_functions(fmu)
 
-        set_time = getattr(fmu.dll, "fmi2SetTime")
-        set_time.argtypes = [ctypes.c_void_p, ctypes.c_double]
-        set_time.restype = ctypes.c_int
+        fmi2Terminate = getattr(fmu.dll, "fmi2Terminate")
+        fmi2Terminate.argtypes = [ctypes.c_void_p]
+        fmi2Terminate.restype = ctypes.c_uint
 
-        fmi2SetC = getattr(fmu.dll, "fmi2SetContinuousStates")
-        fmi2SetC.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
-        fmi2SetC.restype = ctypes.c_uint
+        fmi2FreeInstance = getattr(fmu.dll, "fmi2FreeInstance")
+        fmi2FreeInstance.argtypes = [ctypes.c_void_p]
+        fmi2FreeInstance.restype = ctypes.c_uint
 
-        fmi2SetReal = getattr(fmu.dll, "fmi2SetReal")
-        fmi2SetReal.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
-        fmi2SetReal.restype = ctypes.c_uint
+        def fmi2Terminate_():
+            fmi2Terminate(component)
+            fmi2FreeInstance(component)
 
-        completedIntegratorStep = getattr(fmu.dll, "fmi2CompletedIntegratorStep")
-        completedIntegratorStep.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
-                                            ctypes.c_void_p]
-        completedIntegratorStep.restype = ctypes.c_uint
+        def fmi2FreeInstance_():
 
-        get_event_indicators = getattr(fmu.dll, "fmi2GetEventIndicators")
+        self.fmi2Terminate_ = fmi2Terminate_
 
-        get_event_indicators.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
-        get_event_indicators.restype = ctypes.c_uint
+        self.fmi2FreeInstance_ = fmi2FreeInstance_
 
-        enter_event_mode = getattr(fmu.dll, "fmi2EnterEventMode")
 
-        enter_event_mode.argtypes = [ctypes.c_void_p]
-        enter_event_mode.restype = ctypes.c_uint
 
-        enter_cont_mode = getattr(fmu.dll, "fmi2EnterContinuousTimeMode")
-        enter_cont_mode.argtypes = [ctypes.c_void_p]
-        enter_cont_mode.restype = ctypes.c_uint
 
-        newDiscreteStates = getattr(fmu.dll, "fmi2NewDiscreteStates")
-        newDiscreteStates.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-        newDiscreteStates.restype = ctypes.c_uint
 
         len_q = len(self.value_ref_used)
         var_order = [x.valueReference for x in model_description.modelVariables
@@ -221,6 +209,10 @@ class FMU_Subsystem(Subsystem, EquationBase):
         if debug_output:
             print(ast.unparse(module_func))
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
+
+
+
+
         namespace = {"carray": carray, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q, "getreal": getreal,
                      "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time, "fmi2SetC": fmi2SetC,
                      "completedIntegratorStep": completedIntegratorStep}
@@ -292,7 +284,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
                         ('valuesOfContinuousStatesChanged', ctypes.c_int),
                         ('nextEventTimeDefined', ctypes.c_int),
                         ('nextEventTime', ctypes.c_double)]
-
 
         event_info = EventInfo()
         q_ptr = ctypes.addressof(event_info)
