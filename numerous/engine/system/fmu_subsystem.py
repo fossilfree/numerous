@@ -132,10 +132,13 @@ class FMU_Subsystem(Subsystem, EquationBase):
         fmi2FreeInstance.restype = ctypes.c_uint
 
         def fmi2Terminate_():
-            fmi2Terminate(component)
-            fmi2FreeInstance(component)
+            q = fmi2Terminate(component)
+            print(q)
+
 
         def fmi2FreeInstance_():
+            q =fmi2FreeInstance(component)
+            print(q)
 
         self.fmi2Terminate_ = fmi2Terminate_
 

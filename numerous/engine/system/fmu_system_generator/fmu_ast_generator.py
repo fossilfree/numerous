@@ -78,9 +78,9 @@ def add_address_as_void_pointer(var_id):
 
 def _generate_fet_real_expr():
     return ast.Expr(value=ast.Call(func=ast.Name(id='getreal', ctx=ast.Load()),
-                                   args=[ast.Name(id='component', ctx=ast.Load()),
-                                         ast.Attribute(value=ast.Name(id='vr', ctx=ast.Load()), attr='ctypes',
-                                                       ctx=ast.Load()),
+                                   args=[ast.Name(id='component', ctx=ast.Load()),ast.Name(id='vr', ctx=ast.Load()),
+                                         # ast.Attribute(value=ast.Name(id='vr', ctx=ast.Load()), attr='ctypes',
+                                         #               ctx=ast.Load()),
                                          ast.Name(id='len_q', ctx=ast.Load()),
                                          ast.Attribute(value=ast.Name(id='value', ctx=ast.Load()), attr='ctypes',
                                                        ctx=ast.Load())],
@@ -458,9 +458,10 @@ def generate_action_event(len_q: int, var_order: list):
                                                                     ctx=ast.Load()))]), lineno=0))
     body.append(ast.Expr(
         value=ast.Call(func=ast.Name(id='getreal', ctx=ast.Load()), args=[ast.Name(id='component', ctx=ast.Load()),
-                                                                          ast.Attribute(
-                                                                              value=ast.Name(id='vr', ctx=ast.Load()),
-                                                                              attr='ctypes', ctx=ast.Load()),
+                                                                          ast.Name(id='vr', ctx=ast.Load()),
+                                                                          # ast.Attribute(
+                                                                          #     value=ast.Name(id='vr', ctx=ast.Load()),
+                                                                          #     attr='ctypes', ctx=ast.Load()),
                                                                           ast.Name(id='len_q', ctx=ast.Load()),
                                                                           ast.Attribute(value=ast.Name(id='value',
                                                                                                        ctx=ast.Load()),

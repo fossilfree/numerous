@@ -69,8 +69,8 @@ def get_fmu_functions(fmu, logging=True):
             # j  = ctypes.cast(vr.data, ctypes.POINTER(ctypes.c_double*len_q))[0]
             # print(np.frombuffer(j[0], np.float64)[0])
             q = "[FMI] fmi2GetReal"
-            print(q)
-            getreal(_component, vr, len_q, value)
+            print(vr)
+            getreal(_component, vr.ctypes, len_q, value)
 
         return wr_getreal, wr_set_time, fmi2SetC, fmi2SetReal, completedIntegratorStep, \
                get_event_indicators, enter_event_mode, wr_enter_cont_mode, newDiscreteStates
