@@ -2,6 +2,7 @@ from datetime import datetime
 import time
 import numpy as np
 from numerous.engine.simulation.solvers.numerous_solver.numerous_solver import Numerous_solver
+from numerous.engine.simulation.solver_interface import generate_numerous_engine_solver_interface
 from numerous.engine.model import Model
 from numerous.utils import logger as log
 
@@ -62,7 +63,8 @@ class Simulation:
             model.generate_mock_timestamp_event()
         timestamp_action_function = model.generate_event_action_ast(model.timestamp_events)
         timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
-        self.solver = Numerous_solver(time_, delta_t, model, self.numba_model,
+        solver_interface = generate_numerous_engine_solver_interface(model, self.numba_model)
+        self.solver = Numerous_solver(time_, delta_t, model, solver_interface,
                                       max_event_steps, self.model.states_as_vector,
                                       numba_compiled_solver=model.use_llvm,
                                       events=(event_function, action_function), event_directions=event_directions,
