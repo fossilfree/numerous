@@ -120,8 +120,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         component = fmu.component
 
-        getreal, set_time, fmi2SetC, fmi2SetReal, completedIntegratorStep,\
-        get_event_indicators, enter_event_mode,enter_cont_mode, newDiscreteStates=get_fmu_functions(fmu)
+        getreal, set_time, fmi2SetC, fmi2SetReal, completedIntegratorStep, \
+        get_event_indicators, enter_event_mode, enter_cont_mode, newDiscreteStates = get_fmu_functions(fmu)
 
         fmi2Terminate = getattr(fmu.dll, "fmi2Terminate")
         fmi2Terminate.argtypes = [ctypes.c_void_p]
@@ -135,18 +135,13 @@ class FMU_Subsystem(Subsystem, EquationBase):
             q = fmi2Terminate(component)
             print(q)
 
-
         def fmi2FreeInstance_():
-            q =fmi2FreeInstance(component)
+            q = fmi2FreeInstance(component)
             print(q)
 
         self.fmi2Terminate_ = fmi2Terminate_
 
         self.fmi2FreeInstance_ = fmi2FreeInstance_
-
-
-
-
 
         len_q = len(self.value_ref_used)
         var_order = [x.valueReference for x in model_description.modelVariables
@@ -212,9 +207,6 @@ class FMU_Subsystem(Subsystem, EquationBase):
         if debug_output:
             print(ast.unparse(module_func))
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
-
-
-
 
         namespace = {"carray": carray, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q, "getreal": getreal,
                      "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time, "fmi2SetC": fmi2SetC,

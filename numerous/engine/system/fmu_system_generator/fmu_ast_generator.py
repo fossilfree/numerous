@@ -79,14 +79,9 @@ def add_address_as_void_pointer(var_id):
 def _generate_fet_real_expr():
     return ast.Expr(value=ast.Call(func=ast.Name(id='getreal', ctx=ast.Load()),
                                    args=[ast.Name(id='component', ctx=ast.Load()),ast.Name(id='vr', ctx=ast.Load()),
-                                         # ast.Attribute(value=ast.Name(id='vr', ctx=ast.Load()), attr='ctypes',
-                                         #               ctx=ast.Load()),
-                                         ast.Name(id='len_q', ctx=ast.Load()),
-                                         ast.Attribute(value=ast.Name(id='value', ctx=ast.Load()), attr='ctypes',
-                                                       ctx=ast.Load())],
+                                         ast.Name(id='len_q', ctx=ast.Load()),      ast.Name(id='value', ctx=ast.Load())],
                                    keywords=[]),
                     keywords=[])
-
 
 def _generate_pointer(attr):
     return ast.Attribute(value=ast.Name(id='types', ctx=ast.Load()), attr=attr, ctx=ast.Load())
@@ -157,8 +152,7 @@ def generate_eval_llvm(assign_ptrs, output_args, states_idx, var_order: list, ou
 
         body.append(ast.Expr(value=ast.Call(func=ast.Name(id='fmi2SetC', ctx=ast.Load()),
                                             args=[ast.Name(id='component', ctx=ast.Load()),
-                                                  ast.Attribute(value=ast.Name(id='value3', ctx=ast.Load()),
-                                                                attr='ctypes', ctx=ast.Load()),
+                                                  ast.Name(id='value3', ctx=ast.Load()),
                                                   ast.Constant(value=len(states_idx))], keywords=[])))
 
     body.append(ast.Expr(value=ast.Call(func=ast.Name(id='set_time', ctx=ast.Load()),
@@ -247,9 +241,9 @@ def generate_eval_event(state_idx, len_q, var_order: list, event_id):
                                               ast.Name(id='t', ctx=ast.Load())], keywords=[])))
 
     body.append(ast.Expr(value=ast.Call(func=ast.Name(id='get_event_indicators', ctx=ast.Load()),
-                                        args=[ast.Name(id='component', ctx=ast.Load()), ast.Attribute(
-                                            value=ast.Name(id='value_event', ctx=ast.Load()), attr='ctypes',
-                                            ctx=ast.Load()), ast.Name(id='event_n', ctx=ast.Load())],
+                                        args=[ast.Name(id='component', ctx=ast.Load()),
+                                              ast.Name(id='value_event', ctx=ast.Load()),
+                                              ast.Name(id='event_n', ctx=ast.Load())],
                                         keywords=[])))
     lst_arg = []
     for i in range(len_q):
@@ -266,11 +260,9 @@ def generate_eval_event(state_idx, len_q, var_order: list, event_id):
 
     body.append(ast.Expr(value=ast.Call(func=ast.Name(id='fmi2SetReal', ctx=ast.Load()),
                                         args=[ast.Name(id='component', ctx=ast.Load()),
-                                              ast.Attribute(value=ast.Name(id='vr', ctx=ast.Load()),
-                                                            attr='ctypes', ctx=ast.Load()),
+                                              ast.Name(id='vr', ctx=ast.Load()),
                                               ast.Name(id='len_q', ctx=ast.Load()),
-                                              ast.Attribute(value=ast.Name(id='value2', ctx=ast.Load()),
-                                                            attr='ctypes', ctx=ast.Load())], keywords=[])),
+                                              ast.Name(id='value2', ctx=ast.Load())], keywords=[])),
                 )
 
     body.append(ast.Assign(targets=[ast.Subscript(
@@ -393,11 +385,9 @@ def generate_set_fmi_update(arg_elts):
 
     body.append(ast.Expr(value=ast.Call(func=ast.Name(id='fmi2SetReal', ctx=ast.Load()),
                                         args=[ast.Name(id='component', ctx=ast.Load()),
-                                              ast.Attribute(value=ast.Name(id='vr', ctx=ast.Load()),
-                                                            attr='ctypes', ctx=ast.Load()),
+                                              ast.Name(id='vr', ctx=ast.Load()),
                                               ast.Name(id='len_q', ctx=ast.Load()),
-                                              ast.Attribute(value=ast.Name(id='value1', ctx=ast.Load()),
-                                                            attr='ctypes', ctx=ast.Load())], keywords=[])))
+                                              ast.Name(id='value1', ctx=ast.Load())], keywords=[])))
     return body
 
 
@@ -459,13 +449,8 @@ def generate_action_event(len_q: int, var_order: list):
     body.append(ast.Expr(
         value=ast.Call(func=ast.Name(id='getreal', ctx=ast.Load()), args=[ast.Name(id='component', ctx=ast.Load()),
                                                                           ast.Name(id='vr', ctx=ast.Load()),
-                                                                          # ast.Attribute(
-                                                                          #     value=ast.Name(id='vr', ctx=ast.Load()),
-                                                                          #     attr='ctypes', ctx=ast.Load()),
                                                                           ast.Name(id='len_q', ctx=ast.Load()),
-                                                                          ast.Attribute(value=ast.Name(id='value',
-                                                                                                       ctx=ast.Load()),
-                                                                                        attr='ctypes', ctx=ast.Load())],
+                                                                          ast.Name(id='value', ctx=ast.Load())],
                        keywords=[])))
 
     for i in range(len_q):

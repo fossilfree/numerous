@@ -56,7 +56,7 @@ class Simulation:
         log.info(f"Numba model generation finished, generation time: {generation_finish - generation_start}")
 
         event_function, event_directions = model.generate_event_condition_ast()
-        event_function_full, _ = model.generate_event_condition_ast()
+
         action_function = model.generate_event_action_ast(model.events)
         if len(model.timestamp_events) == 0:
             model.generate_mock_timestamp_event()

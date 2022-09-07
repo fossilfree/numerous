@@ -54,26 +54,88 @@ def get_fmu_functions(fmu, logging=True):
     if logging:
         @njit()
         def wr_set_time(_component, t):
-            q = "[FMI] fmi2SetTime(component=" + float_to_str(_component) + ", time=" + float_to_str(t) + ")"
-            print(q)
+            output = "[FMI] fmi2SetTime(component=" + str(_component) + ", time=" + float_to_str(t) + ")"
+            print(output)
             set_time(_component, t)
 
         @njit()
+        def wr_completedIntegratorStep(_component, id, event, term):
+            output = "[FMI] fmi2CompletedIntegratorStep(component=" + str(_component) + "," \
+                                                                                        "noSetFMUStatePriorToCurrentPoint=" \
+                     + str(id) + ", enterEventMode=" + \
+                     str(0) + ", terminateSimulation=" + str(0) + ")"
+            print(output)
+            completedIntegratorStep(_component, id, event, term)
+
+        @njit()
         def wr_enter_cont_mode(_component):
-                q = "[FMI] fmi2EnterContinuousTimeMode(component=" + float_to_str(_component) + ")"
-                print(q)
-                enter_cont_mode(_component)
+            q = "[FMI] fmi2EnterContinuousTimeMode(component=" + str(_component) + ")"
+            print(q)
+            enter_cont_mode(_component)
 
         @njit()
         def wr_getreal(_component, vr, len_q, value):
-            # j  = ctypes.cast(vr.data, ctypes.POINTER(ctypes.c_double*len_q))[0]
-            # print(np.frombuffer(j[0], np.float64)[0])
-            q = "[FMI] fmi2GetReal"
+            print("[FMI] fmi2GetReal(component=" + str(_component) + ", vr=")
             print(vr)
-            getreal(_component, vr.ctypes, len_q, value)
+            print(", nvr=" + str(len_q) + ",value=")
+            print(value)
+            print(")")
+            getreal(_component, vr.ctypes, len_q, value.ctypes)
 
-        return wr_getreal, wr_set_time, fmi2SetC, fmi2SetReal, completedIntegratorStep, \
-               get_event_indicators, enter_event_mode, wr_enter_cont_mode, newDiscreteStates
+        @njit()
+        def wr_fmi2SetReal(_component, vr, len_q, value1):
+            print("[FMI] fmi2SetReal(component=" + str(_component) + ", vr=")
+            print(vr)
+            print(", nvr=" + str(len_q) + ",value=")
+            print(value1)
+            print(")")
+            fmi2SetReal(_component, vr.ctypes, len_q, value1.ctypes)
+
+        @njit()
+        def wr_fmi2SetC(_component, value3, i):
+            print("[FMI] fmi2SetReal(component=" + str(_component) + ", x=")
+            print(value3)
+            print(", nx=" + str(i) + ")")
+            fmi2SetC(_component, value3.ctypes, i)
+
+        @njit()
+        def wr_get_event_indicators(_component, value_event, event_n):
+            print("[FMI] fmi2GetEventIndicators(component=" + str(_component) + ", eventIndicators=")
+            print(value_event)
+            print(", ni=" + str(event_n) + ")")
+
+            return get_event_indicators(_component, value_event.ctypes, event_n)
+
+        @njit()
+        def wr_enter_event_mode(_component):
+            q = "[FMI] fmi2EnterEventMode(component=" + str(_component) + ")"
+            print(q)
+            enter_event_mode(_component)
+
+        @njit()
+        def wr_newDiscreteStates(_component, q_a):
+            q = "[FMI] NewDiscreteStates(component=" + str(_component) + ",q_a_ptr)"
+            print(q)
+            newDiscreteStates(_component, q_a)
+
+        return wr_getreal, wr_set_time, wr_fmi2SetC, wr_fmi2SetReal, wr_completedIntegratorStep, \
+               wr_get_event_indicators, wr_enter_event_mode, wr_enter_cont_mode, wr_newDiscreteStates
     else:
-        return getreal, set_time, fmi2SetC, fmi2SetReal, completedIntegratorStep, \
-               get_event_indicators, enter_event_mode, enter_cont_mode, newDiscreteStates
+        @njit()
+        def wr_getreal(_component, vr, len_q, value):
+            getreal(_component, vr.ctypes, len_q, value.ctypes)
+
+        @njit()
+        def wr_fmi2SetReal(component, vr, len_q, value1):
+            fmi2SetReal(component, vr.ctypes, len_q, value1.ctypes)
+
+        @njit()
+        def wr_fmi2SetC(component, value3, i):
+            fmi2SetC(component, value3.ctypes, i)
+
+        @njit()
+        def wr_get_event_indicators(component, value_event, event_n):
+            return get_event_indicators(component, value_event.ctypes, event_n)
+
+        return wr_getreal, set_time, wr_fmi2SetC, wr_fmi2SetReal, completedIntegratorStep, \
+               wr_get_event_indicators, enter_event_mode, enter_cont_mode, newDiscreteStates

@@ -84,6 +84,9 @@ def test_bouncing_ball(use_llvm):
     m1 = Model(model_system_2, use_llvm=use_llvm)
 
     m1.add_event("hitground_event", hitground_event_fun, hitground_event_callback_fun)
+    m1.add_event("hitground_event2", hitground_event_fun, hitground_event_callback_fun)
+    m1.add_event("hitground_event3", hitground_event_fun, hitground_event_callback_fun)
+
 
     sim = Simulation(m1, t_start=0, t_stop=tmax, num=num)
 
