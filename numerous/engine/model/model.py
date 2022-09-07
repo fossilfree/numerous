@@ -136,6 +136,8 @@ class Model:
         self.external_mappings = ExternalMapping(external_mappings_unpacked) if len(
             external_mappings_unpacked) else EmptyMapping()
 
+        self.run_after_solve = system.get_run_after_solve()
+
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
         self.clonable = clonable
