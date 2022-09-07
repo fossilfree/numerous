@@ -101,7 +101,7 @@ def normal_solver(simulation: simulation):
 
     yield fn
 
-"""
+
 def test_numerous_solver(normal_solver: normal_solver, step_solver: step_solver):
     rel = 1e-6
     df_step = step_solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
@@ -135,3 +135,4 @@ def test_store_historian(normal_solver: normal_solver, step_solver: step_solver)
 def test_solver_methods(method, normal_solver: normal_solver):
     df_normal_solver = normal_solver(solver=SolverType.NUMEROUS, method=method, historian=InMemoryHistorian(),
                                      historian_max_size=2000)
+"""

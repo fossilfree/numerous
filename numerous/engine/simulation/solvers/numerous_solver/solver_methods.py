@@ -121,7 +121,7 @@ class RK45(BaseMethod):
         self.rtol = options.get('rtol', 1e-3)
 
         @__njit
-        def Rk45(internal_interface, t, dt, y, _not_used1, _not_used2, _solve_state):
+        def Rk45(interface, t, dt, y, _not_used1, _not_used2, _solve_state):
 
             c = _solve_state[0]
             a = _solve_state[1]
@@ -149,11 +149,11 @@ class RK45(BaseMethod):
             for i in range(1,rk_steps+1):
                 dy = np.dot(k[:i].T, a[i,:i])
                 #k[i,:] = dt*nm.func(t+c[i]*dt, y+dy)
-                k[i, :] = dt * internal_interface.get_deriv(t + c[i] * dt, y + dy)
+                k[i, :] = dt * interface.get_deriv(t + c[i] * dt, y + dy)
 
             ynew = y + np.dot(k[0:order+2].T, b[0,:])
             #fnew = nm.func(tnew, ynew)  # can possibly save one call here...
-            fnew = internal_interface.get_deriv(tnew, ynew)
+            fnew = interface.get_deriv(tnew, ynew)
             k[-1, :] = dt*fnew
 
             ye = y + np.dot(k[0:order+2].T, b[1,:])

@@ -1,29 +1,59 @@
 import numpy as np
 
-from abc import ABC, abstractmethod
+from abc import ABC
 
 from numerous.engine.simulation.solvers.numerous_solver.numerous_solver import SolveEvent
 
-class NumerousSolverInternalInterface():
+class ModelEvent():
+    def check_event(self, t: float, y: np.array) -> float:
+        return 0
 
-    def get_deriv(self, t, y) -> np.array:
+
+class ModelInterface():
+
+    def get_deriv(self, t: float, y: np.array) -> np.array:
         raise NotImplementedError
 
-    def vectorized_full_jacobian(self, t, y, h) -> np.ascontiguousarray:
+    def get_residual(self, t: float, yold: np.array, y: np.array, dt: float, order: int, a, af) -> np.array:
         raise NotImplementedError
 
-    def get_states(self):
+    def vectorized_full_jacobian(self, t: float, y: np.array, h: float) -> np.ascontiguousarray:
         raise NotImplementedError
 
+    def get_states(self) -> np.array:
+        raise NotImplementedError
 
-class NumerousSolverExternalInterface(ABC):
+    def set_states(self, states: np.array) -> None:
+        raise NotImplementedError
 
-    @abstractmethod
-    def load_external_data(self, t):
+    def read_variables(self) -> np.array:
+        raise NotImplementedError
+
+    def write_variables(self, value: float, idx: int) -> None:
+        raise NotImplementedError
+
+    def historian_update(self, t: float) -> SolveEvent:
         pass
 
-    @abstractmethod
+    def pre_step(self, t: float) -> None:
+        pass
+
+    def post_step(self, t: float) -> SolveEvent:
+        pass
+
+    def post_event(self, t: float) -> SolveEvent:
+        pass
+
+
+
+
+class SolverInterface(ABC):
+    def __init__(self, interface: ModelInterface):
+        self._interface = interface
+        self.events = []
+
     def handle_solve_event(self, event_id: SolveEvent, t: float):
+
         if event_id == SolveEvent.Historian:
             pass
         elif event_id == SolveEvent.ExternalDataUpdate:
@@ -31,11 +61,7 @@ class NumerousSolverExternalInterface(ABC):
         elif event_id == SolveEvent.HistorianAndExternalUpdate:
             pass
 
-
-class NumerousSolverInterface(ABC):
-    def __init__(self, internal_interface: NumerousSolverInternalInterface,
-                 external_interface: NumerousSolverExternalInterface):
-        self.internal = internal_interface
-        self.external = external_interface
+    def register_event_function(self, event_function: ModelEvent):
+        self.events.append(event_function)
 
 

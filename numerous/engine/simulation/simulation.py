@@ -57,13 +57,12 @@ class Simulation:
         log.info(f"Numba model generation finished, generation time: {generation_finish - generation_start}")
 
         event_function, event_directions = model.generate_event_condition_ast()
-        event_function_full, _ = model.generate_event_condition_ast()
         action_function = model.generate_event_action_ast(model.events)
         if len(model.timestamp_events) == 0:
             model.generate_mock_timestamp_event()
         timestamp_action_function = model.generate_event_action_ast(model.timestamp_events)
         timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
-        solver_interface = generate_numerous_engine_solver_interface(model, self.numba_model)
+        solver_interface = generate_numerous_engine_solver_interface(model, self.numba_model, jit=False)
         self.solver = Numerous_solver(time_, delta_t, model, solver_interface,
                                       max_event_steps, self.model.states_as_vector,
                                       numba_compiled_solver=model.use_llvm,

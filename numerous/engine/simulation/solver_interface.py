@@ -3,42 +3,12 @@ import numpy.typing as npt
 from numba.experimental import jitclass
 from numerous.engine.model.compiled_model import CompiledModel
 from numerous.engine.model import Model
-from numerous.engine.simulation.solvers.numerous_solver.interface import NumerousSolverInterface, \
-    NumerousSolverInternalInterface, NumerousSolverExternalInterface
+from numerous.engine.simulation.solvers.numerous_solver.interface import SolverInterface, \
+    ModelInterface
 from numerous.engine.simulation.solvers.numerous_solver.numerous_solver import SolveEvent
 
-class NumerousEngineExternalSolverInterface(NumerousSolverExternalInterface):
-    def __init__(self, model: Model, nm: CompiledModel):
-        self.model = model
-        self.nm = nm
 
-    def load_external_data(self, t):
-        is_external_data = self.model.external_mappings.load_new_external_data_batch(t)
-        external_mappings_numpy = self.model.external_mappings.external_mappings_numpy
-        external_mappings_time = self.model.external_mappings.external_mappings_time
-        max_external_t = self.model.external_mappings.t_max
-        min_external_t = self.model.external_mappings.t_min
-
-        if t > max_external_t:
-            raise ValueError(f"No more external data at t={t} (t_max={max_external_t}")
-        self.nm.is_external_data = is_external_data
-        self.nm.update_external_data(external_mappings_numpy, external_mappings_time, max_external_t,
-                                     min_external_t)
-
-    def handle_solve_event(self, event_id: SolveEvent, t: float):
-        if event_id == SolveEvent.Historian:
-            self.model.create_historian_df()
-            self.nm.historian_reinit()
-        elif event_id == SolveEvent.ExternalDataUpdate:
-            self.load_external_data(t)
-        elif event_id == SolveEvent.HistorianAndExternalUpdate:
-            self.model.create_historian_df()
-            self.nm.historian_reinit()
-            self.load_external_data(t)
-
-
-
-class NumerousEngineInternalSolverInterface(NumerousSolverInternalInterface):
+class NumerousEngineModelInterface(ModelInterface):
     def __init__(self, nm: CompiledModel):
         self.nm = nm
 
@@ -63,27 +33,37 @@ class NumerousEngineInternalSolverInterface(NumerousSolverInternalInterface):
     def write_variables(self, value: float, idx: int) -> None:
         self.nm.write_variables(value, idx)
 
-    def is_store_required(self) -> bool:
+    def _is_store_required(self) -> bool:
         return self.nm.is_store_required()
 
-    def is_external_data_update_needed(self, t) -> bool:
+    def _is_external_data_update_needed(self, t) -> bool:
         return self.nm.is_external_data_update_needed(t)
 
-    def historian_reinit(self) -> None:
-        return self.nm.historian_reinit()
-
-    def map_external_data(self, t) -> None:
+    def _map_external_data(self, t) -> None:
         return self.nm.map_external_data(t)
 
-    def historian_update(self, t) -> None:
+    def historian_update(self, t: np.float64) -> SolveEvent:
         self.nm.historian_update(t)
+        if self._is_store_required():
+            return SolveEvent.Historian
 
-    def initialize(self, t) -> None:
-        self.map_external_data(t)
+    def pre_step(self, t) -> None:
+        self._map_external_data(t)
 
-    def post_converged_non_event_step(self, t) -> None:
-        self.map_external_data(t)
+    def post_step(self, t) -> SolveEvent:
+        self._map_external_data(t)
 
+        if self._is_store_required() and not self._is_external_data_update_needed(t):
+            return SolveEvent.Historian
+        elif not self._is_store_required() and self._is_external_data_update_needed(t):
+            return SolveEvent.ExternalDataUpdate
+        elif self._is_store_required() and self._is_external_data_update_needed(t):
+            return SolveEvent.HistorianAndExternalUpdate
+        else:
+            return SolveEvent.NoneEvent
+
+    def post_event(self, t) -> SolveEvent:
+        return self.historian_update(t)
 
 
 def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel, jit=True):
@@ -94,21 +74,47 @@ def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel, j
             if jit:
                 return jitclass(spec)
             else:
-                pass
+                def passthrough(fun):
+                    return fun
+                return passthrough
 
         return wrapper
 
     decorator_ = decorator(jit)
 
     @decorator_(spec)
-    class NumerousEngineSolverInternalInterfaceWrapper(NumerousEngineInternalSolverInterface):
+    class NumerousEngineModelInterfaceWrapper(NumerousEngineModelInterface):
         pass
 
-    class NumerousEngineSolverInterface(NumerousSolverInterface):
-        def __init__(self, external_interface: NumerousEngineExternalSolverInterface,
-                     internal_interface: NumerousEngineSolverInternalInterfaceWrapper):
-            self.internal = internal_interface
-            self.external = external_interface
 
-    return NumerousEngineSolverInterface(external_interface=NumerousEngineExternalSolverInterface(model=model, nm=nm),
-                                         internal_interface=NumerousEngineSolverInternalInterfaceWrapper(nm=nm))
+    class NumerousEngineSolverInterface(SolverInterface):
+        def __init__(self, interface: NumerousEngineModelInterfaceWrapper, model: Model, nm: CompiledModel):
+            super(NumerousEngineSolverInterface, self).__init__(interface=interface)
+            self._model = model
+            self._nm = nm
+
+        def handle_solve_event(self, event_id: SolveEvent, t: float):
+            if event_id == SolveEvent.Historian:
+                self._model.create_historian_df()
+                self._nm.historian_reinit()
+            elif event_id == SolveEvent.ExternalDataUpdate:
+                self._load_external_data(t)
+            elif event_id == SolveEvent.HistorianAndExternalUpdate:
+                self._model.create_historian_df()
+                self._nm.historian_reinit()
+                self._load_external_data(t)
+
+        def _load_external_data(self, t):
+            is_external_data = self._model.external_mappings.load_new_external_data_batch(t)
+            external_mappings_numpy = self._model.external_mappings.external_mappings_numpy
+            external_mappings_time = self._model.external_mappings.external_mappings_time
+            max_external_t = self._model.external_mappings.t_max
+            min_external_t = self._model.external_mappings.t_min
+
+            if t > max_external_t:
+                raise ValueError(f"No more external data at t={t} (t_max={max_external_t}")
+            self._nm.is_external_data = is_external_data
+            self._nm.update_external_data(external_mappings_numpy, external_mappings_time, max_external_t,
+                                          min_external_t)
+
+    return NumerousEngineSolverInterface(interface=NumerousEngineModelInterfaceWrapper(nm=nm), model=model, nm=nm)
