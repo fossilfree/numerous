@@ -26,7 +26,6 @@ except AttributeError:
 class Numerous_solver(BaseSolver):
 
     def __init__(self, time_, delta_t, model, interface: SolverInterface, max_event_steps, y0, numba_compiled_solver,
-                 timestamp_events,
                  **kwargs):
         super().__init__()
         #numba_compiled_solver = False
@@ -39,8 +38,6 @@ class Numerous_solver(BaseSolver):
             interface._interface.set_states(old_states)
             return vars
 
-        self.timestamps = timestamp_events[1]
-        self.timestamps_actions = timestamp_events[0]
         # events value
         #self.g = self.events(time_[0], get_variables_modified(y0))
 
@@ -92,7 +89,6 @@ class Numerous_solver(BaseSolver):
     def generate_solver(self):
         def _solve(interface, _solve_state, initial_step, dt_0, order, order_, roller, strict_eval,
                    min_step, max_step, step_integrate_, g, number_of_events,
-                   timestamps, timestamp_actions,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100), ix_eval=1, event_tolerance=1e-6):
 
             # Init t to t0
@@ -176,7 +172,10 @@ class Numerous_solver(BaseSolver):
             y_event = y
             t_event_previous = -1
             time_event_ix, t_next_time_event = interface.get_next_time_event(t)
-            te_array[2] = t_next_time_event
+            if time_event_ix > 0:
+                te_array[2] = t_next_time_event
+            else:
+                te_array[2] = np.max(te_array)
 
             while solve_status != SolveStatus.Finished:
                 # updated events time estimates
@@ -263,6 +262,8 @@ class Numerous_solver(BaseSolver):
                     time_event_ix, t_next_time_event = interface.get_next_time_event(t)
                     if time_event_ix > 0:
                         te_array[2] = t_next_time_event
+                    else:
+                        te_array[2] = np.max(te_array)
 
                     g_new = interface.get_event_results(t, get_variables_modified(y))
 
@@ -288,7 +289,7 @@ class Numerous_solver(BaseSolver):
                     y_previous = y
                     t_previous = t
                     if abs(t-t_next_time_event) < 1e-6:
-                        interface.run_time_event_action(t, time_event_ix)
+                        interface.run_time_event_action(t, y, time_event_ix)  # todo: use interface to get y.
                         y_previous = interface.get_states()
                     """                    
                     for event_ix, timestamps_ in enumerate(timestamps):
@@ -374,8 +375,6 @@ class Numerous_solver(BaseSolver):
                 max_step, step_integrate_,
                 self.g,
                 self.number_of_events,
-                self.timestamps,
-                self.timestamps_actions,
                 self.time[0],
                 self.time[-1],
                 self.time,
@@ -582,8 +581,7 @@ class Numerous_solver(BaseSolver):
                            solve_state, initial_step, dt, order, order_, roller, strict_eval, min_step,
                            max_step, step_integrate_, g,
                            self.number_of_events,
-                           self.timestamps,
-                           self.timestamps_actions, t_start, t_end,
+                           t_start, t_end,
                            t_eval, 1, atol)
 
         while info.status == SolveStatus.Running:
@@ -593,8 +591,7 @@ class Numerous_solver(BaseSolver):
                                info.solve_state, initial_step, info.dt, order, info.order_, info.roller, strict_eval,
                                min_step, max_step, step_integrate_, info.g,
                                self.number_of_events,
-                               self.timestamps,
-                               self.timestamps_actions, info.t, t_end,
+                               info.t, t_end,
                                t_eval, info.ix_eval, atol)
 
         self.interface.handle_solve_event(info.event_id, info.t)

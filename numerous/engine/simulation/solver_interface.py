@@ -92,7 +92,7 @@ class NumerousEngineModelInterface(ModelInterface):
             event_ix_min = -1
             for event_ix, timestamps in enumerate(self.time_events):
                 ix = np.searchsorted(timestamps, t, 'left')
-                if ix > len(timestamps):
+                if ix > len(timestamps)-1:
                     continue
                 else:
                     t_event = timestamps[ix]
@@ -121,14 +121,15 @@ def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel,
 
     def decorator(jit=True):
         if not hasattr(nm, '_numba_type_') or not hasattr(events[0], '_numba_type_') \
-                or not hasattr(events[2], '_numba_type_') or not hasattr(time_events[1], '__numba_type_'):
+                or not hasattr(events[2], '_numba_type_') or not hasattr(time_events[1], '_numba_type_'):
             jit = False
         if jit:
-            spec = [("nm", nm._numba_type_), ("event_functions", events[0]._numba_type_),
+            spec = [("nm", nm._numba_type_),
+                    ("event_functions", events[0]._numba_type_),
                     ("event_directions", nb.typeof(events[1])),
                     ("event_actions", events[2]._numba_type_),
                     ("time_events", nb.typeof(time_events[0])),
-                    ("time_event_actions", time_events[1])]
+                    ("time_event_actions", time_events[1]._numba_type_)]
             return jitclass(spec)
         else:
             def passthrough(fun):

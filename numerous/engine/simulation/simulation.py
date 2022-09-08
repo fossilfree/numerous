@@ -65,12 +65,12 @@ class Simulation:
         solver_interface = generate_numerous_engine_solver_interface(model, self.numba_model,
                                                                      events=(event_function, event_directions,
                                                                              action_function),
+                                                                     time_events=(timestamps,
+                                                                                  timestamp_action_function),
                                                                      jit=self.model.use_llvm)
         self.solver = Numerous_solver(time_, delta_t, model, solver_interface,
                                       max_event_steps, self.model.states_as_vector,
                                       numba_compiled_solver=model.use_llvm,
-                                      events=(event_function, action_function), event_directions=event_directions,
-                                      timestamp_events=(timestamp_action_function, timestamps),
                                       **kwargs)
 
         self.start_datetime = start_datetime
