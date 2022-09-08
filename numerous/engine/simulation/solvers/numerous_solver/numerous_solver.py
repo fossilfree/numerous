@@ -1,7 +1,7 @@
 import time
 import math
 from collections import namedtuple
-from enum import IntEnum, unique
+
 
 import numpy as np
 from numba import njit
@@ -10,7 +10,7 @@ from copy import deepcopy
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
 from numerous.utils import logger as log
 from .solver_methods import BaseMethod, RK45, Euler, LevenbergMarquardt
-from .interface import SolverInterface
+from .interface import SolverInterface, SolveEvent, SolveStatus
 
 solver_methods = {'RK45': RK45, 'Euler': Euler, 'LM': LevenbergMarquardt}
 
@@ -23,20 +23,6 @@ except AttributeError:
     FEPS = 2.220446049250313e-16
 
 
-@unique
-class SolveStatus(IntEnum):
-    Running = 0
-    Finished = 1
-
-
-@unique
-class SolveEvent(IntEnum):
-    NoneEvent = 0
-    Historian = 1
-    ExternalDataUpdate = 2
-    HistorianAndExternalUpdate = 3
-
-
 class Numerous_solver(BaseSolver):
 
     def __init__(self, time_, delta_t, model, interface: SolverInterface, max_event_steps, y0, numba_compiled_solver,
@@ -45,7 +31,7 @@ class Numerous_solver(BaseSolver):
                  timestamp_events,
                  **kwargs):
         super().__init__()
-        numba_compiled_solver = False
+        #numba_compiled_solver = False
 
         def get_variables_modified(y_):
             old_states = interface._interface.get_states()
@@ -55,11 +41,11 @@ class Numerous_solver(BaseSolver):
             interface._interface.set_states(old_states)
             return vars
 
-        self.events = events[0][0]
+        self.events = events[0]
         self.event_directions = event_directions
-        self.actions = events[1][0]
+        self.actions = events[1]
         self.timestamps = timestamp_events[1]
-        self.timestamps_actions = timestamp_events[0][0]
+        self.timestamps_actions = timestamp_events[0]
         # events value
         self.g = self.events(time_[0], get_variables_modified(y0))
 

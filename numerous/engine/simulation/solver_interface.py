@@ -1,4 +1,6 @@
 import numpy as np
+import numba as nb
+from numba.core.registry import CPUDispatcher
 import numpy.typing as npt
 from numba.experimental import jitclass
 from numerous.engine.model.compiled_model import CompiledModel
@@ -9,8 +11,9 @@ from numerous.engine.simulation.solvers.numerous_solver.numerous_solver import S
 
 
 class NumerousEngineModelInterface(ModelInterface):
-    def __init__(self, nm: CompiledModel):
+    def __init__(self, nm: CompiledModel, events):
         self.nm = nm
+        self.events = events
 
     def vectorized_full_jacobian(self, t: float, y: np.array, h=1e-8) -> np.ascontiguousarray:
         return self.nm.vectorized_full_jacobian(t, y, h)
@@ -65,9 +68,12 @@ class NumerousEngineModelInterface(ModelInterface):
     def post_event(self, t) -> SolveEvent:
         return self.historian_update(t)
 
+    def check_events(self):
+        pass
 
-def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel, jit=True):
-    spec = [('nm', nm._numba_type_.class_type.instance_type)]
+
+def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel, events: tuple[CPUDispatcher, CPUDispatcher], jit=True):
+    spec = [('nm', nm._numba_type_), ('events', events._numba_type_)]
 
     def decorator(jit=True):
         def wrapper(spec):
@@ -117,4 +123,5 @@ def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel, j
             self._nm.update_external_data(external_mappings_numpy, external_mappings_time, max_external_t,
                                           min_external_t)
 
-    return NumerousEngineSolverInterface(interface=NumerousEngineModelInterfaceWrapper(nm=nm), model=model, nm=nm)
+    return NumerousEngineSolverInterface(interface=NumerousEngineModelInterfaceWrapper(nm=nm, events=events),
+                                         model=model, nm=nm)

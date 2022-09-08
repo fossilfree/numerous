@@ -1,13 +1,23 @@
 import numpy as np
-
 from abc import ABC
+from enum import IntEnum, unique
 
-from numerous.engine.simulation.solvers.numerous_solver.numerous_solver import SolveEvent
+@unique
+class SolveStatus(IntEnum):
+    Running = 0
+    Finished = 1
+
+
+@unique
+class SolveEvent(IntEnum):
+    NoneEvent = 0
+    Historian = 1
+    ExternalDataUpdate = 2
+    HistorianAndExternalUpdate = 3
 
 class ModelEvent():
     def check_event(self, t: float, y: np.array) -> float:
         return 0
-
 
 class ModelInterface():
 
@@ -44,7 +54,8 @@ class ModelInterface():
     def post_event(self, t: float) -> SolveEvent:
         pass
 
-
+    def check_events(self):
+        pass
 
 
 class SolverInterface(ABC):

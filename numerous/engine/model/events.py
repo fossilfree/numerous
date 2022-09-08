@@ -10,7 +10,7 @@ from numerous.engine.numerous_event import NumerousEvent
 
 
 def generate_event_condition_ast(event_functions: list[NumerousEvent],
-                                 from_imports: list[tuple[str, str]]) -> tuple[list[CPUDispatcher], npt.ArrayLike]:
+                                 from_imports: list[tuple[str, str]]) -> tuple[CPUDispatcher, npt.ArrayLike]:
     array_label = "result"
     directions_array = []
     body = [ast.Assign(targets=[ast.Name(id=array_label)], lineno=0,
@@ -39,7 +39,7 @@ def generate_event_condition_ast(event_functions: list[NumerousEvent],
                                                 kwonlyargs=[], kw_defaults=[], defaults=[]),
                              body=body, decorator_list=[], lineno=0)
 
-    return [njit_and_compile_function(body_r, from_imports, compiled_functions=compiled_functions)], np.array(
+    return njit_and_compile_function(body_r, from_imports, compiled_functions=compiled_functions), np.array(
         directions_array, dtype=np.float)
 
 

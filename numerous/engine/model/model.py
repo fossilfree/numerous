@@ -628,8 +628,8 @@ class Model:
             self.generate_mock_event()
         return generate_event_condition_ast(self.events, self.imports.from_imports)
 
-    def generate_event_action_ast(self, events) -> list[CPUDispatcher]:
-        return [generate_event_action_ast(events, self.imports.from_imports)]
+    def generate_event_action_ast(self, events) -> CPUDispatcher:
+        return generate_event_action_ast(events, self.imports.from_imports)
 
     def _get_var_idx(self, var, idx_type):
         if idx_type == "state":
