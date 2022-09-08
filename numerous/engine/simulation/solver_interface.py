@@ -11,9 +11,14 @@ from numerous.engine.simulation.solvers.numerous_solver.numerous_solver import S
 
 
 class NumerousEngineModelInterface(ModelInterface):
-    def __init__(self, nm: CompiledModel, events):
+    def __init__(self, nm: CompiledModel, event_functions, event_directions, event_actions, time_events,
+                 time_event_actions):
         self.nm = nm
-        self.events = events
+        self.event_functions = event_functions
+        self.event_actions = event_actions
+        self.event_directions = event_directions
+        self.time_events = time_events
+        self.time_event_actions = time_event_actions
 
     def vectorized_full_jacobian(self, t: float, y: np.array, h=1e-8) -> np.ascontiguousarray:
         return self.nm.vectorized_full_jacobian(t, y, h)
@@ -67,20 +72,63 @@ class NumerousEngineModelInterface(ModelInterface):
         else:
             return SolveEvent.NoneEvent
 
-    def post_event(self, t) -> SolveEvent:
+    def post_event(self, t: np.float64) -> SolveEvent:
         return self.historian_update(t)
 
-    def check_events(self):
-        pass
+    def get_event_results(self, t, y):
+        return self.event_functions(t, y)
+
+    def run_event_action(self, time_, event_id):
+        modified_variables = self.event_actions(time_, self.read_variables(), event_id)
+        modified_mask = (modified_variables != self.read_variables())
+        for idx in np.argwhere(modified_mask):
+            self.write_variables(modified_variables[idx[0]], idx[0])
+
+    def get_next_time_event(self, t) -> tuple[int, float]:
+        if len(self.time_events) == 0:
+            return -1, -1
+        else:
+            t_event_min = -1
+            event_ix_min = -1
+            for event_ix, timestamps in enumerate(self.time_events):
+                ix = np.searchsorted(timestamps, t, 'left')
+                if ix > len(timestamps):
+                    continue
+                else:
+                    t_event = timestamps[ix]
+                    if t_event_min < 0:
+                        t_event_min = t_event
+                    if t_event < t_event_min:
+                        t_event_min = t_event
+                        event_ix_min = event_ix
+
+            return event_ix_min, t_event_min
+
+    def run_time_event_action(self, t, y, t_event_ix):
+        self.set_states(y)
+        modified_variables = self.time_event_actions(t, self.read_variables(), t_event_ix)
+        modified_mask = (modified_variables != self.read_variables())
+        for idx in np.argwhere(modified_mask):
+            self.write_variables(modified_variables[idx[0]], idx[0])
 
 
-def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel, events: tuple[CPUDispatcher, CPUDispatcher], jit=True):
+
+
+def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel,
+                                              events: tuple[CPUDispatcher, np.ndarray, CPUDispatcher],
+                                              time_events: tuple[np.ndarray, CPUDispatcher],
+                                              jit=True):
 
     def decorator(jit=True):
-        if not hasattr(nm, '_numba_type_') or not hasattr(events, '_numba_type_'):
+        if not hasattr(nm, '_numba_type_') or not hasattr(events[0], '_numba_type_') \
+                or not hasattr(events[2], '_numba_type_') or not hasattr(time_events[1], '__numba_type_'):
             jit = False
         if jit:
-            spec = [("nm", nm._numba_type_), ("events", events._numba_type_)]
+            spec = [("nm", nm._numba_type_), ("event_functions", events[0]._numba_type_),
+                    ("event_directions", nb.typeof(events[1])),
+                    ("event_actions", events[2]._numba_type_),
+                    ("time_events", nb.typeof(time_events[0])),
+                    ("time_event_actions", time_events[1])]
             return jitclass(spec)
         else:
             def passthrough(fun):
@@ -121,5 +169,10 @@ def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel, e
             self._nm.update_external_data(external_mappings_numpy, external_mappings_time, max_external_t,
                                           min_external_t)
 
-    return NumerousEngineSolverInterface(interface=NumerousEngineModelInterfaceWrapper(nm=nm, events=events),
+    return NumerousEngineSolverInterface(interface=NumerousEngineModelInterfaceWrapper(nm=nm,
+                                                                                       event_functions=events[0],
+                                                                                       event_directions=events[1],
+                                                                                       event_actions=events[2],
+                                                                                       time_events=time_events[0],
+                                                                                       time_event_actions=time_events[1]),
                                          model=model, nm=nm)

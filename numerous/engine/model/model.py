@@ -623,7 +623,7 @@ class Model:
 
         self.add_timestamp_event("mock", action, [-1])
 
-    def generate_event_condition_ast(self) -> tuple[list[CPUDispatcher], npt.ArrayLike]:
+    def generate_event_condition_ast(self) -> tuple[CPUDispatcher, npt.ArrayLike]:
         if len(self.events) == 0:
             self.generate_mock_event()
         return generate_event_condition_ast(self.events, self.imports.from_imports)

@@ -26,8 +26,6 @@ except AttributeError:
 class Numerous_solver(BaseSolver):
 
     def __init__(self, time_, delta_t, model, interface: SolverInterface, max_event_steps, y0, numba_compiled_solver,
-                 events,
-                 event_directions,
                  timestamp_events,
                  **kwargs):
         super().__init__()
@@ -41,18 +39,17 @@ class Numerous_solver(BaseSolver):
             interface._interface.set_states(old_states)
             return vars
 
-        self.events = events[0]
-        self.event_directions = event_directions
-        self.actions = events[1]
         self.timestamps = timestamp_events[1]
         self.timestamps_actions = timestamp_events[0]
         # events value
-        self.g = self.events(time_[0], get_variables_modified(y0))
+        #self.g = self.events(time_[0], get_variables_modified(y0))
 
         self.time = time_
         self.model = model
         self.delta_t = delta_t
         self.interface = interface
+        self.g = self.interface._interface.get_event_results(time_[0], get_variables_modified(y0))
+
         self.diff_function = interface._interface.get_deriv
         self.numba_compiled_solver = numba_compiled_solver
         self.number_of_events = len(self.g)
@@ -82,32 +79,24 @@ class Numerous_solver(BaseSolver):
         except Exception as e:
             raise e
 
-        def run_event_action(actions, time_, interface, action_id):
-            modified_variables = actions(time_, interface.read_variables(), action_id)
-            modified_mask = (modified_variables != interface.read_variables())
-            for idx in np.argwhere(modified_mask):
-                interface.write_variables(modified_variables[idx[0]], idx[0])
-
         # Generate the solver
         if numba_compiled_solver:
-            self.run_event_action = njit(run_event_action)
             self._non_compiled_solve = njit(self.generate_solver())
             self._solve = self.compile_solver()
 
         else:
-            self.run_event_action = run_event_action
             self._solve = self.generate_solver()
 
-        self.run_event_action(self.actions, 0, self.interface._interface, 0)
+        self.interface._interface.run_event_action(0, 0)
 
     def generate_solver(self):
         def _solve(interface, _solve_state, initial_step, dt_0, order, order_, roller, strict_eval,
-                   min_step, max_step, step_integrate_, events, actions, g, number_of_events, event_directions,
-                   run_event_action, timestamps, timestamp_actions,
+                   min_step, max_step, step_integrate_, g, number_of_events,
+                   timestamps, timestamp_actions,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100), ix_eval=1, event_tolerance=1e-6):
 
             # Init t to t0
-            imax = int(100)
+            imax = 100
             step_info = 0
             t = t0
             t_start = t0
@@ -122,7 +111,7 @@ class Numerous_solver(BaseSolver):
             y_previous = np.copy(y)
 
             # Define event derivatives, values and event guess times
-            te_array = np.zeros(2)
+            te_array = np.zeros(3)
 
             def is_internal_historian_update_needed(t_next_eval, t):
                 if abs(t_next_eval - t) < 100 * FEPS:
@@ -132,6 +121,7 @@ class Numerous_solver(BaseSolver):
             def handle_converged(t, dt, ix_eval, t_next_eval):
 
                 solve_event_id = SolveEvent.NoneEvent
+
                 if is_internal_historian_update_needed(t_next_eval, t):
                     solve_event_id = interface.historian_update(t)
                     if strict_eval:
@@ -185,6 +175,8 @@ class Numerous_solver(BaseSolver):
             t_event = t
             y_event = y
             t_event_previous = -1
+            time_event_ix, t_next_time_event = interface.get_next_time_event(t)
+            te_array[2] = t_next_time_event
 
             while solve_status != SolveStatus.Finished:
                 # updated events time estimates
@@ -195,7 +187,6 @@ class Numerous_solver(BaseSolver):
                     te_array[0] = t_previous + dt
                 elif step_converged and not event_trigger:
                     dt = min(max_step, dt)
-
                     te_array[0] = t + dt
                 else:  # event
                     te_array[0] = t_event
@@ -269,15 +260,19 @@ class Numerous_solver(BaseSolver):
                     return status, t_r, sol(t_r, t, y)
 
                 if step_converged:
-                    g_new = events(t, get_variables_modified(y))
+                    time_event_ix, t_next_time_event = interface.get_next_time_event(t)
+                    if time_event_ix > 0:
+                        te_array[2] = t_next_time_event
 
-                    up = (g <= 0) & (g_new >= 0) & (event_directions == 1)
-                    down = (g >= 0) & (g_new <= 0) & (event_directions == -1)
+                    g_new = interface.get_event_results(t, get_variables_modified(y))
+
+                    up = (g <= 0) & (g_new >= 0) & (interface.event_directions == 1)
+                    down = (g >= 0) & (g_new <= 0) & (interface.event_directions == -1)
                     g = g_new
 
                     for ix in np.concatenate((np.argwhere(up), np.argwhere(down))):
                         eps = 1.e-6  # for case to t_event = t
-                        status, t_event, y_event = check_event(events, ix[0],
+                        status, t_event, y_event = check_event(interface.event_functions, ix[0],
                                                                t_previous, y_previous, t, y)
                         t_events[ix[0]] = t_event - eps
                         y_events[:, ix[0]] = y_event
@@ -287,11 +282,15 @@ class Numerous_solver(BaseSolver):
                     event_ix = np.argmin(t_events)
                     t_event = t_events[event_ix]
                     y_event = y_events[:, event_ix]
-                    g = events(t_event, get_variables_modified(y_event))
+                    g = interface.get_event_results(t_event, get_variables_modified(y_event))
 
                 if not event_trigger and step_converged:
                     y_previous = y
                     t_previous = t
+                    if abs(t-t_next_time_event) < 1e-6:
+                        interface.run_time_event_action(t, time_event_ix)
+                        y_previous = interface.get_states()
+                    """                    
                     for event_ix, timestamps_ in enumerate(timestamps):
                         for timestamp in timestamps_:
                             if abs(timestamp - t) < 1e-6:
@@ -301,7 +300,7 @@ class Numerous_solver(BaseSolver):
                                 for idx in np.argwhere(modified_mask):
                                     interface.write_variables(modified_variables[idx[0]], idx[0])
                                 y_previous = interface.get_states()
-
+                    """
                 if event_trigger:
                     # Improve detection of event
 
@@ -309,11 +308,10 @@ class Numerous_solver(BaseSolver):
                         t_event_previous = t_event
                         step_converged = False  # roll back and refine search
                         dt = initial_step
-                        g = events(t, get_variables_modified(y_previous))
+                        g = interface.get_event_results(t, get_variables_modified(y_previous))
                     else:
                         interface.set_states(y_event)
-
-                        run_event_action(actions, t_event, interface, event_ix)
+                        interface.run_event_action(t_event, event_ix)
 
                         y_previous = interface.get_states()
                         t_previous = t_event
@@ -374,12 +372,8 @@ class Numerous_solver(BaseSolver):
                 self._method.get_solver_state(len(self.y0)), initial_step, initial_step,
                 order, order_, roller, strict_eval, min_step,
                 max_step, step_integrate_,
-                self.events,
-                self.actions,
                 self.g,
                 self.number_of_events,
-                self.event_directions,
-                self.run_event_action,
                 self.timestamps,
                 self.timestamps_actions,
                 self.time[0],
@@ -586,8 +580,8 @@ class Numerous_solver(BaseSolver):
 
         info = self._solve(self.interface._interface,
                            solve_state, initial_step, dt, order, order_, roller, strict_eval, min_step,
-                           max_step, step_integrate_, self.events, self.actions, g,
-                           self.number_of_events, self.event_directions, self.run_event_action,
+                           max_step, step_integrate_, g,
+                           self.number_of_events,
                            self.timestamps,
                            self.timestamps_actions, t_start, t_end,
                            t_eval, 1, atol)
@@ -597,8 +591,8 @@ class Numerous_solver(BaseSolver):
 
             info = self._solve(self.interface._interface,
                                info.solve_state, initial_step, info.dt, order, info.order_, info.roller, strict_eval,
-                               min_step, max_step, step_integrate_, self.events, self.actions, info.g,
-                               self.number_of_events, self.event_directions, self.run_event_action,
+                               min_step, max_step, step_integrate_, info.g,
+                               self.number_of_events,
                                self.timestamps,
                                self.timestamps_actions, info.t, t_end,
                                t_eval, info.ix_eval, atol)
