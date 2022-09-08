@@ -49,6 +49,8 @@ class NumerousEngineModelInterface(ModelInterface):
         self.nm.historian_update(t)
         if self._is_store_required():
             return SolveEvent.Historian
+        else:
+            return SolveEvent.NoneEvent
 
     def pre_step(self, t) -> None:
         self._map_external_data(t)
@@ -73,25 +75,21 @@ class NumerousEngineModelInterface(ModelInterface):
 
 
 def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel, events: tuple[CPUDispatcher, CPUDispatcher], jit=True):
-    spec = [('nm', nm._numba_type_), ('events', events._numba_type_)]
 
     def decorator(jit=True):
-        def wrapper(spec):
-            if jit:
-                return jitclass(spec)
-            else:
-                def passthrough(fun):
-                    return fun
-                return passthrough
+        if not hasattr(nm, '_numba_type_') or not hasattr(events, '_numba_type_'):
+            jit = False
+        if jit:
+            spec = [("nm", nm._numba_type_), ("events", events._numba_type_)]
+            return jitclass(spec)
+        else:
+            def passthrough(fun):
+                return fun
+            return passthrough
 
-        return wrapper
-
-    decorator_ = decorator(jit)
-
-    @decorator_(spec)
+    @decorator(jit=jit)
     class NumerousEngineModelInterfaceWrapper(NumerousEngineModelInterface):
         pass
-
 
     class NumerousEngineSolverInterface(SolverInterface):
         def __init__(self, interface: NumerousEngineModelInterfaceWrapper, model: Model, nm: CompiledModel):

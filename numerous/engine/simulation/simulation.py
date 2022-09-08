@@ -63,7 +63,7 @@ class Simulation:
         timestamp_action_function = model.generate_event_action_ast(model.timestamp_events)
         timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
         solver_interface = generate_numerous_engine_solver_interface(model, self.numba_model,
-                                                                     events=event_function, jit=False)
+                                                                     events=event_function, jit=self.model.use_llvm)
         self.solver = Numerous_solver(time_, delta_t, model, solver_interface,
                                       max_event_steps, self.model.states_as_vector,
                                       numba_compiled_solver=model.use_llvm,

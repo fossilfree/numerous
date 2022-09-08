@@ -107,7 +107,7 @@ class Numerous_solver(BaseSolver):
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100), ix_eval=1, event_tolerance=1e-6):
 
             # Init t to t0
-            imax = 100
+            imax = int(100)
             step_info = 0
             t = t0
             t_start = t0
