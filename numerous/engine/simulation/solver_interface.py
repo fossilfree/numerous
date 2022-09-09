@@ -1,6 +1,7 @@
 import numpy as np
 import numba as nb
 from numba.core.registry import CPUDispatcher
+from typing import Optional
 import numpy.typing as npt
 from numba.experimental import jitclass
 from numerous.engine.model.compiled_model import CompiledModel
@@ -26,7 +27,8 @@ class NumerousEngineModelInterface(ModelInterface):
     def get_residual(self, t, yold, y, dt, order, a, af) -> np.array:
         return self.nm.get_g(t, yold, y, dt, order, a, af)
 
-    def get_deriv(self, t, y) -> np.array:
+    def get_deriv(self, t) -> np.array:
+        y = self.get_states()
         return self.nm.func(t, y)
 
     def get_states(self) -> np.array:
@@ -35,10 +37,10 @@ class NumerousEngineModelInterface(ModelInterface):
     def set_states(self, states: npt.ArrayLike) -> None:
         return self.nm.set_states(states)
 
-    def read_variables(self) -> np.array:
+    def _get_variables(self) -> np.array:
         return self.nm.read_variables()
 
-    def write_variables(self, value: float, idx: int) -> None:
+    def _write_variables(self, value: float, idx: int) -> None:
         self.nm.write_variables(value, idx)
 
     def _is_store_required(self) -> bool:
@@ -76,13 +78,14 @@ class NumerousEngineModelInterface(ModelInterface):
         return self.historian_update(t)
 
     def get_event_results(self, t, y):
-        return self.event_functions(t, y)
+        ynew = self._get_variables_modified(y)
+        return self.event_functions(t, ynew)
 
     def run_event_action(self, time_, event_id):
-        modified_variables = self.event_actions(time_, self.read_variables(), event_id)
-        modified_mask = (modified_variables != self.read_variables())
+        modified_variables = self.event_actions(time_, self._get_variables(), event_id)
+        modified_mask = (modified_variables != self._get_variables())
         for idx in np.argwhere(modified_mask):
-            self.write_variables(modified_variables[idx[0]], idx[0])
+            self._write_variables(modified_variables[idx[0]], idx[0])
 
     def get_next_time_event(self, t) -> tuple[int, float]:
         if len(self.time_events) == 0:
@@ -98,20 +101,33 @@ class NumerousEngineModelInterface(ModelInterface):
                     t_event = timestamps[ix]
                     if t_event_min < 0:
                         t_event_min = t_event
+                        event_ix_min = event_ix
                     if t_event < t_event_min:
                         t_event_min = t_event
                         event_ix_min = event_ix
 
             return event_ix_min, t_event_min
 
-    def run_time_event_action(self, t, y, t_event_ix):
-        self.set_states(y)
-        modified_variables = self.time_event_actions(t, self.read_variables(), t_event_ix)
-        modified_mask = (modified_variables != self.read_variables())
+    def run_time_event_action(self, t, t_event_ix):
+
+        modified_variables = self.time_event_actions(t, self._get_variables(), t_event_ix)
+        modified_mask = (modified_variables != self._get_variables())
         for idx in np.argwhere(modified_mask):
-            self.write_variables(modified_variables[idx[0]], idx[0])
+            self._write_variables(modified_variables[idx[0]], idx[0])
 
+    def _get_variables_modified(self, y_):
+        old_states = self.get_states()
+        self.set_states(y_)
 
+        vars = self._get_variables().copy()
+        self.set_states(old_states)
+        return vars
+
+    def get_event_directions(self) -> np.array:
+        return self.event_directions
+
+    def get_event_functions(self) -> Optional[callable]:
+        return self.event_functions
 
 
 def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel,
@@ -142,7 +158,7 @@ def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel,
 
     class NumerousEngineSolverInterface(SolverInterface):
         def __init__(self, interface: NumerousEngineModelInterfaceWrapper, model: Model, nm: CompiledModel):
-            super(NumerousEngineSolverInterface, self).__init__(interface=interface)
+            super(NumerousEngineSolverInterface, self).__init__(modelinterface=interface)
             self._model = model
             self._nm = nm
 

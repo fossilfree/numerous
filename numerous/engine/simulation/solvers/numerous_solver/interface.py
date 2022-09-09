@@ -18,11 +18,10 @@ class SolveEvent(IntEnum):
 
 class ModelInterface():
 
-    def get_deriv(self, t: float, y: np.array) -> np.array:
+    def get_deriv(self, t: float) -> np.array:
         """
         Function to return derivatives of state-space model. Must be implemented by user
         :param t: time
-        :param y: current state array
         :return: derivatives as array
         """
         raise NotImplementedError
@@ -66,16 +65,6 @@ class ModelInterface():
         """
         raise NotImplementedError
 
-    def read_variables(self) -> np.array:
-        """
-        Function to read all variables and return to solver. Must be implmented by user
-        :return: array of variables.
-        """
-        raise NotImplementedError
-
-    def write_variables(self, value: float, idx: int) -> None:
-        raise NotImplementedError
-
     def historian_update(self, t: float) -> SolveEvent:
         """
 
@@ -114,7 +103,7 @@ class ModelInterface():
         Function called to find events. Used together with event directions to determine if an event occured.
         :param t: time
         :param y: states
-        :return: list of values for the all events
+        :return: list of values for the all events connected to the model.
         """
         return np.array([0])
 
@@ -137,11 +126,20 @@ class ModelInterface():
         """
         return -1, -1
 
+    def get_event_directions(self) -> np.array:
+        """
+        Function that returns the event directions. Must be implemented by user if using event.
+        :return: list of directions, the length of the array of events
+        """
+
+        return np.array([0])
+
+    def get_event_functions(self) -> callable:
+        return lambda t, y: [-1]
 
 class SolverInterface(ABC):
-    def __init__(self, interface: ModelInterface):
-        self._interface = interface
-        self.events = []
+    def __init__(self, modelinterface: ModelInterface):
+        self.model: ModelInterface = modelinterface
 
     def handle_solve_event(self, event_id: SolveEvent, t: float):
 

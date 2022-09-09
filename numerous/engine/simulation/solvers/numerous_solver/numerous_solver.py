@@ -10,7 +10,7 @@ from copy import deepcopy
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
 from numerous.utils import logger as log
 from .solver_methods import BaseMethod, RK45, Euler, LevenbergMarquardt
-from .interface import SolverInterface, SolveEvent, SolveStatus
+from .interface import SolverInterface, SolveEvent, SolveStatus, ModelInterface
 
 solver_methods = {'RK45': RK45, 'Euler': Euler, 'LM': LevenbergMarquardt}
 
@@ -25,34 +25,25 @@ except AttributeError:
 
 class Numerous_solver(BaseSolver):
 
-    def __init__(self, time_, delta_t, model, interface: SolverInterface, max_event_steps, y0, numba_compiled_solver,
+    def __init__(self, time_, delta_t, interface: SolverInterface, y0, numba_compiled_solver,
                  **kwargs):
         super().__init__()
         #numba_compiled_solver = False
 
-        def get_variables_modified(y_):
-            old_states = interface._interface.get_states()
-            interface._interface.set_states(y_)
-
-            vars = interface._interface.read_variables().copy()
-            interface._interface.set_states(old_states)
-            return vars
-
-        # events value
-        #self.g = self.events(time_[0], get_variables_modified(y0))
-
         self.time = time_
-        self.model = model
         self.delta_t = delta_t
         self.interface = interface
-        self.g = self.interface._interface.get_event_results(time_[0], get_variables_modified(y0))
+        self.g = self.interface.model.get_event_results(time_[0], y0)
 
-        self.diff_function = interface._interface.get_deriv
+        self.diff_function = interface.model.get_deriv
         self.numba_compiled_solver = numba_compiled_solver
-        self.number_of_events = len(self.g)
+        self.number_of_events = len(self.g) if self.g else 0
+        self.interface.model.pre_step(time_[0])
+        self.interface.model.set_states(y0)
+        self.f0 = self.diff_function(time_[0])
+        solve_event_id = self.interface.model.historian_update(time_[0])
+        self.interface.handle_solve_event(event_id=solve_event_id, t=time_[0])
 
-        self.f0 = self.diff_function(time_[0], y0)
-        self.max_event_steps = max_event_steps
         self.options = kwargs
         self.info = None
 
@@ -84,7 +75,7 @@ class Numerous_solver(BaseSolver):
         else:
             self._solve = self.generate_solver()
 
-        self.interface._interface.run_event_action(0, 0)
+        self.interface.model.run_event_action(0, 0)
 
     def generate_solver(self):
         def _solve(interface, _solve_state, initial_step, dt_0, order, order_, roller, strict_eval,
@@ -131,14 +122,6 @@ class Numerous_solver(BaseSolver):
                 t_new_test = np.min(te_array)
 
                 return solve_event_id, ix_eval, t_start, t_next_eval, t_new_test, dt
-
-            def get_variables_modified(y_):
-                old_states = interface.get_states()
-                interface.set_states(y_)
-
-                vars = interface.read_variables().copy()
-                interface.set_states(old_states)
-                return vars
 
             def add_ring_buffer(t_, y_, rb, o):
 
@@ -232,10 +215,10 @@ class Numerous_solver(BaseSolver):
                 def check_event(event_fun, ix, t_previous, y_previous, t, y):
                     t_l = t_previous
                     y_l = y_previous
-                    e_l = event_fun(t_l, get_variables_modified(y_l))[ix]
+                    e_l = event_fun(t_l, y_l)[ix]
                     t_r = t
                     y_r = y
-                    e_r = event_fun(t_r, get_variables_modified(y_r))[ix]
+                    e_r = event_fun(t_r, y_r)[ix]
                     status = 0
                     if np.sign(e_l) == np.sign(e_r):
                         return status, t, y
@@ -244,7 +227,7 @@ class Numerous_solver(BaseSolver):
                     y_m = sol(t_m, t, y)
 
                     while status == 0:  # bisection method
-                        e_m = event_fun(t_m, get_variables_modified(y_m))[ix]
+                        e_m = event_fun(t_m, y_m)[ix]
                         if np.sign(e_l) != np.sign(e_m):
                             t_r = t_m
                         elif np.sign(e_r) != np.sign(e_m):
@@ -265,43 +248,36 @@ class Numerous_solver(BaseSolver):
                     else:
                         te_array[2] = np.max(te_array)
 
-                    g_new = interface.get_event_results(t, get_variables_modified(y))
+                    if number_of_events > 0:
 
-                    up = (g <= 0) & (g_new >= 0) & (interface.event_directions == 1)
-                    down = (g >= 0) & (g_new <= 0) & (interface.event_directions == -1)
-                    g = g_new
+                        g_new = interface.get_event_results(t, y)
 
-                    for ix in np.concatenate((np.argwhere(up), np.argwhere(down))):
-                        eps = 1.e-6  # for case to t_event = t
-                        status, t_event, y_event = check_event(interface.event_functions, ix[0],
-                                                               t_previous, y_previous, t, y)
-                        t_events[ix[0]] = t_event - eps
-                        y_events[:, ix[0]] = y_event
+                        up = (g <= 0) & (g_new >= 0) & (interface.get_event_directions() == 1)
+                        down = (g >= 0) & (g_new <= 0) & (interface.get_event_directions() == -1)
+                        g = g_new
 
-                if min(t_events) < t:
+                        for ix in np.concatenate((np.argwhere(up), np.argwhere(down))):
+                            eps = 1.e-6  # for case to t_event = t
+                            status, t_event, y_event = check_event(interface.get_event_functions(), ix[0],
+                                                                   t_previous, y_previous, t, y)
+                            t_events[ix[0]] = t_event - eps
+                            y_events[:, ix[0]] = y_event
+
+                if number_of_events > 0 and min(t_events) < t:
                     event_trigger = True
                     event_ix = np.argmin(t_events)
                     t_event = t_events[event_ix]
                     y_event = y_events[:, event_ix]
-                    g = interface.get_event_results(t_event, get_variables_modified(y_event))
+                    g = interface.get_event_results(t_event, y_event)
 
                 if not event_trigger and step_converged:
                     y_previous = y
                     t_previous = t
                     if abs(t-t_next_time_event) < 1e-6:
-                        interface.run_time_event_action(t, y, time_event_ix)  # todo: use interface to get y.
+                        interface.set_states(y)
+                        interface.run_time_event_action(t, time_event_ix)  # todo: use interface to get y.
                         y_previous = interface.get_states()
-                    """                    
-                    for event_ix, timestamps_ in enumerate(timestamps):
-                        for timestamp in timestamps_:
-                            if abs(timestamp - t) < 1e-6:
-                                interface.set_states(y)
-                                modified_variables = timestamp_actions(t, interface.read_variables(), event_ix)
-                                modified_mask = (modified_variables != interface.read_variables())
-                                for idx in np.argwhere(modified_mask):
-                                    interface.write_variables(modified_variables[idx[0]], idx[0])
-                                y_previous = interface.get_states()
-                    """
+
                 if event_trigger:
                     # Improve detection of event
 
@@ -309,7 +285,7 @@ class Numerous_solver(BaseSolver):
                         t_event_previous = t_event
                         step_converged = False  # roll back and refine search
                         dt = initial_step
-                        g = interface.get_event_results(t, get_variables_modified(y_previous))
+                        g = interface.get_event_results(t, y_previous)
                     else:
                         interface.set_states(y_event)
                         interface.run_event_action(t_event, event_ix)
@@ -369,7 +345,7 @@ class Numerous_solver(BaseSolver):
         roller = self._init_roller(order)
         order_ = 0
 
-        args = (self.interface._interface,
+        args = (self.interface.model,
                 self._method.get_solver_state(len(self.y0)), initial_step, initial_step,
                 order, order_, roller, strict_eval, min_step,
                 max_step, step_integrate_,
@@ -392,7 +368,7 @@ class Numerous_solver(BaseSolver):
 
         return _solve
 
-    def select_initial_step(self, interface, t0, y0, direction, order, rtol, atol):
+    def select_initial_step(self, interface: ModelInterface, t0, y0, direction, order, rtol, atol):
         """Taken from scipy select initial step part of the ode solver package. Slightly modified
 
 
@@ -443,7 +419,8 @@ class Numerous_solver(BaseSolver):
             h0 = 0.01 * d0 / d1
 
         y1 = y0 + h0 * direction * f0
-        f1 = interface._interface.get_deriv(t0 + h0 * direction, y1)
+        interface.model.set_states(y1)
+        f1 = interface.model.get_deriv(t0 + h0 * direction)
         d2 = np.linalg.norm((f1 - f0) / scale) / h0
 
         if d1 <= 1e-15 and d2 <= 1e-15:
@@ -452,7 +429,8 @@ class Numerous_solver(BaseSolver):
             h1 = (0.01 / max(d1, d2)) ** (1 / (order + 1))
 
         # Restore states in numba model
-        interface._interface.get_deriv(t0, y0)
+        interface.model.set_states(y0)
+        interface.model.get_deriv(t0)
 
         return min(100 * h0, h1)
 
@@ -463,7 +441,7 @@ class Numerous_solver(BaseSolver):
         return roller
 
     def use_no_state_solver(self):
-        states = self.interface._interface.get_states()
+        states = self.interface.model.get_states()
         if states.shape[0] == 0:
             return True
 
@@ -472,17 +450,18 @@ class Numerous_solver(BaseSolver):
         This method calculates the model variables using mappings, which are pushed through using the .func method of
         the numba_model class. It assumes that the first step has already been saved in the historian.
         '''
-        solve_event_id = self.interface._interface.post_step(t)
+        solve_event_id = self.interface.model.post_step(t)
         self.interface.handle_solve_event(solve_event_id, t)
 
-        states = self.interface._interface.get_states()
+        states = self.interface.model.get_states()
         t += dt
         if t > self.time[-1]:
             return
 
-        self.interface._interface.post_step(t)
-        self.interface._interface.get_deriv(t, states)  # update mappings
-        self.interface._interface.historian_update(t)
+        self.interface.model.post_step(t)
+        self.interface.model.set_states(states)
+        self.interface.model.get_deriv(t)  # update mappings
+        self.interface.model.historian_update(t)
 
     def _init_solve(self, info=None):
 
@@ -577,7 +556,7 @@ class Numerous_solver(BaseSolver):
         t_start = t_eval[0]
         t_end = t_eval[-1]
 
-        info = self._solve(self.interface._interface,
+        info = self._solve(self.interface.model,
                            solve_state, initial_step, dt, order, order_, roller, strict_eval, min_step,
                            max_step, step_integrate_, g,
                            self.number_of_events,
@@ -587,7 +566,7 @@ class Numerous_solver(BaseSolver):
         while info.status == SolveStatus.Running:
             self.interface.handle_solve_event(info.event_id, info.t)
 
-            info = self._solve(self.interface._interface,
+            info = self._solve(self.interface.model,
                                info.solve_state, initial_step, info.dt, order, info.order_, info.roller, strict_eval,
                                min_step, max_step, step_integrate_, info.g,
                                self.number_of_events,

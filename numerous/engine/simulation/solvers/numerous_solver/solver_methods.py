@@ -148,12 +148,13 @@ class RK45(BaseMethod):
 
             for i in range(1,rk_steps+1):
                 dy = np.dot(k[:i].T, a[i,:i])
-                #k[i,:] = dt*nm.func(t+c[i]*dt, y+dy)
-                k[i, :] = dt * interface.get_deriv(t + c[i] * dt, y + dy)
+                interface.set_states(y + dy)
+                k[i, :] = dt * interface.get_deriv(t + c[i] * dt)
 
             ynew = y + np.dot(k[0:order+2].T, b[0,:])
             #fnew = nm.func(tnew, ynew)  # can possibly save one call here...
-            fnew = interface.get_deriv(tnew, ynew)
+            interface.set_states(ynew)
+            fnew = interface.get_deriv(tnew)
             k[-1, :] = dt*fnew
 
             ye = y + np.dot(k[0:order+2].T, b[1,:])

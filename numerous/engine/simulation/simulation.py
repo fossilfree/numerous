@@ -26,7 +26,6 @@ class Simulation:
     """
 
     def __init__(self, model: Model, t_start: float = 0, t_stop: float = 20000, num: int = 1000,
-                 max_event_steps: int = 100,
                  start_datetime: datetime = datetime.now(), **kwargs):
         """
             Creating a namespace.
@@ -68,8 +67,8 @@ class Simulation:
                                                                      time_events=(timestamps,
                                                                                   timestamp_action_function),
                                                                      jit=self.model.use_llvm)
-        self.solver = Numerous_solver(time_, delta_t, model, solver_interface,
-                                      max_event_steps, self.model.states_as_vector,
+        self.solver = Numerous_solver(time_, delta_t, solver_interface,
+                                      self.model.states_as_vector,
                                       numba_compiled_solver=model.use_llvm,
                                       **kwargs)
 
@@ -79,9 +78,9 @@ class Simulation:
 
         log.info("Compiling Numba equations and initializing historian")
         compilation_start = time.time()
-        self.numba_model.map_external_data(t_start)
-        self.numba_model.func(t_start, self.numba_model.get_states())
-        self.numba_model.historian_update(t_start)
+        #self.numba_model.map_external_data(t_start)
+        #self.numba_model.func(t_start, self.numba_model.get_states())
+        #self.numba_model.historian_update(t_start)
         compilation_finished = time.time()
         log.info(
             f"Numba equations compiled, historian initizalized, compilation time: {compilation_finished - compilation_start}")
