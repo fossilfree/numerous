@@ -55,6 +55,9 @@ class Body(Item, EquationBase):
     def __init__(self, initial, tag='initialvalue',id=0):
         super(Body, self).__init__(tag)
         mechanics = self.create_namespace('mechanics')
+        print(id)
+        print(initial[0+id*6],initial[1+id*6],initial[2+id*6],initial[3+id*6],initial[4+id*6],initial[5+id*6])
+        print(0 + id * 6, 1 + id * 6, 2 + id * 6, 3 + id * 6, 4 + id * 6, 5 + id * 6)
         self.add_state('rx_0', initial[0+id*6])
         self.add_state('ry_0', initial[1+id*6])
         self.add_state('rz_0', initial[2+id*6])
@@ -79,29 +82,31 @@ class Body(Item, EquationBase):
     def diffy_q(self, scope):
         G = 6.67259e-20
         m_0 = 1e20
+        m_1 = 1e20
         m_2 = 1e20
         # create pos diff
         rx10 = scope.rx_1 - scope.rx_0
         ry10 = scope.ry_1 - scope.ry_0
         rz10 = scope.rz_1 - scope.rz_0
 
-        rx21 = scope.rx_2 - scope.rx_1
-        ry21 = scope.ry_2 - scope.ry_1
-        rz21 = scope.rz_2 - scope.rz_1
+        rx20 = scope.rx_2 - scope.rx_0
+        ry20 = scope.ry_2 - scope.ry_0
+        rz20 = scope.rz_2 - scope.rz_0
 
         # normalize differences
         norm_r10 = (rx10 ** 2 + ry10 ** 2 + rz10 ** 2) ** (1 / 2)
-        norm_r21 = (rx21 ** 2 + ry21 ** 2 + rz21 ** 2) ** (1 / 2)
+        norm_r20 = (rx20 ** 2 + ry20 ** 2 + rz20 ** 2) ** (1 / 2)
 
-        scope.vx_1_dot = G * m_2 * (scope.rx_2 - scope.rx_1) / norm_r21 ** 3 + G * m_0 * (
+        scope.vx_0_dot = G * m_2 * (scope.rx_2 - scope.rx_0) / norm_r20 ** 3 + G * m_1 * (
                 scope.rx_0 - scope.rx_1) / norm_r10 ** 3
-        scope.vy_1_dot = G * m_2 * (scope.ry_2 - scope.ry_1) / norm_r21 ** 3 + G * m_0 * (
+        scope.vy_0_dot = G * m_2 * (scope.ry_2 - scope.ry_0) / norm_r20 ** 3 + G * m_1 * (
                 scope.ry_0 - scope.ry_1) / norm_r10 ** 3
-        scope.vz_1_dot = G * m_2 * (scope.rz_2 - scope.rz_1) / norm_r21 ** 3 + G * m_0 * (
+        scope.vz_0_dot = G * m_2 * (scope.rz_2 - scope.rz_0) / norm_r20 ** 3 + G * m_1 * (
                 scope.rz_0 - scope.rz_1) / norm_r10 ** 3
-        scope.rx_1_dot = scope.vx_1
-        scope.ry_1_dot = scope.vy_1
-        scope.rz_1_dot = scope.vz_1
+
+        scope.rx_0_dot = scope.vx_0
+        scope.ry_0_dot = scope.vy_0
+        scope.rz_0_dot = scope.vz_0
 
 class Nbody(Subsystem):
     def __init__(self, initial, mu, tag="nbody"):
@@ -161,7 +166,7 @@ if __name__ == '__main__':
     for i in inital_bodies:
         y0 += i[0] + i[1]
     nbody_system = Nbody(initial=y0, mu=earth_mu)
-    nbody_model = Model(nbody_system, use_llvm=True)
+    nbody_model = Model(nbody_system, use_llvm=False)
     nbody_simulation = Simulation(nbody_model, t_start=0, t_stop=100, num=1000,
                                   max_step=1, method="Euler")
     nbody_simulation.solve()
@@ -174,11 +179,12 @@ if __name__ == '__main__':
     z_1 = np.array(nbody_simulation.model.historian_df["nbody.b1.mechanics.rz_0"])
 
     x_2 = np.array(nbody_simulation.model.historian_df["nbody.b2.mechanics.rx_0"])
-    y_2 = np.array(nbody_simulation.model.historian_df["nbody.b2.mech   anics.ry_0"])
+    y_2 = np.array(nbody_simulation.model.historian_df["nbody.b2.mechanics.ry_0"])
     z_2 = np.array(nbody_simulation.model.historian_df["nbody.b2.mechanics.rz_0"])
 
-    print(len(x_2))
-    print(x_0)
+    print(len(x_0)==len(x_1))
+    print(x_0==x_1)
+    print(x_0,x_1)
 
     bodies = [[x_0, y_0, z_0], [x_1, y_1, z_1], [x_2, y_2, z_2]]
 

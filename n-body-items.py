@@ -112,7 +112,7 @@ if __name__ == '__main__':
     print(y0)
     print(f'Running with {len(inital_bodies)} bodies')
     nbody_system = Nbody(initial=y0, bodies=len(inital_bodies), G=G)
-    nbody_model = Model(nbody_system, use_llvm=True)
+    nbody_model = Model(nbody_system, use_llvm=False)
     nbody_simulation = Simulation(nbody_model, t_start=0, t_stop=1000000, num=1000,
                                  max_step=1, method="Euler")
     nbody_simulation.solve()

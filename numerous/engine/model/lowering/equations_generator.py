@@ -439,6 +439,6 @@ class EquationGenerator:
 
             global_kernel, var_func, var_write = self.generated_program.generate(self.imports,
                                                                                  system_tag=self.system_tag,
-                                                                                 save_to_file=save_to_file)
+                                                                                 save_to_file=True)
             return global_kernel, var_func, var_write, self.values_order, self.scope_variables, \
                    np.array(state_idx, dtype=np.int64), np.array(deriv_idx, dtype=np.int64)
