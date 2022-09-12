@@ -51,6 +51,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         namespace_ = "t1"
         debug_logging = False
         visible = False
+        self.run_after_solve = ['fmi2Terminate_', 'fmi2FreeInstance_']
         self.fmu_input = pandas.read_csv(fmu_in) if fmu_in is not None else None
         self.dataframe_aliases = {}
         model_description = read_model_description(fmu_filename, validate=validate)
@@ -134,12 +135,10 @@ class FMU_Subsystem(Subsystem, EquationBase):
         fmi2FreeInstance.restype = ctypes.c_uint
 
         def fmi2Terminate_():
-            q = fmi2Terminate(component)
-            print(q)
+            fmi2Terminate(component)
 
         def fmi2FreeInstance_():
-            q = fmi2FreeInstance(component)
-            print(q)
+            fmi2FreeInstance(component)
 
         self.fmi2Terminate_ = fmi2Terminate_
 
