@@ -4,7 +4,7 @@ import numpy as np
 from numba import njit
 
 
-def get_fmu_functions(fmu, logging=True):
+def get_fmu_functions(fmu, fmu_logging=False):
     @njit()
     def float_to_str(n):
         int_part = int(n)
@@ -51,7 +51,7 @@ def get_fmu_functions(fmu, logging=True):
     newDiscreteStates = getattr(fmu.dll, "fmi2NewDiscreteStates")
     newDiscreteStates.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
     newDiscreteStates.restype = ctypes.c_uint
-    if logging:
+    if fmu_logging:
         @njit()
         def wr_set_time(_component, t):
             output = "[FMI] fmi2SetTime(component=" + str(_component) + ", time=" + float_to_str(t) + ")"
@@ -93,7 +93,7 @@ def get_fmu_functions(fmu, logging=True):
 
         @njit()
         def wr_fmi2SetC(_component, value3, i):
-            print("[FMI] fmi2SetReal(component=" + str(_component) + ", x=")
+            print("[FMI] fmi2SetContinuous(component=" + str(_component) + ", x=")
             print(value3)
             print(", nx=" + str(i) + ")")
             fmi2SetC(_component, value3.ctypes, i)

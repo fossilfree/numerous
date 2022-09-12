@@ -8,7 +8,7 @@ from fmpy import read_model_description, extract
 
 from fmpy.fmi1 import printLogMessage
 from fmpy.fmi2 import FMU2Model, fmi2CallbackFunctions, fmi2CallbackLoggerTYPE, fmi2CallbackAllocateMemoryTYPE, \
-    fmi2CallbackFreeMemoryTYPE, allocateMemory, freeMemory, fmi2EventInfo
+    fmi2CallbackFreeMemoryTYPE, allocateMemory, freeMemory
 from fmpy.simulation import apply_start_values, Input
 from fmpy.util import auto_interval
 
@@ -34,7 +34,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
     """
     """
 
-    def __init__(self, fmu_filename: str, tag: str, fmu_in: str = None, debug_output=False, import_all=False):
+    def __init__(self, fmu_filename: str, tag: str, fmu_in: str = None, debug_output=False,
+                 import_all=False, fmu_logging=False):
         super().__init__(tag)
         self.model_description = None
         self.import_all = import_all
@@ -121,7 +122,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         component = fmu.component
 
         getreal, set_time, fmi2SetC, fmi2SetReal, completedIntegratorStep, \
-        get_event_indicators, enter_event_mode, enter_cont_mode, newDiscreteStates = get_fmu_functions(fmu)
+        get_event_indicators, enter_event_mode, \
+        enter_cont_mode, newDiscreteStates = get_fmu_functions(fmu, fmu_logging=fmu_logging)
 
         fmi2Terminate = getattr(fmu.dll, "fmi2Terminate")
         fmi2Terminate.argtypes = [ctypes.c_void_p]
