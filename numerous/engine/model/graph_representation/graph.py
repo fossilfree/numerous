@@ -43,11 +43,12 @@ class Node:
 
 
 class Edge:
-    def __init__(self, start=-1, end=-1, e_type=EdgeType.UNDEFINED, label=None, arg_local=None, mappings=None,
-                 branches=None):
+    def __init__(self, start=-1, end=-1, e_type=EdgeType.UNDEFINED, label=None,
+                 arg_local=None, is_local=False, mappings=None, branches=None):
         self.start = start
         self.end = end
         self.e_type = e_type
+        self.is_local = is_local
         self.arg_local = arg_local
         self.branches = branches
         self.label = label
@@ -146,12 +147,6 @@ class Graph:
     def remove_edge(self, edge_n):
         self.edges_c[edge_n].deleted = True
 
-    def get(self, node, attr):
-        return getattr(self.nodes[node], attr)
-
-    def set(self, node, attr, val):
-        setattr(self.nodes[node], attr, val)
-
     def get_where_node_attr(self, attr, val, not_=False):
         def filter_function(node):
             if node.deleted:
@@ -180,7 +175,7 @@ class Graph:
 
         return zip(np.argwhere(end_ix), end_)
 
-    def get_edges_for_node_filter(self, attr, start_node: int = None, end_node: int = None, val=None):
+    def get_edges_type_for_node_filter(self, start_node: int = None, end_node: int = None, val=None):
         if start_node and end_node:
             raise ValueError('arg cant have both start and end!')
         ix = []
@@ -201,7 +196,7 @@ class Graph:
         def filter_function(edge):
             if edge.deleted:
                 return False
-            if getattr(edge, attr) == val:
+            if edge.e_type == val:
                 return True
             else:
                 return False
@@ -306,7 +301,7 @@ class Graph:
                 cg.as_graphviz('cyclic', force=True)
                 for n in self.cyclic_path:
                     print(" ".join([str(self.key_map[n]), '          ' + str(
-                        self.get(n, 'file'))]))
+                        self.nodes[n].file)]))
 
                 self.cyclic_dependency = self.lower_graph.cyclic_dependency
                 raise ValueError('Cyclic path detected: ', self.cyclic_path)
