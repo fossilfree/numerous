@@ -440,3 +440,48 @@ def test_external_data_system_check_not_mapped(use_llvm):
         'This should not be mapped and thus not changed'
     assert pytest.approx(np.array(s.model.historian_df['system_external.t1.to_map_think_not'])) == 200, \
         'This should REALLY not be mapped and thus not changed'
+
+
+class TwoSystemInside(Subsystem):
+    def __init__(self, tag, system, n=1, external_mappings=None, data_loader=None):
+        super().__init__(tag, external_mappings, data_loader)
+        o_s = []
+        o_s.append(StaticDataSystem(tag='tag', n=1))
+
+        o_s.append(system)
+
+        # Register the items to the subsystem to make it recognize them.
+        self.register_items(o_s)
+
+
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_get_external_system_fix(use_llvm, external_data: external_data):
+    t0 = 0
+    tmax = 5
+    dt_data = 0.1
+    external_mappings = []
+    data = external_data(t0, tmax, dt_data)
+    data.update({'Dry Bulb Temperature {C}': data['Dew Point Temperature {C}'] + 1})
+
+    df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
+    index_to_timestep_mapping = 'time'
+    index_to_timestep_mapping_start = 0
+    dataframe_aliases = {
+        'system_outer.system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
+        'system_outer.system_external.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE),
+    }
+
+    external_mappings.append(ExternalMappingElement
+                             ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
+                              dataframe_aliases))
+
+    data_loader = InMemoryDataLoader(df)
+    system_outer = TwoSystemInside('system_outer',
+                                   StaticDataSystem('system_external', n=1, external_mappings=external_mappings,
+                                                    data_loader=data_loader),
+                                    data_loader=data_loader)
+    dt_eval = 0.1
+    s = Simulation(
+        Model(system_outer, use_llvm=use_llvm),
+        t_start=0, t_stop=tmax, num=len(np.arange(0, tmax, dt_eval)), max_step=0.1)
+    s.solve()

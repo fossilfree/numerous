@@ -65,6 +65,37 @@ class AstVisitor(ast.NodeVisitor):
         self.mapped_stack.append([None])
         self.node_number_stack.append(en)
 
+    def visit_List(self, node: ast.List) -> Any:
+        self._visit_iterable(node=node, ast_type=ast.List, ctx=node.ctx)
+
+    def visit_Set(self, node: ast.Set) -> Any:
+        self._visit_iterable(node=node, ast_type=ast.Set)
+
+# TODO rewrite tuple as set and list
+    def visit_Tuple(self, node: ast.Tuple):
+        en = []
+        mapped = []
+        for el in node.elts:
+            self.traverse(el)
+            en.append(self.node_number_stack.pop())
+            mapped.append(self.mapped_stack.pop())
+        self.mapped_stack.append(list(chain.from_iterable(mapped)))
+        self.node_number_stack.append(list(chain.from_iterable(en)))
+
+    def _visit_iterable(self, node, ast_type, ctx=None):
+        en = self.graph.add_node(Node(ao=Node, file=self.eq_file,
+                                      name=self.eq_key, ln=self.eq_lineno,
+                                      label="iterable_node", ctx=ctx, node_type=NodeTypes.OP,
+                                      ast_type=ast_type))
+
+        for el in node.elts:
+            self.traverse(el)
+            start = self.node_number_stack.pop()
+            self.graph.add_edge(Edge(start=start[0], end=en, e_type=EdgeType.ELEMENT, branches=self.branches.copy()))
+        self.mapped_stack.append([None])
+        self.node_number_stack.append([en])
+
+
     def _is_assign_target_supported(self, target: ast.expr):
         return isinstance(target, self._supported_assign_target)
 
@@ -152,16 +183,6 @@ class AstVisitor(ast.NodeVisitor):
                                       node_type=NodeTypes.VAR))
         self.mapped_stack.append([None])
         self.node_number_stack.append([en])
-
-    def visit_Tuple(self, node: ast.Tuple):
-        en = []
-        mapped = []
-        for el in node.elts:
-            self.traverse(el)
-            en.append(self.node_number_stack.pop())
-            mapped.append(self.mapped_stack.pop())
-        self.mapped_stack.append(list(chain.from_iterable(mapped)))
-        self.node_number_stack.append(list(chain.from_iterable(en)))
 
     def visit_Subscript(self, node: ast.Subscript):
         sl = node.slice

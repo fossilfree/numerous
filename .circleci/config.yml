@@ -19,10 +19,11 @@ jobs:
       - run:
           name: Tests
           parallel: true
-          command: |
-            TESTFILES=$(circleci tests glob tests/{test*.py,*/test*.py} | circleci tests split --split-by=timings)
-            mkdir test-results
-            python3 -m pytest $TESTFILES --junitxml=test-results/junit.xml
+          command: |  
+            TESTFILES=$((pytest --co -q --disable-warnings | head -n -2) | circleci tests split --split-by=timings --timings-type=testname)
+            mkdir -p test-results
+            python3 -m pytest --verbose $TESTFILES --junitxml=test-results/junit.xml
+            python3 tests/utils/get_test_names.py
             
       - store_test_results:
           path: test-results

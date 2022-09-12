@@ -1,11 +1,12 @@
 import ast
-import logging
+
 from textwrap import dedent
 
 from numerous.engine.variables import Variable
 from numerous.engine.model.ast_parser.ast_visitor import ast_to_graph, connect_equation_node
 from numerous.engine.model.graph_representation import Graph, EdgeType, Node, Edge
 from numerous.engine.model.utils import NodeTypes
+from numerous.utils import logger as log
 from copy import deepcopy
 
 
@@ -260,13 +261,13 @@ def process_mappings(mappings, mappings_graph: Graph, scope_vars):
             else:
                 mappings_graph.edges_c[ix_[0]].mappings.append((ivar_set_var_ix, target_set_var_ix))
 
-    logging.info('Clone eq graph')
+    log.info('Clone eq graph')
 
-    logging.info('Remove dependencies')
+    log.info('Remove dependencies')
 
-    logging.info('Cleaning')
+    log.info('Cleaning')
 
     mappings_graph = mappings_graph.clean()
 
-    logging.info('Cleaning finished')
+    log.info('Cleaning finished')
     return mappings_graph

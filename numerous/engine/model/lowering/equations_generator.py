@@ -1,5 +1,5 @@
-import logging
 
+import logging
 import numpy as np
 
 from numerous.engine.model.ast_parser.equation_form_graph import function_from_graph_generic, \
@@ -12,6 +12,7 @@ from numerous.engine.model.lowering.utils import Vardef
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute
 from numerous.engine.variables import VariableType
 from numerous.utils.string_utils import d_u
+from numerous.utils import logger as log
 
 
 class EquationGenerator:
@@ -123,7 +124,7 @@ class EquationGenerator:
         return self.llvm_names[ext_func + '_llvm1.<locals>.' + ext_func + '_llvm']
 
     def _parse_equations(self, equations):
-        logging.info('Making equations for compilation')
+        log.info('Making equations for compilation')
 
         for eq_key, eq in equations.items():
             vardef = Vardef(llvm=self.llvm)
@@ -363,7 +364,7 @@ class EquationGenerator:
                 self.generated_program.add_mapping(v, [k])
 
     def generate_equations(self, export_model=False, clonable=False):
-        logging.info('Generate kernel')
+        log.info('Generate kernel')
         # Generate the ast for the python kernel
         for n in self.topo_sorted_nodes:
             # Add the equation calls
@@ -387,7 +388,7 @@ class EquationGenerator:
             if k in self.states:
                 state_idx.append(v)
         if self.llvm:
-            logging.info('Generating llvm')
+            log.info('Generating llvm')
             diff, var_func, var_write = self.generated_program.generate(imports=self.imports,
                                                                         system_tag=self.system_tag,
                                                                         save_to_file=save_to_file)

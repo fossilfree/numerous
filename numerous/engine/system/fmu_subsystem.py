@@ -286,12 +286,13 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
         class EventInfo(ctypes.Structure):
 
-            _fields_ = [('newDiscreteStatesNeeded', ctypes.c_bool),
-                        ('terminateSimulation', ctypes.c_bool),
-                        ('nominalsOfContinuousStatesChanged', ctypes.c_bool),
-                        ('valuesOfContinuousStatesChanged', ctypes.c_bool),
-                        ('nextEventTimeDefined', ctypes.c_bool),
-                        ('nextEventTime', ctypes.c_float)]
+            _fields_ = [('newDiscreteStatesNeeded', ctypes.c_int),
+                        ('terminateSimulation', ctypes.c_int),
+                        ('nominalsOfContinuousStatesChanged', ctypes.c_int),
+                        ('valuesOfContinuousStatesChanged', ctypes.c_int),
+                        ('nextEventTimeDefined', ctypes.c_int),
+                        ('nextEventTime', ctypes.c_double)]
+
 
         event_info = EventInfo()
         q_ptr = ctypes.addressof(event_info)
