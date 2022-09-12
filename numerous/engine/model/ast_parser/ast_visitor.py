@@ -161,10 +161,6 @@ class AstVisitor(ast.NodeVisitor):
     def visit_Name(self, node: ast.Name):
         self._process_named_node(node, ast_type=ast.Name, static_key=True, node_type=NodeTypes.VAR)
 
-    #TODO: Enable Subscript visitation
-    #def visit_Subscript(self, node: ast.Subscript):
-    #    self._process_named_node(node, ast_type=ast.Subscript, static_key=True, node_type=NodeTypes.V)
-
     def _select_scope_var(self, source_id: str):
         scope_label_length = len(self.SCOPE_LABEL)
         if source_id[:scope_label_length] == self.SCOPE_LABEL:
