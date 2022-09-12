@@ -21,11 +21,6 @@ class NumerousEngineModelInterface(ModelInterface):
         self.time_events = time_events
         self.time_event_actions = time_event_actions
 
-    def vectorized_full_jacobian(self, t: float, y: np.array, h=1e-8) -> np.ascontiguousarray:
-        return self.nm.vectorized_full_jacobian(t, y, h)
-
-    def get_residual(self, t, yold, y, dt, order, a, af) -> np.array:
-        return self.nm.get_g(t, yold, y, dt, order, a, af)
 
     def get_deriv(self, t) -> np.array:
         y = self.get_states()

@@ -1,7 +1,10 @@
+import os
+
+import numba as nb
+from numba.experimental import jitclass
 import numpy as np
 from abc import ABC
 from enum import IntEnum, unique
-from typing import Optional
 
 @unique
 class SolveStatus(IntEnum):
@@ -16,6 +19,7 @@ class SolveEvent(IntEnum):
     ExternalDataUpdate = 2
     HistorianAndExternalUpdate = 3
 
+
 class ModelInterface():
 
     def get_deriv(self, t: float) -> np.array:
@@ -26,30 +30,6 @@ class ModelInterface():
         """
         raise NotImplementedError
 
-    def get_residual(self, t: float, yold: np.array, y: np.array, dt: float, order: int, a, af) -> np.array:
-        """
-        Function to get residual (lhs-rhs). Used by LM method. Can be omitted if LM method is not used.
-        :param t: time
-        :param yold: array of last converged states
-        :param y: array of (current) states
-        :param dt: time-step determined by solver
-        :param order: method order (1-5)
-        :param a: some parameter
-        :param af: some more parameters
-        :return:
-        """
-        raise NotImplementedError
-
-    def vectorized_full_jacobian(self, t: float, y: np.array, h: float) -> np.ascontiguousarray:
-        """
-        Function to generate jacobian matrix. Used with LM method. If left out, LM method cannot run.
-        :param t: time
-        :param y: array of states
-        :param h: an optional parameter
-        :return:
-        """
-        raise NotImplementedError
-
     def get_states(self) -> np.array:
         """
         Function to get states and return to solver. Must be implemented by user
@@ -57,10 +37,10 @@ class ModelInterface():
         """
         raise NotImplementedError
 
-    def set_states(self, states: np.array) -> None:
+    def set_states(self, y: np.array) -> None:
         """
         Function called by solver to overwrite states. Must be implemented by user.
-        :param states:
+        :param y:
         :return: None
         """
         raise NotImplementedError
@@ -137,6 +117,42 @@ class ModelInterface():
     def get_event_functions(self) -> callable:
         return lambda t, y: [-1]
 
+    def run_time_event_action(self, t: float, idx: int) -> None:
+        return
+
+    def get_jacobian(self, t, h) -> np.ascontiguousarray:
+        """
+        Function to return jacobian. By default use numerical jacobian, but you can create your own jacobian here.
+        :param t: time
+        :param h: step size
+        :return:
+        """
+        return self.__num_jac(t, h)
+
+    def __num_jac(self, t: float, h: float) -> np.ascontiguousarray:
+        """
+        Function to generate numerical jacobian matrix. Used with LM method. If left out, LM method cannot run.
+        :param t: time
+        :param h: an optional parameter to determine steps in case of numerical jacobian
+        :return: Numerical jacobian
+        """
+        y = self.get_states()
+        y_perm = y + h * np.diag(np.ones(len(y)))
+
+        f = self.get_deriv(t)
+        f_h = np.zeros_like(y_perm)
+        for i in range(y_perm.shape[0]):
+            y_i = y_perm[i, :]
+            self.set_states(y_i)
+            f_h[i, :] = self.get_deriv(t)
+
+        diff = f_h - f
+        diff /= h
+        jac = diff.T
+        return np.ascontiguousarray(jac)
+
+
+
 class SolverInterface(ABC):
     def __init__(self, modelinterface: ModelInterface):
         self.model: ModelInterface = modelinterface
@@ -149,6 +165,31 @@ class SolverInterface(ABC):
             pass
         elif event_id == SolveEvent.HistorianAndExternalUpdate:
             pass
+
+
+def jithelper(model_class: callable):
+    def wrapper(*args, **kwargs):
+        model = model_class(*args, **kwargs)
+        if os.getenv('_NO_JIT') == '1':
+            return model
+
+        spec = []
+        for v in model.__dict__:
+            nbtype = nb.typeof(getattr(model, v))
+            if type(nbtype) == nb.types.Array:  # Array must be type 'A' -
+                # by default the nb.typeof evaluates them to type 'C'
+                spec.append((v, nb.types.Array(nbtype.dtype, nbtype.ndim, 'A')))
+            else:
+                spec.append((v, nbtype))
+
+        @jitclass(spec=spec)
+        class Wrapper(model_class):
+            pass
+
+        return Wrapper(*args, **kwargs)
+    return wrapper
+
+
 
 
 

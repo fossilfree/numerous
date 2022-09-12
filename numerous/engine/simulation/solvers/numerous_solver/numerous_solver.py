@@ -160,6 +160,9 @@ class Numerous_solver(BaseSolver):
             else:
                 te_array[2] = np.max(te_array)
 
+            if order_ == 0:
+                order_ = add_ring_buffer(t, y, roller, order_)
+
             while solve_status != SolveStatus.Finished:
                 # updated events time estimates
                 # # time acceleration

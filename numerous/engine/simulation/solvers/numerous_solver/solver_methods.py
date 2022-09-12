@@ -1,11 +1,8 @@
 import numpy as np
-import numba
 from numba import njit
-import numpy.typing as npt
-from numba.experimental import jitclass
 from abc import ABC, abstractmethod
 from numerous.engine.model.compiled_model import CompiledModel
-from numerous.engine.model import Model
+from numerous.engine.simulation.solvers.numerous_solver.interface import ModelInterface, jithelper
 from .linalg.lapack.lapack_python import lapack_solve_triangular, lapack_cholesky
 
 def _njit(jit=True):
@@ -15,6 +12,8 @@ def _njit(jit=True):
         else:
             return fun
     return wrapper
+
+
 
 
 class BaseMethod(ABC):
@@ -29,6 +28,7 @@ class BaseMethod(ABC):
     @staticmethod
     def step_func(nm: CompiledModel, t: float, dt: float, y: list, yold: list, order: int, _solve_state: tuple):
         raise NotImplementedError
+
 
 class RK45(BaseMethod):
     def __init__(self, numerous_solver, **options):
@@ -208,16 +208,11 @@ class LevenbergMarquardt(BaseMethod):
         rel_tol = options.get('rtol', 0.001)
         self.longer = options.get('longer', 1.2)
         self.shorter = options.get('longer', 0.8)
-        _jacobian = options.get('jacobian', 'vectorized_full_jacobian')
-        jacobian = getattr(self, _jacobian)
-        get_residual = self.get_residual
-        #jacobian = self.vectorized_full_jacobian
-
+        jacobian = numerous_solver.interface.model.get_jacobian
+        h = options.get('jacobian_stepsize', 1e-8)
 
         eps = np.finfo(1.0).eps
         newton_tol = max(10 * eps / rel_tol, min(0.03, rel_tol ** 0.5))
-
-
 
         af = np.array([1, 2 / 3, 6 / 11, 12 / 25, 60 / 137], dtype=np.float)
         a = np.array([[-1, 0, 0, 0, 0], [1 / 3, -4 / 3, 0, 0, 0], [-2 / 11, 9 / 11, -18 / 11, 0, 0],
@@ -238,32 +233,18 @@ class LevenbergMarquardt(BaseMethod):
             return -_sum + af[order - 1] * last_f * dt
 
         @__njit
-        def sparsejacobian(get_f, get_f_ix, __internal_state, t, y, s, dt, jacobian_stepsize):
-            # Limits the number of equation calls by assuming a sparse jacobian matrix, for example in finite element
-            num_eq_vars = len(y)
-            jac = np.zeros((num_eq_vars, num_eq_vars))
-            np.fill_diagonal(jac, 1)
-            h = jacobian_stepsize
+        def get_residual(interface, t, yold, y, dt, order, a, af):
+            interface.set_states(y)
+            f = interface.get_deriv(t)
+            _sum = np.zeros_like(y)
+            for i in range(order):
+                _sum = _sum + a[order - 1][i] * yold[i, :]
+            g = y + _sum - af[order - 1] * dt * f
+            return np.ascontiguousarray(g), np.ascontiguousarray(f)
 
-            f = get_f(t, y, __internal_state)
-            y_perm = np.copy(y)
-
-            for i in range(len(y)):
-                col_m = max(0, i - s)
-                col_p = min(num_eq_vars - 1, i + s)
-                idx = [k for k in range(col_m, col_p + 1)]
-
-                for j in idx:
-                    y_perm[j] += h
-                    f_perm = get_f_ix(t, y_perm, __internal_state, i, j)
-                    y_perm[j] -= h
-                    diff = (f_perm - f[i]) / h
-                    jac[i][j] += -dt * diff
-
-            return jac
 
         @__njit
-        def levenberg_marquardt_inner(nm, t, dt, yinit, yold, jacT, L, order):
+        def levenberg_marquardt_inner(interface, t, dt, yinit, yold, jacT, L, order):
             # ll=l
             ll = 0
             stat = 0
@@ -281,7 +262,8 @@ class LevenbergMarquardt(BaseMethod):
             while True:
                 _iter += 1
 
-                r, f = get_residual(t + dt, yold, y, dt, order , a, af)
+                #interface.set_states(y)
+                r, f = get_residual(interface, t + dt, yold, y, dt, order, a, af)
                 b = jacT @ r
                 x = lapack_solve_triangular(L, -b, len(b))
 
@@ -301,7 +283,7 @@ class LevenbergMarquardt(BaseMethod):
             return converged, rate, y, d, ll, stat, f
 
         @__njit
-        def levenberg_marquardt(nm, t, dt, y, yold, order, _solve_state):
+        def levenberg_marquardt(interface, t, dt, y, yold, order, _solve_state):
             n = len(y)
             ynew = np.zeros_like(y)
 
@@ -315,7 +297,7 @@ class LevenbergMarquardt(BaseMethod):
             jac_updates = _solve_state[7]
             longer = _solve_state[8]
             shorter = _solve_state[9]
-            l = l_init
+            l = 0#l_init
 
             converged = False
             y = guess_init(yold, order, last_f, dt)
@@ -324,7 +306,8 @@ class LevenbergMarquardt(BaseMethod):
 
                 # We need a smarter way to update the jacobian...
                 if update_jacobian:
-                    J = jacobian(nm, t + dt, y, dt)
+                    interface.set_states(y)
+                    J = jacobian(t + dt, h)
 
                     update_jacobian = False
                     updated = True
@@ -340,7 +323,7 @@ class LevenbergMarquardt(BaseMethod):
                     update_L = False
 
                 converged, S, ynew, d, lnew, inner_stat, f = \
-                    levenberg_marquardt_inner(nm, t, dt, y, yold, jacT, L, order)
+                    levenberg_marquardt_inner(interface, t, dt, y, yold, jacT, L, order)
 
                 if not converged:
                     l *= shorter
