@@ -25,9 +25,10 @@ class Subsystem(ConnectorItem):
 
     """
 
-    def __init__(self, tag, external_mappings=None, data_loader=None):
+    def __init__(self, tag, external_mappings=None, data_loader=None, run_after_solve=None):
         self.ports = _DictWrapper({}, Item)
         self.registered_items = {}
+        self.run_after_solve = run_after_solve if run_after_solve is not None else []
         self.external_mappings = ExternalMappingUnpacked(external_mappings, data_loader) if external_mappings else None
         super().__init__(tag)
 
@@ -182,6 +183,15 @@ class Subsystem(ConnectorItem):
                 external_mappings.extend(item._get_external_mappings())
 
         return external_mappings
+
+    def get_run_after_solve(self):
+        run_after_solve = [getattr(self, name) for name in self.run_after_solve]
+
+        for item in self.registered_items.values():
+            if isinstance(item, Subsystem):
+                run_after_solve.extend(item.get_run_after_solve())
+
+        return run_after_solve
 
     def get_external_mappings(self):
         external_mappings = self._get_external_mappings()
