@@ -136,6 +136,8 @@ class Model:
         self.external_mappings = ExternalMapping(external_mappings_unpacked) if len(
             external_mappings_unpacked) else EmptyMapping()
 
+        self.run_after_solve = system.get_run_after_solve()
+
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
         self.clonable = clonable
@@ -750,8 +752,8 @@ class Model:
         n_deriv = n_deriv
         max_var = max_var
 
-        @njit('float64[:](float64[:])')
-        def compiled_compute(y):
+        @njit('float64[:](float64[:],float64[:])')
+        def compiled_compute(y, global_vars):
             deriv_pointer = diff_(y.ctypes)
             return carray(deriv_pointer, (n_deriv,)).copy()
 
@@ -767,7 +769,7 @@ class Model:
             vars_w(var, idx)
 
         def c1(self, array_):
-            return compiled_compute(array_)
+            return compiled_compute(array_, self.global_vars)
 
         def c2(self):
             return var_func()

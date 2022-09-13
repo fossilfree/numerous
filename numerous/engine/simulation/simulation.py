@@ -56,7 +56,7 @@ class Simulation:
         log.info(f"Numba model generation finished, generation time: {generation_finish - generation_start}")
 
         event_function, event_directions = model.generate_event_condition_ast()
-        event_function_full, _ = model.generate_event_condition_ast()
+
         action_function = model.generate_event_action_ast(model.events)
         if len(model.timestamp_events) == 0:
             model.generate_mock_timestamp_event()
@@ -120,6 +120,11 @@ class Simulation:
         list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,
                                                           self.model.path_variables), self.model.callbacks))
         self.model.create_historian_df()
+        self.run_after()
+
+    def run_after(self):
+        for function in self.model.run_after_solve:
+            function()
 
     def step_solve(self, t_start, step_size):
         try:

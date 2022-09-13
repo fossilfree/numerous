@@ -98,16 +98,13 @@ def node_to_ast(n: int, g: MappingsGraph, var_def, ctxread=False, read=True):
             return ast_subscript
 
         elif na in [ast.List, ast.Set, ast.Tuple]:
-            elts = [ii[0] for ii in g.get_edges_for_node_filter(end_node=n, attr='e_type', val=EdgeType.ELEMENT)[1]]
+            elts = [ii[0] for ii in g.get_edges_type_for_node_filter(end_node=n, val=EdgeType.ELEMENT)[1]]
             elts_ast = []
             for a in elts:
                 a_ast = node_to_ast(a, g, var_def, ctxread=ctxread)
                 elts_ast.append(a_ast)
 
-            return na(elts=elts_ast, ctx=g.get(n, 'ctx'))
-
-        raise TypeError(f'Cannot convert {n},{na}')
-
+            return na(elts=elts_ast, ctx=g.nodes[n].ctx)
 
         raise TypeError(f'Cannot convert {n},{na}')
     except:
@@ -207,6 +204,7 @@ def function_body_from_graph(g, var_def_, lineno_count=1, level=0):
                                                      lineno_count=lineno_count)
             body.append(process_if_node(func_body, func_test))
     return body
+
 
 # TODO need to Refactor later, quick fix, very bad code
 

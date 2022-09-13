@@ -6,13 +6,13 @@ from numerous.engine.simulation import Simulation
 from numerous.engine.system import Subsystem
 from numerous.engine.system.fmu_subsystem import FMU_Subsystem
 
+fmu_filename = '/home/artem/fmu/PCU_RHU_EnergyMachines_01_modex_Linux.fmu'
+fmu_subsystem = FMU_Subsystem(fmu_filename, "PCU_RHU", debug_output=False, fmu_logging=False)
 
 class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
 
-        fmu_filename = '_01_modex_Linux.fmu'
-        fmu_subsystem = FMU_Subsystem(fmu_filename, "PCU_RHU", debug_output=True)
         # fmu_subsystem.t1.variables["h"].value = 19
         self.register_items([fmu_subsystem])
 
@@ -35,5 +35,4 @@ ax.set(xlabel='time (s)', ylabel='outputs', title='Something')
 ax.grid()
 
 plt.show()
-
 print("execution finished")
