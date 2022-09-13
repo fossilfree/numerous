@@ -16,6 +16,7 @@ class S3(Subsystem):
         fmu_subsystem = FMU_Subsystem(fmu_filename, "BouncingBall_2_way", debug_output=True)
         self.register_items([fmu_subsystem])
 
+
 @pytest.mark.xfail
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_bounsing_ball_2_way_pos_hits(use_llvm):
@@ -29,6 +30,7 @@ def test_bounsing_ball_2_way_pos_hits(use_llvm):
     signchange = ((np.roll(asign, 1) - asign) != 0).astype(int)
     args = np.argwhere(signchange > 0)[2:].flatten()
     assert all(np.isclose(pos[args], np.array([0, 1, 0]), rtol=1e-03, atol=1e-01))
+
 
 @pytest.mark.xfail
 @pytest.mark.parametrize("use_llvm", [True, False])
