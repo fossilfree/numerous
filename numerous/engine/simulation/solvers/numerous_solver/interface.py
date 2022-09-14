@@ -145,7 +145,7 @@ class ModelInterface():
             y_i = y_perm[i, :]
             self.set_states(y_i)
             f_h[i, :] = self.get_deriv(t)
-
+        self.set_states(y)
         diff = f_h - f
         diff /= h
         jac = diff.T

@@ -9,10 +9,10 @@ from copy import deepcopy
 
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
 from numerous.utils import logger as log
-from .solver_methods import BaseMethod, RK45, Euler, LevenbergMarquardt
-from .interface import SolverInterface, SolveEvent, SolveStatus, ModelInterface
+from .solver_methods import BaseMethod, RK45, Euler
+from .interface import SolverInterface, SolveEvent, SolveStatus
 
-solver_methods = {'RK45': RK45, 'Euler': Euler, 'LM': LevenbergMarquardt}
+solver_methods = {'RK45': RK45, 'Euler': Euler}
 
 Info = namedtuple('Info', ['status', 'event_id', 'step_info', 'initial_step', 'dt', 't', 'y', 'order_', 'roller',
                            'solve_state', 'ix_eval', 'g'])
@@ -46,6 +46,7 @@ class Numerous_solver(BaseSolver):
 
         self.options = kwargs
         self.info = None
+
 
         odesolver_options = {'longer': kwargs.get('longer', 1.2), 'shorter': kwargs.get('shorter', 0.8),
                              'min_step': kwargs.get('min_step', 10 * FEPS), 'strict_eval': True,
@@ -105,7 +106,8 @@ class Numerous_solver(BaseSolver):
                     return True
                 return False
 
-            def handle_converged(t, dt, ix_eval, t_next_eval):
+            def handle_converged(t, dt, ix_eval, t_next_eval, order_):
+                order_ = add_ring_buffer(t, y, roller, order_)
 
                 solve_event_id = SolveEvent.NoneEvent
 
@@ -121,7 +123,7 @@ class Numerous_solver(BaseSolver):
                 t_start = t
                 t_new_test = np.min(te_array)
 
-                return solve_event_id, ix_eval, t_start, t_next_eval, t_new_test, dt
+                return order_, solve_event_id, ix_eval, t_start, t_next_eval, t_new_test, dt
 
             def add_ring_buffer(t_, y_, rb, o):
 
@@ -160,9 +162,6 @@ class Numerous_solver(BaseSolver):
             else:
                 te_array[2] = np.max(te_array)
 
-            if order_ == 0:
-                order_ = add_ring_buffer(t, y, roller, order_)
-
             while solve_status != SolveStatus.Finished:
                 # updated events time estimates
                 # # time acceleration
@@ -193,6 +192,10 @@ class Numerous_solver(BaseSolver):
                         raise ValueError('Cannot go back longer than rollback point!')
 
                 dt_ = min([t_next_eval - t_start, t_new_test - t_start])
+
+                if order_ == 0:
+                    order_ = add_ring_buffer(t, y, roller, order_, 0)
+
                 # solve from start to new test by calling the step function
                 t, y, step_converged, step_info, _solve_state, factor = step_integrate_(interface,
                                                                                         t_start,
@@ -311,8 +314,8 @@ class Numerous_solver(BaseSolver):
                     if solve_event_id != SolveEvent.NoneEvent:
                         break
 
-                    solve_event_id, ix_eval, t_start, t_next_eval, t_new_test, dt = \
-                        handle_converged(t, dt, ix_eval, t_next_eval)
+                    order_, solve_event_id, ix_eval, t_start, t_next_eval, t_new_test, dt = \
+                        handle_converged(t, dt, ix_eval, t_next_eval, order_)
 
                     if abs(t - t_end) < 100 * FEPS:
                         solve_status = SolveStatus.Finished
@@ -320,8 +323,6 @@ class Numerous_solver(BaseSolver):
 
                     if solve_event_id != SolveEvent.NoneEvent:
                         break
-
-                    order_ = add_ring_buffer(t, y, roller, order_)
 
             return Info(status=solve_status, event_id=solve_event_id, step_info=step_info,
                         dt=dt, t=t, y=np.ascontiguousarray(y), order_=order_, roller=roller, solve_state=_solve_state,
@@ -371,7 +372,7 @@ class Numerous_solver(BaseSolver):
 
         return _solve
 
-    def select_initial_step(self, interface: ModelInterface, t0, y0, direction, order, rtol, atol):
+    def select_initial_step(self, interface: SolverInterface, t0, y0, direction, order, rtol, atol):
         """Taken from scipy select initial step part of the ode solver package. Slightly modified
 
 

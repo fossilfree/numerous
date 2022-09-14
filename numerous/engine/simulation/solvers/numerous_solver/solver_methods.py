@@ -191,25 +191,29 @@ class RK45(BaseMethod):
                 self.error_exponent, True)
 
 
-class LevenbergMarquardt(BaseMethod):
+class BDF(BaseMethod):
     def __init__(self, numerous_solver, **options):
-        super(LevenbergMarquardt, self).__init__(numerous_solver, **options)
+        super(BDF, self).__init__(numerous_solver, **options)
         numba_compiled_solver = numerous_solver.numba_compiled_solver
 
         __njit = _njit(numba_compiled_solver)
 
-        self.order = 5
+        self.max_order = 5
 
         l_init = options.get('l', 1)
         self.l_init = l_init
         # Get options
-        inner_itermax = options.get('inner_itermax', 4)
+        inner_itermax = 100#options.get('inner_itermax', 4)
         abs_tol = options.get('atol', 0.001)
         rel_tol = options.get('rtol', 0.001)
         self.longer = options.get('longer', 1.2)
-        self.shorter = options.get('longer', 0.8)
+        self.shorter = options.get('shorter', 0.8)
         jacobian = numerous_solver.interface.model.get_jacobian
         h = options.get('jacobian_stepsize', 1e-8)
+        y0 = numerous_solver.y0
+        initial_step = numerous_solver.select_initial_step(numerous_solver.interface, numerous_solver.time_[0], y0, 1,
+                                                           self.max_order - 1, rel_tol,
+                                                           abs_tol)
 
         eps = np.finfo(1.0).eps
         newton_tol = max(10 * eps / rel_tol, min(0.03, rel_tol ** 0.5))
@@ -218,6 +222,32 @@ class LevenbergMarquardt(BaseMethod):
         a = np.array([[-1, 0, 0, 0, 0], [1 / 3, -4 / 3, 0, 0, 0], [-2 / 11, 9 / 11, -18 / 11, 0, 0],
                       [3 / 25, -16 / 25, 36 / 25, -48 / 25, 0],
                       [-12 / 137, 75 / 137, -200 / 137, 300 / 137, -300 / 137]], dtype=np.float)
+
+        @__njit
+        def update_D(D, order, factor):
+            R = calculate_R(order, factor)
+            U = calculate_R(order, 1)
+            RU = R.dot(U)
+            D[:order + 1] = np.dot(RU.T, D[:order +1])
+            return D
+
+        @__njit
+        def calculate_R(order, factor):
+            I = np.arange(1, order + 1)[:, None]
+            J = np.arange(1, order + 1)
+            M = np.zeros((order+1, order+1))
+            M[1:, 1:] = (I - 1 - factor * J) / I
+            M[0] = 1
+            return np.cumprod(M, axis=0)
+
+
+
+        gamma = np.hstack((0, np.cumsum(1/np.arange(1, self.max_order+1))))
+        kappa = np.array([0, -1.85, -1/9, -0.0823, -0.0415, 0])
+        alpha = (1-kappa)*gamma
+        D = np.empty(self.max_order + 3, len(y0))
+        D[0] = y0
+        D[1] = numerous_solver.f0 * initial_step
 
         @__njit
         def calc_residual(r):
@@ -242,54 +272,60 @@ class LevenbergMarquardt(BaseMethod):
             g = y + _sum - af[order - 1] * dt * f
             return np.ascontiguousarray(g), np.ascontiguousarray(f)
 
-
         @__njit
-        def levenberg_marquardt_inner(interface, t, dt, yinit, yold, jacT, L, order):
-            # ll=l
-            ll = 0
+        def bdf_inner(interface, t, y_init, psi, c, scale, L):
+
             stat = 0
             # first estimate of next step
 
             # TODO: give last known derivative value, instead of calculating again
-            y = yinit.copy()
+            y = y_init.copy()
 
             _iter = 0
 
-            x = np.zeros_like(y)
-            d = np.zeros_like(x)
+            d = np.zeros_like(y)
             converged = False
+            dy_norm_old = None
+            rate = None
 
-            while True:
+            for k in range(inner_itermax):
                 _iter += 1
+                interface.set_states(y)
+                f = interface.get_deriv(t)
 
-                #interface.set_states(y)
-                r, f = get_residual(interface, t + dt, yold, y, dt, order, a, af)
-                b = jacT @ r
-                x = lapack_solve_triangular(L, -b, len(b))
+                b = c * f - psi - d
 
-                d += x
-                y += x
+                dy = lapack_solve_triangular(L, -b, len(b))
+                dy_norm = np.linalg.norm(dy / scale)
+                if not dy_norm_old:
+                    rate = None
+                else:
+                    rate = dy_norm / dy_norm_old
 
-                # Check if residual is decreasing
-                rate = np.linalg.norm(b, ord=2)
-                if rate < newton_tol:
+                if rate is not None and (rate >= 1 or rate ** (inner_itermax - k) / (1-rate) * dy_norm > newton_tol):
+                    stat = -1
+                    break
+
+                d += dy
+                y += dy
+
+                if dy_norm == 0 or (rate is not None and rate / (1-rate) * dy_norm < newton_tol):
                     converged = True
                     break
 
-                if _iter > inner_itermax:
-                    stat = -2
-                    break
+                dy_norm_old = dy_norm
 
-            return converged, rate, y, d, ll, stat, f
+
+            return converged, rate, y, d, stat
 
         @__njit
-        def levenberg_marquardt(interface, t, dt, y, yold, order, _solve_state):
+        def bdf(interface, t, dt, y, _, __, _solve_state):
             n = len(y)
             ynew = np.zeros_like(y)
 
             J = _solve_state[0]
             jacT = _solve_state[1]
-            update_jacobian = _solve_state[2]
+            update_jacobian = False#_solve_state[2]
             last_f = _solve_state[3]
             L = _solve_state[4]
             updated = _solve_state[5]
@@ -297,17 +333,28 @@ class LevenbergMarquardt(BaseMethod):
             jac_updates = _solve_state[7]
             longer = _solve_state[8]
             shorter = _solve_state[9]
-            l = 0#l_init
+            D = _solve_state[10]
+            dt_last = _solve_state[11]
+            order = _solve_state[12]
 
             converged = False
-            y = guess_init(yold, order, last_f, dt)
+
+            if dt != dt_last:
+                update_D(D, order, dt/dt_last)
+
+            psi = 1/alpha[order] * np.sum(gamma[1:order+1] * D[1:order+1])
+
+            y_init = np.sum(D[:order + 1], axis=0)  # euler integration
+            scale = abs_tol + rel_tol * np.abs(y_init)
+            c = dt/(alpha[order])
+            t += dt
 
             while not converged:
 
                 # We need a smarter way to update the jacobian...
                 if update_jacobian:
                     interface.set_states(y)
-                    J = jacobian(t + dt, h)
+                    J = jacobian(t, h)
 
                     update_jacobian = False
                     updated = True
@@ -315,18 +362,16 @@ class LevenbergMarquardt(BaseMethod):
                     jac_updates += 1
 
                 if update_L:
-                    jac = np.identity(n) - af[order - 1] * dt * J
-                    jacT = jac.T
-                    jacjacT = jac.T @ jac
-                    A = jacjacT+ np.identity(n) * l
-                    L = lapack_cholesky(76, n, A)
+                    jac = np.identity(n) - c * J
+                    L = lapack_cholesky(76, n, jac)
                     update_L = False
 
                 converged, S, ynew, d, lnew, inner_stat, f = \
-                    levenberg_marquardt_inner(interface, t, dt, y, yold, jacT, L, order)
+                    bdf_inner(interface, t, y_init, psi, c, scale, L)
+
+                interface.set_states(ynew)
 
                 if not converged:
-                    l *= shorter
                     if not updated:
                         update_jacobian = True
                     else:
@@ -337,8 +382,8 @@ class LevenbergMarquardt(BaseMethod):
                     updated = False
                     last_f = f
 
-            _solve_state = (J, jacT, update_jacobian, last_f, L, updated, update_L, jac_updates, longer, shorter)
-            t += dt
+            _solve_state = (J, jacT, update_jacobian, last_f, L, updated, update_L, jac_updates, longer, shorter, D, dt)
+
             # print(t)
             if not converged:
                 factor = shorter
@@ -347,7 +392,7 @@ class LevenbergMarquardt(BaseMethod):
 
             return t, ynew, converged, update_jacobian, _solve_state, factor
 
-        self.step_func = levenberg_marquardt
+        self.step_func = bdf
 
 
     def get_solver_state(self, n):
@@ -362,6 +407,8 @@ class LevenbergMarquardt(BaseMethod):
                  0,
                  self.longer,
                  self.shorter,
+                 self.D,
+                 self.initial_step
                  )
 
         return state
