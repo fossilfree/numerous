@@ -1,8 +1,10 @@
 import numpy as np
+import scipy
 from numba import njit
 from abc import ABC, abstractmethod
 from numerous.engine.model.compiled_model import CompiledModel
-from numerous.engine.simulation.solvers.numerous_solver.interface import ModelInterface, jithelper
+from numerous.engine.simulation.solvers.numerous_solver.interface import ModelInterface
+from numerous.engine.simulation.solvers.numerous_solver.common import select_initial_step
 from .linalg.lapack.lapack_python import lapack_solve_triangular, lapack_cholesky
 
 def _njit(jit=True):
@@ -12,7 +14,6 @@ def _njit(jit=True):
         else:
             return fun
     return wrapper
-
 
 
 
@@ -114,11 +115,17 @@ class RK45(BaseMethod):
         self.a = a
         self.b = b
         self.c = c
+        self.y0 = numerous_solver.y0
 
         self.error_exponent = (-1 / (self.e_order + 1))
         self.max_factor = options.get('max_factor', 10)
         self.atol = options.get('atol', 1e-3)
         self.rtol = options.get('rtol', 1e-3)
+        self.t_start = numerous_solver.time[0]
+
+        self.interface = numerous_solver.interface.model
+        self.initial_step = select_initial_step(self.interface, self.t_start, self.y0, 1, self.order - 1, self.rtol,
+                                                self.atol)
 
         @__njit
         def Rk45(interface, t, dt, y, _not_used1, _not_used2, _solve_state):
@@ -180,7 +187,8 @@ class RK45(BaseMethod):
                 factor = max(0.2,
                              0.95 * e_norm ** error_exponent)
 
-            _new_solve_state = (c, a, b, max_factor, atol, rtol, np.ascontiguousarray(f0), rk_steps, order, error_exponent, converged)
+            _new_solve_state = (c, a, b, max_factor, atol, rtol, np.ascontiguousarray(f0), rk_steps, order,
+                                error_exponent, converged)
 
             return tnew, ynew, converged, step_info, _new_solve_state, factor
 
@@ -190,6 +198,9 @@ class RK45(BaseMethod):
         return (self.c, self.a, self.b, self.max_factor, self.atol, self.rtol, self.f0, self.rk_steps, self.order,
                 self.error_exponent, True)
 
+    def get_initial_step(self):
+        return
+
 
 class BDF(BaseMethod):
     def __init__(self, numerous_solver, **options):
@@ -198,30 +209,23 @@ class BDF(BaseMethod):
 
         __njit = _njit(numba_compiled_solver)
 
-        self.max_order = 5
+        max_order = 5
+        self.order = max_order
 
-        l_init = options.get('l', 1)
-        self.l_init = l_init
         # Get options
-        inner_itermax = 100#options.get('inner_itermax', 4)
+        inner_itermax = options.get('inner_itermax', 4)
         abs_tol = options.get('atol', 0.001)
         rel_tol = options.get('rtol', 0.001)
-        self.longer = options.get('longer', 1.2)
-        self.shorter = options.get('shorter', 0.8)
-        jacobian = numerous_solver.interface.model.get_jacobian
-        h = options.get('jacobian_stepsize', 1e-8)
-        y0 = numerous_solver.y0
-        initial_step = numerous_solver.select_initial_step(numerous_solver.interface, numerous_solver.time_[0], y0, 1,
-                                                           self.max_order - 1, rel_tol,
+        shorter = options.get('shorter', 0.8)
+        h = options.get('jacobian_stepsize', 1e-14)
+        self.y0 = numerous_solver.y0
+        self.interface = numerous_solver.interface.model
+        self.initial_step = numerous_solver.select_initial_step(self.interface, numerous_solver.time[0], self.y0,
+                                                           1, 1, rel_tol,
                                                            abs_tol)
 
         eps = np.finfo(1.0).eps
         newton_tol = max(10 * eps / rel_tol, min(0.03, rel_tol ** 0.5))
-
-        af = np.array([1, 2 / 3, 6 / 11, 12 / 25, 60 / 137], dtype=np.float)
-        a = np.array([[-1, 0, 0, 0, 0], [1 / 3, -4 / 3, 0, 0, 0], [-2 / 11, 9 / 11, -18 / 11, 0, 0],
-                      [3 / 25, -16 / 25, 36 / 25, -48 / 25, 0],
-                      [-12 / 137, 75 / 137, -200 / 137, 300 / 137, -300 / 137]], dtype=np.float)
 
         @__njit
         def update_D(D, order, factor):
@@ -233,47 +237,33 @@ class BDF(BaseMethod):
 
         @__njit
         def calculate_R(order, factor):
-            I = np.arange(1, order + 1)[:, None]
-            J = np.arange(1, order + 1)
-            M = np.zeros((order+1, order+1))
-            M[1:, 1:] = (I - 1 - factor * J) / I
-            M[0] = 1
-            return np.cumprod(M, axis=0)
+            R = np.zeros((order + 1, order + 1))
+            f = 1
+            for j in range(1, order + 1):
+                f = j * f
+                for r in range(1, order + 1):
+                    R[j, r] = (1 / f) * np.prod((np.arange(0, j) - r * factor))
 
+            R[0] = 1
+            return R
 
-
-        gamma = np.hstack((0, np.cumsum(1/np.arange(1, self.max_order+1))))
+        gamma = np.hstack((0, np.cumsum(1/np.arange(1, max_order + 1))))
         kappa = np.array([0, -1.85, -1/9, -0.0823, -0.0415, 0])
+        error_const = kappa * gamma + 1 / np.arange(1, max_order + 2)
         alpha = (1-kappa)*gamma
-        D = np.empty(self.max_order + 3, len(y0))
-        D[0] = y0
-        D[1] = numerous_solver.f0 * initial_step
+        min_factor = 0.2
+        max_factor = 10
+        D = np.zeros((max_order + 3, len(self.y0)), dtype=np.float64)
+        D[0] = self.y0
+        D[1] = numerous_solver.f0 * self.initial_step
+        self.D = D
 
         @__njit
-        def calc_residual(r):
-            Stemp = np.sum(r ** 2)
-            S = Stemp / len(r)
-            return S
+        def norm(x):
+            return np.linalg.norm(x) / len(x) ** 0.5
 
         @__njit
-        def guess_init(yold, order, last_f, dt):
-            _sum = np.zeros_like(yold[0, :])
-            for i in range(order):
-                _sum += a[order - 1][i] * yold[i, :]
-            return -_sum + af[order - 1] * last_f * dt
-
-        @__njit
-        def get_residual(interface, t, yold, y, dt, order, a, af):
-            interface.set_states(y)
-            f = interface.get_deriv(t)
-            _sum = np.zeros_like(y)
-            for i in range(order):
-                _sum = _sum + a[order - 1][i] * yold[i, :]
-            g = y + _sum - af[order - 1] * dt * f
-            return np.ascontiguousarray(g), np.ascontiguousarray(f)
-
-        @__njit
-        def bdf_inner(interface, t, y_init, psi, c, scale, L):
+        def bdf_inner(interface: ModelInterface, t, y_init, psi, c, scale, LU, L):
 
             stat = 0
             # first estimate of next step
@@ -285,8 +275,8 @@ class BDF(BaseMethod):
 
             d = np.zeros_like(y)
             converged = False
-            dy_norm_old = None
-            rate = None
+            dy_norm_old = -1
+            rate = 0
 
             for k in range(inner_itermax):
                 _iter += 1
@@ -295,66 +285,68 @@ class BDF(BaseMethod):
 
                 b = c * f - psi - d
 
-                dy = lapack_solve_triangular(L, -b, len(b))
-                dy_norm = np.linalg.norm(dy / scale)
-                if not dy_norm_old:
-                    rate = None
-                else:
+                dy = lapack_solve_triangular(L, b, len(b))
+                #dy = scipy.linalg.lu_solve(LU, b)
+                dy_norm = norm(dy / scale)
+                if k > 0:
                     rate = dy_norm / dy_norm_old
 
-                if rate is not None and (rate >= 1 or rate ** (inner_itermax - k) / (1-rate) * dy_norm > newton_tol):
-                    stat = -1
-                    break
+                    if rate >= 1 or rate ** (inner_itermax - k) / (1-rate) * dy_norm > newton_tol:
+                        stat = -1
+                        break
 
                 d += dy
                 y += dy
 
-                if dy_norm == 0 or (rate is not None and rate / (1-rate) * dy_norm < newton_tol):
+                if dy_norm == 0 or (k > 0 and rate / (1-rate) * dy_norm < newton_tol):
                     converged = True
                     break
 
                 dy_norm_old = dy_norm
 
 
-            return converged, rate, y, d, stat
+            return converged, rate, y, d, stat, _iter
 
         @__njit
-        def bdf(interface, t, dt, y, _, __, _solve_state):
+        def bdf(interface: ModelInterface, t, dt, y, _, __, _solve_state):
             n = len(y)
             ynew = np.zeros_like(y)
 
             J = _solve_state[0]
             jacT = _solve_state[1]
-            update_jacobian = False#_solve_state[2]
-            last_f = _solve_state[3]
-            L = _solve_state[4]
+            update_jacobian = _solve_state[2]
+            L = _solve_state[3]
+            LU = _solve_state[4]
             updated = _solve_state[5]
             update_L = _solve_state[6]
             jac_updates = _solve_state[7]
-            longer = _solve_state[8]
-            shorter = _solve_state[9]
-            D = _solve_state[10]
-            dt_last = _solve_state[11]
-            order = _solve_state[12]
+            D = _solve_state[8]
+            dt_last = _solve_state[9]
+            order = _solve_state[10]
 
             converged = False
 
+            #  D contains the derivatives order 1, 2, ... up to 5. It must be updated if step size is changed.
             if dt != dt_last:
                 update_D(D, order, dt/dt_last)
 
-            psi = 1/alpha[order] * np.sum(gamma[1:order+1] * D[1:order+1])
+            #  Dot product is similar to sum of np.sum(gamma[1:order+1] * D[1:order+1].T, axis=1)
+            psi = 1/alpha[order] * gamma[1:order+1].dot(D[1:order+1])
 
-            y_init = np.sum(D[:order + 1], axis=0)  # euler integration
+            y_init = np.sum(D[:order + 1], axis=0)  # euler integration using known derivatives
             scale = abs_tol + rel_tol * np.abs(y_init)
             c = dt/(alpha[order])
             t += dt
+
+            d = np.zeros_like(y)
+            inner_iter = 0
 
             while not converged:
 
                 # We need a smarter way to update the jacobian...
                 if update_jacobian:
                     interface.set_states(y)
-                    J = jacobian(t, h)
+                    J = interface.get_jacobian(t, h)
 
                     update_jacobian = False
                     updated = True
@@ -363,11 +355,12 @@ class BDF(BaseMethod):
 
                 if update_L:
                     jac = np.identity(n) - c * J
+                    #LU = scipy.linalg.lu_factor(jac)
                     L = lapack_cholesky(76, n, jac)
                     update_L = False
 
-                converged, S, ynew, d, lnew, inner_stat, f = \
-                    bdf_inner(interface, t, y_init, psi, c, scale, L)
+                converged, rate, ynew, d, stat, inner_iter = \
+                    bdf_inner(interface, t, y_init, psi, c, scale, LU, L)
 
                 interface.set_states(ynew)
 
@@ -380,15 +373,54 @@ class BDF(BaseMethod):
 
                 if converged:
                     updated = False
-                    last_f = f
 
-            _solve_state = (J, jacT, update_jacobian, last_f, L, updated, update_L, jac_updates, longer, shorter, D, dt)
+            _solve_state = (J, jacT, update_jacobian, L, LU, updated, update_L, jac_updates, D, dt,
+                            order)
 
             # print(t)
             if not converged:
                 factor = shorter
+                return t, ynew, converged, update_jacobian, _solve_state, factor
+
+            safety = 0.9 * (2 * inner_itermax + 1) / (2 * inner_itermax + inner_iter)
+            scale = abs_tol + rel_tol * np.abs(ynew)
+            error = error_const[order] * d
+            error_norm = norm(error / scale)
+            if error_norm > 1:
+                factor = max(min_factor, safety * error_norm ** (-1 / (order + 1)))
+                converged = False
+                return t, ynew, converged, update_jacobian, _solve_state, factor
+
+            D[order + 2] = d - D[order + 1]
+            D[order + 1] = d
+
+            for i in np.arange(order+1)[::-1]:
+                D[i] += D[i + 1]
+
+            if order > 1:
+                error_m = error_const[order - 1] * D[order]
+                error_m_norm = norm(error_m / scale)
             else:
-                factor = longer
+                error_m_norm = np.inf
+
+            if order < max_order:
+                error_p = error_const[order + 1] * D[order +2]
+                error_p_norm = norm(error_p / scale)
+            else:
+                error_p_norm = np.inf
+
+            error_norms = np.array([error_m_norm, error_norm, error_p_norm])
+            #with np.errstate(divide='ignore'):
+            factors = error_norms ** (-1 / np.arange(order, order + 3))
+
+            delta_order = np.argmax(factors) - 1
+            order += delta_order
+
+            factor = min(max_factor, safety * np.max(factors))
+            update_L = True
+
+            _solve_state = (J, jacT, update_jacobian, L, LU, updated, update_L, jac_updates, D, dt,
+                            order)
 
             return t, ynew, converged, update_jacobian, _solve_state, factor
 
@@ -400,15 +432,14 @@ class BDF(BaseMethod):
         state = (np.ascontiguousarray(np.zeros((n, n))),
                  np.ascontiguousarray(np.zeros((n, n))),
                  True,
-                 np.ascontiguousarray(np.zeros(n)),
+                 np.ascontiguousarray(np.zeros((n, n))),
                  np.ascontiguousarray(np.zeros((n, n))),
                  False,
                  True,
                  0,
-                 self.longer,
-                 self.shorter,
                  self.D,
-                 self.initial_step
+                 self.initial_step,
+                 1
                  )
 
         return state

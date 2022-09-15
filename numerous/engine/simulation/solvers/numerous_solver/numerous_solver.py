@@ -9,10 +9,10 @@ from copy import deepcopy
 
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
 from numerous.utils import logger as log
-from .solver_methods import BaseMethod, RK45, Euler
+from .solver_methods import BaseMethod, RK45, Euler, BDF
 from .interface import SolverInterface, SolveEvent, SolveStatus
 
-solver_methods = {'RK45': RK45, 'Euler': Euler}
+solver_methods = {'RK45': RK45, 'Euler': Euler, 'BDF': BDF}
 
 Info = namedtuple('Info', ['status', 'event_id', 'step_info', 'initial_step', 'dt', 't', 'y', 'order_', 'roller',
                            'solve_state', 'ix_eval', 'g'])
@@ -106,8 +106,7 @@ class Numerous_solver(BaseSolver):
                     return True
                 return False
 
-            def handle_converged(t, dt, ix_eval, t_next_eval, order_):
-                order_ = add_ring_buffer(t, y, roller, order_)
+            def handle_converged(t, dt, ix_eval, t_next_eval):
 
                 solve_event_id = SolveEvent.NoneEvent
 
@@ -123,7 +122,7 @@ class Numerous_solver(BaseSolver):
                 t_start = t
                 t_new_test = np.min(te_array)
 
-                return order_, solve_event_id, ix_eval, t_start, t_next_eval, t_new_test, dt
+                return solve_event_id, ix_eval, t_start, t_next_eval, t_new_test, dt
 
             def add_ring_buffer(t_, y_, rb, o):
 
@@ -194,7 +193,7 @@ class Numerous_solver(BaseSolver):
                 dt_ = min([t_next_eval - t_start, t_new_test - t_start])
 
                 if order_ == 0:
-                    order_ = add_ring_buffer(t, y, roller, order_, 0)
+                    order_ = add_ring_buffer(t, y, roller, order_)
 
                 # solve from start to new test by calling the step function
                 t, y, step_converged, step_info, _solve_state, factor = step_integrate_(interface,
@@ -314,8 +313,10 @@ class Numerous_solver(BaseSolver):
                     if solve_event_id != SolveEvent.NoneEvent:
                         break
 
-                    order_, solve_event_id, ix_eval, t_start, t_next_eval, t_new_test, dt = \
-                        handle_converged(t, dt, ix_eval, t_next_eval, order_)
+                    order_ = add_ring_buffer(t, y, roller, order_)
+
+                    solve_event_id, ix_eval, t_start, t_next_eval, t_new_test, dt = \
+                        handle_converged(t, dt, ix_eval, t_next_eval)
 
                     if abs(t - t_end) < 100 * FEPS:
                         solve_status = SolveStatus.Finished
@@ -372,72 +373,6 @@ class Numerous_solver(BaseSolver):
 
         return _solve
 
-    def select_initial_step(self, interface: SolverInterface, t0, y0, direction, order, rtol, atol):
-        """Taken from scipy select initial step part of the ode solver package. Slightly modified
-
-
-        Empirically select a good initial step.
-
-        The algorithm is described in [1]_.
-
-        Parameters
-        ----------
-        interface : NumerousSolverInterface - contains the interface functions (internal/external) between model and solver
-
-        t0 : float
-            Initial value of the independent variable.
-        y0 : ndarray, shape (n,)
-            Initial value of the dependent variable.
-        direction : float
-            Integration direction.
-        order : float
-            Error estimator order. It means that the error controlled by the
-            algorithm is proportional to ``step_size ** (order + 1)`.
-        rtol : float
-            Desired relative tolerance.
-        atol : float
-            Desired absolute tolerance.
-
-        Returns
-        -------
-        h_abs : float
-            Absolute value of the suggested initial step.
-
-        References
-        ----------
-        .. [1] E. Hairer, S. P. Norsett G. Wanner, "Solving Ordinary Differential
-               Equations I: Nonstiff Problems", Sec. II.4.
-        """
-
-        f0 = self.f0
-
-        if y0.size == 0:
-            return np.inf
-
-        scale = atol + np.abs(y0) * rtol
-        d0 = np.linalg.norm(y0 / scale)
-        d1 = np.linalg.norm(f0 / scale)
-        if d0 < 1e-5 or d1 < 1e-5:
-            h0 = 1e-6
-        else:
-            h0 = 0.01 * d0 / d1
-
-        y1 = y0 + h0 * direction * f0
-        interface.model.set_states(y1)
-        f1 = interface.model.get_deriv(t0 + h0 * direction)
-        d2 = np.linalg.norm((f1 - f0) / scale) / h0
-
-        if d1 <= 1e-15 and d2 <= 1e-15:
-            h1 = max(1e-6, h0 * 1e-3)
-        else:
-            h1 = (0.01 / max(d1, d2)) ** (1 / (order + 1))
-
-        # Restore states in numba model
-        interface.model.set_states(y0)
-        interface.model.get_deriv(t0)
-
-        return min(100 * h0, h1)
-
     def _init_roller(self, order):
         n = order + 2
         rb0 = np.zeros((n, len(self.y0)))
@@ -486,8 +421,8 @@ class Numerous_solver(BaseSolver):
 
             # Set options
 
-            initial_step = self.select_initial_step(self.interface, t_start, y0, 1, order - 1, rtol,
-                                                    atol)  # np.min([100000000*min_step, max_step])
+            initial_step = self.method.initial_step
+
             dt = initial_step
 
             # figure out solve_state init
@@ -505,7 +440,7 @@ class Numerous_solver(BaseSolver):
             g = self.info.g
             initial_step = self.info.initial_step
 
-        return dt, strict_eval, step_integrate_, solve_state, roller, order_, order, initial_step, dt, min_step, \
+        return dt, strict_eval, step_integrate_, solve_state, roller, order_, order, initial_step, min_step, \
                max_step, atol, g
 
     def solve(self):
@@ -554,7 +489,7 @@ class Numerous_solver(BaseSolver):
 
     def _solver(self, t_eval, info=None):
 
-        dt, strict_eval, step_integrate_, solve_state, roller, order_, order, initial_step, dt, min_step, max_step, \
+        dt, strict_eval, step_integrate_, solve_state, roller, order_, order, initial_step, min_step, max_step, \
             atol, g = self._init_solve(info)
 
         t_start = t_eval[0]

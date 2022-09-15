@@ -96,7 +96,7 @@ def solve_ivp_results() -> Callable[[np.array, callable, str, np.array], OdeSolu
     yield fn
 
 
-@pytest.mark.parametrize("method", ["LM"])
+@pytest.mark.parametrize("method", ["BDF"])
 @pytest.mark.parametrize("jit", [False])
 def test_numerous_solver(get_interface: get_interface, solve_ivp_results: solve_ivp_results,
                          get_timerange: get_timerange,
