@@ -6,6 +6,7 @@ import numpy as np
 from abc import ABC
 from enum import IntEnum, unique
 
+
 @unique
 class SolveStatus(IntEnum):
     Running = 0
@@ -22,7 +23,7 @@ class SolveEvent(IntEnum):
 
 class ModelInterface():
 
-    def get_deriv(self, t: float) -> np.array:
+    def get_deriv(self, t: float) -> np.ascontiguousarray:
         """
         Function to return derivatives of state-space model. Must be implemented by user
         :param t: time
@@ -120,37 +121,14 @@ class ModelInterface():
     def run_time_event_action(self, t: float, idx: int) -> None:
         return
 
-    def get_jacobian(self, t, h) -> np.ascontiguousarray:
+    def get_jacobian(self, t, h):
         """
-        Function to return jacobian. By default use numerical jacobian, but you can create your own jacobian here.
-        :param t: time
-        :param h: step size
+
+        :param t:
+        :param h:
         :return:
         """
-        return self.__num_jac(t, h)
-
-    def __num_jac(self, t: float, h: float) -> np.ascontiguousarray:
-        """
-        Function to generate numerical jacobian matrix. Used with LM method. If left out, LM method cannot run.
-        :param t: time
-        :param h: an optional parameter to determine steps in case of numerical jacobian
-        :return: Numerical jacobian
-        """
-        y = self.get_states()
-        y_perm = y + h * np.diag(np.ones(len(y)))
-
-        f = self.get_deriv(t)
-        f_h = np.zeros_like(y_perm)
-        for i in range(y_perm.shape[0]):
-            y_i = y_perm[i, :]
-            self.set_states(y_i)
-            f_h[i, :] = self.get_deriv(t)
-        self.set_states(y)
-        diff = f_h - f
-        diff /= h
-        jac = diff.T
-        return np.ascontiguousarray(jac)
-
+        raise NotImplementedError
 
 
 class SolverInterface(ABC):
@@ -188,8 +166,5 @@ def jithelper(model_class: callable):
 
         return Wrapper(*args, **kwargs)
     return wrapper
-
-
-
 
 

@@ -421,7 +421,7 @@ class Numerous_solver(BaseSolver):
 
             # Set options
 
-            initial_step = self.method.initial_step
+            initial_step = self._method.initial_step
 
             dt = initial_step
 

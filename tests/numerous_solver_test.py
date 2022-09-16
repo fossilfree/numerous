@@ -97,7 +97,7 @@ def solve_ivp_results() -> Callable[[np.array, callable, str, np.array], OdeSolu
 
 
 @pytest.mark.parametrize("method", ["BDF"])
-@pytest.mark.parametrize("jit", [False])
+@pytest.mark.parametrize("jit", [True])
 def test_numerous_solver(get_interface: get_interface, solve_ivp_results: solve_ivp_results,
                          get_timerange: get_timerange,
                          method, jit):
@@ -110,8 +110,8 @@ def test_numerous_solver(get_interface: get_interface, solve_ivp_results: solve_
     num_solver = Numerous_solver(timerange, dt, interface=interface,
                              y0=y0, numba_compiled_solver=jit, method=method, atol=ABSTOL, rtol=RELTOL)
 
-    num_solver.solve()
-    num_results = np.array(interface.sol.results).T[1:]
+    #num_solver.solve()
+    #num_results = np.array(interface.sol.results).T[1:]
 
     scipy_results = solve_ivp_results(y0, interface.model.fun, method, timerange)
 
