@@ -2,7 +2,6 @@ import time
 import math
 from collections import namedtuple
 
-
 import numpy as np
 from numba import njit
 from copy import deepcopy
@@ -10,7 +9,8 @@ from copy import deepcopy
 from numerous.engine.simulation.solvers.base_solver import BaseSolver
 from numerous.utils import logger as log
 from .solver_methods import BaseMethod, RK45, Euler, BDF
-from .interface import SolverInterface, SolveEvent, SolveStatus
+from .interface import SolverInterface
+from .solve_states import SolveEvent, SolveStatus
 
 solver_methods = {'RK45': RK45, 'Euler': Euler, 'BDF': BDF}
 
@@ -351,9 +351,16 @@ class Numerous_solver(BaseSolver):
         order_ = 0
 
         args = (self.interface.model,
-                self._method.get_solver_state(len(self.y0)), initial_step, initial_step,
-                order, order_, roller, strict_eval, min_step,
-                max_step, step_integrate_,
+                self._method.get_solver_state(len(self.y0)),
+                initial_step,
+                initial_step,
+                order,
+                order_,
+                roller,
+                strict_eval,
+                min_step,
+                max_step,
+                step_integrate_,
                 self.g,
                 self.number_of_events,
                 self.time[0],

@@ -1,9 +1,9 @@
 import numpy as np
-from .common import get_jacobian_step_size, EPS, _num_jac
+from .common import Jacobian, NumericalJacobian, UserDefinedJacobian, EPS, jithelper
 from numba import njit
 from abc import ABC, abstractmethod
 from numerous.engine.model.compiled_model import CompiledModel
-from numerous.engine.simulation.solvers.numerous_solver.interface import ModelInterface, jithelper
+from numerous.engine.simulation.solvers.numerous_solver.interface import ModelInterface
 from numerous.engine.simulation.solvers.numerous_solver.common import select_initial_step
 from .linalg.lapack.lapack_python import lapack_solve_triangular, lapack_cholesky
 
@@ -219,61 +219,23 @@ class BDF(BaseMethod):
         abs_tol = options.get('atol', 0.001)
         rel_tol = options.get('rtol', 0.001)
         shorter = options.get('shorter', 0.8)
-        h = options.get('jacobian_stepsize', 1e-14)
 
         self.y0 = numerous_solver.y0
         self.interface = numerous_solver.interface.model
-        jac_factor = np.full(len(self.y0), EPS ** 0.5)
 
         try:
-            self.interface.get_jacobian(0, 1)
-            _get_jacobian = self.interface.get_jacobian
+            self.interface.get_jacobian(0)
+            jacobian = jithelper(UserDefinedJacobian, jit=numba_compiled_solver)
+            jac: UserDefinedJacobian = jacobian(interface=self.interface)
+            self.J = jac.get_jacobian(0)
 
         except NotImplementedError:
+            jacobian = jithelper(NumericalJacobian, jit=numba_compiled_solver)
+            jac: NumericalJacobian = jacobian(interface=self.interface, tolerance=abs_tol)
+            self.J = jac.get_jacobian(0)
 
-            get_jacobian_step_size_ = __njit(get_jacobian_step_size)
-            @__njit
-            def get_jacobian_step_size_wrapper(threshold, y, f, factor):
-                return get_jacobian_step_size_(threshold, y, f, factor)
 
-            num_jac_ = __njit(_num_jac)
-            @__njit
-            def num_jac_wrapper(interface, t, y, f, h, factor, y_scale):
-                return num_jac_(interface, t, y, f, h, factor, y_scale)
-
-            @jithelper
-            class Jacobian:
-                def __init__(self, interface: ModelInterface):
-                    self.interface = interface
-                    self.y = interface.get_states()
-                    self.f = interface.get_deriv(0)
-                    self.factor = np.full(len(self.y), EPS ** 0.5)
-
-                def get_jacobian_step_size(self, y, f):
-                    return get_jacobian_step_size_wrapper(abs_tol, y, f, self.factor)
-
-                def get_jacobian(self, t):
-                    y = np.ascontiguousarray(self.interface.get_states())
-                    f = np.ascontiguousarray(self.interface.get_deriv(t))
-                    h, y_scale = self.get_jacobian_step_size(y, f)
-
-                    j, factor = num_jac_wrapper(self.interface, t, y, f, h, self.factor, y_scale)
-                    self.factor = factor
-
-                    return j
-
-            _get_jacobian = Jacobian(self.interface).get_jacobian
-            #jac.get_jacobian(0)
-            #a=1
-                #return num_jac(self.interface, t, h)
-
-        __get_jacobian = __njit(_get_jacobian)
-
-        @__njit
-        def get_jacobian(t):
-            return __get_jacobian(t)
-
-        self.jac = get_jacobian(0)
+        self.jac = jac
         self.initial_step = select_initial_step(self.interface, numerous_solver.time[0], self.y0,
                                                            1, 1, rel_tol,
                                                            abs_tol)
@@ -376,6 +338,7 @@ class BDF(BaseMethod):
             D = _solve_state[8]
             dt_last = _solve_state[9]
             order = _solve_state[10]
+            jacobian: Jacobian = _solve_state[11]
 
             converged = False
 
@@ -399,7 +362,7 @@ class BDF(BaseMethod):
                 # We need a smarter way to update the jacobian...
                 if update_jacobian:
                     interface.set_states(y)
-                    J = get_jacobian(t)
+                    J = jacobian.get_jacobian(t)
 
                     update_jacobian = False
                     updated = True
@@ -428,7 +391,7 @@ class BDF(BaseMethod):
                     updated = False
 
             _solve_state = (J, jacT, update_jacobian, L, LU, updated, update_L, jac_updates, D, dt,
-                            order)
+                            order, jacobian)
 
             # print(t)
             if not converged:
@@ -473,7 +436,7 @@ class BDF(BaseMethod):
             update_L = True
 
             _solve_state = (J, jacT, update_jacobian, L, LU, updated, update_L, jac_updates, D, dt,
-                            order)
+                            order, jacobian)
 
             return t, ynew, converged, update_jacobian, _solve_state, factor
 
@@ -482,7 +445,7 @@ class BDF(BaseMethod):
 
     def get_solver_state(self, n):
 
-        state = (self.jac,
+        state = (self.J,
                  np.ascontiguousarray(np.zeros((n, n))),
                  False,
                  np.ascontiguousarray(np.zeros((n, n))),
@@ -493,6 +456,7 @@ class BDF(BaseMethod):
                  self.D,
                  self.initial_step,
                  1,
+                 self.jac
                  )
 
         return state

@@ -1,15 +1,16 @@
 import numpy as np
-import os
 import pytest
 from collections.abc import Callable
 from scipy.integrate import solve_ivp, OdeSolution
 from numba.core.registry import CPUDispatcher
-from numerous.engine.simulation.solvers.numerous_solver.interface import SolverInterface, ModelInterface, SolveEvent, \
-    jithelper
+from numerous.engine.simulation.solvers.numerous_solver.interface import SolverInterface, ModelInterface
+from numerous.engine.simulation.solvers.numerous_solver.common import jithelper
+from numerous.engine.simulation.solvers.numerous_solver.solve_states import SolveEvent
+
 from numerous.engine.simulation.solvers.numerous_solver.numerous_solver import Numerous_solver
 
-ABSTOL = 1e-6
-RELTOL = 1e-6
+ABSTOL = 1e-8
+RELTOL = 1e-8
 
 class Solution:
     def __init__(self):
@@ -18,7 +19,7 @@ class Solution:
     def add(self, t, y):
         self.results.append(np.append(t,y))
 
-@jithelper
+
 class SimpleModelInterface(ModelInterface):
     def __init__(self, n_tanks=10, start_volume=10, k=1):
         self.y = np.zeros(n_tanks)
@@ -69,9 +70,9 @@ class ExampleSolverInterface(SolverInterface):
 @pytest.fixture
 def get_interface() -> Callable[[bool], ExampleSolverInterface]:
     def fn(jit=False):
-        os.environ["_NO_JIT"] = "0" if jit else "1"
+        SimpleModelInterface_ = jithelper(SimpleModelInterface, jit=jit)
 
-        modelinterface: [SimpleModelInterface, CPUDispatcher] = SimpleModelInterface()
+        modelinterface: [SimpleModelInterface, CPUDispatcher] = SimpleModelInterface_()
         interface = ExampleSolverInterface(interface=modelinterface)
         return interface
     yield fn
@@ -96,8 +97,8 @@ def solve_ivp_results() -> Callable[[np.array, callable, str, np.array], OdeSolu
     yield fn
 
 
-@pytest.mark.parametrize("method", ["BDF"])
-@pytest.mark.parametrize("jit", [True])
+@pytest.mark.parametrize("method", ["BDF", "RK45"])
+@pytest.mark.parametrize("jit", [True, False])
 def test_numerous_solver(get_interface: get_interface, solve_ivp_results: solve_ivp_results,
                          get_timerange: get_timerange,
                          method, jit):
@@ -110,12 +111,12 @@ def test_numerous_solver(get_interface: get_interface, solve_ivp_results: solve_
     num_solver = Numerous_solver(timerange, dt, interface=interface,
                              y0=y0, numba_compiled_solver=jit, method=method, atol=ABSTOL, rtol=RELTOL)
 
-    #num_solver.solve()
-    #num_results = np.array(interface.sol.results).T[1:]
+    num_solver.solve()
+    num_results = np.array(interface.sol.results).T[1:]
 
     scipy_results = solve_ivp_results(y0, interface.model.fun, method, timerange)
 
     for tank, (scpy, num) in enumerate(zip(scipy_results.y, num_results)):
-        assert pytest.approx(scpy, abs=ABSTOL*10, rel=RELTOL*10) == num, f"results differ for tank {tank}"
+        assert pytest.approx(scpy, abs=ABSTOL*100, rel=RELTOL*100) == num, f"results differ for tank {tank}"
 
 

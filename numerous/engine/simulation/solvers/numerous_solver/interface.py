@@ -1,25 +1,6 @@
-import os
-
-import numba as nb
-from numba.experimental import jitclass
 import numpy as np
 from abc import ABC
-from enum import IntEnum, unique
-
-
-@unique
-class SolveStatus(IntEnum):
-    Running = 0
-    Finished = 1
-
-
-@unique
-class SolveEvent(IntEnum):
-    NoneEvent = 0
-    Historian = 1
-    ExternalDataUpdate = 2
-    HistorianAndExternalUpdate = 3
-
+from .solve_states import SolveEvent
 
 class ModelInterface():
 
@@ -121,11 +102,10 @@ class ModelInterface():
     def run_time_event_action(self, t: float, idx: int) -> None:
         return
 
-    def get_jacobian(self, t, h):
+    def get_jacobian(self, t):
         """
-
+        Method for calculating the jacobian matrix.
         :param t:
-        :param h:
         :return:
         """
         raise NotImplementedError
@@ -145,26 +125,6 @@ class SolverInterface(ABC):
             pass
 
 
-def jithelper(model_class: callable):
-    def wrapper(*args, **kwargs):
-        model = model_class(*args, **kwargs)
-        if os.getenv('_NO_JIT') == '1':
-            return model
 
-        spec = []
-        for v in model.__dict__:
-            nbtype = nb.typeof(getattr(model, v))
-            if type(nbtype) == nb.types.Array:  # Array must be type 'A' -
-                # by default the nb.typeof evaluates them to type 'C'
-                spec.append((v, nb.types.Array(nbtype.dtype, nbtype.ndim, 'A')))
-            else:
-                spec.append((v, nbtype))
-
-        @jitclass(spec=spec)
-        class Wrapper(model_class):
-            pass
-
-        return Wrapper(*args, **kwargs)
-    return wrapper
 
 
