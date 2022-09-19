@@ -471,7 +471,7 @@ class Euler(BaseMethod):
                 return fun
 
         @njit_
-        def euler(nm, t, dt, y, _not_used1, _not_used2, _solve_state):
+        def euler(interface: ModelInterface, t, dt, y, _not_used1, _not_used2, _solve_state):
 
             step_info = 1
 
@@ -480,11 +480,10 @@ class Euler(BaseMethod):
             if len(y) == 0:
                 return tnew, y, True, step_info, _solve_state, 1e20
 
-            fnew = nm.func(t, y)
+            fnew = interface.get_deriv(t)
 
             ynew = y + fnew * dt
-            # TODO figure out if this call can be avoided
-            nm.func(tnew, ynew)
+
             return tnew, ynew, True, step_info, _solve_state, 1e20
 
         self.step_func = euler

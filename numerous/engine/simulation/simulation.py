@@ -117,9 +117,14 @@ class Simulation:
 
     def complete(self):
 
-        list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,
+        list(map(lambda x: x.restore_variables_from_numba(self.numba_model,
                                                           self.model.path_variables), self.model.callbacks))
         self.model.create_historian_df()
+        self.run_after()
+
+    def run_after(self):
+        for function in self.model.run_after_solve:
+            function()
 
     def step_solve(self, t_start, step_size):
         try:

@@ -241,5 +241,3 @@ class NumericalJacobian(Jacobian):
                 h[i] = (y[i] + factor[i] * y_scale[i]) - y[i]
 
         return h, y_scale
-
-
