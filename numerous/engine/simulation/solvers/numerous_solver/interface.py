@@ -2,6 +2,7 @@ import numpy as np
 from abc import ABC
 from .solve_states import SolveEvent
 
+
 class ModelInterface():
 
     def get_deriv(self, t: float) -> np.ascontiguousarray:
@@ -120,7 +121,6 @@ class SolverInterface(ABC):
             pass
         elif event_id == SolveEvent.HistorianAndExternalUpdate:
             pass
-
 
 
 

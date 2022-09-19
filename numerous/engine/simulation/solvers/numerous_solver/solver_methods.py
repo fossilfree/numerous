@@ -8,7 +8,6 @@ from numerous.engine.simulation.solvers.numerous_solver.common import select_ini
 from .linalg.lapack.lapack_python import lapack_solve_triangular, lapack_cholesky
 
 
-
 def _njit(jit=True):
     def wrapper(fun):
         if jit:
@@ -18,9 +17,7 @@ def _njit(jit=True):
     return wrapper
 
 
-
 class BaseMethod(ABC):
-
     def __init__(self, numerous_solver, **options):
         self.jit_solver = numerous_solver.numba_compiled_solver
 
@@ -161,7 +158,6 @@ class RK45(BaseMethod):
                 k[i, :] = dt * interface.get_deriv(t + c[i] * dt)
 
             ynew = y + np.dot(k[0:order+2].T, b[0,:])
-            #fnew = nm.func(tnew, ynew)  # can possibly save one call here...
             interface.set_states(ynew)
             fnew = interface.get_deriv(tnew)
             k[-1, :] = dt*fnew
@@ -234,12 +230,10 @@ class BDF(BaseMethod):
             jac: NumericalJacobian = jacobian(interface=self.interface, tolerance=abs_tol)
             self.J = jac.get_jacobian(0)
 
-
         self.jac = jac
         self.initial_step = select_initial_step(self.interface, numerous_solver.time[0], self.y0,
                                                            1, 1, rel_tol,
                                                            abs_tol)
-
 
         newton_tol = max(10 * EPS / rel_tol, min(0.03, rel_tol ** 0.5))
 
@@ -248,7 +242,7 @@ class BDF(BaseMethod):
             R = calculate_R(order, factor)
             U = calculate_R(order, 1)
             RU = R.dot(U)
-            D[:order + 1] = np.dot(RU.T, D[:order +1])
+            D[:order + 1] = np.dot(RU.T, D[:order + 1])
             return D
 
         @__njit
@@ -263,10 +257,10 @@ class BDF(BaseMethod):
             R[0] = 1
             return R
 
-        gamma = np.hstack((0, np.cumsum(1/np.arange(1, max_order + 1))))
-        kappa = np.array([0, -1.85, -1/9, -0.0823, -0.0415, 0])
+        gamma = np.hstack((0, np.cumsum(1 / np.arange(1, max_order + 1))))
+        kappa = np.array([0, -1.85, -1 / 9, -0.0823, -0.0415, 0])
         error_const = kappa * gamma + 1 / np.arange(1, max_order + 2)
-        alpha = (1-kappa)*gamma
+        alpha = (1 - kappa) * gamma
         min_factor = 0.2
         max_factor = 10
         D = np.zeros((max_order + 3, len(self.y0)), dtype=np.float64)
@@ -302,19 +296,18 @@ class BDF(BaseMethod):
                 b = c * f - psi - d
 
                 dy = lapack_solve_triangular(L, b, len(b))
-                #dy = scipy.linalg.lu_solve(LU, b)
                 dy_norm = norm(dy / scale)
                 if k > 0:
                     rate = dy_norm / dy_norm_old
 
-                    if rate >= 1 or rate ** (inner_itermax - k) / (1-rate) * dy_norm > newton_tol:
+                    if rate >= 1 or rate ** (inner_itermax - k) / (1 - rate) * dy_norm > newton_tol:
                         stat = -1
                         break
 
                 d += dy
                 y += dy
 
-                if dy_norm == 0 or (k > 0 and rate / (1-rate) * dy_norm < newton_tol):
+                if dy_norm == 0 or (k > 0 and rate / (1 - rate) * dy_norm < newton_tol):
                     converged = True
                     break
 
@@ -344,14 +337,14 @@ class BDF(BaseMethod):
 
             #  D contains the derivatives order 1, 2, ... up to 5. It must be updated if step size is changed.
             if dt != dt_last:
-                update_D(D, order, dt/dt_last)
+                update_D(D, order, dt / dt_last)
 
             #  Dot product is similar to sum of np.sum(gamma[1:order+1] * D[1:order+1].T, axis=1)
-            psi = 1/alpha[order] * gamma[1:order+1].dot(D[1:order+1])
+            psi = 1 / alpha[order] * gamma[1:order + 1].dot(D[1:order + 1])
 
             y_init = np.sum(D[:order + 1], axis=0)  # euler integration using known derivatives
             scale = abs_tol + rel_tol * np.abs(y_init)
-            c = dt/(alpha[order])
+            c = dt / (alpha[order])
             t += dt
 
             d = np.zeros_like(y)
@@ -371,7 +364,6 @@ class BDF(BaseMethod):
 
                 if update_L:
                     jac = np.identity(n) - c * J
-                    #LU = scipy.linalg.lu_factor(jac)
                     L = lapack_cholesky(76, n, jac)
                     update_L = False
 
@@ -410,7 +402,7 @@ class BDF(BaseMethod):
             D[order + 2] = d - D[order + 1]
             D[order + 1] = d
 
-            for i in np.arange(order+1)[::-1]:
+            for i in np.arange(order + 1)[::-1]:
                 D[i] += D[i + 1]
 
             if order > 1:
@@ -420,13 +412,12 @@ class BDF(BaseMethod):
                 error_m_norm = np.inf
 
             if order < max_order:
-                error_p = error_const[order + 1] * D[order +2]
+                error_p = error_const[order + 1] * D[order + 2]
                 error_p_norm = norm(error_p / scale)
             else:
                 error_p_norm = np.inf
 
             error_norms = np.array([error_m_norm, error_norm, error_p_norm])
-            #with np.errstate(divide='ignore'):
             factors = error_norms ** (-1 / np.arange(order, order + 3))
 
             delta_order = np.argmax(factors) - 1

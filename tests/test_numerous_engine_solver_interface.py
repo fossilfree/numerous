@@ -130,9 +130,3 @@ def test_store_historian(normal_solver: normal_solver, step_solver: step_solver)
             f"failed for {name}"
         assert approx(df_split["abstestsys.abstest.t1.y"]) == df_single["abstestsys.abstest.t1.y"], \
             "failed for {name}"
-"""
-@pytest.mark.parametrize("method", ["RK45"])
-def test_solver_methods(method, normal_solver: normal_solver):
-    df_normal_solver = normal_solver(solver=SolverType.NUMEROUS, method=method, historian=InMemoryHistorian(),
-                                     historian_max_size=2000)
-"""

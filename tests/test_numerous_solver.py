@@ -12,6 +12,7 @@ from numerous.engine.simulation.solvers.numerous_solver.numerous_solver import N
 ABSTOL = 1e-8
 RELTOL = 1e-8
 
+
 class Solution:
     def __init__(self):
         self.results = []
@@ -32,14 +33,14 @@ class SimpleModelInterface(ModelInterface):
             if tank == 0:
                 inlet = 0
             else:
-                inlet = self.k*self.y[tank-1]
+                inlet = self.k * self.y[tank - 1]
 
-            if tank == len(self.y)-1:
+            if tank == len(self.y) - 1:
                 outlet = 0
             else:
-                outlet = self.k*self.y[tank]
+                outlet = self.k * self.y[tank]
 
-            diff = inlet-outlet
+            diff = inlet - outlet
             y_dot[tank] = diff
         return y_dot
 
@@ -67,6 +68,7 @@ class ExampleSolverInterface(SolverInterface):
             y = self.model.get_states()
             self.sol.add(t, y)
 
+
 @pytest.fixture
 def get_interface() -> Callable[[bool], ExampleSolverInterface]:
     def fn(jit=False):
@@ -77,6 +79,7 @@ def get_interface() -> Callable[[bool], ExampleSolverInterface]:
         return interface
     yield fn
 
+
 @pytest.fixture
 def get_timerange() -> (np.array, float):
     t_start = 0
@@ -84,6 +87,7 @@ def get_timerange() -> (np.array, float):
     dt = 1
     timerange = np.append(np.arange(t_start, t_end, dt), t_end)
     yield timerange, dt
+
 
 @pytest.fixture
 def solve_ivp_results() -> Callable[[np.array, callable, str, np.array], OdeSolution]:
@@ -109,7 +113,7 @@ def test_numerous_solver(get_interface: get_interface, solve_ivp_results: solve_
     timerange, dt = get_timerange
 
     num_solver = Numerous_solver(timerange, dt, interface=interface,
-                             y0=y0, numba_compiled_solver=jit, method=method, atol=ABSTOL, rtol=RELTOL)
+                                 y0=y0, numba_compiled_solver=jit, method=method, atol=ABSTOL, rtol=RELTOL)
 
     num_solver.solve()
     num_results = np.array(interface.sol.results).T[1:]
@@ -117,6 +121,4 @@ def test_numerous_solver(get_interface: get_interface, solve_ivp_results: solve_
     scipy_results = solve_ivp_results(y0, interface.model.fun, method, timerange)
 
     for tank, (scpy, num) in enumerate(zip(scipy_results.y, num_results)):
-        assert pytest.approx(scpy, abs=ABSTOL*100, rel=RELTOL*100) == num, f"results differ for tank {tank}"
-
-
+        assert pytest.approx(scpy, abs=ABSTOL*100, rel=RELTOL * 100) == num, f"results differ for tank {tank}"

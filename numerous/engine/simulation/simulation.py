@@ -78,9 +78,6 @@ class Simulation:
 
         log.info("Compiling Numba equations and initializing historian")
         compilation_start = time.time()
-        #self.numba_model.map_external_data(t_start)
-        #self.numba_model.func(t_start, self.numba_model.get_states())
-        #self.numba_model.historian_update(t_start)
         compilation_finished = time.time()
         log.info(
             f"Numba equations compiled, historian initizalized, compilation time: {compilation_finished - compilation_start}")

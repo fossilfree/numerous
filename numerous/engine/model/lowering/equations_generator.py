@@ -93,7 +93,7 @@ class EquationGenerator:
 
         for eq_key, eq in equations.items():
             if eq_key in eq_used:
-                used_eq[eq_key]=eq
+                used_eq[eq_key] = eq
         self._parse_equations(used_eq)
 
         self.all_targeted = []
@@ -146,9 +146,10 @@ class EquationGenerator:
                     replacements=eq.replacements,
                     replace_name=eq_key
                 )
-                self.llvm_names.update(self.generated_program.add_external_function(func_llvm, signature, len(args), target_ids,
-                                                             replacements=eq.replacements,replace_name=eq_key))
-
+                self.llvm_names.update(self.generated_program.add_external_function(func_llvm, signature, len(args),
+                                                                                    target_ids,
+                                                                                    replacements=eq.replacements,
+                                                                                    replace_name=eq_key))
             else:
                 func, args, target_ids = function_from_graph_generic(eq.graph,
                                                                      var_def_=vardef, arg_metadata=eq.graph.arg_metadata,
@@ -156,7 +157,7 @@ class EquationGenerator:
                                                                      replace_name=eq_key
                                                                      )
                 self.generated_program.add_external_function(func, None, len(args), target_ids,
-                                                             replacements=eq.replacements,replace_name=eq_key)
+                                                             replacements=eq.replacements, replace_name=eq_key)
 
             vardef.llvm_target_ids = target_ids
             vardef.args_order = args
@@ -212,7 +213,7 @@ class EquationGenerator:
             # Record all targeted variables
             for t in vardef.targets:
                 self.all_targeted_set_vars.append(scope_vars[t])
-                ##TODO check that they all the same size
+                # TODO check that they all the same size
                 set_size = self.set_variables[scope_vars[t]].get_size()
             # Record all read variables
             for a in vardef.args:
@@ -244,7 +245,7 @@ class EquationGenerator:
                 for i in range(set_var.get_size()):
                     llvm_args_.append(set_var.get_var_by_idx(i).id)
                 llvm_args.append(llvm_args_)
-            ##reshape to correct format
+            # reshape to correct format
             llvm_args = [list(x) for x in zip(*llvm_args)]
             self.generated_program.add_set_call(self.get_external_function_name(ext_func), llvm_args,
                                                 vardef.llvm_target_ids)

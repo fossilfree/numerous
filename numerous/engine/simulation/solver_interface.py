@@ -1,7 +1,6 @@
 import numpy as np
 import numba as nb
 from numba.core.registry import CPUDispatcher
-from typing import Optional
 import numpy.typing as npt
 from numba.experimental import jitclass
 from numerous.engine.model.compiled_model import CompiledModel
@@ -20,7 +19,6 @@ class NumerousEngineModelInterface(ModelInterface):
         self.event_directions = event_directions
         self.time_events = time_events
         self.time_event_actions = time_event_actions
-
 
     def get_deriv(self, t) -> np.array:
         y = self.get_states()
@@ -90,7 +88,7 @@ class NumerousEngineModelInterface(ModelInterface):
             event_ix_min = -1
             for event_ix, timestamps in enumerate(self.time_events):
                 ix = np.searchsorted(timestamps, t, 'left')
-                if ix > len(timestamps)-1:
+                if ix > len(timestamps) - 1:
                     continue
                 else:
                     t_event = timestamps[ix]

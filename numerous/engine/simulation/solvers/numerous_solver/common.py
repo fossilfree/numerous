@@ -210,7 +210,6 @@ class NumericalJacobian(Jacobian):
                 scale[update_ind] = scale_new[update]
                 max_diff[update_ind] = max_diff_new[update]
 
-
         diff /= h
 
         factor[max_diff < NUM_JAC_DIFF_SMALL * scale] *= NUM_JAC_FACTOR_INCREASE
@@ -242,4 +241,5 @@ class NumericalJacobian(Jacobian):
                 h[i] = (y[i] + factor[i] * y_scale[i]) - y[i]
 
         return h, y_scale
+
 

@@ -28,7 +28,6 @@ class Numerous_solver(BaseSolver):
     def __init__(self, time_, delta_t, interface: SolverInterface, y0, numba_compiled_solver,
                  **kwargs):
         super().__init__()
-        #numba_compiled_solver = False
 
         self.time = time_
         self.delta_t = delta_t
@@ -149,8 +148,6 @@ class Numerous_solver(BaseSolver):
             te_array[1] = t_eval[ix_eval] + dt if strict_eval else np.inf
             t_next_eval = t_eval[ix_eval]
 
-            #step_converged = False
-            #event_trigger = False
             event_ix = -1
             t_event = t
             y_event = y
@@ -278,7 +275,7 @@ class Numerous_solver(BaseSolver):
                 if not event_trigger and step_converged:
                     y_previous = y
                     t_previous = t
-                    if abs(t-t_next_time_event) < 1e-6:
+                    if abs(t - t_next_time_event) < 1e-6:
                         interface.set_states(y)
                         interface.run_time_event_action(t, time_event_ix)  # todo: use interface to get y.
                         y_previous = interface.get_states()
