@@ -31,7 +31,7 @@ from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
 
 from numerous.engine.system.subsystem import Subsystem, ItemSet
-from numerous.engine.variables import VariableType
+from numerous.engine.variables import VariableType, VariableDescription, _VariableFactory
 
 from numerous.engine.model.ast_parser.parser_ast import parse_eq
 from numerous.engine.model.graph_representation.graph import Graph
@@ -282,6 +282,11 @@ class Model:
         for v in self.variables.values():
             v.top_item = self.system.id
 
+        def constant():
+            var_desc = VariableDescription(tag='global_vars_t', initial_value=0,
+                                           type=VariableType.CONSTANT)
+            return _VariableFactory._create_from_variable_desc_unbound(variable_description=var_desc, initial_value=0)
+
         eq_used = []
         for item_id, namespaces in model_namespaces.items():
             for ns in namespaces:
@@ -290,7 +295,9 @@ class Model:
                     tag_vars = ns.set_variables
                 else:
                     tag_vars = {v.tag: v for k, v in ns.variables.items()}
-
+                x = constant()
+                tag_vars["global_vars_t"] = x
+                self.variables.update({x.id:x})
                 parse_eq(model_namespace=ns, item_id=item_id, mappings_graph=self.mappings_graph,
                          scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
                          scoped_equations=self.scoped_equations, parsed_eq=self.equations_top, eq_used=eq_used)
@@ -353,16 +360,19 @@ class Model:
             logvar = False
             if variable.logger_level.value >= self.logger_level.value:
                 logvar = True
-            for path in variable.path.path[self.system.id]:
-                self.aliases.update({path: variable.id})
-                if logvar:
-                    self.logged_aliases.update({path: variable.id})
+            if self.system.id in variable.path.path:
+                for path in variable.path.path[self.system.id]:
+                    self.aliases.update({path: variable.id})
+                    if logvar:
+                        self.logged_aliases.update({path: variable.id})
+                for path in variable.path.path[self.system.id]:
+                    self.path_variables.update({path: variable.value})  # is this used at all?
+                    
             if variable.alias is not None:
                 self.aliases.update({variable.alias: variable.id})
                 if logvar:
                     self.logged_aliases.update({variable.alias: variable.id})
-            for path in variable.path.path[self.system.id]:
-                self.path_variables.update({path: variable.value})  # is this used at all?
+
 
         self.inverse_aliases = {v: k for k, v in self.aliases.items()}
         inverse_logged_aliases = {}  # {id: [alias1, alias2...], ...}
@@ -451,7 +461,7 @@ class Model:
                 setattr(var, 'logger_level', LoggerLevel.ALL)
 
         def c1(self, array_):
-            return compiled_compute(array_)
+            return compiled_compute(array_, self.global_vars)
 
         def c2(self):
             return var_func()
@@ -754,7 +764,7 @@ class Model:
 
         @njit('float64[:](float64[:],float64[:])')
         def compiled_compute(y, global_vars):
-            deriv_pointer = diff_(y.ctypes)
+            deriv_pointer = diff_(y.ctypes, global_vars.ctypes)
             return carray(deriv_pointer, (n_deriv,)).copy()
 
         @njit('float64[:]()')
@@ -818,17 +828,15 @@ class Model:
             import pandas as pd
             self.historian_df = AliasedDataFrame(pd.concat([self.historian_df.df,
                                                             self._generate_history_df(
-                                                                self.generate_not_nan_history_array(),
-                                                                rename_columns=False).df],
+                                                                self.generate_not_nan_history_array()).df],
                                                            axis=0, sort=False, ignore_index=True),
                                                  aliases=self.aliases, rename_columns=True)
 
         else:
-            self.historian_df = self._generate_history_df(self.generate_not_nan_history_array(),
-                                                          rename_columns=False)
+            self.historian_df = self._generate_history_df(self.generate_not_nan_history_array())
         self.historian.store(self.historian_df)
 
-    def _generate_history_df(self, historian_data, rename_columns=True):
+    def _generate_history_df(self, historian_data):
         data = self.create_historian_dict(historian_data)
         return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
 

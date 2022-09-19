@@ -158,6 +158,8 @@ class EquationGenerator:
             self.eq_vardefs[eq_key] = vardef
 
     def search_in_item_scope(self, var_id, item_id):
+        if var_id.startswith("global_vars_t"):
+            return var_id
         for var in self.scope_variables.values():
             ##TODO add namespacecheck
             if var.item.id == item_id and var.tag == self.scope_variables[var_id].tag:

@@ -12,8 +12,6 @@ fmu_subsystem = FMU_Subsystem(fmu_filename, "PCU_RHU", debug_output=False, fmu_l
 class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
-
-        # fmu_subsystem.t1.variables["h"].value = 19
         self.register_items([fmu_subsystem])
 
 

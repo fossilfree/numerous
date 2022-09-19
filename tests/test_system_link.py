@@ -57,6 +57,7 @@ class Base(Subsystem, EquationBase):
 
     @Equation()
     def eval(self, scope):
+        scope.k = scope.global_vars_t
         scope.x = scope.x0 * scope.k
 
 

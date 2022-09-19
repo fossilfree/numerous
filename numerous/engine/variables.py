@@ -197,7 +197,10 @@ class Variable(MappedValue):
         self.used_in_equation_graph = False
 
     def get_path_dot(self):
-        return self.path.path[self.top_item][0]
+        if self.top_item:
+            return self.path.path[self.top_item][0]
+        else:
+            return list(self.path.path.values())[0][0]
 
     def update_value(self, value):
         self._value = value

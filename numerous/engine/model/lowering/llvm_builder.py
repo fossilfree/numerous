@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import logging
 import os
 from ctypes import CFUNCTYPE, POINTER, c_double, c_void_p, c_int64
 from numba import carray, cfunc, njit
@@ -47,10 +46,11 @@ class LLVMBuilder:
         self.n_deriv = len(derivatives)
         # Define the overall function
         self.fnty = ll.FunctionType(ll.DoubleType().as_pointer(), [
-            ll.DoubleType().as_pointer()
+            ll.DoubleType().as_pointer(),ll.DoubleType().as_pointer()
         ])
         self.index0 = 0
         self.fnty.args[0].name = "y"
+        self.fnty.args[1].name = "global_vars"
         self.system_tag = system_tag
         self.variable_names = {}
         self.equations_llvm = []
@@ -170,7 +170,7 @@ class LLVMBuilder:
 
         c_float_type = type(np.ctypeslib.as_ctypes(np.float64()))
 
-        diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type))(cfptr)
+        diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type), POINTER(c_float_type))(cfptr)
 
         vars_r = CFUNCTYPE(POINTER(c_float_type), c_int64)(cfptr_var_r)
 
@@ -178,9 +178,9 @@ class LLVMBuilder:
 
         n_deriv = self.n_deriv
 
-        @njit('float64[:](float64[:])')
-        def diff(y):
-            deriv_pointer = diff_(y.ctypes)
+        @njit('float64[:](float64[:],float64[:])')
+        def diff(y, global_vars):
+            deriv_pointer = diff_(y.ctypes, global_vars.ctypes)
             return carray(deriv_pointer, (n_deriv,)).copy()
 
         max_var = self.max_var
