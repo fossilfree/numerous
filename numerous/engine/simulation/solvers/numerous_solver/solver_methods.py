@@ -462,6 +462,11 @@ class Euler(BaseMethod):
         self.rtol = options.get('rtol', 1e-3)
 
         numba_compiled_solver = numerous_solver.numba_compiled_solver
+        self.interface: ModelInterface = numerous_solver.interface.model
+        self.t_start = numerous_solver.time[0]
+        self.y0 = numerous_solver.y0
+        self.initial_step = select_initial_step(self.interface, self.t_start, self.y0, 1, self.order, self.rtol,
+                                                self.atol)
 
         def njit_(fun):
             if numba_compiled_solver:
