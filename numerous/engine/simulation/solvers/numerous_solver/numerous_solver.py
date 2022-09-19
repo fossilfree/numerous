@@ -15,7 +15,7 @@ from .solve_states import SolveEvent, SolveStatus
 solver_methods = {'RK45': RK45, 'Euler': Euler, 'BDF': BDF}
 
 Info = namedtuple('Info', ['status', 'event_id', 'step_info', 'initial_step', 'dt', 't', 'y', 'order_', 'roller',
-                           'solve_state', 'ix_eval', 'g'])
+                           'solve_state', 'ix_eval', 'g', 'step_converged', 'event_trigger'])
 
 try:
     FEPS = np.finfo(1.0).eps
@@ -80,7 +80,7 @@ class Numerous_solver(BaseSolver):
 
     def generate_solver(self):
         def _solve(interface, _solve_state, initial_step, dt_0, order, order_, roller, strict_eval,
-                   min_step, max_step, step_integrate_, g, number_of_events,
+                   min_step, max_step, step_integrate_, g, number_of_events, step_converged, event_trigger,
                    t0=0.0, t_end=1000.0, t_eval=np.linspace(0.0, 1000.0, 100), ix_eval=1, event_tolerance=1e-6):
 
             # Init t to t0
@@ -122,7 +122,7 @@ class Numerous_solver(BaseSolver):
                 t_start = t
                 t_new_test = np.min(te_array)
 
-                return solve_event_id, ix_eval, t_start, t_next_eval, t_new_test, dt
+                return solve_event_id, ix_eval, t_start, t_next_eval, t_new_test
 
             def add_ring_buffer(t_, y_, rb, o):
 
@@ -149,8 +149,8 @@ class Numerous_solver(BaseSolver):
             te_array[1] = t_eval[ix_eval] + dt if strict_eval else np.inf
             t_next_eval = t_eval[ix_eval]
 
-            step_converged = False
-            event_trigger = False
+            #step_converged = False
+            #event_trigger = False
             event_ix = -1
             t_event = t
             y_event = y
@@ -309,13 +309,14 @@ class Numerous_solver(BaseSolver):
                             break
 
                 if step_converged:
+                    interface.set_states(y)
                     solve_event_id = interface.post_step(t)
                     if solve_event_id != SolveEvent.NoneEvent:
                         break
 
                     order_ = add_ring_buffer(t, y, roller, order_)
 
-                    solve_event_id, ix_eval, t_start, t_next_eval, t_new_test, dt = \
+                    solve_event_id, ix_eval, t_start, t_next_eval, t_new_test = \
                         handle_converged(t, dt, ix_eval, t_next_eval)
 
                     if abs(t - t_end) < 100 * FEPS:
@@ -327,7 +328,8 @@ class Numerous_solver(BaseSolver):
 
             return Info(status=solve_status, event_id=solve_event_id, step_info=step_info,
                         dt=dt, t=t, y=np.ascontiguousarray(y), order_=order_, roller=roller, solve_state=_solve_state,
-                        ix_eval=ix_eval, g=g, initial_step=initial_step)
+                        ix_eval=ix_eval, g=g, initial_step=initial_step, step_converged=step_converged,
+                        event_trigger=event_trigger)
 
         return _solve
 
@@ -363,6 +365,8 @@ class Numerous_solver(BaseSolver):
                 step_integrate_,
                 self.g,
                 self.number_of_events,
+                False,
+                False,
                 self.time[0],
                 self.time[-1],
                 self.time,
@@ -438,6 +442,8 @@ class Numerous_solver(BaseSolver):
             roller = self._init_roller(order)
             order_ = 0
             g = self.g
+            step_converged = False
+            event_trigger = False
         else:
 
             dt = self.info.dt  # internal solver step size
@@ -446,9 +452,11 @@ class Numerous_solver(BaseSolver):
             solve_state = self.info.solve_state
             g = self.info.g
             initial_step = self.info.initial_step
+            step_converged = self.info.step_converged
+            event_trigger = self.info.event_trigger
 
         return dt, strict_eval, step_integrate_, solve_state, roller, order_, order, initial_step, min_step, \
-               max_step, atol, g
+               max_step, atol, g, step_converged, event_trigger
 
     def solve(self):
         """
@@ -497,7 +505,7 @@ class Numerous_solver(BaseSolver):
     def _solver(self, t_eval, info=None):
 
         dt, strict_eval, step_integrate_, solve_state, roller, order_, order, initial_step, min_step, max_step, \
-            atol, g = self._init_solve(info)
+            atol, g, step_converged, event_trigger = self._init_solve(info)
 
         t_start = t_eval[0]
         t_end = t_eval[-1]
@@ -506,6 +514,8 @@ class Numerous_solver(BaseSolver):
                            solve_state, initial_step, dt, order, order_, roller, strict_eval, min_step,
                            max_step, step_integrate_, g,
                            self.number_of_events,
+                           step_converged,
+                           event_trigger,
                            t_start, t_end,
                            t_eval, 1, atol)
 
@@ -516,6 +526,8 @@ class Numerous_solver(BaseSolver):
                                info.solve_state, initial_step, info.dt, order, info.order_, info.roller, strict_eval,
                                min_step, max_step, step_integrate_, info.g,
                                self.number_of_events,
+                               info.step_converged,
+                               info.event_trigger,
                                info.t, t_end,
                                t_eval, info.ix_eval, atol)
 

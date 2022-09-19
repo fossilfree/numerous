@@ -209,7 +209,7 @@ def simulation(tmpdir: tmpdir):
         s = Simulation(
             Model(system
                   ('system_external', external_mappings=external_mappings, data_loader=data_loader),
-                  historian=historian),
+                  historian=historian, use_llvm=False),
             t_start=t0, t_stop=tmax, num=len(np.arange(0, tmax, dt_eval)), max_step=max_step)
         return s
     yield fn
@@ -289,9 +289,9 @@ def test_external_data_multiple(use_llvm, system, external_data):
 @pytest.mark.parametrize("solver", [step_solver, normal_solver])
 @pytest.mark.parametrize("dataloader", [inmemorydataloader, csvdataloader])
 @pytest.mark.parametrize("system", [StaticDataSystem, StaticDataSystemWithBall])
-#@pytest.mark.parametrize("chunksize", [1])
-#@pytest.mark.parametrize("historian_max_size", [1])
-#@pytest.mark.parametrize("solver", [normal_solver])
+#@pytest.mark.parametrize("chunksize", [10000])
+#@pytest.mark.parametrize("historian_max_size", [10000])
+#@pytest.mark.parametrize("solver", [step_solver])
 #@pytest.mark.parametrize("dataloader", [inmemorydataloader])
 #@pytest.mark.parametrize("system", [StaticDataSystemWithBall])
 def test_external_data_chunks_and_historian_update(external_data: external_data, simulation: simulation,
