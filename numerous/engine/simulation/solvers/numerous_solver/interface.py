@@ -96,9 +96,6 @@ class ModelInterface():
 
         return np.array([0])
 
-    def get_event_functions(self) -> callable:
-        return lambda t, y: [-1]
-
     def run_time_event_action(self, t: float, idx: int) -> None:
         return
 

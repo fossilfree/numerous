@@ -121,9 +121,6 @@ class NumerousEngineModelInterface(ModelInterface):
     def get_event_directions(self) -> np.array:
         return self.event_directions
 
-    def get_event_functions(self) -> Optional[callable]:
-        return self.event_functions
-
 
 def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel,
                                               events: tuple[CPUDispatcher, np.ndarray, CPUDispatcher],

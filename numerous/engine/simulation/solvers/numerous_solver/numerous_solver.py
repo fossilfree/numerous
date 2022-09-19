@@ -263,7 +263,7 @@ class Numerous_solver(BaseSolver):
 
                         for ix in np.concatenate((np.argwhere(up), np.argwhere(down))):
                             eps = 1.e-6  # for case to t_event = t
-                            status, t_event, y_event = check_event(interface.get_event_functions(), ix[0],
+                            status, t_event, y_event = check_event(interface.get_event_results, ix[0],
                                                                    t_previous, y_previous, t, y)
                             t_events[ix[0]] = t_event - eps
                             y_events[:, ix[0]] = y_event
