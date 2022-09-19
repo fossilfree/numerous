@@ -18,7 +18,7 @@ class Solution:
         self.results = []
 
     def add(self, t, y):
-        self.results.append(np.append(t,y))
+        self.results.append(np.append(t, y))
 
 
 class SimpleModelInterface(ModelInterface):
@@ -121,4 +121,4 @@ def test_numerous_solver(get_interface: get_interface, solve_ivp_results: solve_
     scipy_results = solve_ivp_results(y0, interface.model.fun, method, timerange)
 
     for tank, (scpy, num) in enumerate(zip(scipy_results.y, num_results)):
-        assert pytest.approx(scpy, abs=ABSTOL*100, rel=RELTOL * 100) == num, f"results differ for tank {tank}"
+        assert pytest.approx(scpy, abs=ABSTOL * 100, rel=RELTOL * 100) == num, f"results differ for tank {tank}"

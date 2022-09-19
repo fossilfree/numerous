@@ -36,7 +36,7 @@ class Numerous_solver(BaseSolver):
 
         self.diff_function = interface.model.get_deriv
         self.numba_compiled_solver = numba_compiled_solver
-        self.number_of_events = len(self.g) if self.g else 0
+        self.number_of_events = len(self.g) if all(self.g) else 0
         self.interface.model.pre_step(time_[0])
         self.interface.model.set_states(y0)
         self.f0 = self.diff_function(time_[0])

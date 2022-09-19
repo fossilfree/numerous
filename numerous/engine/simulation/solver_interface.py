@@ -7,6 +7,7 @@ from numerous.engine.model.compiled_model import CompiledModel
 from numerous.engine.model import Model
 from numerous.engine.simulation.solvers.numerous_solver.interface import SolverInterface, \
     ModelInterface
+from numerous.engine.simulation.solvers.numerous_solver.common import jithelper
 from numerous.engine.simulation.solvers.numerous_solver.numerous_solver import SolveEvent
 
 
@@ -125,29 +126,10 @@ def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel,
                                               time_events: tuple[np.ndarray, CPUDispatcher],
                                               jit=True):
 
-    def decorator(jit=True):
-        if not hasattr(nm, '_numba_type_') or not hasattr(events[0], '_numba_type_') \
-                or not hasattr(events[2], '_numba_type_') or not hasattr(time_events[1], '_numba_type_'):
-            jit = False
-        if jit:
-            spec = [("nm", nm._numba_type_),
-                    ("event_functions", events[0]._numba_type_),
-                    ("event_directions", nb.typeof(events[1])),
-                    ("event_actions", events[2]._numba_type_),
-                    ("time_events", nb.typeof(time_events[0])),
-                    ("time_event_actions", time_events[1]._numba_type_)]
-            return jitclass(spec)
-        else:
-            def passthrough(fun):
-                return fun
-            return passthrough
-
-    @decorator(jit=jit)
-    class NumerousEngineModelInterfaceWrapper(NumerousEngineModelInterface):
-        pass
+    NumerousEngineModelInterface_ = jithelper(NumerousEngineModelInterface, jit=jit)
 
     class NumerousEngineSolverInterface(SolverInterface):
-        def __init__(self, interface: NumerousEngineModelInterfaceWrapper, model: Model, nm: CompiledModel):
+        def __init__(self, interface: [NumerousEngineModelInterface, CPUDispatcher], model: Model, nm: CompiledModel):
             super(NumerousEngineSolverInterface, self).__init__(modelinterface=interface)
             self._model = model
             self._nm = nm
@@ -176,10 +158,10 @@ def generate_numerous_engine_solver_interface(model: Model, nm: CompiledModel,
             self._nm.update_external_data(external_mappings_numpy, external_mappings_time, max_external_t,
                                           min_external_t)
 
-    return NumerousEngineSolverInterface(interface=NumerousEngineModelInterfaceWrapper(nm=nm,
-                                                                                       event_functions=events[0],
-                                                                                       event_directions=events[1],
-                                                                                       event_actions=events[2],
-                                                                                       time_events=time_events[0],
-                                                                                       time_event_actions=time_events[1]),
+    return NumerousEngineSolverInterface(interface=NumerousEngineModelInterface_(nm=nm,
+                                                                                 event_functions=events[0],
+                                                                                 event_directions=events[1],
+                                                                                 event_actions=events[2],
+                                                                                 time_events=time_events[0],
+                                                                                 time_event_actions=time_events[1]),
                                          model=model, nm=nm)

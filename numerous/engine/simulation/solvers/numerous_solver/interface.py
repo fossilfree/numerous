@@ -121,7 +121,3 @@ class SolverInterface(ABC):
             pass
         elif event_id == SolveEvent.HistorianAndExternalUpdate:
             pass
-
-
-
-
