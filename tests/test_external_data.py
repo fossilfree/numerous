@@ -284,18 +284,18 @@ def test_external_data_multiple(use_llvm, system, external_data):
         assert z3 == pytest.approx(z4), f"expected {z3} but got {z4} at {t}"
 
 
-@pytest.mark.parametrize("use_llvm", [False, True])
-@pytest.mark.parametrize("chunksize", [1, 10000])
-@pytest.mark.parametrize("historian_max_size", [1, 10000])
-@pytest.mark.parametrize("solver", [step_solver, normal_solver])
-@pytest.mark.parametrize("dataloader", [inmemorydataloader, csvdataloader])
-@pytest.mark.parametrize("system", [StaticDataSystem, StaticDataSystemWithBall])
-# @pytest.mark.parametrize("use_llvm", [False])
-# @pytest.mark.parametrize("chunksize", [1])
-# @pytest.mark.parametrize("historian_max_size", [1])
-# @pytest.mark.parametrize("solver", [step_solver])
-# @pytest.mark.parametrize("dataloader", [csvdataloader])
-# @pytest.mark.parametrize("system", [StaticDataSystemWithBall])
+#@pytest.mark.parametrize("use_llvm", [False, True])
+#@pytest.mark.parametrize("chunksize", [1, 10000])
+#@pytest.mark.parametrize("historian_max_size", [1, 10000])
+#@pytest.mark.parametrize("solver", [step_solver, normal_solver])
+#@pytest.mark.parametrize("dataloader", [inmemorydataloader, csvdataloader])
+#@pytest.mark.parametrize("system", [StaticDataSystem, StaticDataSystemWithBall])
+@pytest.mark.parametrize("use_llvm", [True])
+@pytest.mark.parametrize("chunksize", [1])
+@pytest.mark.parametrize("historian_max_size", [1])
+@pytest.mark.parametrize("solver", [normal_solver])
+@pytest.mark.parametrize("dataloader", [csvdataloader])
+@pytest.mark.parametrize("system", [StaticDataSystemWithBall])
 def test_external_data_chunks_and_historian_update(external_data: external_data, simulation: simulation,
                                                    solver, chunksize, historian_max_size, dataloader, system, use_llvm):
 

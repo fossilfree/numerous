@@ -1,7 +1,7 @@
 from datetime import datetime
 import time
 import numpy as np
-from numerous.engine.simulation.solvers.numerous_solver.numerous_solver import Numerous_solver
+from numerous.solver.numerous_solver import Numerous_solver
 from numerous.engine.simulation.solver_interface import generate_numerous_engine_solver_interface
 from numerous.engine.model import Model
 from numerous.utils import logger as log
@@ -61,15 +61,13 @@ class Simulation:
             model.generate_mock_timestamp_event()
         timestamp_action_function = model.generate_event_action_ast(model.timestamp_events)
         timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
-        solver_interface = generate_numerous_engine_solver_interface(model, self.numba_model,
-                                                                     events=(event_function, event_directions,
-                                                                             action_function),
-                                                                     time_events=(timestamps,
-                                                                                  timestamp_action_function),
-                                                                     jit=self.model.use_llvm)
-        self.solver = Numerous_solver(time_, delta_t, solver_interface,
-                                      self.model.states_as_vector,
-                                      numba_compiled_solver=model.use_llvm,
+        numerous_engine_model, numerous_engine_event_handler = \
+            generate_numerous_engine_solver_interface(model, self.numba_model,
+                                                      events=(event_function, event_directions, action_function),
+                                                      timeevents=(timestamps, timestamp_action_function))
+
+        self.solver = Numerous_solver(model=numerous_engine_model,
+                                      use_jit=model.use_llvm, event_handler=numerous_engine_event_handler,
                                       **kwargs)
 
         self.start_datetime = start_datetime
@@ -84,16 +82,12 @@ class Simulation:
 
         self.compiled_model = self.numba_model
 
-        self.reset()
+        #self.reset()
 
     def solve(self):
 
-
-        sol, self.result_status = self.solver.solve()
-
-        self.info.update({"Solving status": self.result_status})
+        self.solver.solve(self.time)
         self.complete()
-        return sol
 
     def reset(self):
         #  TODO: currently, this method assumes solve start time to be 0
