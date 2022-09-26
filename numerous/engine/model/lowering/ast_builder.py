@@ -165,8 +165,12 @@ class ASTBuilder:
     def store_variable(self, variable_name):
         pass
 
+    def _append_assign_argument(self, arg_id, array_type):
+        return ast.Subscript(value=array_type, slice=ast.Index(value=ast.Constant(value=arg_id)),
+                             ctx=ast.Load)
+
     def _create_assignments(self, external_function_name, input_args, target_ids):
-        arg_ids = map(lambda arg: self.variable_names[arg], input_args)
+        arg_ids = map(lambda arg: (self.variable_names[arg],KERNEL_ARRAY), input_args)
         targets = []
         args = []
         for target_id in target_ids:
@@ -174,10 +178,8 @@ class ASTBuilder:
                 ast.Subscript(value=KERNEL_ARRAY,
                               slice=ast.Index(value=ast.Constant(value=self.variable_names[input_args[target_id]])),
                               ctx=ast.Store()))
-        for arg_id in arg_ids:
-            args.append(
-                ast.Subscript(value=KERNEL_ARRAY, slice=ast.Index(value=ast.Constant(value=arg_id)),
-                              ctx=ast.Load))
+        for arg_id,array_type in arg_ids:
+            args.append(self._append_assign_argument(arg_id, array_type))
 
         if len(targets) > 1:
             temp = (ast.Assign(targets=[ast.Tuple(elts=targets)],

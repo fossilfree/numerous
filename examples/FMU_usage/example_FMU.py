@@ -14,7 +14,6 @@ class S3(Subsystem):
         super().__init__(tag)
         self.register_items([fmu_subsystem])
 
-
 subsystem1 = S3('q1')
 
 m1 = Model(subsystem1, use_llvm=True)
