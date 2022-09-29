@@ -37,6 +37,7 @@ class VariableDescription:
     logger_level: LoggerLevel = LoggerLevel.ALL
     alias: str = None
     update: bool = False
+    global_var: bool = False
 
 
 @dataclass
@@ -175,6 +176,7 @@ class Variable(MappedValue):
         self.type = detailed_variable_description.type
         self.path = VariablePath([detailed_variable_description.tag], self.id)
         self.paths = []
+        self.global_var = detailed_variable_description.global_var
         self.alias = None
         self.set_var = None
         self.set_var_ix = None
@@ -235,7 +237,7 @@ class Variable(MappedValue):
     @staticmethod
     def create(namespace, v_id, tag,
                v_type, value, item, metadata,
-               mapping, update_counter, allow_update, logger_level, variable_idx, alias):
+               mapping, update_counter, allow_update, logger_level, variable_idx, alias,global_var):
         return Variable(DetailedVariableDescription(tag=tag,
                                                     id=v_id,
                                                     type=v_type,
@@ -248,7 +250,8 @@ class Variable(MappedValue):
                                                     allow_update=allow_update,
                                                     logger_level=logger_level,
                                                     variable_idx=variable_idx,
-                                                    alias=alias))
+                                                    alias=alias,
+                                                    global_var=global_var))
 
 
 class _VariableFactory:
@@ -269,6 +272,7 @@ class _VariableFactory:
                                logger_level=var_desc.logger_level,
                                variable_idx=var_desc.variable_idx,
                                alias=var_desc.alias,
+                               global_var=False
                                )
 
     @staticmethod
@@ -285,7 +289,8 @@ class _VariableFactory:
                              allow_update=(variable_description.type != VariableType.CONSTANT),
                              logger_level=variable_description.logger_level,
                              alias=variable_description.alias,
-                             variable_idx=0
+                             variable_idx=0,
+                             global_var=variable_description.global_var
                              )
 
         return v1

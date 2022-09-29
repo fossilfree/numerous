@@ -22,7 +22,7 @@ class ASTBuilder:
     Building an AST module.
     """
 
-    def __init__(self, initial_values, variable_names, states, derivatives, system_tag=""):
+    def __init__(self, initial_values, variable_names, global_names, states, derivatives, system_tag=""):
         """
         initial_values - initial values of global variables array. Array should be ordered in  such way
          that all the derivatives are located in the tail.
@@ -41,6 +41,7 @@ class ASTBuilder:
 
         self.kernel_function = []
         self.variable_names = variable_names
+        self.global_names = global_names
         self.states = states
         self.derivatives = derivatives
         self.functions = []
@@ -82,7 +83,7 @@ class ASTBuilder:
         self.defined_functions.append(function.name)
 
     def generate(self, imports, system_tag="", external_functions_source=False, save_to_file=False):
-        arguments = [ast.arg(arg="states", annotation=None), ast.arg(arg="global_vars", annotation=None)]
+        arguments = [ast.arg(arg="states", annotation=None), ast.arg(arg=GLOBAL_ARRAY.id, annotation=None)]
         defaults = []
 
         for i in self.body:
@@ -169,14 +170,20 @@ class ASTBuilder:
         return ast.Subscript(value=array_type, slice=ast.Index(value=ast.Constant(value=arg_id)),
                              ctx=ast.Load)
 
+
+    def _aaa(self,q1):
+        if q1[1]:
+            return (0,GLOBAL_ARRAY)
+        else:
+            return (self.variable_names[q1[0]],KERNEL_ARRAY)
     def _create_assignments(self, external_function_name, input_args, target_ids):
-        arg_ids = map(lambda arg: (self.variable_names[arg],KERNEL_ARRAY), input_args)
+        arg_ids = map(lambda arg: self._aaa(arg), input_args)
         targets = []
         args = []
         for target_id in target_ids:
             targets.append(
                 ast.Subscript(value=KERNEL_ARRAY,
-                              slice=ast.Index(value=ast.Constant(value=self.variable_names[input_args[target_id]])),
+                              slice=ast.Index(value=ast.Constant(value=self.variable_names[input_args[target_id][0]])),
                               ctx=ast.Store()))
         for arg_id,array_type in arg_ids:
             args.append(self._append_assign_argument(arg_id, array_type))

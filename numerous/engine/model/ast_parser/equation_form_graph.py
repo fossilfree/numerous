@@ -166,7 +166,7 @@ def function_from_graph_generic(g: MappingsGraph, var_def_, arg_metadata, replac
     func_result = ast.parse(tree, mode='exec').body[0]
     target_ids = []
     for i, arg in enumerate(var_def_.args_order):
-        if arg in var_def_.targets:
+        if arg[0] in var_def_.targets:
             target_ids.append(i)
     return func_result, var_def_.args_order, target_ids
 

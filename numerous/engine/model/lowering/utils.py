@@ -100,14 +100,14 @@ class Vardef:
             return ast.Name(id=var.replace('scope.', 's_'), lineno=0, col_offset=0, ctx=_ctx)
 
     def order_variables(self, order_data):
-        for (var, var_id, used) in order_data:
-            if used:
-                self.args_order.append("scope." + var)
+        for  sv in order_data:
+            if sv.used_in_equation_graph:
+                self.args_order.append(("scope." + sv.tag, sv.global_var))
             else:
-                self.args_order.append(var_id)
+                self.args_order.append((sv.id, sv.global_var))
 
-        for (var, var_id, used) in order_data:
-            tmp_v = "scope." + var
+        for sv in order_data:
+            tmp_v = "scope." + sv.tag
             if tmp_v in self.targets:
                 self.trgs_order.append(tmp_v)
 
@@ -129,7 +129,7 @@ class Vardef:
 
     def get_order_args(self, form=True):
         if form:
-            result = [self.format(a, False) for a in self.args_order]
+            result = [self.format(a[0], False) for a in self.args_order]
         else:
             result = self.args
         result_2 = []

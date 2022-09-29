@@ -281,11 +281,15 @@ class Model:
         log.info('Parsing equations starting')
         for v in self.variables.values():
             v.top_item = self.system.id
-
-        def constant():
-            var_desc = VariableDescription(tag='global_vars_t', initial_value=0,
-                                           type=VariableType.CONSTANT)
-            return _VariableFactory._create_from_variable_desc_unbound(variable_description=var_desc, initial_value=0)
+        self.global_variables = {}
+        def global_var(name):
+            if name in self.global_variables:
+                return self.global_variables[name]
+            else:
+                var_desc = VariableDescription(tag='global_vars_t', initial_value=0,
+                                               type=VariableType.PARAMETER, global_var=True)
+                self.global_variables[name] = _VariableFactory._create_from_variable_desc_unbound(variable_description=var_desc, initial_value=0)
+                return self.global_variables[name]
 
         eq_used = []
         for item_id, namespaces in model_namespaces.items():
@@ -295,7 +299,7 @@ class Model:
                     tag_vars = ns.set_variables
                 else:
                     tag_vars = {v.tag: v for k, v in ns.variables.items()}
-                x = constant()
+                x = global_var("global_vars_t")
                 tag_vars["global_vars_t"] = x
                 self.variables.update({x.id:x})
                 parse_eq(model_namespace=ns, item_id=item_id, mappings_graph=self.mappings_graph,

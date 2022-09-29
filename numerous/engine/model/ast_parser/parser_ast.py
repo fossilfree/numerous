@@ -214,10 +214,10 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
             if not is_parsed_eq:
                 for sv in scope_variables:
                     if scope_variables[sv].used_in_equation_graph:
-                        g.arg_metadata.append((sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
-                        scope_variables[sv].used_in_equation_graph = False
+                        g.arg_metadata.append(scope_variables[sv])
+                        # scope_variables[sv].used_in_equation_graph = False
                     else:
-                        g.arg_metadata.append((sv, scope_variables[sv].id, scope_variables[sv].used_in_equation_graph))
+                        g.arg_metadata.append(scope_variables[sv])
 
 
 def process_mappings(mappings, mappings_graph: Graph, scope_vars):

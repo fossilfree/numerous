@@ -1,4 +1,3 @@
-
 import logging
 import numpy as np
 
@@ -63,6 +62,7 @@ class EquationGenerator:
         self.temporary_variables = temporary_variables
 
         self.values_order = {}
+        self.global_variables = {}
         self.scalar_variables = {}
 
         self._parse_variables()
@@ -83,7 +83,7 @@ class EquationGenerator:
         else:
             self.generated_program = ASTBuilder(
                 np.ascontiguousarray([x.value for x in self.scope_variables.values()], dtype=np.float64),
-                self.values_order, self.states, self.deriv, system_tag=self.system_tag)
+                self.values_order, self.global_variables, self.states, self.deriv, system_tag=self.system_tag)
 
         self.mod_body = []
         # Create a kernel of assignments and calls
@@ -108,9 +108,14 @@ class EquationGenerator:
 
     def _parse_variables(self):
         for ix, (sv_id, sv) in enumerate(self.scope_variables.items()):
-            full_tag = d_u(sv.id)
-            self.values_order[full_tag] = ix
-            self._parse_variable(full_tag, sv)
+            if sv.global_var:
+                full_tag = d_u(sv.id)
+                self.global_variables[full_tag] = ix
+                self._parse_variable(full_tag, sv)
+            else:
+                full_tag = d_u(sv.id)
+                self.values_order[full_tag] = ix
+                self._parse_variable(full_tag, sv)
         for ix, (sv_id, sv) in enumerate(self.temporary_variables.items()):
             full_tag = d_u(sv.id)
             self._parse_variable(full_tag, sv)
@@ -234,10 +239,10 @@ class EquationGenerator:
             args = []
 
             for a in vardef.args_order:
-                if a in scope_vars:
-                    args.append(d_u(scope_vars[a]))
+                if a[0] in scope_vars:
+                    args.append((d_u(scope_vars[a[0]]), a[1]))
                 else:
-                    args.append(self.search_in_item_scope(a, item_id))
+                    args.append((self.search_in_item_scope(a[0], item_id), a[1]))
 
             # Add this eq to the llvm_program
             self.generated_program.add_call(self.get_external_function_name(ext_func), args, vardef.llvm_target_ids)
