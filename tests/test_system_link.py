@@ -47,6 +47,7 @@ class Base(Subsystem, EquationBase):
         self.t1 = self.create_namespace('t1')
         self.add_parameter('x', 0)
         self.add_parameter('x0', 0)
+        self.add_parameter('x2', 0)
         self.add_constant('k', k)
         self.t1.add_equations([self])
         self.register_items([inlet])
@@ -57,7 +58,7 @@ class Base(Subsystem, EquationBase):
 
     @Equation()
     def eval(self, scope):
-        scope.x0
+        # scope.x2 = scope.global_vars_t
         scope.x = scope.x0 * scope.k
 
 
@@ -75,7 +76,7 @@ def system51():
     return Root(N_outer=1, N_inner=5)
 
 
-@pytest.mark.parametrize("use_llvm", [False])
+@pytest.mark.parametrize("use_llvm", [True])
 def test_system_link_1_5(system15, use_llvm):
     model = Model(system15, use_llvm=use_llvm)
 
@@ -88,7 +89,7 @@ def test_system_link_1_5(system15, use_llvm):
            expected(len(df.index[:-1]), 5, 0.9)
 
 
-@pytest.mark.parametrize("use_llvm", [False])
+@pytest.mark.parametrize("use_llvm", [True])
 def test_system_link_5_1(system51, use_llvm):
     model = Model(system51, use_llvm=use_llvm)
 

@@ -76,13 +76,13 @@ class EquationGenerator:
 
         # Initialize llvm builder - will be a list of intermediate llvm instructions to be lowered in generate
         self.llvm = use_llvm
+        init_vars = np.ascontiguousarray([x.value for x in self.scope_variables.values() if not x.global_var])
         if self.llvm:
-            self.generated_program = LLVMBuilder(
-                np.ascontiguousarray([x.value for x in self.scope_variables.values()], dtype=np.float64),
+            self.generated_program = LLVMBuilder(init_vars,
                 self.values_order, self.states, self.deriv, system_tag=self.system_tag)
         else:
             self.generated_program = ASTBuilder(
-                np.ascontiguousarray([x.value for x in self.scope_variables.values()], dtype=np.float64),
+                init_vars,
                 self.values_order, self.global_variables, self.states, self.deriv, system_tag=self.system_tag)
 
         self.mod_body = []
