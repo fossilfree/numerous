@@ -280,7 +280,7 @@ def function_from_graph_generic_llvm(g: Graph, var_def_, replace_name=None):
     signature = [f'void(']
     target_ids = []
     for i, arg in enumerate(var_def_.args_order):
-        if arg in var_def_.targets:
+        if arg[0] in var_def_.targets:
             signature.append("CPointer(float64), ")
             target_ids.append(i)
         else:

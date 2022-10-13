@@ -27,7 +27,7 @@ class LLVMBuilder:
     Building an LLVM module.
     """
 
-    def __init__(self, initial_values, variable_names, states, derivatives, system_tag=""):
+    def __init__(self, initial_values, variable_names, global_names, states, derivatives, system_tag=""):
         """
         initial_values - initial values of global variables array. Array should be ordered in  such way
          that all the derivatives are located in the tail.
@@ -53,6 +53,7 @@ class LLVMBuilder:
         self.fnty.args[1].name = "global_vars"
         self.system_tag = system_tag
         self.variable_names = {}
+        self.global_names = global_names
         self.equations_llvm = []
         self.equations_llvm_opt = []
         for k, v in variable_names.items():
@@ -61,9 +62,13 @@ class LLVMBuilder:
 
         self.max_var = initial_values.shape[0]
 
-        self.var_global = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), self.max_var), 'global_var')
-        self.var_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), self.max_var),
-                                                  [float(v) for v in initial_values])
+        self.model_variables = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), self.max_var), 'model_var')
+        self.model_variables.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), self.max_var),
+                                                       [float(v) for v in initial_values])
+
+        self.global_variables = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), 1), 'global_var')
+        self.global_variables.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), 1),
+                                                       [float(v) for v in [0.0]])
 
         self.deriv_global = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), self.n_deriv), 'derivatives')
         self.deriv_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), self.n_deriv),
@@ -83,7 +88,11 @@ class LLVMBuilder:
 
         # go through  all states to put them in load block
         for idx, state in enumerate(self.states):
-            self.load_state_variable(idx, state)
+            self.load_arguments(idx, state,0)
+
+        # go through  all global variables to put them in load block
+        for idx, g_var in enumerate(["t"]):
+            self.load_arguments(idx, g_var,1)
 
         # go through all states to put them in store block
         for state in self.states:
@@ -208,21 +217,33 @@ class LLVMBuilder:
         with open(filename, 'w') as f:
             f.write(str(self.module))
 
-    def load_global_variable(self, variable_name):
+    def load_model_variable(self, variable_name):
         index = ll.IntType(64)(self.variable_names[variable_name])
-        ptr = self.var_global
+        ptr = self.model_variables
         indices = [self.index0, index]
         eptr = self.builder.gep(ptr, indices, name="variable_" + variable_name)
         self.values[variable_name] = eptr
 
-    def load_state_variable(self, idx, state_name):
+    def load_global_variable(self, variable_name):
+        index = ll.IntType(64)(0)
+        ptr = self.global_variables
+        indices = [self.index0, index]
+        eptr = self.builder.gep(ptr, indices, name="variable_" + variable_name)
+        self.values[variable_name] = eptr
+
+
+
+    def load_arguments(self, idx, state_name,arg_idx):
         index_args = ll.IntType(64)(idx)
-        ptr = self.func.args[0]
+        ptr = self.func.args[arg_idx]
         indices = [index_args]
         eptr = self.builder.gep(ptr, indices, name="state_" + state_name)
         self.values[state_name] = eptr
-        ptr = self.var_global
-        index_global = ll.IntType(64)(self.variable_names[state_name])
+        if (arg_idx == 0):
+            ptr = self.model_variables
+        if (arg_idx == 1):
+            ptr = self.global_variables
+        index_global = ll.IntType(64)(0)
         indices = [self.index0, index_global]
         eptr = self.builder.gep(ptr, indices)
         self.builder.store(self.builder.load(self.values[state_name]), eptr)
@@ -231,7 +252,7 @@ class LLVMBuilder:
         _block = self.builder.block
         self.builder.position_at_end(self.bb_store)
         index = ll.IntType(64)(self.variable_names[variable_name])
-        ptr = self.var_global
+        ptr = self.model_variables
         indices = [self.index0, index]
         eptr = self.builder.gep(ptr, indices)
         self.builder.store(self.builder.load(self.values[variable_name]), eptr)
@@ -241,11 +262,14 @@ class LLVMBuilder:
         arg_pointers = []
         for i1, arg in enumerate(args):
             if i1 in target_ids:
-                if arg not in self.values:
-                    self._create_target_pointer(arg)
-                arg_pointers.append(*self._get_target_pointers([arg]))
+                if arg[0] not in self.values:
+                    self._create_target_pointer(arg[0])
+                arg_pointers.append(*self._get_target_pointers([arg[0]]))
             else:
-                arg_pointers.append(*self._load_args([arg]))
+                if arg[1]:
+                    arg_pointers.append(*self._load_args([arg]))
+                else:
+                    arg_pointers.append(*self._load_args([arg]))
         self.builder.position_at_end(self.bb_loop)
         self.builder.call(self.ext_funcs[external_function_name], arg_pointers)
 
@@ -265,7 +289,7 @@ class LLVMBuilder:
         builder_var.position_at_end(bb_exit_var)
 
         index0_var = ll.IntType(64)(0)
-        vg_ptr = builder_var.gep(self.var_global, [index0_var, index0_var])
+        vg_ptr = builder_var.gep(self.model_variables, [index0_var, index0_var])
         builder_var.ret(vg_ptr)
 
     def _build_var_w(self):
@@ -282,7 +306,7 @@ class LLVMBuilder:
         builder_var.position_at_end(bb_exit_var)
 
         index = vars_func.args[1]
-        ptr = self.var_global
+        ptr = self.model_variables
         indices = [self.index0, index]
         eptr = builder_var.gep(ptr, indices)
         builder_var.store(vars_func.args[0], eptr)
@@ -315,9 +339,12 @@ class LLVMBuilder:
         loaded_args = []
         self.builder.position_at_end(self.bb_loop)
         for a in args:
-            if a not in self.values:
-                self.load_global_variable(a)
-            loaded_args.append(self.builder.load(self.values[a], 'arg_' + a))
+            if a[0] not in self.values:
+                if a[1]:
+                    self.load_global_variable(a[0])
+                else:
+                    self.load_model_variable(a[0])
+            loaded_args.append(self.builder.load(self.values[a[0]], 'arg_' + a[0]))
         return loaded_args
 
     def _get_target_pointers(self, targets):
@@ -325,7 +352,7 @@ class LLVMBuilder:
 
     def _create_target_pointer(self, t):
         index = ll.IntType(64)(self.variable_names[t])
-        ptr = self.var_global
+        ptr = self.model_variables
         indices = [self.index0, index]
         eptr = self.builder.gep(ptr, indices, name=t)
         self.values[t] = eptr
@@ -373,7 +400,7 @@ class LLVMBuilder:
             self.builder.store(index_arg, index_arg_ptr)
 
             indices_arg = [self.index0, index_arg]
-            eptr_arg = self.builder.gep(self.var_global, indices_arg, name="loop_" + str(self.loopcount) + " _arg_")
+            eptr_arg = self.builder.gep(self.model_variables, indices_arg, name="loop_" + str(self.loopcount) + " _arg_")
             if i1 in targets_ids:
                 loaded_args.append(eptr_arg)
             else:

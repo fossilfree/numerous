@@ -253,7 +253,7 @@ class ASTBuilder:
                 raise ValueError("Only mapping to single target is supported")
             arg_idxs = []
             for arg in args:
-                arg_idxs.append(self.variable_names[arg])
+                arg_idxs.append(self.variable_names[arg[0]])
             target_idx = self.variable_names[target[0]]
             if len(args) == 1:
                 temp = (ast.Assign(targets=[ast.Subscript(value=KERNEL_ARRAY,

@@ -79,7 +79,7 @@ class EquationGenerator:
         init_vars = np.ascontiguousarray([x.value for x in self.scope_variables.values() if not x.global_var])
         if self.llvm:
             self.generated_program = LLVMBuilder(init_vars,
-                self.values_order, self.states, self.deriv, system_tag=self.system_tag)
+                self.values_order, self.global_variables, self.states, self.deriv, system_tag=self.system_tag)
         else:
             self.generated_program = ASTBuilder(
                 init_vars,
@@ -356,15 +356,15 @@ class EquationGenerator:
                     var_name = d_u(self.equation_graph.key_map[v[0]])
                     if var_name in self.scope_variables:
                         if target_var in mapping_dict:
-                            mapping_dict[target_var].append(var_name)
+                            mapping_dict[target_var].append((var_name,False))
                         else:
-                            mapping_dict[target_var] = [var_name]
+                            mapping_dict[target_var] = [(var_name,False)]
                     else:
                         if var_name in self.set_variables:
                             if var_name in mapping_dict:
-                                mapping_dict[target_var].append(self.set_variables[var_name].get_var_by_idx(v[1]).id)
+                                mapping_dict[target_var].append((self.set_variables[var_name].get_var_by_idx(v[1]).id, False))
                             else:
-                                mapping_dict[target_var] = [self.set_variables[var_name].get_var_by_idx(v[1]).id]
+                                mapping_dict[target_var] = [(self.set_variables[var_name].get_var_by_idx(v[1]).id, False)]
                         else:
                             raise ValueError(f'Variable  {var_name} mapping not found')
             for k, v in mapping_dict.items():
