@@ -165,8 +165,8 @@ def function_from_graph_generic(g: MappingsGraph, var_def_, arg_metadata, replac
     tree = replace_closure_function(func, replacements, get_eq_prefix())
     func_result = ast.parse(tree, mode='exec').body[0]
     target_ids = []
-    for i, arg in enumerate(var_def_.args_order):
-        if arg[0] in var_def_.targets:
+    for i, var_arg in enumerate(var_def_.args_order):
+        if var_arg.name in var_def_.targets:
             target_ids.append(i)
     return func_result, var_def_.args_order, target_ids
 
@@ -279,8 +279,8 @@ def function_from_graph_generic_llvm(g: Graph, var_def_, replace_name=None):
                          kwonlyargs=[], kw_defaults=[], kwarg=None)
     signature = [f'void(']
     target_ids = []
-    for i, arg in enumerate(var_def_.args_order):
-        if arg[0] in var_def_.targets:
+    for i, var_arg in enumerate(var_def_.args_order):
+        if var_arg.name in var_def_.targets:
             signature.append("CPointer(float64), ")
             target_ids.append(i)
         else:

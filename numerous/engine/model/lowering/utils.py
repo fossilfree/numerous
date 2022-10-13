@@ -1,8 +1,9 @@
 from enum import IntEnum, unique
-
+from collections import namedtuple
 import ast
 
 from numerous.utils import logger as log
+
 
 @unique
 class VarTypes(IntEnum):
@@ -12,6 +13,9 @@ class VarTypes(IntEnum):
     STATE = 3
     LOCAL = 4
     TMP = 5
+
+
+VariableArgument = namedtuple('VariableArgument', 'name is_global_var')
 
 
 def wrap_module(body):
@@ -100,11 +104,11 @@ class Vardef:
             return ast.Name(id=var.replace('scope.', 's_'), lineno=0, col_offset=0, ctx=_ctx)
 
     def order_variables(self, order_data):
-        for  sv in order_data:
+        for sv in order_data:
             if sv.used_in_equation_graph:
-                self.args_order.append(("scope." + sv.tag, sv.global_var))
+                self.args_order.append(VariableArgument("scope." + sv.tag, sv.global_var))
             else:
-                self.args_order.append((sv.id, sv.global_var))
+                self.args_order.append(VariableArgument(sv.id, sv.global_var))
 
         for sv in order_data:
             tmp_v = "scope." + sv.tag
