@@ -276,7 +276,8 @@ class Model:
 
         mappings = []
         for variable in self.variables.values():
-            variable.top_item = self.system.id
+            if not (variable.global_var):
+                variable.top_item = self.system.id
 
         for scope_var_idx, var in enumerate(self.variables.values()):
             if var.mapping:
@@ -297,8 +298,6 @@ class Model:
         self.equations_top = {}
 
         log.info('Parsing equations starting')
-        for v in self.variables.values():
-            v.top_item = self.system.id
 
         eq_used = []
         for item_id, namespaces in model_namespaces.items():
