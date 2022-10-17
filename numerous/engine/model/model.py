@@ -257,8 +257,7 @@ class Model:
             self.variables.update(variables)
 
         mappings = []
-        for variable in self.variables.values():
-            variable.top_item = self.system.id
+
 
         for scope_var_idx, var in enumerate(self.variables.values()):
             if var.mapping:
