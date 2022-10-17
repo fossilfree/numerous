@@ -7,7 +7,7 @@ from numerous.engine.model.lowering.ast_builder import ASTBuilder
 from numerous.engine.model.graph_representation import EdgeType
 
 from numerous.engine.model.lowering.llvm_builder import LLVMBuilder
-from numerous.engine.model.lowering.utils import Vardef
+from numerous.engine.model.lowering.utils import Vardef, VariableArgument
 from numerous.engine.model.utils import NodeTypes, recurse_Attribute
 from numerous.engine.variables import VariableType
 from numerous.utils.string_utils import d_u
@@ -110,7 +110,7 @@ class EquationGenerator:
         for ix, (sv_id, sv) in enumerate(self.scope_variables.items()):
             if sv.global_var:
                 full_tag = d_u(sv.id)
-                self.global_variables[full_tag] = ix
+                self.global_variables[full_tag] = sv.global_var_idx
                 self._parse_variable(full_tag, sv)
             else:
                 full_tag = d_u(sv.id)
@@ -240,9 +240,9 @@ class EquationGenerator:
 
             for a in vardef.args_order:
                 if a[0] in scope_vars:
-                    args.append((d_u(scope_vars[a[0]]), a[1]))
+                    args.append(VariableArgument(d_u(scope_vars[a[0]]), a[1]))
                 else:
-                    args.append((self.search_in_item_scope(a[0], item_id), a[1]))
+                    args.append(VariableArgument(self.search_in_item_scope(a[0], item_id), a[1]))
 
             # Add this eq to the llvm_program
             self.generated_program.add_call(self.get_external_function_name(ext_func), args, vardef.llvm_target_ids)

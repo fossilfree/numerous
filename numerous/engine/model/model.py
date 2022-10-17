@@ -156,6 +156,7 @@ class Model:
         self.numba_callbacks = []
         self.numba_callbacks_init_run = []
         self.callbacks = []
+        self.global_tag_vars = {}
         self.historian_filter = historian_filter
         self.system = system
         self.event_function = None
@@ -174,7 +175,7 @@ class Model:
         self.timestamp_events = []
         self.global_variables_tags = ['time']
         self.global_vars = np.array([0], dtype=np.float64)
-
+        self.global_variables = {}
         self.equation_dict = {}
         self.variables = {}
         self.name_spaces = {}
@@ -193,6 +194,7 @@ class Model:
         self.numba_model = None
 
         self.info = {}
+        self.qq("global_vars_t")
         if assemble:
             self.assemble()
 
@@ -222,6 +224,22 @@ class Model:
             return self.__get_mapping__variable(variable.mapping, depth - 1)
         else:
             return variable
+
+    def _add_global_var(self,name:str):
+        if name in self.global_variables:
+             return self.global_variables[name]
+        else:
+            var_desc = VariableDescription(tag='global_vars_t', initial_value=0,
+                                           type=VariableType.PARAMETER, global_var=True)
+            self.global_variables[name] = _VariableFactory._create_from_variable_desc_unbound(
+                variable_description=var_desc, initial_value=0)
+            return self.global_variables[name]
+
+
+    def qq(self, name:str):
+        x = self._add_global_var(name)
+        self.global_tag_vars[name] = x
+        self.variables.update({x.id: x})
 
     def assemble(self):
         """
@@ -281,15 +299,6 @@ class Model:
         log.info('Parsing equations starting')
         for v in self.variables.values():
             v.top_item = self.system.id
-        self.global_variables = {}
-        def global_var(name):
-            if name in self.global_variables:
-                return self.global_variables[name]
-            else:
-                var_desc = VariableDescription(tag='global_vars_t', initial_value=0,
-                                               type=VariableType.PARAMETER, global_var=True)
-                self.global_variables[name] = _VariableFactory._create_from_variable_desc_unbound(variable_description=var_desc, initial_value=0)
-                return self.global_variables[name]
 
         eq_used = []
         for item_id, namespaces in model_namespaces.items():
@@ -299,9 +308,7 @@ class Model:
                     tag_vars = ns.set_variables
                 else:
                     tag_vars = {v.tag: v for k, v in ns.variables.items()}
-                x = global_var("global_vars_t")
-                tag_vars["global_vars_t"] = x
-                self.variables.update({x.id:x})
+                tag_vars.update(self.global_tag_vars)
                 parse_eq(model_namespace=ns, item_id=item_id, mappings_graph=self.mappings_graph,
                          scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
                          scoped_equations=self.scoped_equations, parsed_eq=self.equations_top, eq_used=eq_used)

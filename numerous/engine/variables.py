@@ -38,6 +38,7 @@ class VariableDescription:
     alias: str = None
     update: bool = False
     global_var: bool = False
+    global_var_idx: int = -1
 
 
 @dataclass
@@ -177,11 +178,13 @@ class Variable(MappedValue):
         self.path = VariablePath([detailed_variable_description.tag], self.id)
         self.paths = []
         self.global_var = detailed_variable_description.global_var
+        self.global_var_idx = detailed_variable_description.global_var_idx
         self.alias = None
         self.set_var = None
         self.set_var_ix = None
         self.set_namespace = None
         self.size = 0
+
         self.temporary_variable = False
         if base_variable:
             self.value = base_variable.value

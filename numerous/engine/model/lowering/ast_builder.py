@@ -171,13 +171,13 @@ class ASTBuilder:
                              ctx=ast.Load)
 
 
-    def _aaa(self,q1):
-        if q1[1]:
+    def _process_argument(self,q1):
+        if q1.is_global_var:
             return (0,GLOBAL_ARRAY)
         else:
-            return (self.variable_names[q1[0]],KERNEL_ARRAY)
+            return (self.variable_names[q1.name],KERNEL_ARRAY)
     def _create_assignments(self, external_function_name, input_args, target_ids):
-        arg_ids = map(lambda arg: self._aaa(arg), input_args)
+        arg_ids = map(lambda arg: self._process_argument(arg), input_args)
         targets = []
         args = []
         for target_id in target_ids:
