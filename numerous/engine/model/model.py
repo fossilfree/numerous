@@ -111,7 +111,6 @@ class ModelAssembler:
         return variables_, equation_dict
 
 
-
 class Model:
     """
      The model object traverses the system to collect all information needed to pass to the solver
@@ -257,8 +256,6 @@ class Model:
             self.variables.update(variables)
 
         mappings = []
-        for variable in self.variables.values():
-            variable.top_item = self.system.id
 
         for scope_var_idx, var in enumerate(self.variables.values()):
             if var.mapping:
