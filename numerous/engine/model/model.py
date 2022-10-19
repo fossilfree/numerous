@@ -111,7 +111,6 @@ class ModelAssembler:
         return variables_, equation_dict
 
 
-
 class Model:
     """
      The model object traverses the system to collect all information needed to pass to the solver
@@ -194,7 +193,7 @@ class Model:
         self.numba_model = None
 
         self.info = {}
-        self.qq("global_vars_t")
+        self.add_global_variable("global_vars_t", 0.0)
         if assemble:
             self.assemble()
 
@@ -225,9 +224,9 @@ class Model:
         else:
             return variable
 
-    def _add_global_var(self,name:str):
+    def _add_global_var(self, name: str):
         if name in self.global_variables:
-             return self.global_variables[name]
+            return self.global_variables[name]
         else:
             var_desc = VariableDescription(tag='global_vars_t', initial_value=0,
                                            type=VariableType.PARAMETER, global_var=True)
@@ -235,8 +234,8 @@ class Model:
                 variable_description=var_desc, initial_value=0)
             return self.global_variables[name]
 
-
-    def qq(self, name:str):
+    def add_global_variable(self, name: str, initial_value: float):
+        deafult_value = initial_value
         x = self._add_global_var(name)
         self.global_tag_vars[name] = x
         self.variables.update({x.id: x})
@@ -377,12 +376,11 @@ class Model:
                         self.logged_aliases.update({path: variable.id})
                 for path in variable.path.path[self.system.id]:
                     self.path_variables.update({path: variable.value})  # is this used at all?
-                    
+
             if variable.alias is not None:
                 self.aliases.update({variable.alias: variable.id})
                 if logvar:
                     self.logged_aliases.update({variable.alias: variable.id})
-
 
         self.inverse_aliases = {v: k for k, v in self.aliases.items()}
         inverse_logged_aliases = {}  # {id: [alias1, alias2...], ...}
