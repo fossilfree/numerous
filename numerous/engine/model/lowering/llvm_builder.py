@@ -326,14 +326,14 @@ class LLVMBuilder:
 
         if la == 1:
             for t in targets:
-                self._store_to_global_target(t, loaded_args_ptr[0])
+                self._store_to_global_target(t[0], loaded_args_ptr[0])
         else:
             accum = self.builder.fadd(loaded_args_ptr[0], loaded_args_ptr[1])
             for i, a in enumerate(loaded_args_ptr[2:]):
                 accum = self.builder.fadd(accum, a)
 
             for t in targets:
-                self._store_to_global_target(t, accum)
+                self._store_to_global_target(t[0], accum)
 
     def _load_args(self, args):
         loaded_args = []
@@ -374,7 +374,7 @@ class LLVMBuilder:
         # if not ((self._is_range_and_ordered(order_arg)) and (self._is_range_and_ordered(order_trg))):
         #     raise ValueError("llvm set call arguments are not align.")
 
-        index_arg = (ll.IntType(64)(self.variable_names[variable_name_arg_and_trg[0][0]] - 1))
+        index_arg = (ll.IntType(64)(self.variable_names[variable_name_arg_and_trg[0][0][0]] - 1))
         index_arg_ptr = self.builder.alloca(ll.IntType(64))
         self.builder.store(index_arg, index_arg_ptr)
 

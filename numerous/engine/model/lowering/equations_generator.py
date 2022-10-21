@@ -170,8 +170,9 @@ class EquationGenerator:
             return var_id
         for var in self.scope_variables.values():
             ##TODO add namespacecheck
-            if var.item.id == item_id and var.tag == self.scope_variables[var_id].tag:
-                return var.id
+            if not var.global_var:
+                if var.item.id == item_id and var.tag == self.scope_variables[var_id].tag:
+                    return var.id
         raise ValueError("No variable found for id {}", var_id)
 
     def _process_equation_node(self, n):
