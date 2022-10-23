@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import dataclasses
 import types
 import typing
 from typing import Annotated
@@ -132,41 +134,75 @@ class PartialResult:
 
         return PartialResult(*args_, op=self.op, func=self.func)
 
+@dataclasses.dataclass
+class VariableAttrs:
+    name: str = None
+    id: str = dataclasses.field(default_factory=lambda: str(uuid4()))
+    value: float = 0.0
+    is_deriv: bool = False
+    is_instance: bool = False
+    cls: object = None
+    integrate: dict = None
+    type: VariableType = VariableType.PARAMETER
+    var_instance: Variable = None
+    construct: bool = True
 
-
+variable_attrs_fields = [f.name for f in dataclasses.fields(VariableAttrs)]
 class Variable(PartialResult):
+    """
 
-    def __init__(self, value, id=None, name=None, is_deriv=False, solve_for=True, instance=False,
-                 vartype="Parameter", var_instance=None, integrate=None, construct=True):
+    def __init__(self, value:float=0.0, id=None, name=None, is_deriv=False, is_instance=False,
+                 type: VariableType=VariableType.PARAMETER, var_instance=None, integrate=None, construct=True):
+
         if id is None:
             id = str(uuid4())
         self.name = name
         self.id = id
         self.value = value
         self.is_deriv = is_deriv
-        self.set_solve_for(solve_for)
-        self.is_instance = instance
+
+        self.is_instance = is_instance
         self.cls = self
         self.integrate = integrate
-        self._vartype = vartype
-        self._var_instance = var_instance
+        self.type = type
+        self.var_instance = var_instance
         self.construct = construct
+    """
+    def __init__(self, **kwargs):
+
+        kwargs_ = {}
+
+        for k, v in kwargs.items():
+            if v is not None:
+                kwargs_[k] = v
+
+        self._attrs = VariableAttrs(**kwargs_)
+
+    def __setattr__(self, key, value):
+        if key in variable_attrs_fields:
+            self._attrs.__setattr__(key, value)
+        else:
+            super(Variable, self).__setattr__(key, value)
+
+    def __getattr__(self, item):
+        if item in variable_attrs_fields:
+            return self._attrs.__getattribute__(item)
+        else:
+            return super(Variable, self).__getattribute__(item)
 
 
-    def clone(self, id, name=None, instance=False):
-        return Variable(id=id, value=self.value, name=self.name if name is None else name, is_deriv=self.is_deriv, solve_for=self.solve_for, instance=instance, vartype=self._vartype,
-                        var_instance=self._var_instance, integrate=self.integrate, construct=self.construct)
+    def clone(self, id, name=None, is_instance=False):
+        return Variable(id=id, value=self.value, name=self.name if name is None else name, is_deriv=self.is_deriv, is_instance=is_instance, type=self.type,
+                        var_instance=self.var_instance, integrate=self.integrate, construct=self.construct)
 
     def instance(self, id, name):
         if self.is_instance:
             raise ValueError('Cannot instance from an instance')
-        instance = self.clone(id=id, name=name, instance=True)
+        instance = self.clone(id=id, name=name, is_instance=True)
         instance.cls = self
         return instance
 
 
-    def set_solve_for(self, solve_for: bool):
-        self.solve_for = solve_for
 
     def __repr__(self):
         return f"{self.name}, {self.id}"
@@ -179,38 +215,22 @@ class Variable(PartialResult):
 
 class Parameter(Variable):
     def __init__(self, value, id=None, name=None, integrate=None):
-        super(Parameter, self).__init__(value, id, name, is_deriv=False, solve_for=False, vartype="Parameter", integrate=integrate)
+        super(Parameter, self).__init__(value=value, id=id, name=name, is_deriv=False, type=VariableType.PARAMETER, integrate=integrate)
 
-#class State(Variable):
-#    def __init__(self, value, id=None, name=None):
-#        super(State, self).__init__(value, id, name, is_deriv=False, solve_for=False, vartype="State")
 
 class Constant(Variable):
 
     def __init__(self, value, id=None, name=None):
-        super(Constant, self).__init__(value, id, name, is_deriv=False, solve_for=False, vartype="Constant")
-
-    def set_solve_for(self, solve_for: bool):
-        if solve_for:
-            raise TypeError(f'Cannot solve for Constant variables. {self.name}, {self.id}')
-        else:
-            self.solve_for = solve_for
+        super(Constant, self).__init__(value=value, id=id, name=name, is_deriv=False, type=VariableType.CONSTANT)
 
 def State(value):
 
-    return Variable(value, solve_for=False, vartype="State"), Variable(0, solve_for=True, vartype="deriv")
+    return Variable(value=value, type=VariableType.STATE), Variable(value=0, type=VariableType.DERIVATIVE)
 
 def integrate(var, integration_spec):
     var.integrate = integration_spec
-    return var, Variable(0, construct=False)
+    return var, Variable(value=0, construct=False)
 
-
-var_type_map = {
-    'Constant': VariableType.CONSTANT,
-    'State': VariableType.STATE,
-    'Parameter': VariableType.PARAMETER
-
-}
 
 def construct_placeholder(obj, cls):
 
@@ -565,21 +585,25 @@ class Module(Subsystem, Item, EquationBase):
     def __init__(self, tag=None):#, **kwargs):
         if tag is not None:
             self.tag = tag
+
+        self._finalized = False
         #for k, v in kwargs.items():
         #    if hasattr(self, k) and isinstance(getattr(self,k), ScopeSpec):
         #        for var, val in v.items():
         #            getattr(getattr(self,k), var).value = val
 
     def _finalize(self):
+        if not self._finalized:
 
-        for itemspec_name, itemspec in self._item_specs.items():
-            print(itemspec_name)
-            itemspec.finalize()
+            for itemspec_name, itemspec in self._item_specs.items():
 
-        for item_name, item in self.registered_items.items():
-            print(item_name)
-            if isinstance(item, Module):
-                item.finalize()
+                itemspec.finalize()
+
+            for item_name, item in self.registered_items.items():
+
+                if isinstance(item, Module):
+                    item.finalize()
+            self._finalized = True
 
 
     def prefinalize(self):
@@ -623,17 +647,16 @@ class Module(Subsystem, Item, EquationBase):
                 else:
                     val = v_.value
 
-                if v_._vartype == 'State':
+                if v_.type == 'State':
 
                     eq_.add_state(v_name, val)
                 else:
                     if v_.construct:
-                        if v_._vartype == "parameter":
-                            eq_.add_parameter(v_name, val, var_type=var_type_map[v_._vartype], logger_level=None, alias=None, integrate=v_.integrate)
+                        if v_.type == VariableType.PARAMETER:
+                            eq_.add_parameter(v_name, val, logger_level=None, alias=None, integrate=v_.integrate)
 
-                        elif v_._vartype != "deriv":
-
-                            eq_.add_variable(v_name, val, var_type=var_type_map[v_._vartype], logger_level=None, alias=None)
+                        else:
+                            eq_.add_variable(v_name, val, var_type=v_.type, logger_level=None, alias=None)
 
         scope.generate_variables(eq_)
         ns.add_equations([eq_])
