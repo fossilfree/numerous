@@ -170,12 +170,12 @@ class ASTBuilder:
         return ast.Subscript(value=array_type, slice=ast.Index(value=ast.Constant(value=arg_id)),
                              ctx=ast.Load)
 
-
-    def _process_argument(self,q1):
+    def _process_argument(self, q1):
         if q1.is_global_var:
-            return (0,GLOBAL_ARRAY)
+            return 0, GLOBAL_ARRAY
         else:
-            return (self.variable_names[q1.name],KERNEL_ARRAY)
+            return self.variable_names[q1.name], KERNEL_ARRAY
+
     def _create_assignments(self, external_function_name, input_args, target_ids):
         arg_ids = map(lambda arg: self._process_argument(arg), input_args)
         targets = []
@@ -185,7 +185,7 @@ class ASTBuilder:
                 ast.Subscript(value=KERNEL_ARRAY,
                               slice=ast.Index(value=ast.Constant(value=self.variable_names[input_args[target_id][0]])),
                               ctx=ast.Store()))
-        for arg_id,array_type in arg_ids:
+        for arg_id, array_type in arg_ids:
             args.append(self._append_assign_argument(arg_id, array_type))
 
         if len(targets) > 1:
@@ -297,7 +297,7 @@ class ASTBuilder:
                         body=[self._generate_set_call_body(external_function_name,
                                                            len(variable_name_arg_and_trg[0]),
                                                            self.variable_names[
-                                                               variable_name_arg_and_trg[0][0]],
+                                                               variable_name_arg_and_trg[0][0].name],
                                                            targets_ids)],
                         orelse=[], lineno=0))
         setattr(temp, 'cnd', False)
