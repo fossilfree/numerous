@@ -65,6 +65,6 @@ def test_deriv_order(use_llvm):
     model = Model(m, use_llvm=use_llvm)
     import numpy as np
     expected = np.array([3, 2.5, 1., 1.])
-    assert approx(model.compiled_compute(np.array([0., 0., 0., 0.]))) == expected
+    assert approx(model.compiled_compute(np.array([0., 0., 0., 0.]),np.array([0.]))) == expected
     expected_2 = [3.4, 3.7, 1.3, 1.8]
-    assert approx(model.compiled_compute(np.array([1., 2., 3., 4.]))) == expected_2
+    assert approx(model.compiled_compute(np.array([1., 2., 3., 4.]),np.array([0.]))) == expected_2
