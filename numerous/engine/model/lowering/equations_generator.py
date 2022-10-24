@@ -374,7 +374,7 @@ class EquationGenerator:
                         else:
                             raise ValueError(f'Variable  {var_name} mapping not found')
             for k, v in mapping_dict.items():
-                self.generated_program.add_mapping(v, [k])
+                self.generated_program.add_mapping(v, [(k, False)])
 
     def generate_equations(self, export_model=False, clonable=False):
         log.info('Generate kernel')

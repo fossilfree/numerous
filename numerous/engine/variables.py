@@ -256,6 +256,34 @@ class Variable(MappedValue):
                                                     alias=alias,
                                                     global_var=global_var))
 
+    def empty_variable(self):
+        self.detailed_description = None
+        self.namespace = None
+        self.tag = None
+        self.type = None
+        self.path = None
+        self.paths = None
+        self.global_var = None
+        self.global_var_idx = None
+        self.alias = None
+        self.set_var = None
+        self.set_var_ix = None
+        self.set_namespace = None
+        self.size = 0
+        self.llvm_idx = None
+        self.temporary_variable = False
+        self.item = None
+        self.metadata = None
+        self.mapping = None
+        self.update_counter = None
+        self.allow_update = None
+        self.logger_level = None
+        self.associated_scope = None
+        self.idx_in_scope = None
+        self.top_item = None
+        self.used_in_equation_graph = False
+        self.value = 0
+
 
 class _VariableFactory:
 
