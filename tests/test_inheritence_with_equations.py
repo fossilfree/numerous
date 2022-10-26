@@ -68,7 +68,7 @@ def ms3():
     return S2('S3_inh')
 
 
-@pytest.mark.parametrize("use_llvm", [True, False])
+@pytest.mark.parametrize("use_llvm", [False])
 def test_single_equation_multiple_variables(ms1, use_llvm):
     m1 = Model(ms1, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)

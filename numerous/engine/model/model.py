@@ -356,7 +356,7 @@ class Model:
             self.mappings_graph.as_graphviz(self.system.tag, force=True)
         self.lower_model_codegen(tmp_vars)
         self.assembly_tail()
-        self._initial_variables_dict = {k: v.value for k, v in self.variables.items()}
+        self._initial_variables_dict = {k: v.value for k, v in self.variables.items() if not v.global_var}
 
     def assembly_tail(self):
         self.logged_aliases = {}
@@ -761,7 +761,7 @@ class Model:
 
         c_float_type = type(np.ctypeslib.as_ctypes(np.float64()))
 
-        diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type))(cfptr)
+        diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type), POINTER(c_float_type))(cfptr)
 
         vars_r = CFUNCTYPE(POINTER(c_float_type), c_int64)(cfptr_var_r)
 

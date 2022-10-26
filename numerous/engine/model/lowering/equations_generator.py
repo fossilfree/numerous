@@ -15,8 +15,10 @@ from numerous.utils import logger as log
 
 
 class EquationGenerator:
-    def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations,
+    def __init__(self, filename:int, equation_graph, scope_variables, equations, scoped_equations,
                  temporary_variables, system_tag="", use_llvm=True, imports=None, eq_used=None):
+
+
         if eq_used is None:
             eq_used = []
         self.filename = filename
@@ -166,13 +168,14 @@ class EquationGenerator:
             self.eq_vardefs[eq_key] = vardef
 
     def search_in_item_scope(self, var_id, item_id):
-        if var_id.startswith("global_vars_t"):
-            return var_id
+
         for var in self.scope_variables.values():
             ##TODO add namespacecheck
             if not var.global_var:
                 if var.item.id == item_id and var.tag == self.scope_variables[var_id].tag:
                     return var.id
+            else:
+                return var_id
         raise ValueError("No variable found for id {}", var_id)
 
     def _process_equation_node(self, n):
