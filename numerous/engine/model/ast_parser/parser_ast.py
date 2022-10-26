@@ -214,8 +214,9 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
             if not is_parsed_eq:
                 for sv in scope_variables:
                     if scope_variables[sv].used_in_equation_graph:
+                        scope_variables[sv].add_eq_used(eq_key)
                         g.arg_metadata.append(scope_variables[sv])
-                        # scope_variables[sv].used_in_equation_graph = False
+                        scope_variables[sv].used_in_equation_graph = False
                     else:
                         g.arg_metadata.append(scope_variables[sv])
 

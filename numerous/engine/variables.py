@@ -198,6 +198,7 @@ class Variable(MappedValue):
         self.logger_level = detailed_variable_description.logger_level
         self.associated_scope = []
         self.idx_in_scope = []
+        self.eq_used = []
         self.top_item = None
         self.used_in_equation_graph = False
 
@@ -206,6 +207,9 @@ class Variable(MappedValue):
             return self.path.path[self.top_item][0]
         else:
             return list(self.path.path.values())[0][0]
+
+    def add_eq_used(self,eq_name:str):
+        self.eq_used.append(eq_name)
 
     def update_value(self, value):
         self._value = value

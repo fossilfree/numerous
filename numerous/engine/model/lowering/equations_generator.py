@@ -137,14 +137,14 @@ class EquationGenerator:
         log.info('Making equations for compilation')
 
         for eq_key, eq in equations.items():
-            vardef = Vardef(llvm=self.llvm)
+            vardef = Vardef(eq_key, llvm=self.llvm)
 
             eq.graph.lower_graph = None
             if self.llvm:
                 func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(
                     eq.graph,
                     imports=self.imports,
-                    var_def_=Vardef(llvm=self.llvm),
+                    var_def_=Vardef(eq_key, llvm=self.llvm),
                     compiled_function=True,
                     replacements=eq.replacements,
                     replace_name=eq_key

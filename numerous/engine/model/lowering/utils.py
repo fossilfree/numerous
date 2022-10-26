@@ -71,9 +71,10 @@ def are_all_set_variables(str_list, set_variables):
 
 
 class Vardef:
-    def __init__(self, llvm=True):
+    def __init__(self,eq_key, llvm=True):
         self.vars_inds_map = []
         self.targets = []
+        self.eq_key=eq_key
         self.args = []
         self.llvm = llvm
         self.args_order = []
@@ -105,7 +106,7 @@ class Vardef:
 
     def order_variables(self, order_data):
         for sv in order_data:
-            if sv.used_in_equation_graph:
+            if self.eq_key in sv.eq_used:
                 self.args_order.append(VariableArgument("scope." + sv.tag, sv.global_var))
             else:
                 self.args_order.append(VariableArgument(sv.id, sv.global_var))
