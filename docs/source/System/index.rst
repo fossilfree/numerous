@@ -1,4 +1,4 @@
-Equation
+System
 ===================
 
 .. toctree::
