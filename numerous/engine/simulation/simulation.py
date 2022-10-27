@@ -1,8 +1,8 @@
 from datetime import datetime
 import time
 import numpy as np
-from numerous.solver.numerous_solver import Numerous_solver
-from numerous.engine.simulation.solver_interface import generate_numerous_engine_solver_interface
+from numerous.solver.numerous_solver import NumerousSolver
+from numerous.engine.simulation.solver_interface import generate_numerous_engine_solver_model
 from numerous.engine.model import Model
 from numerous.utils import logger as log
 
@@ -55,18 +55,12 @@ class Simulation:
         generation_finish = time.time()
         log.info(f"Numba model generation finished, generation time: {generation_finish - generation_start}")
 
-        event_function, event_directions = model.generate_event_condition_ast()
-        action_function = model.generate_event_action_ast(model.events)
-        if len(model.timestamp_events) == 0:
-            model.generate_mock_timestamp_event()
-        timestamp_action_function = model.generate_event_action_ast(model.timestamp_events)
-        timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
-        numerous_engine_model, numerous_engine_event_handler = \
-            generate_numerous_engine_solver_interface(model, self.numba_model,
-                                                      events=(event_function, event_directions, action_function),
-                                                      timeevents=(timestamps, timestamp_action_function))
 
-        self.solver = Numerous_solver(model=numerous_engine_model,
+
+        numerous_engine_model, numerous_engine_event_handler = \
+            generate_numerous_engine_solver_model(model, self.numba_model)
+
+        self.solver = NumerousSolver(model=numerous_engine_model,
                                       use_jit=model.use_llvm, event_handler=numerous_engine_event_handler,
                                       **kwargs)
 
