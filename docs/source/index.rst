@@ -6,14 +6,13 @@ Numerous is a simulation library for simulation
 
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Tutorial
+   :maxdepth: 2
+   :caption: Tutorials
 
-   Equation.rst
-   Item.rst
-   SystemCreation.rst
-   ModelWork.rst
-   Variable.rst
+   System/index.rst
+   Equation/index.rst
+   Model/index.rst
+
 
 .. toctree::
    :maxdepth: 1
