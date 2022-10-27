@@ -102,7 +102,7 @@ def test_bouncing_ball_event_detection(num):
     model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
     m1 = Model(model_system_2)
 
-    sim = Simulation(m1, t_start=0, t_stop=tmax, num=5)
+    sim = Simulation(m1, t_start=0, t_stop=tmax, num=5, atol=1e-8, rtol=1e-8)
 
     sim.solve()
 
@@ -116,7 +116,7 @@ def test_bouncing_ball_event_detection(num):
     assert expected_number_of_hits == len(t_hits_model)
 
 
-@pytest.mark.parametrize("use_llvm", [True, False])
+@pytest.mark.parametrize("use_llvm", [False, True])
 def test_timetamp_item_event(use_llvm, capsys):
     model_system_2 = ms1(Ball2(tag="ball", g=9.81, f_loss=0.05))
     m1 = Model(model_system_2, use_llvm=use_llvm)

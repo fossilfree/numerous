@@ -80,6 +80,20 @@ class NumerousEngineModelInterface(Interface):
         """
         return self.historian_update(t, y)
 
+    def post_time_event(self, t: float, y: np.array) -> SolveEvent:
+        """
+        For numerous-engine, this method saves the solution after a time-event, and continues the solver internal loop
+
+        :param t: time
+        :type t: float
+        :param y: states
+        :type y: :class:`np.ndarray`
+        :return: a NoneEvent to continue the solver
+        :rtype: :class:`~numerous.solver.interface.SolveEvent`
+        """
+        self.historian_update(t, y)
+        return SolveEvent.NoneEvent
+
     def get_event_results(self, t, y):
         ynew = self._get_variables_modified(y)
         return self.model.event_functions(t, ynew)
@@ -167,6 +181,7 @@ class NumerousEngineModelInterface(Interface):
     def get_event_directions(self) -> np.array:
         return self.model.event_directions
 
+
 @SolverModel.with_interface(interface=NumerousEngineModelInterface)
 class NumerousEngineModel:
     def __init__(self, numba_model, event_functions, event_directions, event_actions, time_events,
@@ -209,14 +224,12 @@ class NumerousEngineEventHandler(EventHandler):
         self._nm.update_external_data(external_mappings_numpy, external_mappings_time, max_external_t,
                                       min_external_t)
 
-def generate_numerous_engine_solver_model(model: Model, nm: CompiledModel) -> (NumerousEngineModel,
-                                                                               NumerousEngineEventHandler):
+
+def generate_numerous_engine_solver_model(model: Model) -> (NumerousEngineModel, NumerousEngineEventHandler):
     """
     Method to generate the numerous-engine solver-model and its event handler
     :param model: The numerous engine model object
     :type model: :class:`~engine.model.Model`
-    :param nm: Compiled numba model
-    :type nm: :class:`~engine.model.compiled_model.CompiledModel`
     :return: tuple with numerousengine model and eventhandler
     :rtype: tuple(:class:`~engine.simulation.solver_interface.NumerousEngineModel`,
         :class:`~engine.simulation.solver_interface.NumerousEngineEventHandler`
@@ -229,9 +242,9 @@ def generate_numerous_engine_solver_model(model: Model, nm: CompiledModel) -> (N
     time_event_actions = model.generate_event_action_ast(model.timestamp_events)
     time_events = np.array([np.array(event.timestamps) for event in model.timestamp_events])
 
-    numerous_engine_model = NumerousEngineModel(nm, event_functions, event_directions, event_actions, time_events,
-                 time_event_actions)
+    numerous_engine_model = NumerousEngineModel(model.numba_model, event_functions, event_directions, event_actions,
+                                                time_events, time_event_actions)
 
-    numerous_event_handler = NumerousEngineEventHandler(model, nm)
+    numerous_event_handler = NumerousEngineEventHandler(model, model.numba_model)
 
     return numerous_engine_model, numerous_event_handler
