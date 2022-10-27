@@ -64,7 +64,7 @@ def simulation(model: model, variables: variables):
         model_o = model(historian_max_size=historian_max_size, historian=historian)
         model_o.update_variables(variables)
         sim = Simulation(model_o, t_start=0, t_stop=1000, num=1000, method=method)
-        sim.reset()
+        sim.reset(0)
         sim.model.historian_df = None
         return sim
 
