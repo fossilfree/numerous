@@ -112,7 +112,7 @@ def expected(length, N, k):
     return (k ** N) * np.ones(length)
 
 
-@pytest.mark.parametrize("use_llvm", [True, False])
+@pytest.mark.parametrize("use_llvm", [False])
 def test_system_link_Success1(use_llvm):
     N_inner = 5
     N_outer = 2
