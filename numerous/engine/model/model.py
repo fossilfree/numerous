@@ -293,7 +293,6 @@ class Model:
 
         nodes_dep = {}
         self.equations_parsed = {}
-        self.scoped_equations = {}
         self.equations_top = {}
 
         log.info('Parsing equations starting')
@@ -308,8 +307,7 @@ class Model:
                     tag_vars = {v.tag: v for k, v in ns.variables.items()}
                 tag_vars.update(self.global_tag_vars)
                 parse_eq(model_namespace=ns, item_id=item_id, mappings_graph=self.mappings_graph,
-                         scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
-                         scoped_equations=self.scoped_equations, parsed_eq=self.equations_top, eq_used=eq_used)
+                         scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed, parsed_eq=self.equations_top, eq_used=eq_used)
         self.eq_used = eq_used
         log.info('Parsing equations completed')
 
@@ -453,7 +451,7 @@ class Model:
 
         eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py",
                                    equation_graph=self.mappings_graph,
-                                   scope_variables=self.variables, scoped_equations=self.scoped_equations,
+                                   scope_variables=self.variables,
                                    temporary_variables=tmp_vars, system_tag=self.system.tag, use_llvm=self.use_llvm,
                                    imports=self.imports, eq_used=self.eq_used)
 

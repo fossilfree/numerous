@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 
-from numerous.engine.model.ast_parser.equation_form_graph import function_from_graph_generic, \
+from numerous.engine.model.ast_parser.equation_from_graph import function_from_graph_generic, \
     compiled_function_from_graph_generic_llvm
 from numerous.engine.model.lowering.ast_builder import ASTBuilder
 from numerous.engine.model.graph_representation import EdgeType
@@ -15,7 +15,7 @@ from numerous.utils import logger as log
 
 
 class EquationGenerator:
-    def __init__(self, filename:int, equation_graph, scope_variables, equations, scoped_equations,
+    def __init__(self, filename:int, equation_graph, scope_variables, equations,
                  temporary_variables, system_tag="", use_llvm=True, imports=None, eq_used=None):
 
 
@@ -60,7 +60,6 @@ class EquationGenerator:
                         new_sv.update({k: v})
                 self.scope_variables = dict(new_sv, **tail)
 
-        self.scoped_equations = scoped_equations
         self.temporary_variables = temporary_variables
 
         self.values_order = {}
@@ -137,7 +136,7 @@ class EquationGenerator:
         log.info('Making equations for compilation')
 
         for eq_key, eq in equations.items():
-            vardef = Vardef(eq_key, llvm=self.llvm)
+            vardef = Vardef( eq_key, llvm=self.llvm)
 
             eq.graph.lower_graph = None
             if self.llvm:
@@ -179,7 +178,7 @@ class EquationGenerator:
         raise ValueError("No variable found for id {}", var_id)
 
     def _process_equation_node(self, n):
-        eq_key = self.scoped_equations[self.equation_graph.key_map[n]]
+        eq_key = self.equation_graph.key_map[n]
 
         # Define the function to call for this eq
         ext_func = recurse_Attribute(self.equation_graph.nodes[n].func)

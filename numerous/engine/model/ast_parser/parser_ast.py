@@ -100,9 +100,7 @@ def qualify_equation(prefix, g, tag_vars, eq_class, eq_current):
                 obj = getattr(eq_class.__self__, f.attr)
                 replacements[n.id] = obj
 
-    replacements_id = {k: id(o) for k, o in replacements.items()}
-
-    eq_key = 'var_' + eq_current + '_' + hashlib.sha256(json.dumps(replacements_id).encode('UTF-8')).hexdigest()
+    eq_key = 'var_' + eq_current
 
     return g_qual, refer_to_self, eq_key, replacements
 
@@ -116,7 +114,7 @@ def _generate_equation_key(equation_id: str, is_set: bool) -> str:
 
 
 def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
-             parsed_eq_branches, scoped_equations, parsed_eq, eq_used):
+             parsed_eq_branches, parsed_eq, eq_used):
     for m in model_namespace.equation_dict.values():
         for eq in m:
             ns_path = model_namespace.full_tag
@@ -197,13 +195,11 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
             eq_used.append(eq_key)
 
             # make equation graph
-            eq_name = ('EQ_' + eq_path).replace('.', '_')
 
-            scoped_equations[eq_name] = eq_key
 
-            node = Node(key=eq_name,
+            node = Node(key=eq_key,
                         node_type=NodeTypes.EQUATION,
-                        name=eq_name, file=eq_name, ln=0, label=eq_name,
+                        name=eq_key, file=eq_key, ln=0, label=eq_key,
                         ast_type=ast.Call,
                         vectorized=is_set,
                         item_id=item_id,
