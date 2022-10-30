@@ -76,7 +76,7 @@ def test_clone_model_multiple():
     model = Model(system, clonable=True)
     s1 = Simulation(model, t_start=0, t_stop=2, num=2)
     s1.solve()
-    s2 = Simulation(model.clone(clonable=True).clone(), t_start=0, t_stop=2, num=2)
+    s2 = Simulation(model.clone(clonable=True)._clone(), t_start=0, t_stop=2, num=2)
     s2.solve()
     assert all(s1.model.states_as_vector == s2.model.states_as_vector)
 
