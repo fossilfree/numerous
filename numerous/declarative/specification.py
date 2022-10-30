@@ -6,7 +6,7 @@ import types
 import dataclasses
 from .context_managers import _active_mappings, _active_subsystem, NoManagerContextActiveException
 from .variables import Variable, Operations, PartialResult
-from .watcher import watcher, WatchedObject
+from .watcher import watcher, WatchedObject, WatchObjectMeta
 
 from numerous.engine.system import Subsystem, Item
 from numerous.engine.variables import VariableType
@@ -396,105 +396,27 @@ class FixedMappedError(Exception):
     ...
 
 
-class Module(Subsystem, Item, EquationBase, WatchedObject):
+class ModuleParent(Subsystem, EquationBase, WatchedObject):
 
     tag = None
+    _finalized = False
+    _mapping_groups = {}
+    _item_specs = {}
+    _scope_specs = {}
+    _resolved_mappings = []
+    _must_map_variables = []
+    _fixed_variables = []
+    _scopes = {}
 
-    def __new__(cls, *args, **kwargs):
-
-        obj = object.__new__(cls)
-        obj._scopes = {}
-        obj._item_specs = {}
-        obj._resolved_mappings = []
-        if cls.tag is not None:
-            obj.tag = cls.tag
-
-        if obj.tag is None:
-            obj.tag = cls.__name__.lower()
-
-
-
-
-        #if not hasattr(cls, '__org_init__'):
-        cls.__org_init__ = cls.__init__
-
-        obj.cls = cls
-
-        obj.parent_module = _active_subsystem.get_active_manager_context(ignore_no_context=True)
-
-        def wrap(*args, **kwargs):
-            obj._kwargs= kwargs
-
-            scope_specs = {}
-            bases = cls.__bases__
-            for b in bases:
-                scope_specs.update(b.__dict__)
-
-            scope_specs.update(cls.__dict__)
-
-            for b in cls.__bases__:
-                for k, v in b.__dict__.items():
-
-                    if issubclass(v.__class__, ScopeSpec):
-                        if k in scope_specs:
-                            bases = scope_specs[k].__class__.__bases__
-                            if v.__class__ == scope_specs[k].__class__ or v.__class__ in bases:
-                                scope_specs[k]._equations += v._equations
-                        else:
-                            scope_specs[k] = v
-
-                    # if issubclass(v.__class__, ModuleMappings):
-                    #    v._class = b
-                    #    if k in scope_specs:
-
-                    #        scope_specs[k+b.__name__] = v
-                    #        pass
-                    #    else:
-                    #        scope_specs[k] = v
-
-            obj._scope_specs = scope_specs
-
-
-
-            cls.__init__ = cls.__org_init__
-            _active_subsystem.clear_active_manager_context(obj.parent_module)
-            _active_subsystem.set_active_manager_context(obj)
-            cls.__init__(*args, **kwargs)
-            _active_subsystem.clear_active_manager_context(obj)
-            _active_subsystem.set_active_manager_context(obj.parent_module)
-
-            if isinstance(obj.parent_module, Subsystem):
-                obj.parent_module.register_item(obj)
-
-        cls.__init__ = wrap
-
-        return obj
-
-    def __init__(self, tag=None):#, **kwargs):
-
-        super(Module, self).__init__(tag=tag)
-
-        if tag is not None:
-            self.tag = tag
-
-        self._finalized = False
-        self._must_map_variables = []
-        self._fixed_variables = []
-
+    def __init__(self, *args, **kwargs):
+        super(ModuleParent, self).__init__(*args, **kwargs)
+        self._scope_specs = self._scope_specs.copy()
         for k, v in self._scope_specs.items():
 
-            if isinstance(v, ItemsSpec):
-                self._item_specs[k] = v
+            setattr(self, k, v._clone(host=self))
 
-            elif isinstance(v, ScopeSpec):
-                setattr(self, k, v._clone(host=self))
-
-                #    v.check_assigned()
-                self.cls.add_scope(self, k, v, self._kwargs)
-        #for k, v in kwargs.items():
-        #    if hasattr(self, k) and isinstance(getattr(self,k), ScopeSpec):
-        #        for var, val in v.items():
-        #            getattr(getattr(self,k), var).value = val
+            #    v.check_assigned()
+            self.add_scope(self, k, v, kwargs)
 
     def check_variables(self):
 
@@ -502,12 +424,9 @@ class Module(Subsystem, Item, EquationBase, WatchedObject):
 
             resolve = resolve_variable(self, v)
 
-
-
             var = getattr(recursive_get_attr(self, resolve.path), resolve.name)
 
             if var.mapping is None:
-
                 raise NotMappedError(f"The variable {var.path.primary_path} is set must be mapped, but is not mapped!")
 
         for v in self._fixed_variables:
@@ -515,20 +434,20 @@ class Module(Subsystem, Item, EquationBase, WatchedObject):
             var = getattr(recursive_get_attr(self, resolve.path), resolve.name)
 
             if var.mapping is not None:
-                raise FixedMappedError(f"The variable {var.path.primary_path} is fixed, but mapped to another variable!")
+                raise FixedMappedError(
+                    f"The variable {var.path.primary_path} is fixed, but mapped to another variable!")
 
     def _finalize(self, top=True):
         if not self._finalized:
 
-            #self._scope_specs.update(self.__dict__)
+            # self._scope_specs.update(self.__dict__)
 
             for itemspec_name, itemspec in self._item_specs.items():
-
                 itemspec.finalize()
 
-            for k, v in self._scope_specs.items():
+            for k, v in self._mapping_groups.items():
 
-                if isinstance(v, ModuleMappings):
+                #if isinstance(v, ModuleMappings):
                     obj_ = self
                     for mapping_ in v.mappings:
 
@@ -550,7 +469,8 @@ class Module(Subsystem, Item, EquationBase, WatchedObject):
                                     raise MappingFailed(f"!")
 
                                 try:
-                                    from_attr = getattr(recursive_get_attr(obj_, resolved_from.path), resolved_from.name)
+                                    from_attr = getattr(recursive_get_attr(obj_, resolved_from.path),
+                                                        resolved_from.name)
                                 except AttributeError as ae:
                                     raise MappingFailed(
                                         f"The obj_ect {obj_}, {resolved_from.path} has no variable {resolved_from.name}")
@@ -567,7 +487,8 @@ class Module(Subsystem, Item, EquationBase, WatchedObject):
                                         f"The namespace {'.'.join([str(s) for s in [obj_] + resolved_to.path])} does not have a variable {resolved_to.name}.")
 
                                 try:
-                                    from_attr = getattr(recursive_get_attr(obj_, resolved_from.path), resolved_from.name)
+                                    from_attr = getattr(recursive_get_attr(obj_, resolved_from.path),
+                                                        resolved_from.name)
                                 except AttributeError as ae:
                                     raise MappingFailed(
                                         f"The obj_ect {obj_}, {resolved_from.path} has no variable {resolved_from.name}")
@@ -587,7 +508,7 @@ class Module(Subsystem, Item, EquationBase, WatchedObject):
 
             self._finalized = True
 
-            #watcher.finalize()
+            # watcher.finalize()
 
     def prefinalize(self):
         ...
@@ -596,11 +517,11 @@ class Module(Subsystem, Item, EquationBase, WatchedObject):
 
         self.prefinalize()
         self._finalize(top=top)
-        
-        super(Module, self).finalize()
+
+        super(ModuleParent, self).finalize()
 
     @classmethod
-    def add_scope(cls, obj, namespace, scope, values:dict):
+    def add_scope(cls, obj, namespace, scope, values: dict):
         ns = obj.create_namespace(namespace)
         obj._scopes[namespace] = scope
         setattr(obj, namespace, ns)
@@ -615,10 +536,8 @@ class Module(Subsystem, Item, EquationBase, WatchedObject):
             eq_func.__self__ = obj
             eq_func_dec = add_equation(eq_, eq_func)
 
-            #print(eq_func.__name__)
-            #setattr(obj, eq_func.__name__, types.MethodType(eq_func_dec, obj))
-
-
+            # print(eq_func.__name__)
+            # setattr(obj, eq_func.__name__, types.MethodType(eq_func_dec, obj))
 
         prescope = list(scope.__dict__.items())
 
@@ -657,6 +576,89 @@ class Module(Subsystem, Item, EquationBase, WatchedObject):
     def get_path(self):
         return ".".join(self.path)
 
+class DuplicateItemError(Exception):
+    ...
+
+
+class RegisterHelper:
+
+
+    def __init__(self):
+        self._items = {}
+
+    def register_item(self, item):
+        if item.tag in self._items:
+            raise DuplicateItemError(f"An item with tag {item.tag} already registered.")
+        self._items[item.tag] = item
+
+    def get_items(self):
+        return self._items
+
+class ModuleMeta(WatchObjectMeta):
+
+    def __init__(self, class_name: str, base_classes: tuple, __dict__: dict, **kwargs):
+        super(ModuleMeta, self).__init__(class_name, base_classes, __dict__, **kwargs)
+
+    def __call__(cls, *args, **kwargs):
+
+        #cls.__init__ = wrap
+        parent_module = _active_subsystem.get_active_manager_context(ignore_no_context=True)
+
+        register_helper = RegisterHelper()
+
+        items_specs = {}
+        scope_specs = {}
+        mapping_groups = {}
+
+        for attr, var in cls.__dict__.items():
+            if isinstance(var, ItemsSpec):
+                items_specs[attr] = var
+            elif isinstance(var, ScopeSpec):
+                scope_specs[attr] = var
+            elif isinstance(var, ModuleMappings):
+                mapping_groups[attr] = var
+
+        org_init = cls.__init__
+        def wrap(self, *args, **kwargs):
+
+            self._resolved_mappings = []
+            self._must_map_variables = []
+            self._fixed_variables = []
+            self._scopes = {}
+            self._scope_specs = scope_specs
+            self._item_specs = items_specs
+            self._mapping_groups = mapping_groups
+            org_init(self, *args, **kwargs)
+
+
+        _active_subsystem.clear_active_manager_context(parent_module)
+        _active_subsystem.set_active_manager_context(register_helper)
+        cls.__init__ = wrap
+        instance = super(ModuleMeta, cls).__call__(*args, **kwargs)
+        cls.__init__ = org_init
+        _active_subsystem.clear_active_manager_context(register_helper)
+        _active_subsystem.set_active_manager_context(parent_module)
+
+        if cls.tag is not None and instance.tag is None:
+            instance.tag = cls.tag
+
+        if instance.tag is None:
+            instance.tag = cls.__name__.lower()
+
+        [instance.register_item(i) for i in register_helper.get_items().values()]
+
+        if isinstance(parent_module, RegisterHelper) or isinstance(parent_module, Subsystem):
+            parent_module.register_item(instance)
+
+        instance._item_specs = items_specs
+        instance._scope_specs = scope_specs
+        instance._mapping_groups = mapping_groups
+
+
+
+        return instance
+class Module(ModuleParent, metaclass=ModuleMeta):
+    ...
 
 class MappingTypes(Enum):
 

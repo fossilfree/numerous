@@ -169,7 +169,7 @@ spec = [
 class _Graph:
     def __init__(self, n_nodes: int64, edges: int64[:], node_types):
 
-        self.n_children_max = 100
+        self.n_children_max = 200
         self.n_nodes = n_nodes
         self.nodes = np.arange(self.n_nodes)
 
