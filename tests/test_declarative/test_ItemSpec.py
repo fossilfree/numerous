@@ -1,5 +1,5 @@
 from numerous.declarative.specification import ItemsSpec, ItemNotAssignedError
-from numerous.declarative.watcher import watcher
+
 
 import pytest
 
@@ -70,7 +70,6 @@ def test_finalize():
         side1: TestModule
 
     items = TestItems()
-    watcher.add_watched_object(items)
 
     items.side1 = TestModule()
 

@@ -1,5 +1,5 @@
-from numerous.declarative.watcher import watcher
-
+from numerous.declarative.watcher import Watcher
+from numerous.declarative.context_managers import _active_declarative
 from numerous.declarative.specification import ScopeSpec, ItemsSpec, Module, EquationSpec
 from numerous.declarative.variables import Parameter
 import pytest
@@ -14,13 +14,10 @@ class TestModule(Module):
     """
     Class implementing a test module
     """
-
     tag: str = 'mod'
 
     default = TestSpec()
-    print("!")
     items = TestItemSpec()
-    print("!!")
 
     def __init__(self, tag=None):
         super(TestModule, self).__init__(tag)
@@ -44,19 +41,42 @@ def test_watcher():
 
     watcher.finalize()"""
 
+def test_no_active_context():
+    assert not _active_declarative.is_active_manager_context_set()
+
 def test_watch_module():
+
     tm = TestModule()
 
     tm.finalize()
+    assert not _active_declarative.is_active_manager_context_set()
+
 
 def test_watch_itemsspec_clone():
 
     tis = TestItemSpec()
-    watcher.add_watched_object(tis)
+
     tis_clone = tis._clone()
     tis.finalize()
-    watcher.add_watched_object(tis_clone)
+
     tis_clone.finalize()
-    watcher.finalize()
+
+
+def test_capture_not_used():
+    class TestModuleNotUsed(Module):
+        """
+        Class implementing a test module
+        """
+        tag: str = 'mod'
+
+        TestSpec()
+        items = TestItemSpec()
+
+        def __init__(self, tag=None):
+            super(TestModuleNotUsed, self).__init__(tag)
+
+
+
+
 
 

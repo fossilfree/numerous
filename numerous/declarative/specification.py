@@ -6,7 +6,7 @@ import types
 import dataclasses
 from .context_managers import _active_mappings, _active_subsystem, NoManagerContextActiveException
 from .variables import Variable, Operations, PartialResult
-from .watcher import watcher, WatchedObject, WatchObjectMeta
+from .watcher import Watcher, WatchedObject, WatchObjectMeta
 
 from numerous.engine.system import Subsystem, Item
 from numerous.engine.variables import VariableType
@@ -120,6 +120,12 @@ class ScopeSpec(WatchedObject):
         self._host = host
     def _generate_variables(self, equation):
         ...
+
+    def finalize(self):
+        self._watcher.dewatch_object(self)
+
+        for eq in self._equations:
+            eq.finalize()
 
 class ItemNotAssignedError(Exception):
     ...
@@ -359,7 +365,6 @@ class EquationSpec(WatchedObject):
 
         return self.func
 
-
 @dataclasses.dataclass
 class ResolveInfo:
     resolved: bool = False
@@ -492,8 +497,8 @@ class ModuleParent(Subsystem, EquationBase, WatchedObject):
         #self._scope_specs = self._scope_specs.copy()
         for k, v in self._scope_specs.items():
             clone_ = v._clone(host=self)
-            v.attach()
-            watcher.add_watched_object(clone_)
+            #v.attach()
+            #watcher.add_watched_object(clone_)
             setattr(self, k, clone_)
 
             #    v.check_assigned()
@@ -580,7 +585,8 @@ class ModuleParent(Subsystem, EquationBase, WatchedObject):
             self._finalized = True
             self.attach()
             if top:
-                watcher.finalize()
+                ...
+                #watcher.finalize()
 
     def prefinalize(self):
         ...
@@ -608,7 +614,7 @@ class ModuleParent(Subsystem, EquationBase, WatchedObject):
             eq_func = eq_spec.func
             eq_func.__self__ = obj
             eq_func_dec = add_equation(eq_, eq_func)
-            eq_spec.attach()
+            #eq_spec.attach()
 
 
         prescope = list(scope.__dict__.items())
@@ -724,21 +730,21 @@ class ModuleMeta(WatchObjectMeta):
                 items_specs[attr] = clone_
 
                 #watcher.add_watched_object(var)
-                watcher.add_watched_object(clone_)
+                #watcher.add_watched_object(clone_)
                 ...
 
             elif isinstance(var, ScopeSpec):
                 var.set_host(cls)
                 scope_specs[attr] = var
-                watcher.add_watched_object(var)
-                [watcher.add_watched_object(e) for e in var._equations]
+                #watcher.add_watched_object(var)
+                #[watcher.add_watched_object(e) for e in var._equations]
 
         _resolved_mappings = []
         for attr, var in _objects.items():
 
             if isinstance(var, ModuleMappings):
                 mapping_groups[attr] = var
-                watcher.add_watched_object(var)
+                #watcher.add_watched_object(var)
 
                 for mapping_ in var.mappings:
 
@@ -803,7 +809,7 @@ class ModuleMeta(WatchObjectMeta):
         instance._scope_specs = scope_specs
         instance._mapping_groups = mapping_groups
 
-        watcher.add_watched_object(instance)
+        #watcher.add_watched_object(instance)
 
         return instance
 class Module(ModuleParent, metaclass=ModuleMeta):
