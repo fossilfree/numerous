@@ -103,8 +103,8 @@ class TestSubConnector(Module):
     with create_mappings() as mappings:
         items.side1.default.var1 += default.side1_var1
         items.side2.default.var1 += default.side2_var1
-        default.side1_var2 = items.side1.default.var2
-        default.side2_var2 = items.side2.default.var2
+        default.side1_var2 += items.side1.default.var2
+        default.side2_var2 += items.side2.default.var2
         items.side1.default.var3 = items.side2.default.var3
     def __init__(self, side1: TestSubNode, side2: TestSubNode, tag=None):
         super(TestSubConnector, self).__init__(tag)
@@ -188,6 +188,12 @@ def test_composite_connector():
     print_map(composite.items.side3.default.var2)
     print_map(composite.items.side3.default.var3)
 
+    print_map(composite.connector.default.side1_var2)
+    print_map(composite.connector.default.side1_var1)
+    print_map(composite.connector2.default.side1_var1)
+    print_map(composite.connector2.default.side1_var2)
+
+
     m = model.Model(composite)
 
     # Define simulation
@@ -206,6 +212,10 @@ def test_composite_connector():
     assert last(composite.connector2.default.side1_var1) == pytest.approx(F)
     assert last(composite.connector2.default.side2_var1) == pytest.approx(2*F)
 
+    assert last(composite.connector.default.side1_var2) == pytest.approx(last(composite.items.side1.default.var2))
+    assert last(composite.connector2.default.side1_var2) == pytest.approx(last(composite.items.side2.default.var2))
+
+
 
     assert last(composite.items.side1.default.var1) == pytest.approx(last(composite.connector.default.side1_var1))
     assert last(composite.items.side2.default.var1) == pytest.approx(last(composite.connector.default.side2_var1)+last(composite.connector2.default.side1_var1))
@@ -213,4 +223,7 @@ def test_composite_connector():
 
     assert last(composite.items.side1.default.var2) == pytest.approx(10)
     assert last(composite.items.side2.default.var2) == pytest.approx(20)
+
+    assert last(composite.items.side2.default.var2) == pytest.approx(20)
+
 

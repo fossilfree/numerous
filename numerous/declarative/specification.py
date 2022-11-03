@@ -6,7 +6,7 @@ import types
 import dataclasses
 from .context_managers import _active_mappings, _active_subsystem, NoManagerContextActiveException
 from .variables import Variable, Operations, PartialResult
-from .watcher import Watcher, WatchedObject, WatchObjectMeta
+
 
 from numerous.engine.system import Subsystem, Item
 from numerous.engine.variables import VariableType
@@ -26,7 +26,7 @@ def print_map(var):
 class MappingOutsideMappingContextError(Exception):
     ...
 
-class ScopeSpec(WatchedObject):
+class ScopeSpec:
     """
        Specification of a scope in a module. Extend this class and create class variables to define a new specifcation of the variables in a namespace for a module.
    """
@@ -122,7 +122,6 @@ class ScopeSpec(WatchedObject):
         ...
 
     def finalize(self):
-        self._watcher.dewatch_object(self)
 
         for eq in self._equations:
             eq.finalize()
@@ -136,7 +135,7 @@ class NoSuchItemInSpec(Exception):
 class UnrecognizedItemSpec(Exception):
     ...
 
-class ItemsSpec(WatchedObject):
+class ItemsSpec:
     """
     Specification of the items in a module. Extend this class and create class variables to define a new specifcation of items for a module.
     """
@@ -242,7 +241,6 @@ class ItemsSpec(WatchedObject):
 
         self._check_assigned()
         
-        self.attach()
 
     def __setattr__(self, key, value):
         if self._initialized and key!="_items" and not hasattr(self,key):
@@ -251,7 +249,7 @@ class ItemsSpec(WatchedObject):
 
 
 
-class ModuleSpec(WatchedObject):
+class ModuleSpec:
 
     def __init__(self, module_cls: object):
 
@@ -310,9 +308,8 @@ class ModuleSpec(WatchedObject):
             item_spec.finalize()
 
         for scope_spec in self._namespaces.values():
-            scope_spec.attach()
+            ...
 
-        super(ModuleSpec, self).finalize()
 
 import inspect
 def allow_implicit(func):
@@ -342,7 +339,7 @@ def allow_implicit(func):
     return check_implicit
 
 
-class EquationSpec(WatchedObject):
+class EquationSpec:
     """
        Specification of an equation in a module. Use this as a decorator for your methods implementing the equations in a module.
    """
@@ -475,7 +472,7 @@ class FixedMappedError(Exception):
     ...
 
 
-class ModuleParent(Subsystem, EquationBase, WatchedObject):
+class Module(Subsystem, EquationBase):
 
     tag = None
     _finalized = False
@@ -489,8 +486,108 @@ class ModuleParent(Subsystem, EquationBase, WatchedObject):
 
     def __repr__(self):
         return object.__repr__(self)
+
+    def __new__(cls, *args, **kwargs):
+        parent_module = _active_subsystem.get_active_manager_context(ignore_no_context=True)
+
+        register_helper = RegisterHelper()
+
+        items_specs = {}
+        scope_specs = {}
+        mapping_groups = {}
+        _objects = {}
+
+        for b in list(cls.__bases__) + [cls]:
+            _objects.update(b.__dict__)
+
+        obj_ = Obj(scope_specs, items_specs)
+
+        for attr, var in _objects.items():
+            if isinstance(var, ItemsSpec):
+                var.set_host(cls)
+                clone_ = var._clone()
+                items_specs[attr] = clone_
+
+                # watcher.add_watched_object(var)
+                # watcher.add_watched_object(clone_)
+                ...
+
+            elif isinstance(var, ScopeSpec):
+                var.set_host(cls)
+                scope_specs[attr] = var
+                # watcher.add_watched_object(var)
+                # [watcher.add_watched_object(e) for e in var._equations]
+
+        _resolved_mappings = []
+        for attr, var in _objects.items():
+
+            if isinstance(var, ModuleMappings):
+                mapping_groups[attr] = var
+                # watcher.add_watched_object(var)
+
+                for mapping_ in var.mappings:
+                    mapto = mapping_[0]
+                    mapfrom = mapping_[1]
+
+                    map_type = mapping_[2]
+
+                    resolved_to = ResolveInfo(True, mapto.get_rel_path(cls), "")
+                    to_ = ".".join(resolved_to.path)
+                    resolved_from = ResolveInfo(True, mapfrom.get_rel_path(cls), "")
+
+                    from_ = ".".join(resolved_from.path)
+
+                    print("mapping: " + from_ + " -> " + to_)
+
+                    _resolved_mappings.append((resolved_to, resolved_from, map_type))
+
+        org_init = cls.__init__
+
+        def wrap(self, *args, **kwargs):
+
+            self._resolved_mappings = _resolved_mappings
+            self._must_map_variables = []
+            self._fixed_variables = []
+            self._scopes = {}
+            self._scope_specs = scope_specs
+            self._item_specs = items_specs
+
+            for item_name, item in items_specs.items():
+                setattr(self, item_name, item)
+
+            self._mapping_groups = mapping_groups
+            org_init(self, *args, **kwargs)
+
+            cls.__init__ = org_init
+            _active_subsystem.clear_active_manager_context(register_helper)
+            _active_subsystem.set_active_manager_context(parent_module)
+
+            if cls.tag is not None and instance.tag is None:
+                instance.tag = cls.tag
+
+            if instance.tag is None:
+                instance.tag = cls.__name__.lower()
+
+            [instance.register_item(i) for i in register_helper.get_items().values()]
+
+            if isinstance(parent_module, RegisterHelper) or isinstance(parent_module, Subsystem):
+                parent_module.register_item(instance)
+
+            instance._item_specs = items_specs
+            instance._scope_specs = scope_specs
+            instance._mapping_groups = mapping_groups
+
+        _active_subsystem.clear_active_manager_context(parent_module)
+        _active_subsystem.set_active_manager_context(register_helper)
+        cls.__init__ = wrap
+        instance = object.__new__(cls)
+
+
+        # watcher.add_watched_object(instance)
+
+        return instance
     def __init__(self, *args, **kwargs):
-        super(ModuleParent, self).__init__(*args, **kwargs)
+        super(Module, self).__init__(*args, **kwargs)
 
         self._host = None
 
@@ -541,10 +638,12 @@ class ModuleParent(Subsystem, EquationBase, WatchedObject):
                 resolved_to = resolved_mapping[0]
                 map_type = resolved_mapping[2]
                 if map_type == MappingTypes.ASSIGN:
+                    print('doing assing mapping')
+
 
                     try:
 
-                        to_attr = recursive_get_attr(self, resolved_to.path)
+                        to_attr = recursive_get_attr(self, resolved_to.path[:-1])
                     except AttributeError as ae:
                         raise MappingFailed(f"!")
 
@@ -559,6 +658,7 @@ class ModuleParent(Subsystem, EquationBase, WatchedObject):
                             f"The obj_ect {self}, {resolved_from.path} has no variable {resolved_from.name}")
 
                     setattr(to_attr, resolved_to.path[-1], from_attr)
+
                 elif map_type == MappingTypes.ADD:
                     try:
                         to_attr = recursive_get_attr(self, resolved_to.path)
@@ -583,10 +683,6 @@ class ModuleParent(Subsystem, EquationBase, WatchedObject):
             self.check_variables()
 
             self._finalized = True
-            self.attach()
-            if top:
-                ...
-                #watcher.finalize()
 
     def prefinalize(self):
         ...
@@ -645,7 +741,6 @@ class ModuleParent(Subsystem, EquationBase, WatchedObject):
 
         scope._generate_variables(eq_)
         ns.add_equations([eq_])
-        scope.attach()
 
     @classmethod
     def clone_tree(cls, host):
@@ -696,124 +791,7 @@ class Obj:
         self._item_specs = items_specs
         self._scopes = scope_specs
 
-class ModuleMeta(WatchObjectMeta):
 
-    def __init__(self, class_name: str, base_classes: tuple, __dict__: dict, **kwargs):
-        super(ModuleMeta, self).__init__(class_name, base_classes, __dict__, **kwargs)
-
-    def __call__(cls, *args, **kwargs):
-
-        #cls.__init__ = wrap
-        parent_module = _active_subsystem.get_active_manager_context(ignore_no_context=True)
-
-        register_helper = RegisterHelper()
-
-        items_specs = {}
-        scope_specs = {}
-        mapping_groups = {}
-        _objects = {}
-
-
-        for b in list(cls.__bases__)+[cls]:
-            _objects.update(b.__dict__)
-
-        obj_ = Obj(scope_specs, items_specs)
-
-
-
-
-
-        for attr, var in _objects.items():
-            if isinstance(var, ItemsSpec):
-                var.set_host(cls)
-                clone_ = var._clone()
-                items_specs[attr] = clone_
-
-                #watcher.add_watched_object(var)
-                #watcher.add_watched_object(clone_)
-                ...
-
-            elif isinstance(var, ScopeSpec):
-                var.set_host(cls)
-                scope_specs[attr] = var
-                #watcher.add_watched_object(var)
-                #[watcher.add_watched_object(e) for e in var._equations]
-
-        _resolved_mappings = []
-        for attr, var in _objects.items():
-
-            if isinstance(var, ModuleMappings):
-                mapping_groups[attr] = var
-                #watcher.add_watched_object(var)
-
-                for mapping_ in var.mappings:
-
-                    mapto = mapping_[0]
-                    mapfrom = mapping_[1]
-
-                    map_type = mapping_[2]
-
-
-                    resolved_to = ResolveInfo(True, mapto.get_rel_path(cls), "")
-                    to_ = ".".join(resolved_to.path)
-                    resolved_from = ResolveInfo(True, mapfrom.get_rel_path(cls), "")
-
-                    from_ = ".".join(resolved_from.path)
-
-                    print("mapping: "+from_+" -> "+to_)
-
-                    _resolved_mappings.append((resolved_to, resolved_from, map_type))
-                var.attach()
-
-
-
-        org_init = cls.__init__
-        def wrap(self, *args, **kwargs):
-
-            self._resolved_mappings = _resolved_mappings
-            self._must_map_variables = []
-            self._fixed_variables = []
-            self._scopes = {}
-            self._scope_specs = scope_specs
-            self._item_specs = items_specs
-
-            for item_name, item in items_specs.items():
-                setattr(self, item_name, item)
-
-            self._mapping_groups = mapping_groups
-            org_init(self, *args, **kwargs)
-
-
-
-
-        _active_subsystem.clear_active_manager_context(parent_module)
-        _active_subsystem.set_active_manager_context(register_helper)
-        cls.__init__ = wrap
-        instance = super(ModuleMeta, cls).__call__(*args, **kwargs)
-        cls.__init__ = org_init
-        _active_subsystem.clear_active_manager_context(register_helper)
-        _active_subsystem.set_active_manager_context(parent_module)
-
-        if cls.tag is not None and instance.tag is None:
-            instance.tag = cls.tag
-
-        if instance.tag is None:
-            instance.tag = cls.__name__.lower()
-
-        [instance.register_item(i) for i in register_helper.get_items().values()]
-
-        if isinstance(parent_module, RegisterHelper) or isinstance(parent_module, Subsystem):
-            parent_module.register_item(instance)
-
-        instance._item_specs = items_specs
-        instance._scope_specs = scope_specs
-        instance._mapping_groups = mapping_groups
-
-        #watcher.add_watched_object(instance)
-
-        return instance
-class Module(ModuleParent, metaclass=ModuleMeta):
-    ...
 
 class MappingTypes(Enum):
 
@@ -821,7 +799,7 @@ class MappingTypes(Enum):
     ADD = 1
 
 
-class ModuleMappings(WatchedObject):
+class ModuleMappings:
 
     mappings = []
 
