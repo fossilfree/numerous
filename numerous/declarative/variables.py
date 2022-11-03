@@ -9,7 +9,7 @@ from typing import Any
 @dataclasses.dataclass
 class VariableAttrs:
     name: str = None
-    host: Any = None
+    _host: Any = None
     id: str = dataclasses.field(default_factory=lambda: str(uuid4()))
     value: float = 0.0
     is_deriv: bool = False
@@ -120,7 +120,7 @@ class Variable(PartialResult):
 
         return Variable(id=id, value=self.value, name=self.name if name is None else name, is_deriv=self.is_deriv, is_instance=is_instance, type=self.type,
                         var_instance=self.var_instance, integrate=self.integrate, construct=self.construct,
-                        fixed=self.fixed, mapped_to=self.mapped_to, must_map=self.must_map, host=host if host is not None else self.host
+                        fixed=self.fixed, mapped_to=self.mapped_to, must_map=self.must_map, _host=host if host is not None else self._host
                         )
 
     def instance(self, id, name, host):
@@ -139,6 +139,11 @@ class Variable(PartialResult):
         else:
             return False
 
+    def get_rel_path(self, parent):
+
+        path = self._host.get_path(self, parent)
+
+        return path
 
 class Parameter(Variable):
     """

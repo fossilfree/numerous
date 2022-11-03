@@ -13,6 +13,16 @@ from numerous.engine.variables import VariableType
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.multiphysics.equation_decorators import add_equation
 
+
+def path_to_str(var):
+    if var is None:
+        return "None"
+    return ".".join(list(var.path.path.values())[-1])
+
+
+def print_map(var):
+    print(path_to_str(var) + ": " + path_to_str(var.mapping) + ", " + str([path_to_str(v) for v in var.sum_mapping]))
+
 class MappingOutsideMappingContextError(Exception):
     ...
 
@@ -23,12 +33,12 @@ class ScopeSpec(WatchedObject):
 
 
 
-    def __init__(self, parent_path=[], new_var_ids=True):
+    def __init__(self, parent_path=[], new_var_ids=False):
 
         super(ScopeSpec, self).__init__()
 
         self._variables = {}
-        self._host = None
+        self._host: ModuleParent = None
 
         self._equations = []
 
@@ -43,12 +53,26 @@ class ScopeSpec(WatchedObject):
 
             if isinstance(v, Variable):
                 # instance = v.instance(id=".".join(parent_path+[k]), name=k)
-                #instance = v.instance(id=str(uuid4()) if new_var_ids else v.id, name=k)
-                instance = v.instance(id=str(uuid4()), name=k, host=self)
+                instance = v.instance(id=str(uuid4()) if new_var_ids else v.id, name=k, host=self)
+                #instance = v.instance(id=str(uuid4()), name=k, host=self)
                 setattr(self, k, instance)
 
                 self._variables[k] = instance
 
+    def get_child_attr(self, child):
+        for attr, val in self.__dict__.items():
+            if val == child:
+                return attr
+
+        raise ModuleNotFoundError(f"{child} not an attribute on {self}")
+    def get_path(self, child, parent):
+        _attr = self.get_child_attr(child)
+        if self == parent:
+            path = [_attr]
+            return path
+        else:
+            path = self._host.get_path(self, parent) + [_attr]
+            return path
     def __setattr__(self, key, value, clone=False):
 
         if clone:
@@ -83,7 +107,8 @@ class ScopeSpec(WatchedObject):
 
     def _clone(self, host=None):
         clone = self.__class__(new_var_ids=True)
-        clone._host = host
+        clone._equations = self._equations
+        clone.set_host(host)
         # var_list = list(clone.__dict__.items())
         # for var, val in var_list:
         #    if isinstance(val, Variable):
@@ -91,6 +116,8 @@ class ScopeSpec(WatchedObject):
 
         return clone
 
+    def set_host(self, host):
+        self._host = host
     def _generate_variables(self, equation):
         ...
 
@@ -115,6 +142,7 @@ class ItemsSpec(WatchedObject):
         super(ItemsSpec, self).__init__()
 
         self._items = {}
+        self._host = None
 
         annotations = self.__class__.__annotations__
         #a = get_type_hints(self.__class__)
@@ -133,10 +161,33 @@ class ItemsSpec(WatchedObject):
 
         self._initialized = True
 
+    def set_host(self, host):
+        self._host = host
+        for name, item in self._items.items():
+            if isinstance(item, Module) or isinstance(item, ModuleSpec):
+                item.set_host(self)
+    def get_child_attr(self, child):
+        for attr, val in self.__dict__.items():
+            if val == child:
+                return attr
+
+        raise ModuleNotFoundError(f"{child} not an attribute on {self}")
+
+    def get_path(self, child, parent):
+
+        _attr = self.get_child_attr(child)
+        if self == parent:
+
+            path = [_attr]
+            return path
+        else:
+            path = self._host.get_path(self, parent) + [_attr]
+            return path
 
     def _clone(self):
-
-        return self.__class__()
+        clone_ = self.__class__()
+        clone_.set_host(self._host)
+        return clone_
 
     def _handle_item(self, var, val):
 
@@ -147,7 +198,7 @@ class ItemsSpec(WatchedObject):
 
         elif inspect.isclass(val) and issubclass(val, Module) or val.__class__.__name__== "_AnnotatedAlias":
 
-            clone_ = val.clone_tree()
+            clone_ = val.clone_tree(self._host)
 
             setattr(self, var, clone_)
             self._items[var] = clone_
@@ -185,7 +236,7 @@ class ItemsSpec(WatchedObject):
 
         self._check_assigned()
         
-        super(ItemsSpec, self).finalize()
+        self.attach()
 
     def __setattr__(self, key, value):
         if self._initialized and key!="_items" and not hasattr(self,key):
@@ -200,10 +251,13 @@ class ModuleSpec(WatchedObject):
 
         super(ModuleSpec, self).__init__()
 
+
+
         self.module_cls = module_cls
         self._item_specs = {}
         self._namespaces = {}
         self._finalized = False
+        self._host = None
 
         class_var = {}
 
@@ -224,6 +278,25 @@ class ModuleSpec(WatchedObject):
                 self._namespaces[k] = clone_
                 setattr(self, k, clone_)
 
+
+    def set_host(self, host):
+        self._host = host
+    def get_child_attr(self, child):
+        for attr, val in self.__dict__.items():
+            if val == child:
+                return attr
+
+        raise ModuleNotFoundError(f"{child} not an attribute on {self}")
+    def get_path(self, child, parent):
+        _attr = self.get_child_attr(child)
+        if self == parent:
+            path = [_attr]
+            return path
+        else:
+            path = self._host.get_path(self, parent) + [_attr]
+
+            return path
+
     def finalize(self):
         self._finalized = True
 
@@ -231,7 +304,7 @@ class ModuleSpec(WatchedObject):
             item_spec.finalize()
 
         for scope_spec in self._namespaces.values():
-            scope_spec.finalize()
+            scope_spec.attach()
 
         super(ModuleSpec, self).finalize()
 
@@ -276,14 +349,15 @@ class EquationSpec(WatchedObject):
         Will add the equation to the scope passed as the argument
         """
         self.scope = scope
+        self.func = None
 
     def __call__(self, func):
+        self.func = func
+        self.scope._equations.append(self)
 
-        self.scope._equations.append(func)
 
 
-
-        return func
+        return self.func
 
 
 @dataclasses.dataclass
@@ -295,7 +369,7 @@ class ResolveInfo:
 
 def resolve_variable_(obj, resolve_var: Variable) -> ResolveInfo:
 
-    if isinstance(obj, Module):
+    if isinstance(obj, Module) or isinstance(obj, Obj):
         if obj._scopes is not None:
 
             for scope_name, scope in obj._scopes.items():
@@ -408,15 +482,24 @@ class ModuleParent(Subsystem, EquationBase, WatchedObject):
     _fixed_variables = []
     _scopes = {}
 
+    def __repr__(self):
+        return object.__repr__(self)
     def __init__(self, *args, **kwargs):
         super(ModuleParent, self).__init__(*args, **kwargs)
-        self._scope_specs = self._scope_specs.copy()
-        for k, v in self._scope_specs.items():
 
-            setattr(self, k, v._clone(host=self))
+        self._host = None
+
+        #self._scope_specs = self._scope_specs.copy()
+        for k, v in self._scope_specs.items():
+            clone_ = v._clone(host=self)
+            v.attach()
+            watcher.add_watched_object(clone_)
+            setattr(self, k, clone_)
 
             #    v.check_assigned()
-            self.add_scope(self, k, v, kwargs)
+            self.add_scope(self, k, clone_, kwargs)
+
+
 
     def check_variables(self):
 
@@ -445,70 +528,59 @@ class ModuleParent(Subsystem, EquationBase, WatchedObject):
             for itemspec_name, itemspec in self._item_specs.items():
                 itemspec.finalize()
 
-            for k, v in self._mapping_groups.items():
+            for item in self.registered_items.values():
+                item.finalize(top=False)
 
-                #if isinstance(v, ModuleMappings):
-                    obj_ = self
-                    for mapping_ in v.mappings:
+            for resolved_mapping in self._resolved_mappings:
+                resolved_from = resolved_mapping[1]
+                resolved_to = resolved_mapping[0]
+                map_type = resolved_mapping[2]
+                if map_type == MappingTypes.ASSIGN:
 
-                        mapto = mapping_[0]
-                        mapfrom = mapping_[1]
+                    try:
 
-                        map_type = mapping_[2]
-                        try:
-                            resolved_to = resolve_variable(obj_, mapto)
-                            resolved_from = resolve_variable(obj_, mapfrom)
-                            self._resolved_mappings.append((resolved_to, resolved_from))
+                        to_attr = recursive_get_attr(self, resolved_to.path)
+                    except AttributeError as ae:
+                        raise MappingFailed(f"!")
 
-                            if map_type == MappingTypes.ASSIGN:
+                    try:
+                        from_attr = getattr(recursive_get_attr(self, resolved_from.path[:-1]),
+                                            resolved_from.path[-1])
+                    except AttributeError as ae:
+                        raise MappingFailed(
+                            f"The obj_ect {self}, {resolved_from.path} has no variable {resolved_from.name}")
+                    except IndexError:
+                        raise MappingFailed(
+                            f"The obj_ect {self}, {resolved_from.path} has no variable {resolved_from.name}")
 
-                                try:
+                    setattr(to_attr, resolved_to.path[-1], from_attr)
+                elif map_type == MappingTypes.ADD:
+                    try:
+                        to_attr = recursive_get_attr(self, resolved_to.path)
+                    except AttributeError as ae:
 
-                                    to_attr = recursive_get_attr(obj_, resolved_to.path)
-                                except AttributeError as ae:
-                                    raise MappingFailed(f"!")
+                        raise MappingFailed(
+                            f"The namespace {'.'.join([str(s) for s in [self] + resolved_to.path[:-1]])} does not have a variable {resolved_to.path[-1]}.")
 
-                                try:
-                                    from_attr = getattr(recursive_get_attr(obj_, resolved_from.path),
-                                                        resolved_from.name)
-                                except AttributeError as ae:
-                                    raise MappingFailed(
-                                        f"The obj_ect {obj_}, {resolved_from.path} has no variable {resolved_from.name}")
-                                except IndexError:
-                                    raise MappingFailed(
-                                        f"The obj_ect {obj_}, {resolved_from.path} has no variable {resolved_from.name}")
+                    try:
+                        from_attr = getattr(recursive_get_attr(self, resolved_from.path[:-1]),
+                                            resolved_from.path[-1])
+                    except AttributeError as ae:
+                        raise MappingFailed(
+                            f"The obj_ect {self}, {resolved_from.path} has no variable {resolved_from.name}")
 
-                                setattr(to_attr, resolved_to.name, from_attr)
-                            elif map_type == MappingTypes.ADD:
-                                try:
-                                    to_attr = recursive_get_attr(obj_, resolved_to.path + [resolved_to.name])
-                                except AttributeError as ae:
-                                    raise MappingFailed(
-                                        f"The namespace {'.'.join([str(s) for s in [obj_] + resolved_to.path])} does not have a variable {resolved_to.name}.")
+                    to_attr.__iadd__(from_attr)
 
-                                try:
-                                    from_attr = getattr(recursive_get_attr(obj_, resolved_from.path),
-                                                        resolved_from.name)
-                                except AttributeError as ae:
-                                    raise MappingFailed(
-                                        f"The obj_ect {obj_}, {resolved_from.path} has no variable {resolved_from.name}")
+                else:
+                    raise ValueError('Unknown mapping type: ', map_type)
 
-                                to_attr.__iadd__(from_attr)
-
-                            else:
-                                raise ValueError('Unknown mapping type: ', map_type)
-
-
-                        except:
-                            raise
-
-                    v.finalize()
 
             self.check_variables()
 
             self._finalized = True
-
-            # watcher.finalize()
+            self.attach()
+            if top:
+                watcher.finalize()
 
     def prefinalize(self):
         ...
@@ -518,10 +590,10 @@ class ModuleParent(Subsystem, EquationBase, WatchedObject):
         self.prefinalize()
         self._finalize(top=top)
 
-        super(ModuleParent, self).finalize()
 
     @classmethod
     def add_scope(cls, obj, namespace, scope, values: dict):
+
         ns = obj.create_namespace(namespace)
         obj._scopes[namespace] = scope
         setattr(obj, namespace, ns)
@@ -532,12 +604,12 @@ class ModuleParent(Subsystem, EquationBase, WatchedObject):
 
         eq_ = Eq()
 
-        for eq_func in scope._equations:
+        for eq_spec in scope._equations:
+            eq_func = eq_spec.func
             eq_func.__self__ = obj
             eq_func_dec = add_equation(eq_, eq_func)
+            eq_spec.attach()
 
-            # print(eq_func.__name__)
-            # setattr(obj, eq_func.__name__, types.MethodType(eq_func_dec, obj))
 
         prescope = list(scope.__dict__.items())
 
@@ -567,14 +639,32 @@ class ModuleParent(Subsystem, EquationBase, WatchedObject):
 
         scope._generate_variables(eq_)
         ns.add_equations([eq_])
+        scope.attach()
 
     @classmethod
-    def clone_tree(cls):
+    def clone_tree(cls, host):
         clone = ModuleSpec(cls)
         return clone
 
-    def get_path(self):
-        return ".".join(self.path)
+    def get_child_attr(self, child):
+        for attr, val in self.__dict__.items():
+            if val == child:
+                return attr
+
+        raise ModuleNotFoundError(f"{child} not an attribute on {self}")
+
+    def get_path(self, parent):
+
+        if self._host == parent:
+            return [self._host.get_child_attr(parent, self)]
+        else:
+
+            path = self._host.get_path(self, parent)
+            return path
+
+
+    def set_host(self, host):
+        self._host = host
 
 class DuplicateItemError(Exception):
     ...
@@ -594,6 +684,12 @@ class RegisterHelper:
     def get_items(self):
         return self._items
 
+
+class Obj:
+    def __init__(self, scope_specs, items_specs):
+        self._item_specs = items_specs
+        self._scopes = scope_specs
+
 class ModuleMeta(WatchObjectMeta):
 
     def __init__(self, class_name: str, base_classes: tuple, __dict__: dict, **kwargs):
@@ -609,26 +705,79 @@ class ModuleMeta(WatchObjectMeta):
         items_specs = {}
         scope_specs = {}
         mapping_groups = {}
+        _objects = {}
 
-        for attr, var in cls.__dict__.items():
+
+        for b in list(cls.__bases__)+[cls]:
+            _objects.update(b.__dict__)
+
+        obj_ = Obj(scope_specs, items_specs)
+
+
+
+
+
+        for attr, var in _objects.items():
             if isinstance(var, ItemsSpec):
-                items_specs[attr] = var
+                var.set_host(cls)
+                clone_ = var._clone()
+                items_specs[attr] = clone_
+
+                #watcher.add_watched_object(var)
+                watcher.add_watched_object(clone_)
+                ...
+
             elif isinstance(var, ScopeSpec):
+                var.set_host(cls)
                 scope_specs[attr] = var
-            elif isinstance(var, ModuleMappings):
+                watcher.add_watched_object(var)
+                [watcher.add_watched_object(e) for e in var._equations]
+
+        _resolved_mappings = []
+        for attr, var in _objects.items():
+
+            if isinstance(var, ModuleMappings):
                 mapping_groups[attr] = var
+                watcher.add_watched_object(var)
+
+                for mapping_ in var.mappings:
+
+                    mapto = mapping_[0]
+                    mapfrom = mapping_[1]
+
+                    map_type = mapping_[2]
+
+
+                    resolved_to = ResolveInfo(True, mapto.get_rel_path(cls), "")
+                    to_ = ".".join(resolved_to.path)
+                    resolved_from = ResolveInfo(True, mapfrom.get_rel_path(cls), "")
+
+                    from_ = ".".join(resolved_from.path)
+
+                    print("mapping: "+from_+" -> "+to_)
+
+                    _resolved_mappings.append((resolved_to, resolved_from, map_type))
+                var.attach()
+
+
 
         org_init = cls.__init__
         def wrap(self, *args, **kwargs):
 
-            self._resolved_mappings = []
+            self._resolved_mappings = _resolved_mappings
             self._must_map_variables = []
             self._fixed_variables = []
             self._scopes = {}
             self._scope_specs = scope_specs
             self._item_specs = items_specs
+
+            for item_name, item in items_specs.items():
+                setattr(self, item_name, item)
+
             self._mapping_groups = mapping_groups
             org_init(self, *args, **kwargs)
+
+
 
 
         _active_subsystem.clear_active_manager_context(parent_module)
@@ -654,7 +803,7 @@ class ModuleMeta(WatchObjectMeta):
         instance._scope_specs = scope_specs
         instance._mapping_groups = mapping_groups
 
-
+        watcher.add_watched_object(instance)
 
         return instance
 class Module(ModuleParent, metaclass=ModuleMeta):

@@ -50,7 +50,7 @@ class Thermal_Capacitance(EquationBase, Item):
     def eval(self, scope):
 #        print(scope.C, scope.P, scope.T)
 
-        scope.T_dot = scope.P / scope.C
+        scope.T_dot = scope.P / scope.var3
 
 
 class Thermal_Conductor(Subsystem):

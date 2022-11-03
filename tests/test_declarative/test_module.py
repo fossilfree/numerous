@@ -1,6 +1,5 @@
 from numerous.declarative.specification import create_mappings, ItemsSpec, MappingOutsideMappingContextError, Module, ScopeSpec, EquationSpec, NotMappedError, FixedMappedError
 from numerous.declarative.variables import Parameter, Constant
-from numerous.engine import model, simulation
 
 import pytest
 from typing import Annotated
@@ -29,6 +28,10 @@ class TestModule(Module):
     def eval(self, scope: TestSpec):
         scope.var1 = 19
 
+def test_module():
+    tm = TestModule()
+    tm.finalize()
+
 class TestModuleWithItems(Module):
     """
     Class implementing a test module
@@ -49,55 +52,12 @@ class TestModuleWithItems(Module):
         self.items.B = B
         #A.default.var1 = B.default.var1
 
-class TestSys(Module):
-    tag = "test sys"
-    class Variables(ScopeSpec):
-        var1 = Parameter(0, must_be_mapped=True)
-        var2 = Constant(0)
-
-    default = Variables()
-    class TestItems(ItemsSpec):
-        A: TestModule
-        B: TestModule
-        tm: TestModuleWithItems
-
-    items = TestItems()
-
-    def __init__(self):
-        super(TestSys, self).__init__(self.tag)
-        self.items.A = TestModule(tag='tm1')
-        self.items.B = TestModule(tag='tm2')
-        self.items.tm = TestModuleWithItems(A=self.items.A, B=self.items.B)
-
-        self.default.var1 = self.items.A.default.var1
-        self.items.B.default.var1 = self.default.var2
-
-def test_module_with_items_light():
-
-    ts = TestSys()
-    ts.finalize()
-
 def test_module_with_items():
+    A = TestModule('A')
+    B = TestModule('B')
 
-
-    ts = TestSys()
-    ts.finalize()
-
-    m = model.Model(ts)
-
-    # Define simulation
-    s = simulation.Simulation(
-        m,
-        t_start=0, t_stop=10, num=10, num_inner=1, max_step=10
-    )
-    # Solve
-    s.solve()
-
-    def last(var):
-        return s.model.historian_df[var.path.primary_path].tail(1).values[0]
-
-    assert last(ts.items.A.default.var1) == pytest.approx(19.0)
-
+    tmi = TestModuleWithItems(A=A, B=B, tag="tmi")
+    tmi.finalize()
 
 class TestSysMustMapped(Module):
     tag = "test sys"

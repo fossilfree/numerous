@@ -1,8 +1,9 @@
 from numerous.declarative.specification import ItemsSpec, ItemNotAssignedError
+from numerous.declarative.watcher import watcher
+
 import pytest
 
 from tests.test_declarative.mock_objects import TestItemSpec, TestModule
-
 
 def test_clone():
     test_spec = TestItemSpec()
@@ -69,6 +70,7 @@ def test_finalize():
         side1: TestModule
 
     items = TestItems()
+    watcher.add_watched_object(items)
 
     items.side1 = TestModule()
 
