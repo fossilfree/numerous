@@ -38,7 +38,8 @@ class ScopeSpec:
         super(ScopeSpec, self).__init__()
 
         self._variables = {}
-        self._host: ModuleParent = None
+        self._host: Module = None
+        self._host_attr = None
 
         self._equations = []
 
@@ -54,6 +55,7 @@ class ScopeSpec:
             if isinstance(v, Variable):
                 # instance = v.instance(id=".".join(parent_path+[k]), name=k)
                 instance = v.instance(id=str(uuid4()) if new_var_ids else v.id, name=k, host=self)
+                instance.set_host(self, k)
                 #instance = v.instance(id=str(uuid4()), name=k, host=self)
                 setattr(self, k, instance)
 
@@ -66,12 +68,12 @@ class ScopeSpec:
 
         raise ModuleNotFoundError(f"{child} not an attribute on {self}")
     def get_path(self, child, parent):
-        _attr = self.get_child_attr(child)
+
         if self == parent:
-            path = [_attr]
+            path = [self._host_attr]
             return path
         else:
-            path = self._host.get_path(self, parent) + [_attr]
+            path = self._host.get_path(self, parent) + [self._host_attr]
             return path
     def __setattr__(self, key, value, clone=False):
 
@@ -108,7 +110,7 @@ class ScopeSpec:
     def _clone(self, host=None):
         clone = self.__class__(new_var_ids=True)
         clone._equations = self._equations
-        clone.set_host(host)
+        clone.set_host(host, self._host_attr)
         # var_list = list(clone.__dict__.items())
         # for var, val in var_list:
         #    if isinstance(val, Variable):
@@ -116,8 +118,9 @@ class ScopeSpec:
 
         return clone
 
-    def set_host(self, host):
+    def set_host(self, host, attr):
         self._host = host
+        self._host_attr = attr
     def _generate_variables(self, equation):
         ...
 
@@ -148,6 +151,7 @@ class ItemsSpec:
 
         self._items = {}
         self._host = None
+        self._host_attr = None
 
         annotations = self.__class__.__annotations__
         #a = get_type_hints(self.__class__)
@@ -166,11 +170,12 @@ class ItemsSpec:
 
         self._initialized = True
 
-    def set_host(self, host):
+    def set_host(self, host, attr):
         self._host = host
+        self._host_attr = attr
         for name, item in self._items.items():
             if isinstance(item, Module) or isinstance(item, ModuleSpec):
-                item.set_host(self)
+                item.set_host(self, name)
     def get_child_attr(self, child):
         for attr, val in self.__dict__.items():
             if val == child:
@@ -180,7 +185,7 @@ class ItemsSpec:
 
     def get_path(self, child, parent):
 
-        _attr = self.get_child_attr(child)
+        _attr = self._host_attr
         if self == parent:
 
             path = [_attr]
@@ -191,7 +196,7 @@ class ItemsSpec:
 
     def _clone(self):
         clone_ = self.__class__()
-        clone_.set_host(self._host)
+        clone_.set_host(self._host, self._host_attr)
         return clone_
 
     def _handle_item(self, var, val):
@@ -218,12 +223,13 @@ class ItemsSpec:
             item_ = getattr(self, name)
             if inspect.isclass(item_):
                 raise ItemNotAssignedError(f'Item <{name}> is not assigned properly, value is a class {item_}.')
-            elif isinstance(item_, ModuleSpec):
-                raise ItemNotAssignedError(f'Item <{name}> is still a {item_.__class__} object, meaning it as not been assigned during Module initialization.')
+            elif isinstance(item_, ModuleSpec) and (item_._assigned_to is None or isinstance(item_._assigned_to, ModuleSpec)):
+
+                raise ItemNotAssignedError(f'Item <{name}> on <{self._host.tag if self._host is not None else ""}> is still a {item_.__class__} object, meaning it as not been assigned during Module initialization.')
             elif item_ is None:
                 raise ItemNotAssignedError(f'Item <{name}> is not assigned, value is {item_}.')
 
-            if not isinstance(item_, Module):
+            if not isinstance(item_, Module) and (not hasattr(item_, 'assigned_to') or item_._assigned_to is None):
                 raise ItemNotAssignedError(f"The item <{item_}> is not a Module but instead <{item_.__class__.__name__}>")
 
 
@@ -238,6 +244,8 @@ class ItemsSpec:
                 item_.finalize(top=False)
             if isinstance(item_, ModuleSpec):
                 item_.finalize()
+                if item_._assigned_to is not None:
+                    setattr(self, name, item_._assigned_to)
 
         self._check_assigned()
         
@@ -245,7 +253,12 @@ class ItemsSpec:
     def __setattr__(self, key, value):
         if self._initialized and key!="_items" and not hasattr(self,key):
             raise NoSuchItemInSpec(f"ItemsSpec {self.__class__.__name__} class has no item {key}. Please add the item to the ItemsSpec class.")
+
+        elif self._initialized and key!="_items" and isinstance(ms := getattr(self, key), ModuleSpec):
+            ms._assigned_to = value
+
         super(ItemsSpec, self).__setattr__(key,value)
+
 
 
 
@@ -262,6 +275,9 @@ class ModuleSpec:
         self._namespaces = {}
         self._finalized = False
         self._host = None
+        self._host_attr = None
+
+        self._assigned_to = None
 
         class_var = {}
 
@@ -273,17 +289,21 @@ class ModuleSpec:
         for k, v in class_var.items():
 
             if isinstance(v, ItemsSpec):
+                v.set_host(self, k)
                 clone_ = v._clone()
+                clone_.set_host(self, k)
                 self._item_specs[k] = clone_
                 setattr(self, k, clone_)
 
             elif isinstance(v, ScopeSpec):
                 clone_ = v._clone(host=self)
+                clone_.set_host(self, k)
                 self._namespaces[k] = clone_
                 setattr(self, k, clone_)
 
 
-    def set_host(self, host):
+    def set_host(self, host, attr):
+        self._host_attr = attr
         self._host = host
     def get_child_attr(self, child):
         for attr, val in self.__dict__.items():
@@ -297,7 +317,7 @@ class ModuleSpec:
             path = [_attr]
             return path
         else:
-            path = self._host.get_path(self, parent) + [_attr]
+            path = self._host.get_path(self, parent) + [self._host_attr]
 
             return path
 
@@ -471,7 +491,8 @@ class NotMappedError(Exception):
 class FixedMappedError(Exception):
     ...
 
-
+class HostNotFoundError(Exception):
+    ...
 class Module(Subsystem, EquationBase):
 
     tag = None
@@ -500,11 +521,9 @@ class Module(Subsystem, EquationBase):
         for b in list(cls.__bases__) + [cls]:
             _objects.update(b.__dict__)
 
-        obj_ = Obj(scope_specs, items_specs)
-
         for attr, var in _objects.items():
             if isinstance(var, ItemsSpec):
-                var.set_host(cls)
+                var.set_host(cls, attr=attr)
                 clone_ = var._clone()
                 items_specs[attr] = clone_
 
@@ -513,7 +532,7 @@ class Module(Subsystem, EquationBase):
                 ...
 
             elif isinstance(var, ScopeSpec):
-                var.set_host(cls)
+                var.set_host(cls, attr)
                 scope_specs[attr] = var
                 # watcher.add_watched_object(var)
                 # [watcher.add_watched_object(e) for e in var._equations]
@@ -533,6 +552,8 @@ class Module(Subsystem, EquationBase):
 
                     resolved_to = ResolveInfo(True, mapto.get_rel_path(cls), "")
                     to_ = ".".join(resolved_to.path)
+                    print(mapfrom)
+                    print(cls)
                     resolved_from = ResolveInfo(True, mapfrom.get_rel_path(cls), "")
 
                     from_ = ".".join(resolved_from.path)
@@ -590,10 +611,12 @@ class Module(Subsystem, EquationBase):
         super(Module, self).__init__(*args, **kwargs)
 
         self._host = None
+        self._host_attr = None
 
         #self._scope_specs = self._scope_specs.copy()
         for k, v in self._scope_specs.items():
             clone_ = v._clone(host=self)
+            clone_.set_host(self, k)
             #v.attach()
             #watcher.add_watched_object(clone_)
             setattr(self, k, clone_)
@@ -626,12 +649,11 @@ class Module(Subsystem, EquationBase):
         if not self._finalized:
 
             # self._scope_specs.update(self.__dict__)
+            for item in self.registered_items.values():
+                item.finalize(top=False)
 
             for itemspec_name, itemspec in self._item_specs.items():
                 itemspec.finalize()
-
-            for item in self.registered_items.values():
-                item.finalize(top=False)
 
             for resolved_mapping in self._resolved_mappings:
                 resolved_from = resolved_mapping[1]
@@ -644,6 +666,7 @@ class Module(Subsystem, EquationBase):
                     try:
 
                         to_attr = recursive_get_attr(self, resolved_to.path[:-1])
+
                     except AttributeError as ae:
                         raise MappingFailed(f"!")
 
@@ -678,7 +701,6 @@ class Module(Subsystem, EquationBase):
 
                 else:
                     raise ValueError('Unknown mapping type: ', map_type)
-
 
             self.check_variables()
 
@@ -747,25 +769,18 @@ class Module(Subsystem, EquationBase):
         clone = ModuleSpec(cls)
         return clone
 
-    def get_child_attr(self, child):
-        for attr, val in self.__dict__.items():
-            if val == child:
-                return attr
-
-        raise ModuleNotFoundError(f"{child} not an attribute on {self}")
-
     def get_path(self, parent):
 
         if self._host == parent:
-            return [self._host.get_child_attr(parent, self)]
+            return []
         else:
-
-            path = self._host.get_path(self, parent)
+            path = self._host.get_path(self, parent) +[self._host_attr]
             return path
 
 
-    def set_host(self, host):
+    def set_host(self, host, attr):
         self._host = host
+        self._host_attr = attr
 
 class DuplicateItemError(Exception):
     ...

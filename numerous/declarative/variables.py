@@ -10,6 +10,7 @@ from typing import Any
 class VariableAttrs:
     name: str = None
     _host: Any = None
+    _host_attr: str = None
     id: str = dataclasses.field(default_factory=lambda: str(uuid4()))
     value: float = 0.0
     is_deriv: bool = False
@@ -143,7 +144,11 @@ class Variable(PartialResult):
 
         path = self._host.get_path(self, parent)
 
-        return path
+        return path + [self._host_attr]
+
+    def set_host(self, host, attr):
+        self._host = host
+        self._host_attr = attr
 
 class Parameter(Variable):
     """

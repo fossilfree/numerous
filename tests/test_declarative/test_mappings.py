@@ -194,7 +194,7 @@ def test_composite_connector():
     print_map(composite.connector2.default.side1_var2)
 
 
-    m = model.Model(composite)
+    m = model.Model(composite, use_llvm=False)
 
     # Define simulation
     s = simulation.Simulation(
@@ -227,3 +227,47 @@ def test_composite_connector():
     assert last(composite.items.side2.default.var2) == pytest.approx(20)
 
 
+class TestCompositeNodeConnector(Module):
+
+    tag: str = ""
+    class Items(ItemsSpec):
+        side1: TestSubNode
+        side2: TestSubNode
+        side3: TestSubNode
+
+    items = Items()
+
+    def __init__(self, tag, F):
+
+        super(TestCompositeNodeConnector, self).__init__(tag)
+
+        self.items.side1 = TestSubNode("sub_node_1")
+        self.items.side2 = TestSubNode("sub_node_2")
+        self.items.side3 = TestSubNode("sub_node_3")
+        print()
+        print('nodes: ')
+        print(self.items.side1)
+        print(self.items.side2)
+        print(self.items.side3)
+
+        self.connector = TestSubConnector(tag="connector", side1=self.items.side1, side2=self.items.side2)
+
+        print('nodes2: ')
+        print(self.items.side1)
+        print(self.items.side2)
+        print(self.items.side3)
+
+        self.connector.default.F.value = 1
+
+        self.connector2 = TestSubConnector(tag="connector2", side1=self.items.side2, side2=self.items.side3)
+
+        print('nodes3: ')
+        print(self.items.side1)
+        print(self.items.side2)
+        print(self.items.side3)
+
+        self.connector2.default.F.value = F
+
+        self.items.side1.default.var2.value = 10
+        self.items.side2.default.var2.value = 20
+        self.items.side2.default.var3.value = 30
