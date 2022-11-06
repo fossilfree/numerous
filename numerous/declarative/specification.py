@@ -552,13 +552,10 @@ class Module(Subsystem, EquationBase):
 
                     resolved_to = ResolveInfo(True, mapto.get_rel_path(cls), "")
                     to_ = ".".join(resolved_to.path)
-                    print(mapfrom)
-                    print(cls)
+
                     resolved_from = ResolveInfo(True, mapfrom.get_rel_path(cls), "")
 
                     from_ = ".".join(resolved_from.path)
-
-                    print("mapping: " + from_ + " -> " + to_)
 
                     _resolved_mappings.append((resolved_to, resolved_from, map_type))
 
@@ -660,12 +657,9 @@ class Module(Subsystem, EquationBase):
                 resolved_to = resolved_mapping[0]
                 map_type = resolved_mapping[2]
                 if map_type == MappingTypes.ASSIGN:
-                    print('doing assing mapping')
-
-
                     try:
 
-                        to_attr = recursive_get_attr(self, resolved_to.path[:-1])
+                        to_attr = recursive_get_attr(self, resolved_to.path)
 
                     except AttributeError as ae:
                         raise MappingFailed(f"!")
@@ -680,7 +674,7 @@ class Module(Subsystem, EquationBase):
                         raise MappingFailed(
                             f"The obj_ect {self}, {resolved_from.path} has no variable {resolved_from.name}")
 
-                    setattr(to_attr, resolved_to.path[-1], from_attr)
+                    to_attr.add_mapping(from_attr)
 
                 elif map_type == MappingTypes.ADD:
                     try:
