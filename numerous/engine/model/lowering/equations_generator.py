@@ -16,7 +16,7 @@ from numerous.utils import logger as log
 
 
 class EquationGenerator:
-    def __init__(self, filename, equation_graph, scope_variables, equations, scoped_equations,
+    def __init__(self, filename, equation_graph, scope_variables, equations,
                  temporary_variables, system_tag="", use_llvm=True, imports=None, eq_used=None):
         if eq_used is None:
             eq_used = []
@@ -59,7 +59,6 @@ class EquationGenerator:
                         new_sv.update({k: v})
                 self.scope_variables = dict(new_sv, **tail)
 
-        self.scoped_equations = scoped_equations
         self.temporary_variables = temporary_variables
 
         self.values_order = {}
@@ -165,13 +164,13 @@ class EquationGenerator:
         raise ValueError("No variable found for id {}", var_id)
 
     def _process_equation_node(self, n):
-        eq_key = self.scoped_equations[self.equation_graph.key_map[n]]
+        eq_name = self.equation_graph.nodes[n].name
 
         # Define the function to call for this eq
         ext_func = recurse_Attribute(self.equation_graph.nodes[n].func)
         item_id = self.equation_graph.nodes[n].item_id
 
-        vardef = self.eq_vardefs[eq_key]
+        vardef = self.eq_vardefs[eq_name]
 
         # Find the arguments by looking for edges of arg type
         a_indcs, a_edges = list(
