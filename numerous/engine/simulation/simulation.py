@@ -2,6 +2,7 @@ from datetime import datetime
 import time
 import numpy as np
 from numerous.engine.simulation.solvers.numerous_solver.numerous_solver import Numerous_solver
+from numerous.engine.simulation.solver_interface import generate_numerous_engine_solver_interface
 from numerous.engine.model import Model
 from numerous.utils import logger as log
 
@@ -25,7 +26,6 @@ class Simulation:
     """
 
     def __init__(self, model: Model, t_start: float = 0, t_stop: float = 20000, num: int = 1000,
-                 max_event_steps: int = 100,
                  start_datetime: datetime = datetime.now(), **kwargs):
         """
             Creating a namespace.
@@ -56,17 +56,20 @@ class Simulation:
         log.info(f"Numba model generation finished, generation time: {generation_finish - generation_start}")
 
         event_function, event_directions = model.generate_event_condition_ast()
-
         action_function = model.generate_event_action_ast(model.events)
         if len(model.timestamp_events) == 0:
             model.generate_mock_timestamp_event()
         timestamp_action_function = model.generate_event_action_ast(model.timestamp_events)
         timestamps = np.array([np.array(event.timestamps) for event in model.timestamp_events])
-        self.solver = Numerous_solver(time_, delta_t, model, self.numba_model,
-                                      max_event_steps, self.model.states_as_vector,
+        solver_interface = generate_numerous_engine_solver_interface(model, self.numba_model,
+                                                                     events=(event_function, event_directions,
+                                                                             action_function),
+                                                                     time_events=(timestamps,
+                                                                                  timestamp_action_function),
+                                                                     jit=self.model.use_llvm)
+        self.solver = Numerous_solver(time_, delta_t, solver_interface,
+                                      self.model.states_as_vector,
                                       numba_compiled_solver=model.use_llvm,
-                                      events=(event_function, action_function), event_directions=event_directions,
-                                      timestamp_events=(timestamp_action_function, timestamps),
                                       **kwargs)
 
         self.start_datetime = start_datetime
@@ -75,9 +78,6 @@ class Simulation:
 
         log.info("Compiling Numba equations and initializing historian")
         compilation_start = time.time()
-        self.numba_model.map_external_data(t_start)
-        self.numba_model.func(t_start, self.numba_model.get_states())
-        self.numba_model.historian_update(t_start)
         compilation_finished = time.time()
         log.info(
             f"Numba equations compiled, historian initizalized, compilation time: {compilation_finished - compilation_start}")
@@ -117,7 +117,7 @@ class Simulation:
 
     def complete(self):
 
-        list(map(lambda x: x.restore_variables_from_numba(self.solver.numba_model,
+        list(map(lambda x: x.restore_variables_from_numba(self.numba_model,
                                                           self.model.path_variables), self.model.callbacks))
         self.model.create_historian_df()
         self.run_after()

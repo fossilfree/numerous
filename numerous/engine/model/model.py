@@ -111,6 +111,7 @@ class ModelAssembler:
         return variables_, equation_dict
 
 
+
 class Model:
     """
      The model object traverses the system to collect all information needed to pass to the solver
@@ -293,7 +294,7 @@ class Model:
 
         nodes_dep = {}
         self.equations_parsed = {}
-        self.equations_top = {}
+
 
         log.info('Parsing equations starting')
 
@@ -307,7 +308,7 @@ class Model:
                     tag_vars = {v.tag: v for k, v in ns.variables.items()}
                 tag_vars.update(self.global_tag_vars)
                 parse_eq(model_namespace=ns, item_id=item_id, mappings_graph=self.mappings_graph,
-                         scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed, parsed_eq=self.equations_top, eq_used=eq_used)
+                         variables=tag_vars, parsed_eq_branches=self.equations_parsed, eq_used=eq_used)
         self.eq_used = eq_used
         log.info('Parsing equations completed')
 
@@ -641,13 +642,13 @@ class Model:
 
         self.add_timestamp_event("mock", action, [-1])
 
-    def generate_event_condition_ast(self) -> tuple[list[CPUDispatcher], npt.ArrayLike]:
+    def generate_event_condition_ast(self) -> tuple[CPUDispatcher, npt.ArrayLike]:
         if len(self.events) == 0:
             self.generate_mock_event()
         return generate_event_condition_ast(self.events, self.imports.from_imports)
 
-    def generate_event_action_ast(self, events) -> list[CPUDispatcher]:
-        return [generate_event_action_ast(events, self.imports.from_imports)]
+    def generate_event_action_ast(self, events) -> CPUDispatcher:
+        return generate_event_action_ast(events, self.imports.from_imports)
 
     def _get_var_idx(self, var, idx_type):
         if idx_type == "state":

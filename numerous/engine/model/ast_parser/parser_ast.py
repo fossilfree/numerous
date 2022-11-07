@@ -1,5 +1,4 @@
 import ast
-
 from textwrap import dedent
 
 from numerous.engine.variables import Variable
@@ -113,14 +112,14 @@ def _generate_equation_key(equation_id: str, is_set: bool) -> str:
     return eq_key
 
 
-def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
-             parsed_eq_branches, parsed_eq, eq_used):
+def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
+             parsed_eq_branches, eq_used):
     for m in model_namespace.equation_dict.values():
         for eq in m:
             ns_path = model_namespace.full_tag
             is_set = model_namespace.is_set
             eq_key = _generate_equation_key(eq.id, is_set)
-            is_parsed_eq = eq_key in parsed_eq
+            is_parsed_eq = eq_key in eq_used
             ast_tree = None
             if not is_parsed_eq:
                 dsource = eq.lines
@@ -137,7 +136,7 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
                         if tries > 10 - 1:
                             raise
 
-                g = ast_to_graph(ast_tree, eq_key, eq.file, eq.lineno, scope_variables)
+                g = ast_to_graph(ast_tree, eq_key, eq.file, eq.lineno, variables)
                 # Create branched versions of graph
                 branches_ = set()
                 [branches_.update(b.branches.keys()) for b in g.edges_c[:g.edge_counter] if b.branches]
@@ -171,12 +170,10 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
 
                 else:
                     parsed_eq_branches[eq_key] = ParsedEquation(eq, dsource, g, {})
-                parsed_eq[eq_key] = 'EQ_' + ns_path + '.' + eq.name
 
             g = parsed_eq_branches[eq_key].graph
 
-            eq_path = ns_path + '.' + eq_key
-            g_qualified, refer_to_self, eq_key_, replacements = qualify_equation(ns_path, g, scope_variables, eq,
+            g_qualified, refer_to_self, eq_key_, replacements = qualify_equation(ns_path, g, variables, eq,
                                                                                  eq_key)
 
             if len(replacements) > 0:
@@ -196,8 +193,7 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
 
             # make equation graph
 
-
-            node = Node(key=eq_key,
+            node = Node(key=eq_key + "_" + ns_path,
                         node_type=NodeTypes.EQUATION,
                         name=eq_key, file=eq_key, ln=0, label=eq_key,
                         ast_type=ast.Call,
@@ -208,17 +204,15 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, scope_variables,
             connect_equation_node(g_qualified, mappings_graph, node, is_set)
 
             if not is_parsed_eq:
-                for sv in scope_variables:
-                    if scope_variables[sv].used_in_equation_graph:
-                        scope_variables[sv].add_eq_used(eq_key)
-                        g.arg_metadata.append(scope_variables[sv])
-                        scope_variables[sv].used_in_equation_graph = False
+                for sv in variables:
+                    if variables[sv].used_in_equation_graph:
+                        g.arg_metadata.append((sv, variables[sv].id, variables[sv].used_in_equation_graph))
+                        variables[sv].used_in_equation_graph = False
                     else:
-                        g.arg_metadata.append(scope_variables[sv])
+                        g.arg_metadata.append((sv, variables[sv].id, variables[sv].used_in_equation_graph))
 
 
 def process_mappings(mappings, mappings_graph: Graph, scope_vars):
-
     for m in mappings:
         target_var = scope_vars[m[0]]
         target_set_var_ix = -1

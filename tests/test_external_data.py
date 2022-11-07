@@ -143,7 +143,7 @@ class StaticDataSystemWithBall(Subsystem):
 
 def step_solver(sim, t0: float, tmax: float, dt: float):
     t_ = t0
-    while t_ < tmax:
+    while abs(t_ - tmax) > 1e-6:
         t_new, t_ = sim.step_solve(t_, dt)
 
     sim.model.create_historian_df()
@@ -187,7 +187,7 @@ def external_data():
 def simulation(tmpdir: tmpdir):
     def fn(data, dt_eval=0.1, chunksize=1, historian_max_size=None, t0=0, tmax=5, max_step=0.1, dataloader=csvdataloader,
            system=StaticDataSystemWithBall, mapped_name="Dew Point Temperature {C}",
-           variable_name='system_external.tm0.test_nm.T1'):
+           variable_name='system_external.tm0.test_nm.T1', use_llvm=True):
         external_mappings = []
 
         df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}'])
@@ -209,7 +209,7 @@ def simulation(tmpdir: tmpdir):
         s = Simulation(
             Model(system
                   ('system_external', external_mappings=external_mappings, data_loader=data_loader),
-                  historian=historian),
+                  historian=historian, use_llvm=use_llvm),
             t_start=t0, t_stop=tmax, num=len(np.arange(0, tmax, dt_eval)), max_step=max_step)
         return s
     yield fn
@@ -284,13 +284,20 @@ def test_external_data_multiple(use_llvm, system, external_data):
         assert z3 == pytest.approx(z4), f"expected {z3} but got {z4} at {t}"
 
 
+@pytest.mark.parametrize("use_llvm", [False, True])
 @pytest.mark.parametrize("chunksize", [1, 10000])
 @pytest.mark.parametrize("historian_max_size", [1, 10000])
 @pytest.mark.parametrize("solver", [step_solver, normal_solver])
 @pytest.mark.parametrize("dataloader", [inmemorydataloader, csvdataloader])
 @pytest.mark.parametrize("system", [StaticDataSystem, StaticDataSystemWithBall])
+# @pytest.mark.parametrize("use_llvm", [False])
+# @pytest.mark.parametrize("chunksize", [1])
+# @pytest.mark.parametrize("historian_max_size", [1])
+# @pytest.mark.parametrize("solver", [step_solver])
+# @pytest.mark.parametrize("dataloader", [csvdataloader])
+# @pytest.mark.parametrize("system", [StaticDataSystemWithBall])
 def test_external_data_chunks_and_historian_update(external_data: external_data, simulation: simulation,
-                                                   solver, chunksize, historian_max_size, dataloader, system):
+                                                   solver, chunksize, historian_max_size, dataloader, system, use_llvm):
 
     t0 = 0
     tmax = 5
@@ -299,7 +306,7 @@ def test_external_data_chunks_and_historian_update(external_data: external_data,
     data = external_data(t0, tmax, dt_data)
     s = simulation(data=data, chunksize=chunksize, historian_max_size=historian_max_size, t0=t0, max_step=dt,
                    dt_eval=dt, tmax=tmax,
-                   dataloader=dataloader, system=system)
+                   dataloader=dataloader, system=system, use_llvm=use_llvm)
     df = solver(s, t0, tmax, dt)
 
     for ix in df.index:

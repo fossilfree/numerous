@@ -1,29 +1,41 @@
 import numpy as np
+from .common import Jacobian, NumericalJacobian, UserDefinedJacobian, EPS, jithelper
 from numba import njit
-from scipy import linalg
-import logging
-
+from abc import ABC, abstractmethod
+from numerous.engine.model.compiled_model import CompiledModel
+from numerous.engine.simulation.solvers.numerous_solver.interface import ModelInterface
+from numerous.engine.simulation.solvers.numerous_solver.common import select_initial_step
 from .linalg.lapack.lapack_python import lapack_solve_triangular, lapack_cholesky
 
-class BaseMethod:
+
+def _njit(jit=True):
+    def wrapper(fun):
+        if jit:
+            return njit(fun)
+        else:
+            return fun
+    return wrapper
+
+
+class BaseMethod(ABC):
     def __init__(self, numerous_solver, **options):
-        raise NotImplementedError
+        self.jit_solver = numerous_solver.numba_compiled_solver
+
+    @abstractmethod
     def get_solver_state(self, *args, **kwargs):
+        pass
+
+    @staticmethod
+    def step_func(nm: CompiledModel, t: float, dt: float, y: list, yold: list, order: int, _solve_state: tuple):
         raise NotImplementedError
 
 
 class RK45(BaseMethod):
     def __init__(self, numerous_solver, **options):
+        super(RK45, self).__init__(numerous_solver, **options)
+        __njit = _njit(self.jit_solver)
 
         submethod=options['submethod']
-        profile = numerous_solver.numba_compiled_solver
-
-        def comp(fun):
-            if profile:
-                return njit(fun)
-            else:
-                # return options['lp'](fun)
-                return fun
 
         if submethod == None:
             submethod = 'RKDP45'
@@ -102,14 +114,20 @@ class RK45(BaseMethod):
         self.a = a
         self.b = b
         self.c = c
+        self.y0 = numerous_solver.y0
 
         self.error_exponent = (-1 / (self.e_order + 1))
         self.max_factor = options.get('max_factor', 10)
         self.atol = options.get('atol', 1e-3)
         self.rtol = options.get('rtol', 1e-3)
+        self.t_start = numerous_solver.time[0]
 
-        @comp
-        def Rk45(nm, t, dt, y, _not_used1, _not_used2, _solve_state):
+        self.interface = numerous_solver.interface.model
+        self.initial_step = select_initial_step(self.interface, self.t_start, self.y0, 1, self.order - 1, self.rtol,
+                                                self.atol)
+
+        @__njit
+        def Rk45(interface, t, dt, y, _not_used1, _not_used2, _solve_state):
 
             c = _solve_state[0]
             a = _solve_state[1]
@@ -136,10 +154,12 @@ class RK45(BaseMethod):
 
             for i in range(1,rk_steps+1):
                 dy = np.dot(k[:i].T, a[i,:i])
-                k[i,:] = dt*nm.func(t+c[i]*dt, y+dy)
+                interface.set_states(y + dy)
+                k[i, :] = dt * interface.get_deriv(t + c[i] * dt)
 
             ynew = y + np.dot(k[0:order+2].T, b[0,:])
-            fnew = nm.func(tnew, ynew)  # can possibly save one call here...
+            interface.set_states(ynew)
+            fnew = interface.get_deriv(tnew)
             k[-1, :] = dt*fnew
 
             ye = y + np.dot(k[0:order+2].T, b[1,:])
@@ -165,7 +185,8 @@ class RK45(BaseMethod):
                 factor = max(0.2,
                              0.95 * e_norm ** error_exponent)
 
-            _new_solve_state = (c, a, b, max_factor, atol, rtol, np.ascontiguousarray(f0), rk_steps, order, error_exponent, converged)
+            _new_solve_state = (c, a, b, max_factor, atol, rtol, np.ascontiguousarray(f0), rk_steps, order,
+                                error_exponent, converged)
 
             return tnew, ynew, converged, step_info, _new_solve_state, factor
 
@@ -175,216 +196,181 @@ class RK45(BaseMethod):
         return (self.c, self.a, self.b, self.max_factor, self.atol, self.rtol, self.f0, self.rk_steps, self.order,
                 self.error_exponent, True)
 
+    def get_initial_step(self):
+        return
 
-class LevenbergMarquardt(BaseMethod):
+
+class BDF(BaseMethod):
     def __init__(self, numerous_solver, **options):
-        self.order = 5
+        super(BDF, self).__init__(numerous_solver, **options)
+        numba_compiled_solver = numerous_solver.numba_compiled_solver
 
-        l_init = options.get('l', 1)
-        self.l_init = l_init
-        # l = options.get('l', 1)
+        __njit = _njit(numba_compiled_solver)
+
+        max_order = 5
+        self.order = max_order
+
         # Get options
         inner_itermax = options.get('inner_itermax', 4)
-        S_tol = options.get('S_tol', 1e-8)
-        p_tol = options.get('p_tol', 1e-8)
-        grad_tol = options.get('grad_tol', 1e-8)
-        jac_update_iter = options.get('jac_update_iter', 10)
-        jac_update_res_change = options.get('jac_update_res_change', 10)
-        update_jacobian_ = options.get('update_jacobian', True)
         abs_tol = options.get('atol', 0.001)
         rel_tol = options.get('rtol', 0.001)
-        self.longer = options.get('longer', 1.2)
-        self.shorter = options.get('longer', 0.8)
-        lp = options.get('lp', None)
-        profile = numerous_solver.numba_compiled_solver
-        # if lp is not None:
-        #     profile = True
+        shorter = options.get('shorter', 0.8)
 
-        eps = np.finfo(1.0).eps
-        newton_tol = max(10 * eps / rel_tol, min(0.03, rel_tol ** 0.5))
+        self.y0 = numerous_solver.y0
+        self.interface = numerous_solver.interface.model
 
-        s = options.get('s', 0)
-        jacobian_stepsize = options.get('jacobian_stepsize', )
+        try:
+            self.interface.get_jacobian(0)
+            jacobian = jithelper(UserDefinedJacobian, jit=numba_compiled_solver)
+            jac: UserDefinedJacobian = jacobian(interface=self.interface)
+            self.J = jac.get_jacobian(0)
 
-        af = np.array([1, 2 / 3, 6 / 11, 12 / 25, 60 / 137], dtype=np.float)
-        a = np.array([[-1, 0, 0, 0, 0], [1 / 3, -4 / 3, 0, 0, 0], [-2 / 11, 9 / 11, -18 / 11, 0, 0],
-                      [3 / 25, -16 / 25, 36 / 25, -48 / 25, 0],
-                      [-12 / 137, 75 / 137, -200 / 137, 300 / 137, -300 / 137]], dtype=np.float)
+        except NotImplementedError:
+            jacobian = jithelper(NumericalJacobian, jit=numba_compiled_solver)
+            jac: NumericalJacobian = jacobian(interface=self.interface, tolerance=abs_tol)
+            self.J = jac.get_jacobian(0)
 
+        self.jac = jac
+        self.initial_step = select_initial_step(self.interface, numerous_solver.time[0], self.y0,
+                                                           1, 1, rel_tol,
+                                                           abs_tol)
 
-        def comp(fun):
-            if profile:
-                return njit(fun)
-            else:
-                # return options['lp'](fun)
-                return fun
+        newton_tol = max(10 * EPS / rel_tol, min(0.03, rel_tol ** 0.5))
 
+        @__njit
+        def update_D(D, order, factor):
+            R = calculate_R(order, factor)
+            U = calculate_R(order, 1)
+            RU = R.dot(U)
+            D[:order + 1] = np.dot(RU.T, D[:order + 1])
+            return D
 
-        @comp
-        def calc_residual(r):
-            Stemp = np.sum(r ** 2)
-            S = Stemp / len(r)
-            return S
+        @__njit
+        def calculate_R(order, factor):
+            R = np.zeros((order + 1, order + 1))
+            f = 1
+            for j in range(1, order + 1):
+                f = j * f
+                for r in range(1, order + 1):
+                    R[j, r] = (1 / f) * np.prod((np.arange(0, j) - r * factor))
 
-        @comp
-        def guess_init(yold, order, last_f, dt):
-            _sum = np.zeros_like(yold[0, :])
-            for i in range(order):
-                _sum += a[order - 1][i] * yold[i, :]
-            return -_sum + af[order - 1] * last_f * dt
+            R[0] = 1
+            return R
 
-        @comp
-        def sparsejacobian(get_f, get_f_ix, __internal_state, t, y, s, dt, jacobian_stepsize):
-            # Limits the number of equation calls by assuming a sparse jacobian matrix, for example in finite element
-            num_eq_vars = len(y)
-            jac = np.zeros((num_eq_vars, num_eq_vars))
-            np.fill_diagonal(jac, 1)
-            h = jacobian_stepsize
+        gamma = np.hstack((0, np.cumsum(1 / np.arange(1, max_order + 1))))
+        kappa = np.array([0, -1.85, -1 / 9, -0.0823, -0.0415, 0])
+        error_const = kappa * gamma + 1 / np.arange(1, max_order + 2)
+        alpha = (1 - kappa) * gamma
+        min_factor = 0.2
+        max_factor = 10
+        D = np.zeros((max_order + 3, len(self.y0)), dtype=np.float64)
+        D[0] = self.y0
+        D[1] = numerous_solver.f0 * self.initial_step
+        self.D = D
 
-            f = get_f(t, y, __internal_state)
-            y_perm = np.copy(y)
+        @__njit
+        def norm(x):
+            return np.linalg.norm(x) / len(x) ** 0.5
 
-            for i in range(len(y)):
-                col_m = max(0, i - s)
-                col_p = min(num_eq_vars - 1, i + s)
-                idx = [k for k in range(col_m, col_p + 1)]
+        @__njit
+        def bdf_inner(interface: ModelInterface, t, y_init, psi, c, scale, LU, L):
 
-                for j in idx:
-                    y_perm[j] += h
-                    f_perm = get_f_ix(t, y_perm, __internal_state, i, j)
-                    y_perm[j] -= h
-                    diff = (f_perm - f[i]) / h
-                    jac[i][j] += -dt * diff
-
-            return jac
-
-        @comp
-        def nonesensejac(get_f, get_f_ix, __internal_state, t, y, _, dt, jacobian_stepsize):
-            jac = np.zeros((len(y), len(y)))
-            np.fill_diagonal(jac, 1)
-            return jac
-
-        @comp
-        def fulljacobian(get_f, get_f_ix, __internal_state, t, y, _, dt, jacobian_stepsize):
-            num_eq_vars = len(y)
-            jac = np.zeros((num_eq_vars, num_eq_vars))
-            np.fill_diagonal(jac, 1)
-
-            h = jacobian_stepsize
-
-            f = get_f(t, y, __internal_state)
-
-            for i in range(num_eq_vars):
-
-                for j in range(num_eq_vars):
-                    yperm = np.copy(y)
-
-                    yperm[j] += h
-
-                    # f = self.get_f_ix(t, np.array(y, dtype=float), i, j)
-
-                    f_h = get_f(t, yperm, __internal_state)
-
-                    # f_h = get_f_ix(t, yperm, __internal_state, i, j)
-
-                    diff = (f_h[i] - f[i]) / h
-                    # print(diff)
-                    jac[j][i] += -dt * diff
-
-            return jac
-
-        # @comp
-        @comp
-        def levenberg_marquardt_inner(nm, t, dt, yinit, yold, jacT, L, order):
-            # ll=l
-            ll = 0
             stat = 0
             # first estimate of next step
 
             # TODO: give last known derivative value, instead of calculating again
-            y = yinit.copy()
+            y = y_init.copy()
 
             _iter = 0
 
-            scale = abs_tol + rel_tol * np.abs(y)
-
-            x = np.zeros_like(y)
-            d = np.zeros_like(x)
-            rtest = np.zeros_like(y)
-
-            x_norm_old = None
-
+            d = np.zeros_like(y)
             converged = False
+            dy_norm_old = -1
+            rate = 0
 
-            while True:
+            for k in range(inner_itermax):
                 _iter += 1
+                interface.set_states(y)
+                f = interface.get_deriv(t)
 
-                r, f = nm.get_g(t + dt, yold, y, dt, order , a, af)
-                b = jacT @ r
+                b = c * f - psi - d
 
-                # x = solve_triangular(L[0] + ll * DD, -b) # deprecated
-                # x = solve_triangular(L[0], -b) # From Cholesky decomposition
-                # x = np.linalg.solve(L[1], -(L[0].T @ b)) # From QR decomposition - using numpy
-                # x = np.linalg.solve(L[0] @ L[1], -b) # Ax = b - using Numpy
-                # x = solve_qr_fun(L[0], L[1], -b) # From decomposition using own algorithms
-                x = lapack_solve_triangular(L, -b, len(b))
+                dy = lapack_solve_triangular(L, b, len(b))
+                dy_norm = norm(dy / scale)
+                if k > 0:
+                    rate = dy_norm / dy_norm_old
 
-                d += x
-                y += x
+                    if rate >= 1 or rate ** (inner_itermax - k) / (1 - rate) * dy_norm > newton_tol:
+                        stat = -1
+                        break
 
-                # Check if residual is decreasing
-                rate = np.linalg.norm(b, ord=2)
-                if rate < newton_tol:
+                d += dy
+                y += dy
+
+                if dy_norm == 0 or (k > 0 and rate / (1 - rate) * dy_norm < newton_tol):
                     converged = True
                     break
 
-                if _iter > inner_itermax:
-                    stat = -2
-                    break
+                dy_norm_old = dy_norm
 
-            return converged, rate, y, d, rtest, ll, stat, f
+            return converged, rate, y, d, stat, _iter
 
-        @comp
-        def levenberg_marquardt(nm, t, dt, y, yold, order, _solve_state):
+        @__njit
+        def bdf(interface: ModelInterface, t, dt, y, _, __, _solve_state):
             n = len(y)
             ynew = np.zeros_like(y)
 
             J = _solve_state[0]
             jacT = _solve_state[1]
             update_jacobian = _solve_state[2]
-            last_f = _solve_state[3]
-            L = _solve_state[4]
+            L = _solve_state[3]
+            LU = _solve_state[4]
             updated = _solve_state[5]
             update_L = _solve_state[6]
             jac_updates = _solve_state[7]
-            longer = _solve_state[8]
-            shorter = _solve_state[9]
+            D = _solve_state[8]
+            dt_last = _solve_state[9]
+            order = _solve_state[10]
+            jacobian: Jacobian = _solve_state[11]
 
             converged = False
-            y = guess_init(yold, order, last_f, dt)
+
+            #  D contains the derivatives order 1, 2, ... up to 5. It must be updated if step size is changed.
+            if dt != dt_last:
+                update_D(D, order, dt / dt_last)
+
+            #  Dot product is similar to sum of np.sum(gamma[1:order+1] * D[1:order+1].T, axis=1)
+            psi = 1 / alpha[order] * gamma[1:order + 1].dot(D[1:order + 1])
+
+            y_init = np.sum(D[:order + 1], axis=0)  # euler integration using known derivatives
+            scale = abs_tol + rel_tol * np.abs(y_init)
+            c = dt / (alpha[order])
+            t += dt
+
+            d = np.zeros_like(y)
+            inner_iter = 0
 
             while not converged:
 
                 # We need a smarter way to update the jacobian...
                 if update_jacobian:
-                    # print("update")
-                    J = nm.vectorizedfulljacobian(t + dt, y, dt)
+                    interface.set_states(y)
+                    J = jacobian.get_jacobian(t)
 
                     update_jacobian = False
                     updated = True
                     update_L = True
                     jac_updates += 1
-                    # print(jac_updates, t, dt)
 
                 if update_L:
-                    jac = np.identity(n) - af[order - 1] * dt * J
-                    jacT = jac.T
-                    jacjacT = jac.T @ jac
-                    L = lapack_cholesky(76, n, jacjacT)
+                    jac = np.identity(n) - c * J
+                    L = lapack_cholesky(76, n, jac)
                     update_L = False
 
-                converged, S, ynew, d, r, lnew, inner_stat, f = \
-                    levenberg_marquardt_inner(nm, t, dt, y, yold, jacT, L, order)
+                converged, rate, ynew, d, stat, inner_iter = \
+                    bdf_inner(interface, t, y_init, psi, c, scale, LU, L)
+
+                interface.set_states(ynew)
 
                 if not converged:
                     if not updated:
@@ -392,45 +378,76 @@ class LevenbergMarquardt(BaseMethod):
                     else:
                         update_L = True
                         break
+
                 if converged:
                     updated = False
-                    last_f = f
 
-                # info = {'outer_stat': outer_stat, 'inner_stat': inner_stat, 'p_conv': p_conv, 'S': S,
-                #        'grad_conv': grad_conv, 'outer_iter': outer_iter}
-                # TODO: look at this dict giving issues
-                # _solve_state = (jacT, L, l, converged, last_f)
+            _solve_state = (J, jacT, update_jacobian, L, LU, updated, update_L, jac_updates, D, dt,
+                            order, jacobian)
 
-            _solve_state = (J, jacT, update_jacobian, last_f, L, updated, update_L, jac_updates, longer, shorter)
-            t += dt
             # print(t)
             if not converged:
                 factor = shorter
+                return t, ynew, converged, update_jacobian, _solve_state, factor
+
+            safety = 0.9 * (2 * inner_itermax + 1) / (2 * inner_itermax + inner_iter)
+            scale = abs_tol + rel_tol * np.abs(ynew)
+            error = error_const[order] * d
+            error_norm = norm(error / scale)
+            if error_norm > 1:
+                factor = max(min_factor, safety * error_norm ** (-1 / (order + 1)))
+                converged = False
+                return t, ynew, converged, update_jacobian, _solve_state, factor
+
+            D[order + 2] = d - D[order + 1]
+            D[order + 1] = d
+
+            for i in np.arange(order + 1)[::-1]:
+                D[i] += D[i + 1]
+
+            if order > 1:
+                error_m = error_const[order - 1] * D[order]
+                error_m_norm = norm(error_m / scale)
             else:
-                factor = longer
+                error_m_norm = np.inf
+
+            if order < max_order:
+                error_p = error_const[order + 1] * D[order + 2]
+                error_p_norm = norm(error_p / scale)
+            else:
+                error_p_norm = np.inf
+
+            error_norms = np.array([error_m_norm, error_norm, error_p_norm])
+            factors = error_norms ** (-1 / np.arange(order, order + 3))
+
+            delta_order = np.argmax(factors) - 1
+            order += delta_order
+
+            factor = min(max_factor, safety * np.max(factors))
+            update_L = True
+
+            _solve_state = (J, jacT, update_jacobian, L, LU, updated, update_L, jac_updates, D, dt,
+                            order, jacobian)
 
             return t, ynew, converged, update_jacobian, _solve_state, factor
 
-        if profile:
-            self.lp = options.get('lp')
-            self.lp.add_function(levenberg_marquardt)
-            self.lp.add_function(levenberg_marquardt_inner)
-            # self.lp.add_function(nm.vectorizedfulljacobian)
+        self.step_func = bdf
 
-        self.step_func = levenberg_marquardt
 
     def get_solver_state(self, n):
 
-        state = (np.ascontiguousarray(np.zeros((n, n))),
+        state = (self.J,
                  np.ascontiguousarray(np.zeros((n, n))),
-                 True,
-                 np.ascontiguousarray(np.zeros(n)),
+                 False,
+                 np.ascontiguousarray(np.zeros((n, n))),
                  np.ascontiguousarray(np.zeros((n, n))),
                  False,
                  True,
                  0,
-                 self.longer,
-                 self.shorter,
+                 self.D,
+                 self.initial_step,
+                 1,
+                 self.jac
                  )
 
         return state
@@ -444,17 +461,22 @@ class Euler(BaseMethod):
         self.atol = options.get('atol', 1e-3)
         self.rtol = options.get('rtol', 1e-3)
 
-        profile = numerous_solver.numba_compiled_solver
+        numba_compiled_solver = numerous_solver.numba_compiled_solver
+        self.interface: ModelInterface = numerous_solver.interface.model
+        self.t_start = numerous_solver.time[0]
+        self.y0 = numerous_solver.y0
+        self.initial_step = select_initial_step(self.interface, self.t_start, self.y0, 1, self.order, self.rtol,
+                                                self.atol)
 
-        def comp(fun):
-            if profile:
+        def njit_(fun):
+            if numba_compiled_solver:
                 return njit(fun)
             else:
                 # return options['lp'](fun)
                 return fun
 
-        @comp
-        def euler(nm, t, dt, y, _not_used1, _not_used2, _solve_state):
+        @njit_
+        def euler(interface: ModelInterface, t, dt, y, _not_used1, _not_used2, _solve_state):
 
             step_info = 1
 
@@ -463,11 +485,10 @@ class Euler(BaseMethod):
             if len(y) == 0:
                 return tnew, y, True, step_info, _solve_state, 1e20
 
-            fnew = nm.func(t, y)
+            fnew = interface.get_deriv(t)
 
             ynew = y + fnew * dt
-            # TODO figure out if this call can be avoided
-            nm.func(tnew, ynew)
+
             return tnew, ynew, True, step_info, _solve_state, 1e20
 
         self.step_func = euler

@@ -15,10 +15,8 @@ from numerous.utils import logger as log
 
 
 class EquationGenerator:
-    def __init__(self, filename:int, equation_graph, scope_variables, equations,
+    def __init__(self, filename, equation_graph, scope_variables, equations,
                  temporary_variables, system_tag="", use_llvm=True, imports=None, eq_used=None):
-
-
         if eq_used is None:
             eq_used = []
         self.filename = filename
@@ -167,7 +165,6 @@ class EquationGenerator:
             self.eq_vardefs[eq_key] = vardef
 
     def search_in_item_scope(self, var_id, item_id):
-
         for var in self.scope_variables.values():
             ##TODO add namespacecheck
             if not var.global_var:
@@ -178,13 +175,13 @@ class EquationGenerator:
         raise ValueError("No variable found for id {}", var_id)
 
     def _process_equation_node(self, n):
-        eq_key = self.equation_graph.key_map[n]
+        eq_name = self.equation_graph.nodes[n].name
 
         # Define the function to call for this eq
         ext_func = recurse_Attribute(self.equation_graph.nodes[n].func)
         item_id = self.equation_graph.nodes[n].item_id
 
-        vardef = self.eq_vardefs[eq_key]
+        vardef = self.eq_vardefs[eq_name]
 
         # Find the arguments by looking for edges of arg type
         a_indcs, a_edges = list(
@@ -245,8 +242,8 @@ class EquationGenerator:
             args = []
 
             for a in vardef.args_order:
-                if a[0] in scope_vars:
-                    args.append(VariableArgument(d_u(scope_vars[a[0]]), a[1]))
+                if a in scope_vars:
+                    args.append(d_u(scope_vars[a]))
                 else:
                     args.append(VariableArgument(self.search_in_item_scope(a[0], item_id), a[1]))
 

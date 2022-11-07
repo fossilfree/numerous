@@ -1,132 +1,124 @@
-from numerous.engine.system import Subsystem, Item
-from numerous.multiphysics import EquationBase, Equation
-from numerous.engine.model import Model
-from numerous.engine.simulation import Simulation
-from numerous.engine.simulation.solvers.base_solver import SolverType
-from numerous.utils.logger_levels import LoggerLevel
-from numerous.utils.historian import InMemoryHistorian
+import numpy as np
 import pytest
-from pytest import approx
+from collections.abc import Callable
+from scipy.integrate import solve_ivp, OdeSolution
+from numba.core.registry import CPUDispatcher
+from numerous.engine.simulation.solvers.numerous_solver.interface import SolverInterface, ModelInterface
+from numerous.engine.simulation.solvers.numerous_solver.common import jithelper
+from numerous.engine.simulation.solvers.numerous_solver.solve_states import SolveEvent
+
+from numerous.engine.simulation.solvers.numerous_solver.numerous_solver import Numerous_solver
+
+ABSTOL = 1e-8
+RELTOL = 1e-8
 
 
-class AbsTestSystem(Subsystem):
-    def __init__(self, tag='abstestsys', item: Item = None):
-        super(AbsTestSystem, self).__init__(tag)
-        self.register_item(item)
+class Solution:
+    def __init__(self):
+        self.results = []
+
+    def add(self, t, y):
+        self.results.append(np.append(t, y))
 
 
-class AbsTestItem(Item, EquationBase):
-    def __init__(self, tag='abstest'):
-        super(AbsTestItem, self).__init__(tag)
-        self.t1 = self.create_namespace('t1')
-        self.add_state('x', 0, logger_level=LoggerLevel.INFO)
-        self.add_state('y', 10, logger_level=LoggerLevel.INFO)
-        self.add_constant('x_max', 1)
-        self.add_constant('k', 0.01)
-        self.t1.add_equations([self])
+class SimpleModelInterface(ModelInterface):
+    def __init__(self, n_tanks=10, start_volume=10, k=1):
+        self.y = np.zeros(n_tanks)
+        self.y[0] = start_volume
+        self.k = k
 
-    @Equation()
-    def eval(self, scope):
+    def get_deriv(self, t: float) -> np.array:
+        y_dot = np.zeros(len(self.y))
+        for tank in range(len(self.y)):
+            if tank == 0:
+                inlet = 0
+            else:
+                inlet = self.k * self.y[tank - 1]
 
-        x_dot = 0
-        y_dot = 0.001 * (scope.x - scope.y)
+            if tank == len(self.y) - 1:
+                outlet = 0
+            else:
+                outlet = self.k * self.y[tank]
 
-        if scope.y < 0:
-            if scope.x <= scope.x_max:
-                x_dot = - scope.k * scope.y
-        if scope.y > 0:
-            if scope.x >= -scope.x_max:
-                x_dot = - scope.k * scope.y
+            diff = inlet - outlet
+            y_dot[tank] = diff
+        return y_dot
 
-        scope.x_dot = x_dot
-        scope.y_dot = y_dot
+    def set_states(self, states: np.array) -> None:
+        self.y = states
+
+    def get_states(self):
+        return self.y
+
+    def historian_update(self, t: float) -> SolveEvent:
+        return SolveEvent.Historian
+
+    def fun(self, t, y):
+        self.set_states(y)
+        return self.get_deriv(t)
+
+
+class ExampleSolverInterface(SolverInterface):
+    def __init__(self, interface: SimpleModelInterface):
+        self.model = interface
+        self.sol = Solution()
+
+    def handle_solve_event(self, event_id: SolveEvent, t: float):
+        if event_id == SolveEvent.Historian:
+            y = self.model.get_states()
+            self.sol.add(t, y)
 
 
 @pytest.fixture
-def model():
-    def i_model(historian_max_size=2000, historian=InMemoryHistorian()):
-        sys = AbsTestSystem(item=AbsTestItem())
-        historian.max_size = historian_max_size
-        model = Model(system=sys, logger_level=LoggerLevel.INFO, use_llvm=True, historian=historian)
-        return model
+def get_interface() -> Callable[[bool], ExampleSolverInterface]:
+    def fn(jit=False):
+        SimpleModelInterface_ = jithelper(SimpleModelInterface, jit=jit)
 
-    yield i_model
-
-
-@pytest.fixture
-def variables(model: model):
-    variables = model().get_variables()
-    return variables
-
-
-@pytest.fixture
-def simulation(model: model, variables: variables):
-    def fn(solver: SolverType, method: str, historian_max_size=2000, historian=None):
-        model_o = model(historian_max_size=historian_max_size, historian=historian)
-        model_o.update_variables(variables)
-        sim = Simulation(model_o, t_start=0, t_stop=1000, num=1000, solver_type=solver, method=method)
-        sim.reset()
-        sim.model.historian_df = None
-        return sim
-
-    return fn
-
-
-@pytest.fixture
-def step_solver(simulation: simulation):
-    def fn(solver: SolverType, method: str, historian_max_size=2000, historian=None):
-        sim = simulation(solver=solver, method=method, historian_max_size=historian_max_size, historian=historian)
-        t = 0
-        dt = 1
-        while True:
-            sim.step_solve(t, dt)
-            t += dt
-            if t >= 1000:
-                break
-        sim.model.create_historian_df()
-        df = sim.model.historian_df
-        return df
-
+        modelinterface: [SimpleModelInterface, CPUDispatcher] = SimpleModelInterface_()
+        interface = ExampleSolverInterface(interface=modelinterface)
+        return interface
     yield fn
 
 
-@pytest.fixture()
-def normal_solver(simulation: simulation):
-    def fn(solver: SolverType, method: str, historian_max_size=2000, historian=None):
-        sim = simulation(solver=solver, method=method, historian_max_size=historian_max_size,
-                         historian=historian)
-        sim.solve()
-        df = sim.model.historian_df
-        return df
+@pytest.fixture
+def get_timerange() -> (np.array, float):
+    t_start = 0
+    t_end = 100
+    dt = 1
+    timerange = np.append(np.arange(t_start, t_end, dt), t_end)
+    yield timerange, dt
 
+
+@pytest.fixture
+def solve_ivp_results() -> Callable[[np.array, callable, str, np.array], OdeSolution]:
+    def fn(y0, fun, method, timerange):
+        if method == 'LM':
+            method = 'BDF'
+
+        sol = solve_ivp(fun, (timerange[0], timerange[-1]), y0, method=method, t_eval=timerange,
+                        rtol=RELTOL, atol=ABSTOL)
+        return sol
     yield fn
 
 
-def test_numerous_solver(normal_solver: normal_solver, step_solver: step_solver):
-    rel = 1e-6
-    df_step = step_solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
-                          historian_max_size=2000)
-    df_normal_solver = normal_solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
-                                     historian_max_size=2000)
+@pytest.mark.parametrize("method", ["BDF", "RK45"])
+@pytest.mark.parametrize("jit", [True, False])
+def test_numerous_solver(get_interface: get_interface, solve_ivp_results: solve_ivp_results,
+                         get_timerange: get_timerange,
+                         method, jit):
 
-    assert df_step['abstestsys.abstest.t1.x'].values == approx(df_normal_solver['abstestsys.abstest.t1.x'].values,
-                                                               rel=rel), \
-        f"results do not match within relative tolerance {rel}"
+    interface = get_interface(jit)
+    y0 = interface.model.get_states()
 
+    timerange, dt = get_timerange
 
-def test_store_historian(normal_solver: normal_solver, step_solver: step_solver):
-    results = {}
-    for solver, name in zip([normal_solver, step_solver], ["normal_solver", "step_solver"]):
+    num_solver = Numerous_solver(timerange, dt, interface=interface,
+                                 y0=y0, numba_compiled_solver=jit, method=method, atol=ABSTOL, rtol=RELTOL)
 
-        df_split = solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
-                          historian_max_size=10)
+    num_solver.solve()
+    num_results = np.array(interface.sol.results).T[1:]
 
-        df_single = solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
-                           historian_max_size=2000)
+    scipy_results = solve_ivp_results(y0, interface.model.fun, method, timerange)
 
-        results.update({name: [df_split, df_single]})
-
-        assert approx(df_split["abstestsys.abstest.t1.x"]) == df_single["abstestsys.abstest.t1.x"], \
-            f"failed for {name}"
-        assert approx(df_split["abstestsys.abstest.t1.y"]) == df_single["abstestsys.abstest.t1.y"], \
-            "failed for {name}"
+    for tank, (scpy, num) in enumerate(zip(scipy_results.y, num_results)):
+        assert pytest.approx(scpy, abs=ABSTOL * 100, rel=RELTOL * 100) == num, f"results differ for tank {tank}"
