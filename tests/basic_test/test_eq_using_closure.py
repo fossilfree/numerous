@@ -84,11 +84,12 @@ class IfSystem(Subsystem):
         self.register_items(items)
 
 
-@pytest.mark.parametrize("use_llvm", [False, True])
+@pytest.mark.parametrize("use_llvm", [False])
 def test_external_closure_0(use_llvm):
     model_ = model.Model(
         IfSystem('m_system', SelfTest('tm1', 1), SelfTest('tm11', 2), ClosureFuncTest('tm2'), ClosureVarTest('tm3')),
         use_llvm=use_llvm)
+    model_.mappings_graph.as_graphviz("123",True)
     s = simulation.Simulation(model_, t_start=0, t_stop=3, num=1, num_inner=1)
     s.solve()
     expected = 4.0

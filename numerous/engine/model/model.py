@@ -272,7 +272,6 @@ class Model:
 
         nodes_dep = {}
         self.equations_parsed = {}
-        self.equations_top = {}
 
         log.info('Parsing equations starting')
         for v in self.variables.values():
@@ -288,7 +287,7 @@ class Model:
                     tag_vars = {v.tag: v for k, v in ns.variables.items()}
 
                 parse_eq(model_namespace=ns, item_id=item_id, mappings_graph=self.mappings_graph,
-                         variables=tag_vars, parsed_eq_branches=self.equations_parsed, parsed_eq=self.equations_top, eq_used=eq_used)
+                         variables=tag_vars, parsed_eq_branches=self.equations_parsed, eq_used=eq_used)
         self.eq_used = eq_used
         log.info('Parsing equations completed')
 
