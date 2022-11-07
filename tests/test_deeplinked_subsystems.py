@@ -112,7 +112,7 @@ def expected(length, N, k):
     return (k ** N) * np.ones(length)
 
 
-@pytest.mark.parametrize("use_llvm", [False])
+@pytest.mark.parametrize("use_llvm", [True, False])
 def test_system_link_Success1(use_llvm):
     N_inner = 5
     N_outer = 2
@@ -126,7 +126,7 @@ def test_system_link_Success1(use_llvm):
 
     assert approx(np.array(
         df['works_deeplink.linkersubsystem_deeplink_2.item_5.item_4.item_3.item_2.item_1.boundary_deeplink.t1.x'])[1:],
-        rel=1) == expected(len(df.df.index[:-1]), (N_outer - 1) * N_inner, 0.9)
+                  rel=1) == expected(len(df.df.index[:-1]), (N_outer - 1) * N_inner, 0.9)
 
 
 @pytest.mark.parametrize("use_llvm", [True, False])
