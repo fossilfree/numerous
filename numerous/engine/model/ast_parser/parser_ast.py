@@ -206,11 +206,11 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
             if not is_parsed_eq:
                 for sv in variables:
                     if variables[sv].used_in_equation_graph:
-                        g.arg_metadata.append((sv, variables[sv].id, variables[sv].used_in_equation_graph))
+                        variables[sv].add_eq_used(eq_key)
+                        g.arg_metadata.append(variables[sv])
                         variables[sv].used_in_equation_graph = False
                     else:
-                        g.arg_metadata.append((sv, variables[sv].id, variables[sv].used_in_equation_graph))
-
+                        g.arg_metadata.append(variables[sv])
 
 def process_mappings(mappings, mappings_graph: Graph, scope_vars):
     for m in mappings:
