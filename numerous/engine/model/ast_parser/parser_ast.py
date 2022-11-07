@@ -1,6 +1,4 @@
 import ast
-import string
-import random
 from textwrap import dedent
 
 from numerous.engine.variables import Variable
@@ -173,9 +171,7 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
                 else:
                     parsed_eq_branches[eq_key] = ParsedEquation(eq, dsource, g, {})
 
-
             g = parsed_eq_branches[eq_key].graph
-
 
             g_qualified, refer_to_self, eq_key_, replacements = qualify_equation(ns_path, g, variables, eq,
                                                                                  eq_key)
@@ -197,13 +193,13 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
 
             # make equation graph
 
-            node = Node(key=eq_key+"_"+ns_path,
+            node = Node(key=eq_key + "_" + ns_path,
                         node_type=NodeTypes.EQUATION,
                         name=eq_key, file=eq_key, ln=0, label=eq_key,
                         ast_type=ast.Call,
                         vectorized=is_set,
                         item_id=item_id,
-                        func=ast.Name(id=(eq_key).replace('.', '_')))
+                        func=ast.Name(id=eq_key.replace('.', '_')))
 
             connect_equation_node(g_qualified, mappings_graph, node, is_set)
 

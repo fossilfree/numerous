@@ -156,7 +156,7 @@ def test_single_unary_operator(use_llvm):
     assert approx(historian_df['system6.item6.t1.x'][2]) == 2
 
 
-@pytest.mark.parametrize("use_llvm", [True,False])
+@pytest.mark.parametrize("use_llvm", [True, False])
 def test_single_unary_operator_local_variables_are_not_shared(use_llvm):
     m = System(tag='system7', item=SingleUnaryOperator(tag='item7', t=1))
     m.register_item(SingleUnaryOperator(tag='item8', t=-3))
