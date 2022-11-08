@@ -6,7 +6,9 @@ import types
 import dataclasses
 from .context_managers import _active_mappings, _active_subsystem, NoManagerContextActiveException
 from .variables import Variable, Operations, PartialResult
-
+from .connectors.bus import Connector, ModuleConnections
+from .module import ModuleSpecInterface
+from .utils import recursive_get_attr
 
 from numerous.engine.system import Subsystem, Item
 from numerous.engine.variables import VariableType
@@ -67,13 +69,16 @@ class ScopeSpec:
                 return attr
 
         raise ModuleNotFoundError(f"{child} not an attribute on {self}")
-    def get_path(self, child, parent):
+    def get_path(self, parent):
 
         if self == parent:
             path = [self._host_attr]
             return path
         else:
-            path = self._host.get_path(self, parent) + [self._host_attr]
+            if inspect.isclass(self._host):
+                path = self._host.get_path_class(parent) + [self._host_attr]
+            else:
+                path = self._host.get_path(parent) + [self._host_attr]
             return path
     def __setattr__(self, key, value, clone=False):
 
@@ -183,19 +188,25 @@ class ItemsSpec:
 
         raise ModuleNotFoundError(f"{child} not an attribute on {self}")
 
-    def get_path(self, child, parent):
+    def get_path(self, parent):
 
         _attr = self._host_attr
+
         if self == parent:
 
             path = [_attr]
             return path
         else:
-            path = self._host.get_path(self, parent) + [_attr]
+            path = self._host.get_path(parent) + [_attr]
             return path
 
     def _clone(self):
+
         clone_ = self.__class__()
+        #clone_._items = {k: v.clone() for k, v in self._items.items()}
+        clone_._items = self._items.copy()
+        for name, item in clone_._items.items():
+            setattr(clone_, name, item)
         clone_.set_host(self._host, self._host_attr)
         return clone_
 
@@ -208,7 +219,7 @@ class ItemsSpec:
 
         elif inspect.isclass(val) and issubclass(val, Module) or val.__class__.__name__== "_AnnotatedAlias":
 
-            clone_ = val.clone_tree(self._host)
+            clone_ = val.clone_tree()
 
             setattr(self, var, clone_)
             self._items[var] = clone_
@@ -221,16 +232,19 @@ class ItemsSpec:
     def _check_assigned(self):
         for name, item in self._items.items():
             item_ = getattr(self, name)
+
+            if not isinstance(item_, Module) and item_._assigned_to is not None:
+                a = item_._assigned_to
+
             if inspect.isclass(item_):
                 raise ItemNotAssignedError(f'Item <{name}> is not assigned properly, value is a class {item_}.')
             elif isinstance(item_, ModuleSpec) and (item_._assigned_to is None or isinstance(item_._assigned_to, ModuleSpec)):
-
                 raise ItemNotAssignedError(f'Item <{name}> on <{self._host.tag if self._host is not None else ""}> is still a {item_.__class__} object, meaning it as not been assigned during Module initialization.')
             elif item_ is None:
                 raise ItemNotAssignedError(f'Item <{name}> is not assigned, value is {item_}.')
-
-            if not isinstance(item_, Module) and (not hasattr(item_, 'assigned_to') or item_._assigned_to is None):
+            elif not isinstance(item_, Module) and (not hasattr(item_, '_assigned_to') or item_._assigned_to is None):
                 raise ItemNotAssignedError(f"The item <{item_}> is not a Module but instead <{item_.__class__.__name__}>")
+
 
 
     def finalize(self):
@@ -238,6 +252,9 @@ class ItemsSpec:
         Finalize this module. Checks if all items from item specifications have been assigned.
         """
         for name, item in self._items.items():
+            print()
+            print('module finalizing: ', self)
+            print('item: ', name)
             item_ = getattr(self, name)
 
             if isinstance(item_, Module):
@@ -248,21 +265,32 @@ class ItemsSpec:
                     setattr(self, name, item_._assigned_to)
 
         self._check_assigned()
-        
+
 
     def __setattr__(self, key, value):
-        if self._initialized and key!="_items" and not hasattr(self,key):
+        if value is None and key not in ["_items", '_host', '_host_attr']:
+            raise ItemNotAssignedError("You can not assign an item to None")
+
+        if self._initialized and key not in ["_items", '_host', '_host_attr'] and not hasattr(self,key):
             raise NoSuchItemInSpec(f"ItemsSpec {self.__class__.__name__} class has no item {key}. Please add the item to the ItemsSpec class.")
 
-        elif self._initialized and key!="_items" and isinstance(ms := getattr(self, key), ModuleSpec):
+        elif self._initialized and key!="_items" and isinstance(ms := getattr(self, key), ModuleSpec)  and key not in ["_items", '_host', '_host_attr']:
             ms._assigned_to = value
+
+            if not isinstance(value, Module) and not isinstance(value, ModuleSpec):
+
+                raise TypeError(f"Can only assign modules as item. Not: {value}")
+            value._from_spec = ms
+            value._host = self
+            value._host_attr = key
+        #Transfer connectors
 
         super(ItemsSpec, self).__setattr__(key,value)
 
 
 
 
-class ModuleSpec:
+class ModuleSpec(ModuleSpecInterface):
 
     def __init__(self, module_cls: object):
 
@@ -273,9 +301,11 @@ class ModuleSpec:
         self.module_cls = module_cls
         self._item_specs = {}
         self._namespaces = {}
+        self._connectors = {}
         self._finalized = False
         self._host = None
         self._host_attr = None
+        self.tag = module_cls.tag
 
         self._assigned_to = None
 
@@ -301,6 +331,12 @@ class ModuleSpec:
                 self._namespaces[k] = clone_
                 setattr(self, k, clone_)
 
+            elif isinstance(v, Connector):
+                clone_ = v.clone()
+                clone_.set_host(self, k)
+                self._connectors[k] = clone_
+                setattr(self, k, clone_)
+
 
     def set_host(self, host, attr):
         self._host_attr = attr
@@ -311,13 +347,12 @@ class ModuleSpec:
                 return attr
 
         raise ModuleNotFoundError(f"{child} not an attribute on {self}")
-    def get_path(self, child, parent):
-        _attr = self.get_child_attr(child)
+    def get_path(self, parent):
         if self == parent:
-            path = [_attr]
+            path = []
             return path
         else:
-            path = self._host.get_path(self, parent) + [self._host_attr]
+            path = self._host.get_path(parent) + [self._host_attr]
 
             return path
 
@@ -466,14 +501,7 @@ def resolve_variable(obj, resolve_var: Variable) -> ResolveInfo:
         raise MappingFailed(f"Could not find <{resolve_var.id}, {resolve_var.name}> in <{obj}>")
     return resolve
 
-def recursive_get_attr(obj, attr_list):
 
-    attr_ = getattr(obj, attr_list[0])
-
-    if len(attr_list)>1:
-        return recursive_get_attr(attr_, attr_list[1:])
-    else:
-        return attr_
 
 
 class MappingFailed(Exception):
@@ -500,10 +528,12 @@ class Module(Subsystem, EquationBase):
     _mapping_groups = {}
     _item_specs = {}
     _scope_specs = {}
+    _connectors = {}
     _resolved_mappings = []
     _must_map_variables = []
     _fixed_variables = []
     _scopes = {}
+    _from_spec = None
 
     def __repr__(self):
         return object.__repr__(self)
@@ -516,52 +546,65 @@ class Module(Subsystem, EquationBase):
         items_specs = {}
         scope_specs = {}
         mapping_groups = {}
+        connectors = {}
+        connections = {}
         _objects = {}
 
         for b in list(cls.__bases__) + [cls]:
             _objects.update(b.__dict__)
 
-        for attr, var in _objects.items():
-            if isinstance(var, ItemsSpec):
-                var.set_host(cls, attr=attr)
-                clone_ = var._clone()
-                items_specs[attr] = clone_
 
-                # watcher.add_watched_object(var)
-                # watcher.add_watched_object(clone_)
-                ...
-
-            elif isinstance(var, ScopeSpec):
-                var.set_host(cls, attr)
-                scope_specs[attr] = var
-                # watcher.add_watched_object(var)
-                # [watcher.add_watched_object(e) for e in var._equations]
-
-        _resolved_mappings = []
-        for attr, var in _objects.items():
-
-            if isinstance(var, ModuleMappings):
-                mapping_groups[attr] = var
-                # watcher.add_watched_object(var)
-
-                for mapping_ in var.mappings:
-                    mapto = mapping_[0]
-                    mapfrom = mapping_[1]
-
-                    map_type = mapping_[2]
-
-                    resolved_to = ResolveInfo(True, mapto.get_rel_path(cls), "")
-                    to_ = ".".join(resolved_to.path)
-
-                    resolved_from = ResolveInfo(True, mapfrom.get_rel_path(cls), "")
-
-                    from_ = ".".join(resolved_from.path)
-
-                    _resolved_mappings.append((resolved_to, resolved_from, map_type))
 
         org_init = cls.__init__
 
         def wrap(self, *args, **kwargs):
+            for attr, var in _objects.items():
+                if isinstance(var, ItemsSpec):
+                    var.set_host(self, attr=attr)
+                    clone_ = var._clone()
+                    items_specs[attr] = clone_
+
+                    # watcher.add_watched_object(var)
+                    # watcher.add_watched_object(clone_)
+                    ...
+
+                elif isinstance(var, ScopeSpec):
+                    var.set_host(self, attr)
+                    scope_specs[attr] = var
+                    # watcher.add_watched_object(var)
+                    # [watcher.add_watched_object(e) for e in var._equations]
+
+                elif isinstance(var, Connector):
+                    var.set_host(self, attr)
+                    clone_ = var.clone()
+                    connectors[attr] = clone_
+
+                elif isinstance(var, ModuleConnections):
+                    var.set_host(self, attr)
+                    clone_ = var.clone()
+                    connections[attr] = clone_
+
+            _resolved_mappings = []
+            for attr, var in _objects.items():
+
+                if isinstance(var, ModuleMappings):
+                    mapping_groups[attr] = var
+                    # watcher.add_watched_object(var)
+
+                    for mapping_ in var.mappings:
+                        mapto = mapping_[0]
+                        mapfrom = mapping_[1]
+
+                        map_type = mapping_[2]
+
+                        resolved_to = ResolveInfo(True, mapto.get_path(cls), "")
+                        to_ = ".".join(resolved_to.path)
+
+                        resolved_from = ResolveInfo(True, mapfrom.get_path(cls), "")
+
+                        from_ = ".".join(resolved_from.path)
+
+                        _resolved_mappings.append((resolved_to, resolved_from, map_type))
 
             self._resolved_mappings = _resolved_mappings
             self._must_map_variables = []
@@ -569,6 +612,8 @@ class Module(Subsystem, EquationBase):
             self._scopes = {}
             self._scope_specs = scope_specs
             self._item_specs = items_specs
+            self._connectors = connectors
+            self._connections = connections
 
             for item_name, item in items_specs.items():
                 setattr(self, item_name, item)
@@ -645,6 +690,9 @@ class Module(Subsystem, EquationBase):
     def _finalize(self, top=True):
         if not self._finalized:
 
+            for connections_name, connections in self._connections.items():
+                connections.finalize()
+
             # self._scope_specs.update(self.__dict__)
             for item in self.registered_items.values():
                 item.finalize(top=False)
@@ -695,6 +743,8 @@ class Module(Subsystem, EquationBase):
 
                 else:
                     raise ValueError('Unknown mapping type: ', map_type)
+
+
 
             self.check_variables()
 
@@ -759,22 +809,22 @@ class Module(Subsystem, EquationBase):
         ns.add_equations([eq_])
 
     @classmethod
-    def clone_tree(cls, host):
+    def clone_tree(cls):
         clone = ModuleSpec(cls)
         return clone
 
     def get_path(self, parent):
 
-        if self._host == parent:
+        if self == parent or self.__class__ == parent:
             return []
         else:
-            path = self._host.get_path(self, parent) +[self._host_attr]
+            path = self._host.get_path(parent) +[self._host_attr]
             return path
 
 
-    def set_host(self, host, attr):
-        self._host = host
-        self._host_attr = attr
+    #def set_host(self, host, attr):
+    #    self._host = host
+    #    self._host_attr = attr
 
 class DuplicateItemError(Exception):
     ...
@@ -787,6 +837,7 @@ class RegisterHelper:
         self._items = {}
 
     def register_item(self, item):
+
         if item.tag in self._items:
             raise DuplicateItemError(f"An item with tag {item.tag} already registered.")
         self._items[item.tag] = item

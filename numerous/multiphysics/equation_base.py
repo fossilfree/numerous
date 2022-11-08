@@ -176,5 +176,5 @@ class EquationBase:
 
     def map_create_parameters(self, item, mappings):
         for m in mappings:
-            if not self.variables_descriptions.variable_exists(m.to_):
-                self.add_parameter(m.to_)
+            if not self.variables_descriptions.variable_exists(m.side2):
+                self.add_parameter(m.side2)

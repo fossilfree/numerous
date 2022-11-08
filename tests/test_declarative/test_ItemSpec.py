@@ -20,8 +20,9 @@ def test_check_assigned():
     with pytest.raises(ItemNotAssignedError):
         items._check_assigned()
 
-    items.side1 = None
+    """
     with pytest.raises(ItemNotAssignedError):
+        items.side1 = None
         items._check_assigned()
 
     items.side1 = TestModule
@@ -33,6 +34,7 @@ def test_check_assigned():
 
     with pytest.raises(ItemNotAssignedError):
         items._check_assigned()
+    """
 
     items.side1 = TestModule(tag='test')
 
@@ -46,19 +48,19 @@ def test_check_assigned():
     with pytest.raises(ItemNotAssignedError):
         items._check_assigned()
 
-    items.side1 = None
+    """
     with pytest.raises(ItemNotAssignedError):
+        items.side1 = None
         items._check_assigned()
 
     items.side1 = TestModule
 
     with pytest.raises(ItemNotAssignedError):
         items._check_assigned()
+    """
 
-    items.side1 = object()
-
-    with pytest.raises(ItemNotAssignedError):
-        items._check_assigned()
+    with pytest.raises(TypeError):
+        items.side1 = object()
 
     items.side1 = TestModule(tag='test')
 

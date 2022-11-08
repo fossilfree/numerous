@@ -103,8 +103,8 @@ class TestSubConnector(Module):
     with create_mappings() as mappings:
         items.side1.default.var1 += default.side1_var1
         items.side2.default.var1 += default.side2_var1
-        default.side1_var2 += items.side1.default.var2
-        default.side2_var2 += items.side2.default.var2
+        default.side1_var2 = items.side1.default.var2
+        default.side2_var2 = items.side2.default.var2
         items.side1.default.var3 = items.side2.default.var3
     def __init__(self, side1: TestSubNode, side2: TestSubNode, tag=None):
         super(TestSubConnector, self).__init__(tag)

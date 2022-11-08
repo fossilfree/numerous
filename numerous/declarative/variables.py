@@ -6,9 +6,12 @@ from uuid import uuid4
 
 from numerous.engine import VariableType
 from typing import Any
+
+from .signal import Signal, default_signal
 @dataclasses.dataclass
 class VariableAttrs:
     name: str = None
+    signal: Signal = default_signal
     _host: Any = None
     _host_attr: str = None
     id: str = dataclasses.field(default_factory=lambda: str(uuid4()))
@@ -21,6 +24,7 @@ class VariableAttrs:
     var_instance: Variable = None
     construct: bool = True
     fixed: bool = False
+    additive: bool = True
     must_map: bool = False
     mapped_to: list = dataclasses.field(default_factory=lambda: list())
 
@@ -140,9 +144,9 @@ class Variable(PartialResult):
         else:
             return False
 
-    def get_rel_path(self, parent):
+    def get_path(self, parent):
 
-        path = self._host.get_path(self, parent)
+        path = self._host.get_path(parent)
 
         return path + [self._host_attr]
 

@@ -66,7 +66,7 @@ class TestBranchLevel3Module(Module):
 def test_get_path():
     tm = TestBranchLevel3Module()
 
-    path = tm.items.branch.items.branch.items.branch.default.a.get_rel_path(tm.__class__)
+    path = tm.items.branch.items.branch.items.branch.default.a.get_path(tm)
     print(path)
 
     var = recursive_get_attr(tm, path)

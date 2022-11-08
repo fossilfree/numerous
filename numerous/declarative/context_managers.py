@@ -55,3 +55,6 @@ class DeclarativeContextManager(ActiveContextManager):
     pass
 
 _active_declarative = DeclarativeContextManager()
+
+
+_active_connections = DeclarativeContextManager()
