@@ -242,8 +242,8 @@ class EquationGenerator:
             args = []
 
             for a in vardef.args_order:
-                if a in scope_vars:
-                    args.append(d_u(scope_vars[a]))
+                if a[0] in scope_vars:
+                    args.append(VariableArgument(d_u(scope_vars[a[0]]), False))
                 else:
                     args.append(VariableArgument(self.search_in_item_scope(a[0], item_id), a[1]))
 
