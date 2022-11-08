@@ -252,9 +252,8 @@ class ItemsSpec:
         Finalize this module. Checks if all items from item specifications have been assigned.
         """
         for name, item in self._items.items():
-            print()
-            print('module finalizing: ', self)
-            print('item: ', name)
+
+
             item_ = getattr(self, name)
 
             if isinstance(item_, Module):

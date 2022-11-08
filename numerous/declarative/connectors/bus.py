@@ -271,9 +271,9 @@ class Connector(Bus):
         connection = self.add_connection(other)
         return connection
 
-    def __eq__(self, other):
-        connection = self.add_connection(other)
-        return connection
+    #def __eq__(self, other):
+    #    connection = self.add_connection(other)
+    #    return connection
 
     def finalize(self):
         for connection in self.connections:
