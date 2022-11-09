@@ -108,10 +108,7 @@ class TestSubConnector(Module):
         items.side1.default.var3 = items.side2.default.var3
     def __init__(self, side1: TestSubNode, side2: TestSubNode, tag=None):
         super(TestSubConnector, self).__init__(tag)
-        print("sides:")
-        print(self.items)
-        print(side1)
-        print(side2)
+
         self.items.side1 = side1
         self.items.side2 = side2
 
@@ -139,27 +136,16 @@ class TestCompositeNodeConnector(Module):
         self.items.side1 = TestSubNode("sub_node_1")
         self.items.side2 = TestSubNode("sub_node_2")
         self.items.side3 = TestSubNode("sub_node_3")
-        print()
-        print('nodes: ')
-        print(self.items.side1)
-        print(self.items.side2)
-        print(self.items.side3)
+
 
         self.connector = TestSubConnector(tag="connector", side1=self.items.side1, side2=self.items.side2)
 
-        print('nodes2: ')
-        print(self.items.side1)
-        print(self.items.side2)
-        print(self.items.side3)
 
         self.connector.default.F.value = 1
 
         self.connector2 = TestSubConnector(tag="connector2", side1=self.items.side2, side2=self.items.side3)
 
-        print('nodes3: ')
-        print(self.items.side1)
-        print(self.items.side2)
-        print(self.items.side3)
+
 
         self.connector2.default.F.value = F
 
@@ -172,27 +158,6 @@ def test_composite_connector():
     F=1
     composite = TestCompositeNodeConnector("composite", F=F)
     composite.finalize()
-
-
-
-    #Check mappings
-    print_map(composite.items.side1.default.var1)
-    print_map(composite.items.side1.default.var2)
-    print_map(composite.items.side1.default.var3)
-
-    print_map(composite.items.side2.default.var1)
-    print_map(composite.items.side2.default.var2)
-    print_map(composite.items.side2.default.var3)
-
-    print_map(composite.items.side3.default.var1)
-    print_map(composite.items.side3.default.var2)
-    print_map(composite.items.side3.default.var3)
-
-    print_map(composite.connector.default.side1_var2)
-    print_map(composite.connector.default.side1_var1)
-    print_map(composite.connector2.default.side1_var1)
-    print_map(composite.connector2.default.side1_var2)
-
 
     m = model.Model(composite, use_llvm=False)
 
@@ -244,27 +209,15 @@ class TestCompositeNodeConnector(Module):
         self.items.side1 = TestSubNode("sub_node_1")
         self.items.side2 = TestSubNode("sub_node_2")
         self.items.side3 = TestSubNode("sub_node_3")
-        print()
-        print('nodes: ')
-        print(self.items.side1)
-        print(self.items.side2)
-        print(self.items.side3)
+
 
         self.connector = TestSubConnector(tag="connector", side1=self.items.side1, side2=self.items.side2)
 
-        print('nodes2: ')
-        print(self.items.side1)
-        print(self.items.side2)
-        print(self.items.side3)
 
         self.connector.default.F.value = 1
 
         self.connector2 = TestSubConnector(tag="connector2", side1=self.items.side2, side2=self.items.side3)
 
-        print('nodes3: ')
-        print(self.items.side1)
-        print(self.items.side2)
-        print(self.items.side3)
 
         self.connector2.default.F.value = F
 

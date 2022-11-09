@@ -4,4 +4,4 @@ import pytest
 
 def test_diagram():
 
-    generate_diagram(TestModuleWithItems("test"), view=True)
+    generate_diagram(TestModuleWithItems("test"), view=True, sub_levels=10, include_variables=True)
