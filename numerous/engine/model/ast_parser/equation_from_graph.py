@@ -139,11 +139,10 @@ def process_assign_node(target_nodes, g, var_def, value_ast, na, targets):
 
 def generate_return_statement(var_def_, g):
     if (l := len(var_def_.get_targets())) > 1:
-        return_ = ast.Return(value=ast.Tuple(elts=var_def_.get_order_trgs()))
+        return_ = ast.Return(value=ast.Tuple(elts=var_def_.get_formatted_order_trgs()))
     elif l == 1:
-        return_ = ast.Return(value=var_def_.get_order_trgs()[0])
+        return_ = ast.Return(value=var_def_.get_formatted_order_trgs()[0])
     else:
-        # g.as_graphviz('noret', force=True)
         raise IndexError(f'Function {g.label} should have return, no?')
     return return_
 
@@ -158,17 +157,17 @@ def function_from_graph_generic(g: MappingsGraph, var_def_, arg_metadata, replac
     var_def_.order_variables(arg_metadata)
     body.append(generate_return_statement(var_def_, g))
 
-    args = ast.arguments(posonlyargs=[], args=var_def_.get_order_args(), vararg=None, defaults=[], kwonlyargs=[],
+    args = ast.arguments(posonlyargs=[], args=var_def_.get_formatted_order_args(), vararg=None, defaults=[], kwonlyargs=[],
                          kwarg=None)
 
     func = wrap_function(fname, body, decorators=decorators, args=args)
     tree = replace_closure_function(func, replacements, get_eq_prefix())
     func_result = ast.parse(tree, mode='exec').body[0]
     target_ids = []
-    for i, var_arg in enumerate(var_def_.args_order):
-        if var_arg.name in var_def_.targets:
+    for i, var_arg in enumerate(var_def_.get_order_args()):
+        if var_arg.name in var_def_.get_targets():
             target_ids.append(i)
-    return func_result, var_def_.args_order, target_ids
+    return func_result, var_def_.get_order_args(), target_ids
 
 
 def compare_expresion_from_graph(g, var_def_, lineno_count=1):
@@ -275,11 +274,11 @@ def function_from_graph_generic_llvm(g: Graph, var_def_, replace_name=None):
 
     body = function_body_from_graph(g, var_def_)
     var_def_.order_variables(g.arg_metadata)
-    args = ast.arguments(posonlyargs=[], args=var_def_.get_order_args(), vararg=None, defaults=[],
+    args = ast.arguments(posonlyargs=[], args=var_def_.get_formatted_order_args(), vararg=None, defaults=[],
                          kwonlyargs=[], kw_defaults=[], kwarg=None)
     signature = [f'void(']
     target_ids = []
-    for i, var_arg in enumerate(var_def_.args_order):
+    for i, var_arg in enumerate(var_def_.get_order_args()):
         if var_arg.name in var_def_.targets:
             signature.append("CPointer(float64), ")
             target_ids.append(i)
@@ -291,4 +290,4 @@ def function_from_graph_generic_llvm(g: Graph, var_def_, replace_name=None):
     decorators = []
 
     func = wrap_function(fname, body, decorators=decorators, args=args)
-    return func, signature, fname, var_def_.args_order, target_ids
+    return func, signature, fname, var_def_.get_order_args(), target_ids

@@ -71,14 +71,15 @@ def are_all_set_variables(str_list, set_variables):
 
 
 class Vardef:
-    def __init__(self,eq_key, llvm=True):
+    def __init__(self, eq_key, llvm=True, exclude_global_var=False):
         self.vars_inds_map = []
         self.targets = []
-        self.eq_key=eq_key
+        self.exclude_global_var = exclude_global_var
+        self.eq_key = eq_key
         self.args = []
         self.llvm = llvm
-        self.args_order = []
-        self.trgs_order = []
+        self._args_order = []
+        self._trgs_order = []
 
     def format(self, var, read=True):
         if read:
@@ -107,14 +108,14 @@ class Vardef:
     def order_variables(self, order_data):
         for sv in order_data:
             if self.eq_key in sv.eq_used:
-                self.args_order.append(VariableArgument("scope." + sv.tag, sv.global_var))
+                self._args_order.append(VariableArgument("scope." + sv.tag, sv.global_var))
             else:
-                self.args_order.append(VariableArgument(sv.id, sv.global_var))
+                self._args_order.append(VariableArgument(sv.id, sv.global_var))
 
         for sv in order_data:
             tmp_v = "scope." + sv.tag
             if tmp_v in self.targets:
-                self.trgs_order.append(tmp_v)
+                self._trgs_order.append(tmp_v)
 
     def var_def(self, var, ctxread, read=True):
         if not var in self.vars_inds_map:
@@ -132,30 +133,32 @@ class Vardef:
         else:
             return self.format(var, ctxread)
 
-    def get_order_args(self, form=True):
-        if form:
-            result = [self.format(a[0], False) for a in self.args_order]
+    def get_order_args(self):
+        if self.exclude_global_var:
+            return [a for a in self._args_order if not a.is_global_var]
         else:
-            result = self.args
-        result_2 = []
-        for name in result:
-            result_2.append(ast.arg(arg=name.id, lineno=0, col_offset=0))
-        return result_2
+            return [a for a in self._args_order]
 
-    def get_order_trgs(self, form=True):
-        if form:
-            return [self.format(a, False) for a in self.trgs_order]
+    def get_formatted_order_args(self):
+        if self.exclude_global_var:
+            return [self.format(a[0], False) for a in self._args_order if not a.is_global_var]
         else:
-            return self.args
+            return [self.format(a[0], False) for a in self._args_order]
 
-    def get_args(self, form=True):
-        if form:
-            return [self.format(a, False) for a in self.args]
-        else:
-            return self.args
+    def get_order_trgs(self):
+        return self._trgs_order
 
-    def get_targets(self, form=True):
-        if form:
-            return [self.format(a, False) for a in self.targets]
-        else:
-            return self.targets
+    def get_formatted_order_trgs(self):
+        return [self.format(a, False) for a in self._trgs_order]
+
+    def get_args(self):
+        return self.args
+
+    def get_formatted_args(self):
+        return [self.format(a, False) for a in self.args]
+
+    def get_targets(self):
+        return self.targets
+
+    def get_formatted_targets(self):
+        return [self.format(a, False) for a in self.targets]

@@ -374,7 +374,7 @@ class LLVMBuilder:
         # if not ((self._is_range_and_ordered(order_arg)) and (self._is_range_and_ordered(order_trg))):
         #     raise ValueError("llvm set call arguments are not align.")
 
-        index_arg = (ll.IntType(64)(self.variable_names[variable_name_arg_and_trg[0][0][0]] - 1))
+        index_arg = (ll.IntType(64)(self.variable_names[variable_name_arg_and_trg[0][0]] - 1))
         index_arg_ptr = self.builder.alloca(ll.IntType(64))
         self.builder.store(index_arg, index_arg_ptr)
 

@@ -134,14 +134,14 @@ class EquationGenerator:
         log.info('Making equations for compilation')
 
         for eq_key, eq in equations.items():
-            vardef = Vardef( eq_key, llvm=self.llvm)
+            vardef = Vardef(eq_key, llvm=self.llvm, exclude_global_var=eq.is_set)
 
             eq.graph.lower_graph = None
             if self.llvm:
                 func_llvm, signature, args, target_ids = compiled_function_from_graph_generic_llvm(
                     eq.graph,
                     imports=self.imports,
-                    var_def_=Vardef(eq_key, llvm=self.llvm),
+                    var_def_=vardef,
                     compiled_function=True,
                     replacements=eq.replacements,
                     replace_name=eq_key
@@ -228,11 +228,12 @@ class EquationGenerator:
 
             llvm_args = []
             for t in vardef.args_order:
-                llvm_args_ = []
-                set_var = self.set_variables[scope_vars[t]]
-                for i in range(set_var.get_size()):
-                    llvm_args_.append(set_var.get_var_by_idx(i).id)
-                llvm_args.append(llvm_args_)
+                if not t.is_global_var:
+                    llvm_args_ = []
+                    set_var = self.set_variables[scope_vars[t[0]]]
+                    for i in range(set_var.get_size()):
+                        llvm_args_.append(set_var.get_var_by_idx(i).id)
+                    llvm_args.append(llvm_args_)
             # reshape to correct format
             llvm_args = [list(x) for x in zip(*llvm_args)]
             self.generated_program.add_set_call(self.get_external_function_name(ext_func), llvm_args,

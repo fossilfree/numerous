@@ -10,8 +10,9 @@ from copy import deepcopy
 
 
 class ParsedEquation:
-    def __init__(self, eq, dsource, graph, t, replacements=None):
+    def __init__(self, eq, dsource, graph, t, is_set, replacements=None):
         self.eq = eq
+        self.is_set = is_set
         self.dsource = dsource
         self.graph = graph
         self.t = t
@@ -166,10 +167,10 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
                         branch_graphs.append((a, gb, eq_key + '_' + postfix_from_branches(a)))
 
                     for branch in branch_graphs:
-                        parsed_eq_branches[branch[2]] = ParsedEquation(eq, dsource, branch[1], branch[0])
+                        parsed_eq_branches[branch[2]] = ParsedEquation(eq, dsource, branch[1], branch[0], is_set)
 
                 else:
-                    parsed_eq_branches[eq_key] = ParsedEquation(eq, dsource, g, {})
+                    parsed_eq_branches[eq_key] = ParsedEquation(eq, dsource, g, {}, is_set)
 
             g = parsed_eq_branches[eq_key].graph
 
@@ -184,7 +185,7 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
 
                 parsed_eq_branches[eq_key__] = ParsedEquation(
                     parsed_eq_branches[eq_key].eq, parsed_eq_branches[eq_key].dsource, parsed_eq_branches[eq_key].graph,
-                    {},
+                    {},is_set,
                     replacements)
 
                 eq_key = eq_key__

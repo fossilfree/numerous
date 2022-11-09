@@ -141,9 +141,16 @@ class SetOfVariables:
         self.item_tag = item_tag
         self.ns_tag = ns_tag
         self.size = 0
+        self.global_var = False
+        self.global_var_idx = False
+        self.eq_used = []
 
     def get_size(self):
         return self.size
+
+    def add_eq_used(self,eq_name:str):
+        self.eq_used.append(eq_name)
+
 
     def get_path_dot(self):
         result = list(self.variables.values())[0].get_path_dot()

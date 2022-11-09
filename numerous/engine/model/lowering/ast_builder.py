@@ -297,7 +297,7 @@ class ASTBuilder:
                         body=[self._generate_set_call_body(external_function_name,
                                                            len(variable_name_arg_and_trg[0]),
                                                            self.variable_names[
-                                                               variable_name_arg_and_trg[0][0].name],
+                                                               variable_name_arg_and_trg[0][0]],
                                                            targets_ids)],
                         orelse=[], lineno=0))
         setattr(temp, 'cnd', False)
