@@ -31,7 +31,7 @@ variable_distributed = {
     "oscillator1.mechanics.y": 7,
     "oscillator1.mechanics.z": 8,
 }
-
+GLOBAL_VARS = {'global_vars_t_7d17b9fa_71f6_4d99_8e9a_f91c1d45699a': -1}
 DERIVATIVES = ["oscillator1.mechanics.x_dot", "oscillator1.mechanics.y_dot", "oscillator1.mechanics.z_dot"]
 STATES = ["oscillator1.mechanics.x", "oscillator1.mechanics.y", "oscillator1.mechanics.z"]
 eval_ast_signature = 'void(float64, float64, CPointer(float64), CPointer(float64))'
@@ -48,7 +48,7 @@ imports.add_as_import("numpy", "np")
 
 
 def test_ast_set_unset():
-    ast_program = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
+    ast_program = ASTBuilder(initial_values, variable_names, GLOBAL_VARS, STATES, DERIVATIVES)
     ast_program.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
 
     ast_program.add_conditional_call(eval_ast.name,
@@ -62,7 +62,7 @@ def test_ast_set_unset():
 
 
 def test_ast_defaults():
-    ast_program = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
+    ast_program = ASTBuilder(initial_values, variable_names, GLOBAL_VARS, STATES, DERIVATIVES)
     ast_program.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
 
     ast_program.add_conditional_call(eval_ast.name,
@@ -77,7 +77,7 @@ def test_ast_defaults():
     assert 'def global_kernel(states, eval_ast_flag=False):' in ast_program.unparse(imports)
 
 def test_diff_results():
-    ast_program = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
+    ast_program = ASTBuilder(initial_values, variable_names, GLOBAL_VARS, STATES, DERIVATIVES)
     ast_program.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
     ast_program.add_conditional_call(eval_ast.name,
                             ["oscillator1.mechanics.x", "oscillator1.mechanics.y", "oscillator1.mechanics.x_dot",
@@ -85,11 +85,11 @@ def test_diff_results():
                             target_ids=[2, 3], tag='eval_ast')
 
     diff, _, _ = ast_program.generate(imports)
-    assert approx(diff(np.array([2.1, 2.2, 2.3]), eval_ast_flag=False)) == np.array([7.,8.,9.])
-    assert approx(diff(np.array([2.1, 2.2, 2.3]))) == np.array([50.,-50.,9.])
+    assert approx(diff(np.array([2.1, 2.2, 2.3]), np.array([0.0]), eval_ast_flag=False)) == np.array([7.,8.,9.])
+    assert approx(diff(np.array([2.1, 2.2, 2.3]), np.array([0.0]))) == np.array([50.,-50.,9.])
 
 def test_arguments():
-    ast_program = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
+    ast_program = ASTBuilder(initial_values, variable_names, GLOBAL_VARS, STATES, DERIVATIVES)
     ast_program.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
     ast_program.add_conditional_call(eval_ast.name,
                                      ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
@@ -105,7 +105,7 @@ def test_arguments():
 
 
 def test_multifunction_default():
-    ast_program = ASTBuilder(initial_values, variable_names, STATES, DERIVATIVES)
+    ast_program = ASTBuilder(initial_values, variable_names, GLOBAL_VARS, STATES, DERIVATIVES)
     ast_program.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
     ast_program.add_conditional_call(eval_ast.name,
                                      ["oscillator1.mechanics.x", "oscillator1.mechanics.y",
