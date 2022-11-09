@@ -243,10 +243,10 @@ class EquationGenerator:
             args = []
 
             for a in vardef.args_order:
-                if a[0] in scope_vars:
-                    args.append(VariableArgument(d_u(scope_vars[a[0]]), False))
+                if a.name in scope_vars:
+                    args.append(VariableArgument(d_u(scope_vars[a.name]), a.is_global_var))
                 else:
-                    args.append(VariableArgument(self.search_in_item_scope(a[0], item_id), a[1]))
+                    args.append(VariableArgument(self.search_in_item_scope(a.name, item_id), a.is_global_var))
 
             # Add this eq to the llvm_program
             self.generated_program.add_call(self.get_external_function_name(ext_func), args, vardef.llvm_target_ids)
