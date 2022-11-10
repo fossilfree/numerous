@@ -197,6 +197,7 @@ class ItemsSpec:
             path = [_attr]
             return path
         else:
+
             path = self._host.get_path(parent) + [_attr]
             return path
 
@@ -223,6 +224,7 @@ class ItemsSpec:
 
             setattr(self, var, clone_)
             self._items[var] = clone_
+            clone_.set_host(self, var)
 
         elif isinstance(val, ModuleSpec):
             raise NotImplementedError()
@@ -549,6 +551,18 @@ class Module(Subsystem, EquationBase):
         connections = {}
         _objects = {}
 
+        base_scopes = {}
+        # Get inherited equations
+        for b in list(cls.__bases__) + [cls]:
+            for var, val in b.__dict__.items():
+                if isinstance(val, ScopeSpec):
+                    if var in base_scopes:
+                        for eq in base_scopes[var]._equations:
+                            val._equations.append(eq)
+                        base_scopes[var] = val
+                    else:
+                        base_scopes[var] = val
+
         for b in list(cls.__bases__) + [cls]:
             _objects.update(b.__dict__)
 
@@ -557,6 +571,12 @@ class Module(Subsystem, EquationBase):
         org_init = cls.__init__
 
         def wrap(self, *args, **kwargs):
+            for attr, var in base_scopes.items():
+                if isinstance(var, ScopeSpec):
+                    var.set_host(self, attr)
+                    scope_specs[attr] = var
+                    # watcher.add_watched_object(var)
+                    # [watcher.add_watched_object(e) for e in var._equations]
             for attr, var in _objects.items():
                 if isinstance(var, ItemsSpec):
                     var.set_host(self, attr=attr)
@@ -567,11 +587,7 @@ class Module(Subsystem, EquationBase):
                     # watcher.add_watched_object(clone_)
                     ...
 
-                elif isinstance(var, ScopeSpec):
-                    var.set_host(self, attr)
-                    scope_specs[attr] = var
-                    # watcher.add_watched_object(var)
-                    # [watcher.add_watched_object(e) for e in var._equations]
+
 
                 elif isinstance(var, Connector):
                     var.set_host(self, attr)
