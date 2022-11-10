@@ -148,9 +148,8 @@ class SetOfVariables:
     def get_size(self):
         return self.size
 
-    def add_eq_used(self,eq_name:str):
+    def add_eq_used(self, eq_name: str):
         self.eq_used.append(eq_name)
-
 
     def get_path_dot(self):
         result = list(self.variables.values())[0].get_path_dot()
@@ -215,7 +214,7 @@ class Variable(MappedValue):
         else:
             return list(self.path.path.values())[0][0]
 
-    def add_eq_used(self,eq_name:str):
+    def add_eq_used(self, eq_name: str):
         self.eq_used.append(eq_name)
 
     def update_value(self, value):
@@ -251,7 +250,7 @@ class Variable(MappedValue):
     @staticmethod
     def create(namespace, v_id, tag,
                v_type, value, item, metadata,
-               mapping, update_counter, allow_update, logger_level, variable_idx, alias,global_var):
+               mapping, update_counter, allow_update, logger_level, variable_idx, alias, global_var):
         return Variable(DetailedVariableDescription(tag=tag,
                                                     id=v_id,
                                                     type=v_type,

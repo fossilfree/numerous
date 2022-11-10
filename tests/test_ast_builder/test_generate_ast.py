@@ -132,7 +132,7 @@ def test_ast_1_function():
     ast_program.add_external_function(eval_ast, eval_ast_signature, number_of_args=4, target_ids=[2, 3])
 
     ast_program.add_call(eval_ast.name,
-                         [VariableArgument("oscillator1.mechanics.x",IS_GLOBAL_VAR),
+                         [VariableArgument("oscillator1.mechanics.x", IS_GLOBAL_VAR),
                           VariableArgument("oscillator1.mechanics.y", IS_GLOBAL_VAR),
                           VariableArgument("oscillator1.mechanics.x_dot", IS_GLOBAL_VAR),
                           VariableArgument("oscillator1.mechanics.y_dot", IS_GLOBAL_VAR)],
@@ -286,8 +286,8 @@ def test_ast_loop_mix():
     ast_program.add_external_function(eval_ast_mix, eval_ast_mix_signature, number_of_args=4, target_ids=[1, 3])
 
     ast_program.add_set_call(eval_ast_mix.name, [
-        ["oscillator1.mechanics.y","oscillator1.mechanics.z","oscillator1.mechanics.a","oscillator1.mechanics.b"],
-        ["oscillator1.mechanics.c","oscillator1.mechanics.x_dot",
+        ["oscillator1.mechanics.y", "oscillator1.mechanics.z", "oscillator1.mechanics.a", "oscillator1.mechanics.b"],
+        ["oscillator1.mechanics.c", "oscillator1.mechanics.x_dot",
          "oscillator1.mechanics.y_dot",
          "oscillator1.mechanics.z_dot"]],
                              targets_ids=[1, 3])

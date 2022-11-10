@@ -46,7 +46,7 @@ class LLVMBuilder:
         self.n_deriv = len(derivatives)
         # Define the overall function
         self.fnty = ll.FunctionType(ll.DoubleType().as_pointer(), [
-            ll.DoubleType().as_pointer(),ll.DoubleType().as_pointer()
+            ll.DoubleType().as_pointer(), ll.DoubleType().as_pointer()
         ])
         self.index0 = 0
         self.fnty.args[0].name = "y"
@@ -68,7 +68,7 @@ class LLVMBuilder:
 
         self.global_variables = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), 1), 'global_var')
         self.global_variables.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), 1),
-                                                       [float(v) for v in [0.0]])
+                                                        [float(v) for v in [0.0]])
 
         self.deriv_global = ll.GlobalVariable(self.module, ll.ArrayType(ll.DoubleType(), self.n_deriv), 'derivatives')
         self.deriv_global.initializer = ll.Constant(ll.ArrayType(ll.DoubleType(), self.n_deriv),
@@ -88,11 +88,11 @@ class LLVMBuilder:
 
         # go through  all states to put them in load block
         for idx, state in enumerate(self.states):
-            self.load_arguments(idx, state,0)
+            self.load_arguments(idx, state, 0)
 
         # go through  all global variables to put them in load block
         for idx, g_var in enumerate(["t"]):
-            self.load_global_arguments(idx, g_var,1)
+            self.load_global_arguments(idx, g_var, 1)
 
         # go through all states to put them in store block
         for state in self.states:
@@ -231,14 +231,14 @@ class LLVMBuilder:
         eptr = self.builder.gep(ptr, indices, name="variable_" + variable_name)
         self.values[variable_name] = eptr
 
-    def load_arguments(self, idx, state_name,arg_idx):
+    def load_arguments(self, idx, state_name, arg_idx):
         index_args = ll.IntType(64)(idx)
         ptr = self.func.args[arg_idx]
         indices = [index_args]
         eptr = self.builder.gep(ptr, indices, name="state_" + state_name)
         self.values[state_name] = eptr
 
-    def load_global_arguments(self, idx, state_name,arg_idx):
+    def load_global_arguments(self, idx, state_name, arg_idx):
         index_args = ll.IntType(64)(idx)
         ptr = self.func.args[arg_idx]
         indices = [index_args]
@@ -405,7 +405,8 @@ class LLVMBuilder:
             self.builder.store(index_arg, index_arg_ptr)
 
             indices_arg = [self.index0, index_arg]
-            eptr_arg = self.builder.gep(self.model_variables, indices_arg, name="loop_" + str(self.loopcount) + " _arg_")
+            eptr_arg = self.builder.gep(self.model_variables, indices_arg,
+                                        name="loop_" + str(self.loopcount) + " _arg_")
             if i1 in targets_ids:
                 loaded_args.append(eptr_arg)
             else:

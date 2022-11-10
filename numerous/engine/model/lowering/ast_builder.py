@@ -224,9 +224,8 @@ class ASTBuilder:
         ast_condition = ast.Name(id=external_function_name + '_flag', ctx=ast.Load())
 
         temp = ast.If(test=ast_condition, body=[
-            ast.Assign(targets=targets, value=
-            ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
-                     args=args, keywords=[]),
+            ast.Assign(targets=targets, value=ast.Call(func=ast.Name(id=external_function_name, ctx=ast.Load()),
+                                                       args=args, keywords=[]),
                        lineno=0)],
                       orelse=[])
 

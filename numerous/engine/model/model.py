@@ -236,7 +236,7 @@ class Model:
             return self.global_variables[name]
 
     def add_global_variable(self, name: str, initial_value: float):
-        deafult_value = initial_value
+        # deafult_value = initial_value
         x = self._add_global_var(name)
         self.global_tag_vars[name] = x
         self.variables.update({x.id: x})

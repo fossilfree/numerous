@@ -286,7 +286,7 @@ def test_chain_item_binding_model_nested2(ms3, use_llvm):
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     s1.solve()
     assert len(m1.path_variables) == 52
-    assert len(m1.variables)-len(m1.global_variables) == 26
+    assert len(m1.variables) - len(m1.global_variables) == 26
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
 

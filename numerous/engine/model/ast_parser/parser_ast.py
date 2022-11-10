@@ -185,8 +185,7 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
 
                 parsed_eq_branches[eq_key__] = ParsedEquation(
                     parsed_eq_branches[eq_key].eq, parsed_eq_branches[eq_key].dsource, parsed_eq_branches[eq_key].graph,
-                    {},is_set,
-                    replacements)
+                    {}, is_set, replacements)
 
                 eq_key = eq_key__
 
@@ -212,6 +211,7 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
                         variables[sv].used_in_equation_graph = False
                     else:
                         g.arg_metadata.append(variables[sv])
+
 
 def process_mappings(mappings, mappings_graph: Graph, scope_vars):
     for m in mappings:
