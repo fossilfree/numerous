@@ -271,8 +271,7 @@ def test_ast_loop_seq():
         ["oscillator1.mechanics.c",
          "oscillator1.mechanics.x_dot",
          "oscillator1.mechanics.y_dot",
-         "oscillator1.mechanics.z_dot"]],
-                             targets_ids=[2, 3])
+         "oscillator1.mechanics.z_dot"]],targets_ids=[2, 3])
 
     diff, var_func, _ = ast_program.generate(imports)
 
@@ -289,8 +288,7 @@ def test_ast_loop_mix():
         ["oscillator1.mechanics.y", "oscillator1.mechanics.z", "oscillator1.mechanics.a", "oscillator1.mechanics.b"],
         ["oscillator1.mechanics.c", "oscillator1.mechanics.x_dot",
          "oscillator1.mechanics.y_dot",
-         "oscillator1.mechanics.z_dot"]],
-                             targets_ids=[1, 3])
+         "oscillator1.mechanics.z_dot"]],targets_ids=[1, 3])
 
     diff, var_func, _ = ast_program.generate(imports)
     assert approx(diff(np.array([2.6, 2.2, 2.3]), np.array([0.0]))) == np.array([50, 8, -50])

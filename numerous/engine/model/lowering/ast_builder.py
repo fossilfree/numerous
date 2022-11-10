@@ -261,8 +261,8 @@ class ASTBuilder:
                                                                                  kind=None)))],
                                    value=ast.Subscript(value=KERNEL_ARRAY,
                                                        slice=ast.Index(
-                                                           value=ast.Constant(value=arg_idxs[0], kind=None)))
-                                   , lineno=0))
+                                                           value=ast.Constant(value=arg_idxs[0],
+                                                                              kind=None))), lineno=0))
             else:
                 temp = (ast.Assign(targets=[ast.Subscript(value=KERNEL_ARRAY,
                                                           slice=ast.Index(
@@ -273,8 +273,7 @@ class ASTBuilder:
                                                                        slice=ast.Index(
                                                                            value=ast.Constant(
                                                                                value=arg_idxs[0],
-                                                                               kind=None))))
-                                   , lineno=0))
+                                                                               kind=None)))), lineno=0))
             setattr(temp, 'cnd', False)
 
             self.body.append(temp)
@@ -291,8 +290,8 @@ class ASTBuilder:
 
     def add_set_call(self, external_function_name, variable_name_arg_and_trg, targets_ids):
         temp = (ast.For(target=ast.Name(id='i', ctx=ast.Store()),
-                        iter=ast.Call(func=ast.Name(id='range', ctx=ast.Load()), args=
-                        [ast.Constant(value=len(variable_name_arg_and_trg))], keywords=[]),
+                        iter=ast.Call(func=ast.Name(id='range', ctx=ast.Load()),
+                                      args=[ast.Constant(value=len(variable_name_arg_and_trg))], keywords=[]),
                         body=[self._generate_set_call_body(external_function_name,
                                                            len(variable_name_arg_and_trg[0]),
                                                            self.variable_names[
