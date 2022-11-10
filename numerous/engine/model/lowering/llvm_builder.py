@@ -92,7 +92,7 @@ class LLVMBuilder:
 
         # go through  all global variables to put them in load block
         for idx, g_var in enumerate(["t"]):
-            self.load_arguments(idx, g_var,1)
+            self.load_global_arguments(idx, g_var,1)
 
         # go through all states to put them in store block
         for state in self.states:
@@ -231,9 +231,14 @@ class LLVMBuilder:
         eptr = self.builder.gep(ptr, indices, name="variable_" + variable_name)
         self.values[variable_name] = eptr
 
-
-
     def load_arguments(self, idx, state_name,arg_idx):
+        index_args = ll.IntType(64)(idx)
+        ptr = self.func.args[arg_idx]
+        indices = [index_args]
+        eptr = self.builder.gep(ptr, indices, name="state_" + state_name)
+        self.values[state_name] = eptr
+
+    def load_global_arguments(self, idx, state_name,arg_idx):
         index_args = ll.IntType(64)(idx)
         ptr = self.func.args[arg_idx]
         indices = [index_args]
