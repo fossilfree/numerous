@@ -1,4 +1,7 @@
-from numerous.declarative.specification import create_mappings, ItemsSpec, MappingOutsideMappingContextError, Module, ScopeSpec, EquationSpec, print_map
+from numerous.declarative.specification import ItemsSpec, Module, ScopeSpec, EquationSpec
+from numerous.declarative.mappings import create_mappings
+from numerous.declarative.exceptions import MappingOutsideMappingContextError
+from numerous.declarative.utils import print_map
 from numerous.declarative.variables import Parameter
 
 from numerous.engine import model, simulation

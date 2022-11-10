@@ -1,4 +1,3 @@
-from numerous.declarative.watcher import Watcher
 from numerous.declarative.context_managers import _active_declarative
 from numerous.declarative.specification import ScopeSpec, ItemsSpec, Module, EquationSpec
 from numerous.declarative.variables import Parameter

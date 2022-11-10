@@ -1,39 +1,28 @@
 from __future__ import annotations
 
-from enum import Enum
 from uuid import uuid4
-import types
 import dataclasses
+import inspect
 from .context_managers import _active_mappings, _active_subsystem, NoManagerContextActiveException
+from .exceptions import MappingOutsideMappingContextError, ItemNotAssignedError, NoSuchItemInSpec, MappingFailed, \
+    NotMappedError, FixedMappedError
+from .mappings import Obj, MappingTypes, ModuleMappings
 from .variables import Variable, Operations, PartialResult
-from .connectors.bus import Connector, ModuleConnections
+from numerous.declarative.bus import Connector, ModuleConnections
 from .module import ModuleSpecInterface
-from .utils import recursive_get_attr
+from .utils import recursive_get_attr, RegisterHelper
 
-from numerous.engine.system import Subsystem, Item
+from numerous.engine.system import Subsystem
 from numerous.engine.variables import VariableType
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.multiphysics.equation_decorators import add_equation
 
 
-def path_to_str(var):
-    if var is None:
-        return "None"
-    return ".".join(list(var.path.path.values())[-1])
-
-
-def print_map(var):
-    print(path_to_str(var) + ": " + path_to_str(var.mapping) + ", " + str([path_to_str(v) for v in var.sum_mapping]))
-
-class MappingOutsideMappingContextError(Exception):
-    ...
-
 class ScopeSpec:
     """
        Specification of a scope in a module. Extend this class and create class variables to define a new specifcation of the variables in a namespace for a module.
+       Variables should be added as class variables which will be discovered when instanciating the ScopeSpec and assigning it to a Module class.
    """
-
-
 
     def __init__(self, parent_path=[], new_var_ids=False):
 
@@ -134,18 +123,11 @@ class ScopeSpec:
         for eq in self._equations:
             eq.finalize()
 
-class ItemNotAssignedError(Exception):
-    ...
-
-class NoSuchItemInSpec(Exception):
-    ...
-
-class UnrecognizedItemSpec(Exception):
-    ...
 
 class ItemsSpec:
     """
     Specification of the items in a module. Extend this class and create class variables to define a new specifcation of items for a module.
+    Items or Modules are added as type hints or by assigning to class variables.
     """
 
     _initialized = False
@@ -159,14 +141,11 @@ class ItemsSpec:
         self._host_attr = None
 
         annotations = self.__class__.__annotations__
-        #a = get_type_hints(self.__class__)
+
         for var, hint in annotations.items():
             if not hasattr(self, var):
 
                 self._handle_item(var, hint)
-
-            #self._items[var] = getattr(self, var)
-
 
 
         vallist = list(self.__class__.__dict__.items())# + list(self._items.items())
@@ -289,10 +268,10 @@ class ItemsSpec:
         super(ItemsSpec, self).__setattr__(key,value)
 
 
-
-
 class ModuleSpec(ModuleSpecInterface):
-
+    """
+    This class is used to represent a module as a specification added to an ItemsSpec, before it is replaced by an instanciated Module in the instanciation of a parent module.
+    """
     def __init__(self, module_cls: object):
 
         super(ModuleSpec, self).__init__()
@@ -367,39 +346,14 @@ class ModuleSpec(ModuleSpecInterface):
             ...
 
 
-import inspect
-def allow_implicit(func):
-    sign = inspect.signature(func)
-
-
-    def check_implicit(*args, **kwargs):
-
-        if len(args)>1 and isinstance(item:=args[1], Item):
-            _kwargs = {}
-            _args = []
-            for n, p in sign.parameters.items():
-                if n != "self":
-                    val = getattr(getattr(item, 'variables'),n)
-                    if n in kwargs:
-
-                        _kwargs[n] = val
-                    else:
-                        _args.append(val)
-
-
-            func(args[0], *_args, **kwargs)
-        else:
-            func(*args, **kwargs)
-
-
-    return check_implicit
-
-
 class EquationSpec:
     """
        Specification of an equation in a module. Use this as a decorator for your methods implementing the equations in a module.
    """
     def __init__(self, scope: ScopeSpec):
+        """
+            scope: instance of the scope specification to which this equation will be added.
+        """
 
         super(EquationSpec, self).__init__()
         """
@@ -423,7 +377,6 @@ class ResolveInfo:
     resolved: bool = False
     path: list = dataclasses.field(default_factory=lambda: list())
     name: str = ""
-
 
 def resolve_variable_(obj, resolve_var: Variable) -> ResolveInfo:
 
@@ -488,7 +441,7 @@ def resolve_variable_(obj, resolve_var: Variable) -> ResolveInfo:
 
 
     else:
-        raise MappingFailed('Not a compatible object '+str(obj))
+        raise MappingFailed('Not a compatible object ' + str(obj))
 
     #raise MappingFailed(
     #    f"Could not find variable with id <{resolve_var.id}> and name <{resolve_var.name}> in scope spec <{attr_name}> of module spec <{obj.module_cls.__name__}>")
@@ -496,6 +449,9 @@ def resolve_variable_(obj, resolve_var: Variable) -> ResolveInfo:
     return ResolveInfo()
 
 def resolve_variable(obj, resolve_var: Variable) -> ResolveInfo:
+    """
+    Method to resolve the path to a variable on an object. It will work recursively to find the obj
+    """
     resolve = resolve_variable_(obj, resolve_var)
 
     if not resolve.resolved:
@@ -503,26 +459,16 @@ def resolve_variable(obj, resolve_var: Variable) -> ResolveInfo:
     return resolve
 
 
-
-
-class MappingFailed(Exception):
-    ...
-
-
-class MappedToFixedError(Exception):
-    ...
-
-
-class NotMappedError(Exception):
-    ...
-
-
-class FixedMappedError(Exception):
-    ...
-
-class HostNotFoundError(Exception):
-    ...
 class Module(Subsystem, EquationBase):
+
+    """
+        Module for builduing combined subsystems and equations using a declarative approach.
+
+        Variables are declared as ScopeSpecs defined as classes
+        Items/submodules are declared in ItemsSpecs classes using class variables
+        Connectors are added as class variables
+        mappings and connections are declared using create_mappings and create_connections context managers.
+    """
 
     tag = None
     _finalized = False
@@ -664,6 +610,7 @@ class Module(Subsystem, EquationBase):
         # watcher.add_watched_object(instance)
 
         return instance
+
     def __init__(self, *args, **kwargs):
         super(Module, self).__init__(*args, **kwargs)
 
@@ -680,7 +627,6 @@ class Module(Subsystem, EquationBase):
 
             #    v.check_assigned()
             self.add_scope(self, k, clone_, kwargs)
-
 
 
     def check_variables(self):
@@ -835,76 +781,3 @@ class Module(Subsystem, EquationBase):
         else:
             path = self._host.get_path(parent) +[self._host_attr]
             return path
-
-
-    #def set_host(self, host, attr):
-    #    self._host = host
-    #    self._host_attr = attr
-
-class DuplicateItemError(Exception):
-    ...
-
-
-class RegisterHelper:
-
-
-    def __init__(self):
-        self._items = {}
-
-    def register_item(self, item):
-
-        if item.tag in self._items:
-            raise DuplicateItemError(f"An item with tag {item.tag} already registered.")
-        self._items[item.tag] = item
-
-    def get_items(self):
-        return self._items
-
-
-class Obj:
-    def __init__(self, scope_specs, items_specs):
-        self._item_specs = items_specs
-        self._scopes = scope_specs
-
-
-
-class MappingTypes(Enum):
-
-    ASSIGN = 0
-    ADD = 1
-
-
-class ModuleMappings:
-
-    mappings = []
-
-    def __init__(self, *args):
-
-        super(ModuleMappings, self).__init__()
-
-        self.mappings = list(args)
-
-    def __enter__(self):
-        _active_mappings.set_active_manager_context(self)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        _active_mappings.clear_active_manager_context(self)
-
-    def assign(self, a, b):
-        if not isinstance(a, Variable):
-            raise TypeError(f"a is not a Variable, but {a.__class__.__name__}")
-        if not isinstance(b, Variable):
-            raise TypeError(f"b is not a Variable, but {b.__class__.__name__}")
-        self.mappings.append((a, b, MappingTypes.ASSIGN))
-        a.mapped_to.append(b)
-
-
-    def add(self, a, b):
-        self.mappings.append((a, b, MappingTypes.ADD))
-        a.mapped_to.append(b)
-
-
-def create_mappings(*args):
-
-    return ModuleMappings(*args)

@@ -1,5 +1,5 @@
-from numerous.declarative.specification import ItemsSpec, ItemNotAssignedError
-
+from numerous.declarative.specification import ItemsSpec
+from numerous.declarative.exceptions import ItemNotAssignedError
 
 import pytest
 

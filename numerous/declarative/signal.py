@@ -18,6 +18,9 @@ class Units(Enum):
 
 @dataclasses.dataclass
 class Signal:
+    """
+        Class to represent a physical signal specification.
+    """
     physical_quantity: PhysicalQuantities
     unit: Units
 

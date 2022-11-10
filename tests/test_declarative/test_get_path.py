@@ -1,4 +1,7 @@
-from numerous.declarative.specification import create_mappings, ItemsSpec, MappingOutsideMappingContextError, Module, ScopeSpec, EquationSpec, NotMappedError, FixedMappedError, recursive_get_attr
+from numerous.declarative.specification import ItemsSpec, Module, ScopeSpec, EquationSpec, \
+    recursive_get_attr
+from numerous.declarative.mappings import create_mappings
+from numerous.declarative.exceptions import MappingOutsideMappingContextError, NotMappedError, FixedMappedError
 from numerous.declarative.variables import Parameter, Constant
 
 import pytest

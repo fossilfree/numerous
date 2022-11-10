@@ -1,9 +1,9 @@
 import pytest
 
-from numerous.declarative.specification import create_mappings, ItemsSpec, MappingOutsideMappingContextError, Module, ScopeSpec, ModuleSpec
+from numerous.declarative.specification import ItemsSpec, Module, ScopeSpec, ModuleSpec
 from numerous.declarative.variables import Parameter
-from numerous.declarative.connectors.bus import *
-from numerous.declarative.connectors.exceptions import *
+from numerous.declarative.bus import *
+from numerous.declarative.exceptions import *
 from .mock_objects import TestModule
 
 

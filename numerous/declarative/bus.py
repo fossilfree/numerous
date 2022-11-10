@@ -1,14 +1,14 @@
 from enum import Enum
 import dataclasses
 
-from .exceptions import ChannelAlreadyOnBusError, AlreadyConnectedError, ChannelNotFound, WrongMappingDirectionError
+from numerous.declarative.exceptions import ChannelAlreadyOnBusError, AlreadyConnectedError, ChannelNotFound, WrongMappingDirectionError
 from abc import ABC
 
-from ..signal import Signal, module_signal
-from ..variables import Variable
-from ..module import ModuleSpecInterface
-from ..context_managers import _active_connections
-from ..utils import recursive_get_attr
+from numerous.declarative.signal import Signal, module_signal
+from numerous.declarative.variables import Variable
+from numerous.declarative.module import ModuleSpecInterface
+from numerous.declarative.context_managers import _active_connections
+from numerous.declarative.utils import recursive_get_attr
 
 class Directions(Enum):
     GET = 0
@@ -16,6 +16,9 @@ class Directions(Enum):
 
 @dataclasses.dataclass
 class Channel:
+    """
+        A channel represents a signal with a given name.
+    """
     name: str
     signal: Signal
 
@@ -24,9 +27,11 @@ class BusInterface(ABC):
     channels: {}
     connections: []
 
-
-
 class Connection:
+    """
+        A connection is respresenting two connectors connected
+    """
+
     side1: BusInterface
     side2: BusInterface
     map: dict
@@ -34,12 +39,14 @@ class Connection:
 
     def __init__(self, side1: BusInterface, side2: BusInterface, map:dict):
         #Remember, this is just sides - directions determined on channel level!
+        """
+            map: dictionary where the keys are channels on side1 and values are channels on side 2
+        """
         self.side1 = side1
         self.side2 = side2
         self.map = map
 
         _active_connections.get_active_manager_context().register_connection(self)
-
 
     def finalize(self, host):
         self._finalized = True
@@ -102,9 +109,15 @@ class ModuleConnections:
             connection.finalize(self._host)
 
 def create_connections():
+    """
+        helper method to create a Connection context manager to capture defined connections of the module where is used.
+    """
     return ModuleConnections()
 
 class Bus(BusInterface):
+    """
+        A bus is a collection of channels to which connectors can connect to read/write variables on the bus.
+    """
 
     _host: str
     _host_attr: str
@@ -145,18 +158,23 @@ class Bus(BusInterface):
         raise ValueError()
 
 def get_value_for(object):
+    """
+        Helper method to specify that the object will need to be read from the Connector/Bus
+    """
     return object, Directions.GET
 
 
 def set_value_from(object):
+    """
+        Helper method to specify that the object will need to be written to the Connector/Bus
+    """
     return object, Directions.SET
 
-
-def add_value_from(object):
-    return object, Directions.ADD
-
 class Connector(Bus):
-
+    """
+        A connector is a Bus where the channels are linked to variables. This is to terminate the bus by reading/writing to actual variables.
+        Connectors are used to define interfaces for a module.
+    """
     variable_mappings = {}
 
     def __init__(self, name:str=None, **channels):
