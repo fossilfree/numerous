@@ -25,7 +25,7 @@ class TestGlobalParameterSystem(Subsystem):
         self.register_items([item])
 
 
-@pytest.mark.parametrize("use_llvm", [True])
+@pytest.mark.parametrize("use_llvm", [True, False])
 def test_time_variable(use_llvm):
     model_ = model.Model(TestGlobalParameterSystem('test_system', TestGlobalParameter('tm1')), use_llvm=use_llvm)
     s = simulation.Simulation(model_, t_start=0, t_stop=10.0, num=10, num_inner=10)

@@ -239,14 +239,14 @@ class LLVMBuilder:
         indices = [index_args]
         eptr = self.builder.gep(ptr, indices, name="state_" + state_name)
         self.values[state_name] = eptr
-        # if (arg_idx == 0):
-        #     ptr = self.model_variables
-        # if (arg_idx == 1):
-        #     ptr = self.global_variables
-        # index_global = ll.IntType(64)(0)
-        # indices = [self.index0, index_global]
-        # eptr = self.builder.gep(ptr, indices)
-        # self.builder.store(self.builder.load(self.values[state_name]), eptr)
+        if (arg_idx == 0):
+            ptr = self.model_variables
+        if (arg_idx == 1):
+            ptr = self.global_variables
+        index_global = ll.IntType(64)(0)
+        indices = [self.index0, index_global]
+        eptr = self.builder.gep(ptr, indices)
+        self.builder.store(self.builder.load(self.values[state_name]), eptr)
 
     def store_variable(self, variable_name):
         _block = self.builder.block
