@@ -29,6 +29,11 @@ jobs:
           path: test-results
 
       - run:
+          name: Test fmu
+          command: |
+            git clone https://github.com/modelica/Reference-FMUs
+
+      - run:
           name: Linters
           command: |
             branch=$(python3 linters/get_base_branch.py)
