@@ -22,6 +22,7 @@ jobs:
             git clone https://github.com/modelica/Reference-FMUs
             cmake -S Reference-FMUs/ -B build_tmp -D FMI_VERSION=2
             cd build_tmp/ && make
+            ls
 
   
       - run:
