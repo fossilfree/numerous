@@ -33,12 +33,8 @@ for model_name in model_names:
             m1, t_start=start_time, t_stop=end_time, num=num)
         s.solve()
         ref = pandas.read_csv(f'{model_name}_ref.csv')
-        print(m1.historian_df)
-        print(m1.historian_df.aliases)
         for col in ref.columns:
             if col == 'time':
                 continue
             else:
-                print(ref[col])
-                print(np.array(m1.historian_df[f'q1.q1.t1.{col}']))
-                assert np.allclose(ref[col], np.array(m1.historian_df[f'q1.q1.t1.{col}']), rtol=0.2)
+                assert np.allclose(np.array(ref[col]), np.array(m1.historian_df[f'q1.q1.t1.{col}']), atol=1)
