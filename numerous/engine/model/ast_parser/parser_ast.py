@@ -113,6 +113,10 @@ def _generate_equation_key(equation_id: str, is_set: bool) -> str:
     return eq_key
 
 
+def replace_global_var_identification(dsource):
+    return dsource.replace("global_vars.", "global_vars_")
+
+
 def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
              parsed_eq_branches, eq_used):
     for m in model_namespace.equation_dict.values():
@@ -124,7 +128,7 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
             ast_tree = None
             if not is_parsed_eq:
                 dsource = eq.lines
-
+                dsource = replace_global_var_identification(dsource)
                 tries = 0
                 while tries < 10:
                     try:

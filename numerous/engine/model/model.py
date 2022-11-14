@@ -194,7 +194,7 @@ class Model:
         self.numba_model = None
 
         self.info = {}
-        self.add_global_variable("global_vars_t", 0.0)
+        self.add_global_variable("t", 0.0)
         if assemble:
             self.assemble()
 
@@ -229,7 +229,7 @@ class Model:
         if name in self.global_variables:
             return self.global_variables[name]
         else:
-            var_desc = VariableDescription(tag='global_vars_t', initial_value=0,
+            var_desc = VariableDescription(tag=name, initial_value=0,
                                            type=VariableType.PARAMETER, global_var=True)
             self.global_variables[name] = _VariableFactory._create_from_variable_desc_unbound(
                 variable_description=var_desc, initial_value=0)
@@ -237,8 +237,9 @@ class Model:
 
     def add_global_variable(self, name: str, initial_value: float):
         # deafult_value = initial_value
-        x = self._add_global_var(name)
-        self.global_tag_vars[name] = x
+        tag = "global_vars_"
+        x = self._add_global_var(tag+name)
+        self.global_tag_vars[tag+name] = x
         self.variables.update({x.id: x})
 
     def assemble(self):

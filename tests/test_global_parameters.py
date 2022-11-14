@@ -16,7 +16,7 @@ class TestGlobalParameter(EquationBase, Item):
 
     @Equation()
     def eval(self, scope):
-        scope.T = scope.global_vars_t
+        scope.T = scope.global_vars.t
 
 
 class TestGlobalParameterSystem(Subsystem):
@@ -32,3 +32,5 @@ def test_time_variable(use_llvm):
     s.solve()
     import numpy as np
     assert list(s.model.historian_df['test_system.tm1.test_nm.T']) == list(np.arange(11.0))
+
+
