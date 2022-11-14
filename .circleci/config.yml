@@ -20,7 +20,8 @@ jobs:
           name: Test fmu
           command: |
             git clone https://github.com/modelica/Reference-FMUs
-            cmake Reference-FMUs -D FMI_VERSION=2
+            cmake -S Reference-FMUs/ -B build_tmp -D FMI_VERSION=2
+
   
       - run:
           name: Linters
