@@ -250,7 +250,7 @@ class Variable(MappedValue):
     @staticmethod
     def create(namespace, v_id, tag,
                v_type, value, item, metadata,
-               mapping, update_counter, allow_update, logger_level, variable_idx, alias, global_var):
+               mapping, update_counter, allow_update, logger_level, variable_idx, alias, global_var, global_var_idx):
         return Variable(DetailedVariableDescription(tag=tag,
                                                     id=v_id,
                                                     type=v_type,
@@ -264,7 +264,8 @@ class Variable(MappedValue):
                                                     logger_level=logger_level,
                                                     variable_idx=variable_idx,
                                                     alias=alias,
-                                                    global_var=global_var))
+                                                    global_var=global_var,
+                                                    global_var_idx=global_var_idx))
 
     def empty_variable(self):
         self.detailed_description = None
@@ -313,7 +314,8 @@ class _VariableFactory:
                                logger_level=var_desc.logger_level,
                                variable_idx=var_desc.variable_idx,
                                alias=var_desc.alias,
-                               global_var=False
+                               global_var=False,
+                               global_var_idx=-1
                                )
 
     @staticmethod
@@ -331,7 +333,8 @@ class _VariableFactory:
                              logger_level=variable_description.logger_level,
                              alias=variable_description.alias,
                              variable_idx=0,
-                             global_var=variable_description.global_var
+                             global_var=variable_description.global_var,
+                             global_var_idx=variable_description.global_var_idx
                              )
 
         return v1

@@ -111,7 +111,6 @@ class ModelAssembler:
         return variables_, equation_dict
 
 
-
 class Model:
     """
      The model object traverses the system to collect all information needed to pass to the solver
@@ -121,7 +120,8 @@ class Model:
 
     def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
                  imports=None, historian=InMemoryHistorian(),
-                 use_llvm=True, save_to_file=False, generate_graph_pdf=False, export_model=False, clonable=False):
+                 use_llvm=True, save_to_file=False, generate_graph_pdf=False, global_variables=None,
+                 export_model=False, clonable=False):
 
         self.path_to_variable = {}
         self.generate_graph_pdf = generate_graph_pdf
@@ -174,7 +174,6 @@ class Model:
         self.events = []
         self.timestamp_events = []
         self.global_variables_tags = ['time']
-        self.global_vars = np.array([0], dtype=np.float64)
         self.global_variables = {}
         self.equation_dict = {}
         self.variables = {}
@@ -195,6 +194,11 @@ class Model:
 
         self.info = {}
         self.add_global_variable("t", 0.0)
+
+        if global_variables:
+            for g_var in global_variables:
+                self.add_global_variable(g_var[0], g_var[1])
+
         if assemble:
             self.assemble()
 
@@ -225,21 +229,21 @@ class Model:
         else:
             return variable
 
-    def _add_global_var(self, name: str):
+    def _add_global_var(self, name: str, initial_value: float):
         if name in self.global_variables:
             return self.global_variables[name]
         else:
-            var_desc = VariableDescription(tag=name, initial_value=0,
-                                           type=VariableType.PARAMETER, global_var=True)
+            var_desc = VariableDescription(tag=name, initial_value=initial_value,
+                                           type=VariableType.PARAMETER, global_var=True,
+                                           global_var_idx=len(self.global_variables.values()))
             self.global_variables[name] = _VariableFactory._create_from_variable_desc_unbound(
-                variable_description=var_desc, initial_value=0)
+                variable_description=var_desc, initial_value=initial_value)
             return self.global_variables[name]
 
     def add_global_variable(self, name: str, initial_value: float):
-        # deafult_value = initial_value
         tag = "global_vars_"
-        x = self._add_global_var(tag+name)
-        self.global_tag_vars[tag+name] = x
+        x = self._add_global_var(tag + name, initial_value)
+        self.global_tag_vars[tag + name] = x
         self.variables.update({x.id: x})
 
     def assemble(self):
@@ -295,7 +299,6 @@ class Model:
 
         nodes_dep = {}
         self.equations_parsed = {}
-
 
         log.info('Parsing equations starting')
 
@@ -723,7 +726,7 @@ class Model:
         NM_instance = CompiledModel_instance(self.init_values,
                                              self.derivatives_idx,
                                              self.state_idx,
-                                             self.global_vars,
+                                             np.array([v.value for v in self.global_variables.values()],dtype=np.float),
                                              number_of_timesteps,
                                              start_time,
                                              self.historian.get_historian_max_size(number_of_timesteps,

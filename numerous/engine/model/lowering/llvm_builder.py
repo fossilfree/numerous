@@ -91,7 +91,7 @@ class LLVMBuilder:
             self.load_arguments(idx, state, 0)
 
         # go through  all global variables to put them in load block
-        for idx, g_var in enumerate(["t"]):
+        for idx, g_var in enumerate(self.global_names.keys()):
             self.load_global_arguments(idx, g_var, 1)
 
         # go through all states to put them in store block
@@ -225,7 +225,7 @@ class LLVMBuilder:
         self.values[variable_name] = eptr
 
     def load_global_variable(self, variable_name):
-        index = ll.IntType(64)(0)
+        index = ll.IntType(64)(1)
         ptr = self.global_variables
         indices = [self.index0, index]
         eptr = self.builder.gep(ptr, indices, name="variable_" + variable_name)
@@ -238,20 +238,18 @@ class LLVMBuilder:
         eptr = self.builder.gep(ptr, indices, name="state_" + state_name)
         self.values[state_name] = eptr
 
-    def load_global_arguments(self, idx, state_name, arg_idx):
+    def load_global_arguments(self, idx, global_arg_name, arg_idx):
         index_args = ll.IntType(64)(idx)
         ptr = self.func.args[arg_idx]
         indices = [index_args]
-        eptr = self.builder.gep(ptr, indices, name="state_" + state_name)
-        self.values[state_name] = eptr
-        if (arg_idx == 0):
-            ptr = self.model_variables
-        if (arg_idx == 1):
-            ptr = self.global_variables
-        index_global = ll.IntType(64)(0)
+        eptr = self.builder.gep(ptr, indices, name="global_var_" + global_arg_name)
+        self.values[global_arg_name] = eptr
+
+        ptr = self.global_variables
+        index_global = ll.IntType(64)(self.global_names[global_arg_name])
         indices = [self.index0, index_global]
         eptr = self.builder.gep(ptr, indices)
-        self.builder.store(self.builder.load(self.values[state_name]), eptr)
+        self.builder.store(self.builder.load(self.values[global_arg_name]), eptr)
 
     def store_variable(self, variable_name):
         _block = self.builder.block

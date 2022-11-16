@@ -7,7 +7,7 @@ from numerous.engine.model.utils import wrap_function
 from numerous.utils import config
 import numpy as np
 import ast
-from copy import deepcopy as copy
+
 
 from numerous.engine.model.lowering.utils import generate_code_file
 
@@ -172,7 +172,7 @@ class ASTBuilder:
 
     def _process_argument(self, q1):
         if q1.is_global_var:
-            return 0, GLOBAL_ARRAY
+            return self.global_names[q1.name], GLOBAL_ARRAY
         else:
             return self.variable_names[q1.name], KERNEL_ARRAY
 
