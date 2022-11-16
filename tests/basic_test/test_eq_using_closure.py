@@ -89,7 +89,7 @@ def test_external_closure_0(use_llvm):
     model_ = model.Model(
         IfSystem('m_system', SelfTest('tm1', 1), SelfTest('tm11', 2), ClosureFuncTest('tm2'), ClosureVarTest('tm3')),
         use_llvm=use_llvm)
-    s = simulation.Simulation(model_, t_start=0, t_stop=3, num=1, num_inner=1)
+    s = simulation.Simulation(model_, t_start=0, t_stop=2, num=1, num_inner=1)
     s.solve()
     expected = 4.0
     assert s.model.historian_df['m_system.tm1.test_nm.x'][1] == expected
