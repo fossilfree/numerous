@@ -26,10 +26,10 @@ def print_all_module(module, get_val):
         print_all_module(sub_module, get_val)
 
 
-def print_all_variables(module, simulation):
+def print_all_variables(module, df):
 
     def get_val(var):
-        return simulation.model.historian_df[var.path.primary_path].tail(1).values[0]
+        return df[var.path.primary_path].tail(1).values[0]
 
 
     print_all_module(module, get_val)
