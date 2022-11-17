@@ -439,7 +439,26 @@ def test_timestamp_event(use_llvm, capsys):
 
     sys.add_timestamp_event('test', time_callback, timestamps=timestamps)
     model = Model(sys, use_llvm=use_llvm)
+    #num not aligned with timestamps output
     sim = Simulation(model=model, t_start=0, t_stop=24*3600, num=33)
+    sim.solve()
+
+    captured = capsys.readouterr()
+
+    assert captured.out == "\n".join([str(t) for t in timestamps])+"\n"
+
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_timestamp_periodicity(use_llvm, capsys):
+    sys = ExponentialDecay(tag='system')
+    def time_callback(t, variables):
+        print(t)
+
+    timestamps = [float((i+1) * 1800) for i in range(48)]
+
+    # Use an input specifying the periodicity of the callbacks instead of a list of timestamps.
+    sys.add_timestamp_event('test', time_callback, periodicity=1800.0)
+    model = Model(sys, use_llvm=use_llvm)
+    sim = Simulation(model=model, t_start=0, t_stop=24*3600, num=48)
     sim.solve()
 
     captured = capsys.readouterr()
