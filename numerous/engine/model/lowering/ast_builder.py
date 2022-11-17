@@ -12,7 +12,7 @@ import numpy as np
 import ast
 
 
-from numerous.engine.model.lowering.utils import generate_code_file
+from numerous.engine.model.lowering.utils import generate_code_file, VariableArgument
 
 KERNEL_ARRAY = ast.Name(id="kernel_variables")
 GLOBAL_ARRAY = ast.Name(id="global_variables")
@@ -189,7 +189,8 @@ class ASTBuilder:
         for target_id in target_ids:
             targets.append(
                 ast.Subscript(value=KERNEL_ARRAY,
-                              slice=ast.Index(value=ast.Constant(value=self.variable_names[input_args[target_id][0]])),
+                              slice=ast.Index(
+                                  value=ast.Constant(value=self.variable_names[input_args[target_id].name])),
                               ctx=ast.Store()))
         for arg_id, array_type in arg_ids:
             args.append(self._append_assign_argument(arg_id, array_type))
@@ -251,15 +252,15 @@ class ASTBuilder:
         setattr(temp, 'cnd', False)
         self.body.append(temp)
 
-    def add_mapping(self, args, targets):
+    def add_mapping(self, args: list[VariableArgument], targets: list[VariableArgument]):
         for target in targets:
             target = [target]
             if len(target) > 1:
                 raise ValueError("Only mapping to single target is supported")
             arg_idxs = []
             for arg in args:
-                arg_idxs.append(self.variable_names[arg[0]])
-            target_idx = self.variable_names[target[0][0]]
+                arg_idxs.append(self.variable_names[arg.name])
+            target_idx = self.variable_names[target[0].name]
             if len(args) == 1:
                 temp = (ast.Assign(targets=[ast.Subscript(value=KERNEL_ARRAY,
                                                           slice=ast.Index(
