@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import os
 import types
-from typing import Optional, Dict, Callable
+from typing import Optional, Dict
 
 from numpy import ndarray
 
