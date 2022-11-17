@@ -203,8 +203,8 @@ def test_ast_1_function_and_mapping_unordered_vars():
                           VariableArgument("oscillator1.mechanics.y_dot", IS_GLOBAL_VAR)],
                          target_ids=[2, 3])
 
-    ast_program.add_mapping(args=[("oscillator1.mechanics.a", IS_GLOBAL_VAR)],
-                            targets=[("oscillator1.mechanics.x_dot", IS_GLOBAL_VAR)])
+    ast_program.add_mapping(args=[VariableArgument("oscillator1.mechanics.a", IS_GLOBAL_VAR)],
+                            targets=[VariableArgument("oscillator1.mechanics.x_dot", IS_GLOBAL_VAR)])
 
     diff, var_func, _ = ast_program.generate(imports)
     assert approx(diff(np.array([2.1, 2.2, 2.3]), np.array([0.0]))) == np.array([50., -50., 4.])
