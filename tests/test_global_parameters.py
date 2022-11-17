@@ -1,4 +1,5 @@
 import pytest
+from pytest import approx
 
 from numerous.multiphysics.equation_decorators import Equation
 from numerous.multiphysics.equation_base import EquationBase
@@ -11,12 +12,14 @@ class TestGlobalParameter(EquationBase, Item):
     def __init__(self, tag="tm"):
         super(TestGlobalParameter, self).__init__(tag)
         self.add_parameter('T', 0)
+        self.add_state('T1', 0)
         mechanics = self.create_namespace('test_nm')
         mechanics.add_equations([self])
 
     @Equation()
     def eval(self, scope):
         scope.T = scope.global_vars.t
+        scope.T1_dot = 1
 
 
 class TestGlobalParameterSystem(Subsystem):
@@ -43,7 +46,7 @@ def test_time_variable(use_llvm):
     s = simulation.Simulation(model_, t_start=0, t_stop=10.0, num=10, num_inner=10)
     s.solve()
     import numpy as np
-    assert list(s.model.historian_df['test_system.tm1.test_nm.T']) == list(np.arange(11.0))
+    assert approx(list(s.model.historian_df['test_system.tm1.test_nm.T']), abs=1e-05) == list(np.arange(11.0))
 
 
 @pytest.mark.parametrize("use_llvm", [True, False])
