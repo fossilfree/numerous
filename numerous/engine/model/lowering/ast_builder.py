@@ -78,7 +78,7 @@ class ASTBuilder:
                                                               ],
                            keywords=[]))]
 
-    def add_external_function(self, function: Callable, signature: str,
+    def add_external_function(self, function, signature: str,
                               number_of_args: int, target_ids: list[int],
                               replacements: Optional[Dict] = None,
                               replace_name: Optional[str] = None) :
