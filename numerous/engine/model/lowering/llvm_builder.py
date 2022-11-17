@@ -2,7 +2,13 @@ from __future__ import print_function
 
 import os
 from ctypes import CFUNCTYPE, POINTER, c_double, c_void_p, c_int64
+from typing import Optional, Dict, Callable
+
+from llvmlite.ir import LoadInstr
 from numba import carray, cfunc, njit
+from numpy import ndarray
+
+from numerous.engine.model.lowering.utils import VariableArgument
 from numerous.utils import config, logger as log
 import faulthandler
 import numpy as np
@@ -27,7 +33,8 @@ class LLVMBuilder:
     Building an LLVM module.
     """
 
-    def __init__(self, initial_values, variable_names, global_names, states, derivatives, system_tag=""):
+    def __init__(self, initial_values: ndarray, variable_names: Dict[str, int], global_names: Dict[str, int],
+                 states: list[str], derivatives: list[str], system_tag: Optional[str] = ""):
         """
         initial_values - initial values of global variables array. Array should be ordered in  such way
          that all the derivatives are located in the tail.
@@ -102,8 +109,10 @@ class LLVMBuilder:
         self.builder.branch(self.bb_loop)
         self.builder.position_at_end(self.bb_loop)
 
-    def add_external_function(self, function, signature, number_of_args, target_ids, replacements=None,
-                              replace_name=None):
+    def add_external_function(self, function: Callable, signature: str,
+                              number_of_args: int, target_ids: list[int],
+                              replacements: Optional[Dict] = None,
+                              replace_name: Optional[str] = None) -> Dict[str, str]:
         """
         Wrap the function and make it available in the LLVM module
         """
@@ -124,7 +133,9 @@ class LLVMBuilder:
         self.ext_funcs[name] = f_llvm
         return {function.__qualname__: name}
 
-    def generate(self, imports=None, system_tag=None, save_to_file=False):
+    def generate(self, imports: Optional[list] = None,
+                 system_tag: Optional[str] = None,
+                 save_to_file: Optional[bool] = False) -> tuple[Callable, Callable, Callable]:
 
         self.builder.position_at_end(self.bb_loop)
 
@@ -212,33 +223,33 @@ class LLVMBuilder:
         if config.PRINT_LLVM:
             log.info(sep.join(map(str, args)))
 
-    def save_module(self, filename):
+    def save_module(self, filename: str):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         with open(filename, 'w') as f:
             f.write(str(self.module))
 
-    def load_model_variable(self, variable_name):
+    def load_model_variable(self, variable_name: str):
         index = ll.IntType(64)(self.variable_names[variable_name])
         ptr = self.model_variables
         indices = [self.index0, index]
         eptr = self.builder.gep(ptr, indices, name="variable_" + variable_name)
         self.values[variable_name] = eptr
 
-    def load_global_variable(self, variable_name):
-        index = ll.IntType(64)(1)
+    def load_global_variable(self, variable_name: str):
+        index = ll.IntType(64)(self.global_names[variable_name])
         ptr = self.global_variables
         indices = [self.index0, index]
         eptr = self.builder.gep(ptr, indices, name="variable_" + variable_name)
         self.values[variable_name] = eptr
 
-    def load_arguments(self, idx, state_name, arg_idx):
+    def load_arguments(self, idx: int, state_name: str, arg_idx: int):
         index_args = ll.IntType(64)(idx)
         ptr = self.func.args[arg_idx]
         indices = [index_args]
         eptr = self.builder.gep(ptr, indices, name="state_" + state_name)
         self.values[state_name] = eptr
 
-    def load_global_arguments(self, idx, global_arg_name, arg_idx):
+    def load_global_arguments(self, idx: int, global_arg_name: str, arg_idx: int):
         index_args = ll.IntType(64)(idx)
         ptr = self.func.args[arg_idx]
         indices = [index_args]
@@ -251,7 +262,7 @@ class LLVMBuilder:
         eptr = self.builder.gep(ptr, indices)
         self.builder.store(self.builder.load(self.values[global_arg_name]), eptr)
 
-    def store_variable(self, variable_name):
+    def store_variable(self, variable_name: str):
         _block = self.builder.block
         self.builder.position_at_end(self.bb_store)
         index = ll.IntType(64)(self.variable_names[variable_name])
@@ -261,15 +272,15 @@ class LLVMBuilder:
         self.builder.store(self.builder.load(self.values[variable_name]), eptr)
         self.builder.position_at_end(_block)
 
-    def add_call(self, external_function_name, args, target_ids):
+    def add_call(self, external_function_name: str, args: list[VariableArgument], target_ids: list[int]):
         arg_pointers = []
         for i1, arg in enumerate(args):
             if i1 in target_ids:
-                if arg[0] not in self.values:
-                    self._create_target_pointer(arg[0])
-                arg_pointers.append(*self._get_target_pointers([arg[0]]))
+                if arg.name not in self.values:
+                    self._create_target_pointer(arg.name)
+                arg_pointers.append(*self._get_target_pointers([arg.name]))
             else:
-                if arg[1]:
+                if arg.is_global_var:
                     arg_pointers.append(*self._load_args([arg]))
                 else:
                     arg_pointers.append(*self._load_args([arg]))
@@ -316,12 +327,12 @@ class LLVMBuilder:
 
         builder_var.ret_void()
 
-    def _store_to_global_target(self, target, value):
+    def _store_to_global_target(self, target: str, value):
         if target not in self.values:
             self._create_target_pointer(target)
         self.builder.store(value, self.values[target])
 
-    def add_mapping(self, args, targets):
+    def add_mapping(self, args: list[VariableArgument], targets: list[VariableArgument]):
         self.builder.position_at_end(self.bb_loop)
         la = len(args)
 
@@ -329,36 +340,35 @@ class LLVMBuilder:
 
         if la == 1:
             for t in targets:
-                self._store_to_global_target(t[0], loaded_args_ptr[0])
+                self._store_to_global_target(t.name, loaded_args_ptr[0])
         else:
             accum = self.builder.fadd(loaded_args_ptr[0], loaded_args_ptr[1])
             for i, a in enumerate(loaded_args_ptr[2:]):
                 accum = self.builder.fadd(accum, a)
-
             for t in targets:
-                self._store_to_global_target(t[0], accum)
+                self._store_to_global_target(t.name, accum)
 
-    def _load_args(self, args):
+    def _load_args(self, args: list[VariableArgument]) -> list[LoadInstr]:
         loaded_args = []
         self.builder.position_at_end(self.bb_loop)
         for a in args:
-            if a[0] not in self.values:
-                if a[1]:
-                    self.load_global_variable(a[0])
+            if a.name not in self.values:
+                if a.is_global_var:
+                    self.load_global_variable(a.name)
                 else:
-                    self.load_model_variable(a[0])
-            loaded_args.append(self.builder.load(self.values[a[0]], 'arg_' + a[0]))
+                    self.load_model_variable(a.name)
+            loaded_args.append(self.builder.load(self.values[a.name], 'arg_' + a.name))
         return loaded_args
 
-    def _get_target_pointers(self, targets):
+    def _get_target_pointers(self, targets: list[str]):
         return [self.values[target] for target in targets]
 
-    def _create_target_pointer(self, t):
-        index = ll.IntType(64)(self.variable_names[t])
+    def _create_target_pointer(self, target_name: str):
+        index = ll.IntType(64)(self.variable_names[target_name])
         ptr = self.model_variables
         indices = [self.index0, index]
-        eptr = self.builder.gep(ptr, indices, name=t)
-        self.values[t] = eptr
+        eptr = self.builder.gep(ptr, indices, name=target_name)
+        self.values[target_name] = eptr
 
     ##Should be moved to utils
     def _is_range_and_ordered(self, a_list):
@@ -366,7 +376,8 @@ class LLVMBuilder:
         i = a_list[0]
         return all(ele >= i and ele < i + e for ele in a_list) and all(a_list[i] <= a_list[i + 1] for i in range(e - 1))
 
-    def add_set_call(self, external_function_name, variable_name_arg_and_trg, targets_ids):
+    def add_set_call(self, external_function_name: str, variable_name_arg_and_trg: list[list[str]],
+                     targets_ids: list[int]):
         ## TODO check allign
         self.builder.position_at_end(self.bb_loop)
         number_of_ix_arg = len(variable_name_arg_and_trg[0])

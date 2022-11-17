@@ -2,6 +2,9 @@ from __future__ import print_function
 
 import os
 import types
+from typing import Optional, Dict, Callable
+
+from numpy import ndarray
 
 from numerous.engine.model.utils import wrap_function
 from numerous.utils import config
@@ -22,7 +25,8 @@ class ASTBuilder:
     Building an AST module.
     """
 
-    def __init__(self, initial_values, variable_names, global_names, states, derivatives, system_tag=""):
+    def __init__(self, initial_values: ndarray, variable_names: Dict[str, int], global_names: Dict[str, int],
+                 states: list[str], derivatives: list[str], system_tag: Optional[str] = ""):
         """
         initial_values - initial values of global variables array. Array should be ordered in  such way
          that all the derivatives are located in the tail.
@@ -74,8 +78,10 @@ class ASTBuilder:
                                                               ],
                            keywords=[]))]
 
-    def add_external_function(self, function: ast.FunctionDef, signature: str, number_of_args: int,
-                              target_ids: list[int], replacements=None, replace_name=None):
+    def add_external_function(self, function: Callable, signature: str,
+                              number_of_args: int, target_ids: list[int],
+                              replacements: Optional[Dict] = None,
+                              replace_name: Optional[str] = None) :
         if replacements is not None:
             self.replacements.append(replacements)
             self.replace_name.append(replace_name)

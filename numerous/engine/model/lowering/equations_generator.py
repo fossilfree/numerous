@@ -360,21 +360,21 @@ class EquationGenerator:
                     var_name = d_u(self.equation_graph.key_map[v[0]])
                     if var_name in self.scope_variables:
                         if target_var in mapping_dict:
-                            mapping_dict[target_var].append((var_name, False))
+                            mapping_dict[target_var].append(VariableArgument(var_name, False))
                         else:
-                            mapping_dict[target_var] = [(var_name, False)]
+                            mapping_dict[target_var] = [VariableArgument(var_name, False)]
                     else:
                         if var_name in self.set_variables:
                             if var_name in mapping_dict:
                                 mapping_dict[target_var].append(
-                                    (self.set_variables[var_name].get_var_by_idx(v[1]).id, False))
+                                    VariableArgument(self.set_variables[var_name].get_var_by_idx(v[1]).id, False))
                             else:
                                 mapping_dict[target_var] = [
-                                    (self.set_variables[var_name].get_var_by_idx(v[1]).id, False)]
+                                    VariableArgument(self.set_variables[var_name].get_var_by_idx(v[1]).id, False)]
                         else:
                             raise ValueError(f'Variable  {var_name} mapping not found')
             for k, v in mapping_dict.items():
-                self.generated_program.add_mapping(v, [(k, False)])
+                self.generated_program.add_mapping(v, [VariableArgument(k, False)])
 
     def generate_equations(self, export_model=False, clonable=False):
         log.info('Generate kernel')
