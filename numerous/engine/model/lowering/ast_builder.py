@@ -11,7 +11,6 @@ from numerous.utils import config
 import numpy as np
 import ast
 
-
 from numerous.engine.model.lowering.utils import generate_code_file, VariableArgument
 
 KERNEL_ARRAY = ast.Name(id="kernel_variables")
@@ -81,7 +80,7 @@ class ASTBuilder:
     def add_external_function(self, function, signature: str,
                               number_of_args: int, target_ids: list[int],
                               replacements: Optional[Dict] = None,
-                              replace_name: Optional[str] = None) :
+                              replace_name: Optional[str] = None):
         if replacements is not None:
             self.replacements.append(replacements)
             self.replace_name.append(replace_name)
