@@ -37,6 +37,8 @@ class VariableDescription:
     logger_level: LoggerLevel = LoggerLevel.ALL
     alias: str = None
     update: bool = False
+    global_var: bool = False
+    global_var_idx: int = -1
 
 
 @dataclass
@@ -139,9 +141,15 @@ class SetOfVariables:
         self.item_tag = item_tag
         self.ns_tag = ns_tag
         self.size = 0
+        self.global_var = False
+        self.global_var_idx = False
+        self.eq_used = []
 
     def get_size(self):
         return self.size
+
+    def add_eq_used(self, eq_name: str):
+        self.eq_used.append(eq_name)
 
     def get_path_dot(self):
         result = list(self.variables.values())[0].get_path_dot()
@@ -175,11 +183,14 @@ class Variable(MappedValue):
         self.type = detailed_variable_description.type
         self.path = VariablePath([detailed_variable_description.tag], self.id)
         self.paths = []
+        self.global_var = detailed_variable_description.global_var
+        self.global_var_idx = detailed_variable_description.global_var_idx
         self.alias = None
         self.set_var = None
         self.set_var_ix = None
         self.set_namespace = None
         self.size = 0
+
         self.temporary_variable = False
         if base_variable:
             self.value = base_variable.value
@@ -193,11 +204,18 @@ class Variable(MappedValue):
         self.logger_level = detailed_variable_description.logger_level
         self.associated_scope = []
         self.idx_in_scope = []
+        self.eq_used = []
         self.top_item = None
         self.used_in_equation_graph = False
 
     def get_path_dot(self):
-        return self.path.path[self.top_item][0]
+        if self.top_item:
+            return self.path.path[self.top_item][0]
+        else:
+            return list(self.path.path.values())[0][0]
+
+    def add_eq_used(self, eq_name: str):
+        self.eq_used.append(eq_name)
 
     def update_value(self, value):
         self._value = value
@@ -232,7 +250,7 @@ class Variable(MappedValue):
     @staticmethod
     def create(namespace, v_id, tag,
                v_type, value, item, metadata,
-               mapping, update_counter, allow_update, logger_level, variable_idx, alias):
+               mapping, update_counter, allow_update, logger_level, variable_idx, alias, global_var, global_var_idx):
         return Variable(DetailedVariableDescription(tag=tag,
                                                     id=v_id,
                                                     type=v_type,
@@ -245,7 +263,37 @@ class Variable(MappedValue):
                                                     allow_update=allow_update,
                                                     logger_level=logger_level,
                                                     variable_idx=variable_idx,
-                                                    alias=alias))
+                                                    alias=alias,
+                                                    global_var=global_var,
+                                                    global_var_idx=global_var_idx))
+
+    def empty_variable(self):
+        self.detailed_description = None
+        self.namespace = None
+        self.tag = None
+        self.type = None
+        self.path = None
+        self.paths = None
+        self.global_var = None
+        self.global_var_idx = None
+        self.alias = None
+        self.set_var = None
+        self.set_var_ix = None
+        self.set_namespace = None
+        self.size = 0
+        self.llvm_idx = None
+        self.temporary_variable = False
+        self.item = None
+        self.metadata = None
+        self.mapping = None
+        self.update_counter = None
+        self.allow_update = None
+        self.logger_level = None
+        self.associated_scope = None
+        self.idx_in_scope = None
+        self.top_item = None
+        self.used_in_equation_graph = False
+        self.value = 0
 
 
 class _VariableFactory:
@@ -266,6 +314,8 @@ class _VariableFactory:
                                logger_level=var_desc.logger_level,
                                variable_idx=var_desc.variable_idx,
                                alias=var_desc.alias,
+                               global_var=False,
+                               global_var_idx=-1
                                )
 
     @staticmethod
@@ -282,7 +332,9 @@ class _VariableFactory:
                              allow_update=(variable_description.type != VariableType.CONSTANT),
                              logger_level=variable_description.logger_level,
                              alias=variable_description.alias,
-                             variable_idx=0
+                             variable_idx=0,
+                             global_var=variable_description.global_var,
+                             global_var_idx=variable_description.global_var_idx
                              )
 
         return v1

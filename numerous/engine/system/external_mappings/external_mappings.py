@@ -79,11 +79,12 @@ class ExternalMapping:
                             self.interpolation_type[index].value == InterpolationType.LINEAR.value)
 
     def is_mapped_var(self, variables, var_id, system_id):
-        for path in variables[var_id].path.path[system_id]:
-            for columns in self.external_columns:
-                for column in columns:
-                    if column == path:
-                        return True
+        if not variables[var_id].global_var:
+            for path in variables[var_id].path.path[system_id]:
+                for columns in self.external_columns:
+                    for column in columns:
+                        if column == path:
+                            return True
 
 
 class ExternalMappingElement:
