@@ -166,5 +166,7 @@ class CompiledModel:
 
     def func(self, _t, y):
         self.global_vars[0] = _t
+        print("#####")
+        print(self.global_vars)
         deriv = self.compiled_compute(y)
         return deriv
