@@ -155,7 +155,7 @@ class Bus(BusInterface):
         self.connections[other] = map
 
     def finalize(self):
-        raise ValueError()
+        raise NotImplementedError()
 
 def get_value_for(object):
     """
@@ -182,12 +182,15 @@ class Connector(Bus):
         self.variable_mappings = {}
 
         for channel_name, object_direction in channels.items():
-            object, direction = object_direction
+            try:
+                object, direction = object_direction
 
-            if isinstance(object, ModuleSpecInterface):
-                self._add_module(object, channel_name, direction)
-            elif isinstance(object, Variable):
-                self.add_variable(object, channel_name, direction)
+                if isinstance(object, ModuleSpecInterface):
+                    self._add_module(object, channel_name, direction)
+                elif isinstance(object, Variable):
+                    self.add_variable(object, channel_name, direction)
+            except TypeError:
+                raise ValueError(f"Could not unpack the channel <{channel_name}> into a variable and a direction. Have you forgot to wrap the variable or module with a <set_value_from> or <get_value_for> call?")
 
     def add_variable(self, variable:Variable, channel_name=None, direction=Directions.GET):
         if channel_name is None:
@@ -294,8 +297,28 @@ class Connector(Bus):
     #    return connection
 
     def finalize(self):
+
+        if len(self.connections) <= 0:
+
+            raise ValueError(f"{self.name} is not connected!")
+
         for connection in self.connections:
             connection.finalize()
 
+
+    def connect_reversed(self, **variables):
+        reverse_connector = Connector(self.name)
+
+
+
+        for name, channel in self.channels.items():
+            reverse_connector.add_channel(Channel(name, channel.signal))
+            print(self.variable_mappings[name])
+            direction = self.variable_mappings[name][0][1]
+            reverse_direction = Directions.SET if direction == Directions.GET else Directions.GET
+
+            reverse_connector.variable_mappings[name] = [(variables[name], reverse_direction)]
+
+        self.add_connection(reverse_connector)
 
 
