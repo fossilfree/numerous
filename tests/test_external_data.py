@@ -187,7 +187,7 @@ def external_data():
 def simulation(tmpdir: tmpdir):
     def fn(data, dt_eval=0.1, chunksize=1, historian_max_size=None, t0=0, tmax=5, max_step=0.1, dataloader=csvdataloader,
            system=StaticDataSystemWithBall, mapped_name="Dew Point Temperature {C}",
-           variable_name='system_external.tm0.test_nm.T1', use_llvm=True):
+           variable_name='system_external.tm0.test_nm.T1', use_llvm=True, rtol=1e-6, atol=1e-3):
         external_mappings = []
 
         df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}'])
@@ -210,7 +210,7 @@ def simulation(tmpdir: tmpdir):
             Model(system
                   ('system_external', external_mappings=external_mappings, data_loader=data_loader),
                   historian=historian, use_llvm=use_llvm),
-            t_start=t0, t_stop=tmax, num=len(np.arange(0, tmax, dt_eval)), max_step=max_step)
+            t_start=t0, t_stop=tmax, num=len(np.arange(0, tmax, dt_eval)), max_step=max_step, rtol=rtol, atol=atol)
         return s
     yield fn
 
@@ -290,12 +290,6 @@ def test_external_data_multiple(use_llvm, system, external_data):
 @pytest.mark.parametrize("solver", [step_solver, normal_solver])
 @pytest.mark.parametrize("dataloader", [inmemorydataloader, csvdataloader])
 @pytest.mark.parametrize("system", [StaticDataSystem, StaticDataSystemWithBall])
-# @pytest.mark.parametrize("use_llvm", [False])
-# @pytest.mark.parametrize("chunksize", [1])
-# @pytest.mark.parametrize("historian_max_size", [1])
-# @pytest.mark.parametrize("solver", [step_solver])
-# @pytest.mark.parametrize("dataloader", [csvdataloader])
-# @pytest.mark.parametrize("system", [StaticDataSystemWithBall])
 def test_external_data_chunks_and_historian_update(external_data: external_data, simulation: simulation,
                                                    solver, chunksize, historian_max_size, dataloader, system, use_llvm):
 
@@ -306,7 +300,7 @@ def test_external_data_chunks_and_historian_update(external_data: external_data,
     data = external_data(t0, tmax, dt_data)
     s = simulation(data=data, chunksize=chunksize, historian_max_size=historian_max_size, t0=t0, max_step=dt,
                    dt_eval=dt, tmax=tmax,
-                   dataloader=dataloader, system=system, use_llvm=use_llvm)
+                   dataloader=dataloader, system=system, use_llvm=use_llvm, rtol=1e-8, atol=1e-8)
     df = solver(s, t0, tmax, dt)
 
     for ix in df.index:

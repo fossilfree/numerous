@@ -15,6 +15,8 @@ def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs, parameters_retu
     for arg_id in input_args:
         if arg_id not in fmu_output_args:
             args_lst.append(ast.arg(arg=arg_id))
+    args_lst.append(ast.arg(arg="_time"))
+
     args = ast.arguments(posonlyargs=[], args=args_lst, kwonlyargs=[],
                          kw_defaults=[], defaults=[])
 
@@ -35,7 +37,7 @@ def generate_fmu_eval(input_args, zero_assign_ptrs, output_ptrs, parameters_retu
         if arg_id not in fmu_output_args:
             eq_call_args.append(ast.Name(id=arg_id, ctx=ast.Load()))
 
-    eq_call_args.append(ast.Constant(value=0.1))
+    eq_call_args.append(ast.Name(id="_time", ctx=ast.Load()))
     eq_expr = [ast.Expr(value=ast.Call(func=ast.Name(id=EQ_CALL), args=eq_call_args, keywords=[], ctx=ast.Load()),
                         keywords=[])]
     return_elts = []
@@ -581,6 +583,7 @@ def generate_eq_call(deriv_names, var_names, input_var_names_ordered, output_var
     for v_name in var_names:
         if v_name not in output_var_names_ordered:
             args.append(ast.Attribute(value=ast.Name(id='scope', ctx=ast.Load()), attr=v_name, ctx=ast.Load()))
+    args.append(ast.Attribute(value=ast.Name(id='scope', ctx=ast.Load()), attr="global_vars.t", ctx=ast.Load()))
 
     return ast.Module(body=[ast.FunctionDef(name='eval',
                                             args=ast.arguments(posonlyargs=[],

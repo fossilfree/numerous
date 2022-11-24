@@ -7,8 +7,6 @@ from numerous.engine.system import Item, Subsystem
 from numerous.engine.model import Model
 
 
-
-
 class Item1(Item, EquationBase):
     def __init__(self, tag='item1'):
         super(Item1, self).__init__(tag)
@@ -20,8 +18,8 @@ class Item1(Item, EquationBase):
 
     @Equation()
     def eval(self, scope):
-        scope.x_dot = 1+0.1*scope.x
-        scope.y_dot = 1+0.2*scope.y
+        scope.x_dot = 1 + 0.1 * scope.x
+        scope.y_dot = 1 + 0.2 * scope.y
 
 
 class System(Subsystem, EquationBase):
@@ -59,12 +57,12 @@ class Main(Subsystem):
         self.register_item(system)
 
 
-@pytest.mark.parametrize("use_llvm", [False,True])
+@pytest.mark.parametrize("use_llvm", [False, True])
 def test_deriv_order(use_llvm):
     m = Main()
     model = Model(m, use_llvm=use_llvm)
     import numpy as np
     expected = np.array([3, 2.5, 1., 1.])
-    assert approx(model.compiled_compute(np.array([0., 0., 0., 0.]))) == expected
+    assert approx(model.compiled_compute(np.array([0., 0., 0., 0.]), np.array([0.]))) == expected
     expected_2 = [3.4, 3.7, 1.3, 1.8]
-    assert approx(model.compiled_compute(np.array([1., 2., 3., 4.]))) == expected_2
+    assert approx(model.compiled_compute(np.array([1., 2., 3., 4.]), np.array([0.]))) == expected_2

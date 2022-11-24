@@ -4,7 +4,6 @@ import pytest
 
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
-from numerous.engine.simulation.solvers import solver_types
 from numerous.engine.system import Subsystem
 from numerous.engine.system.fmu_subsystem import FMU_Subsystem
 
@@ -19,7 +18,6 @@ class S3(Subsystem):
 
 
 @pytest.mark.xfail
-@pytest.mark.parametrize("solver", solver_types)
 @pytest.mark.parametrize("use_llvm", [True, False])
 def test_dahlquist(solver, use_llvm):
     subsystem1 = S3('q1')

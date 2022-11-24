@@ -10,8 +10,9 @@ from copy import deepcopy
 
 
 class ParsedEquation:
-    def __init__(self, eq, dsource, graph, t, replacements=None):
+    def __init__(self, eq, dsource, graph, t, is_set, replacements=None):
         self.eq = eq
+        self.is_set = is_set
         self.dsource = dsource
         self.graph = graph
         self.t = t
@@ -112,6 +113,10 @@ def _generate_equation_key(equation_id: str, is_set: bool) -> str:
     return eq_key
 
 
+def replace_global_var_identification(dsource):
+    return dsource.replace("global_vars.", "global_vars_")
+
+
 def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
              parsed_eq_branches, eq_used):
     for m in model_namespace.equation_dict.values():
@@ -123,7 +128,7 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
             ast_tree = None
             if not is_parsed_eq:
                 dsource = eq.lines
-
+                dsource = replace_global_var_identification(dsource)
                 tries = 0
                 while tries < 10:
                     try:
@@ -166,10 +171,10 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
                         branch_graphs.append((a, gb, eq_key + '_' + postfix_from_branches(a)))
 
                     for branch in branch_graphs:
-                        parsed_eq_branches[branch[2]] = ParsedEquation(eq, dsource, branch[1], branch[0])
+                        parsed_eq_branches[branch[2]] = ParsedEquation(eq, dsource, branch[1], branch[0], is_set)
 
                 else:
-                    parsed_eq_branches[eq_key] = ParsedEquation(eq, dsource, g, {})
+                    parsed_eq_branches[eq_key] = ParsedEquation(eq, dsource, g, {}, is_set)
 
             g = parsed_eq_branches[eq_key].graph
 
@@ -184,8 +189,7 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
 
                 parsed_eq_branches[eq_key__] = ParsedEquation(
                     parsed_eq_branches[eq_key].eq, parsed_eq_branches[eq_key].dsource, parsed_eq_branches[eq_key].graph,
-                    {},
-                    replacements)
+                    {}, is_set, replacements)
 
                 eq_key = eq_key__
 
@@ -206,10 +210,11 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
             if not is_parsed_eq:
                 for sv in variables:
                     if variables[sv].used_in_equation_graph:
-                        g.arg_metadata.append((sv, variables[sv].id, variables[sv].used_in_equation_graph))
+                        variables[sv].add_eq_used(eq_key)
+                        g.arg_metadata.append(variables[sv])
                         variables[sv].used_in_equation_graph = False
                     else:
-                        g.arg_metadata.append((sv, variables[sv].id, variables[sv].used_in_equation_graph))
+                        g.arg_metadata.append(variables[sv])
 
 
 def process_mappings(mappings, mappings_graph: Graph, scope_vars):
