@@ -163,6 +163,12 @@ class VariableNamespaceBase:
             eq.set_equation = set_equation
             self.associated_equations.update({eq.tag: eq})
 
+    def set_values(self, **kwargs):
+        """
+            Set values of variables in the namespace by passing keyword arguments corresponding to variable names.
+        """
+        for k, v in kwargs.items():
+            self.variables[k].value = v
 
 class VariableNamespace(VariableNamespaceBase):
     pass
