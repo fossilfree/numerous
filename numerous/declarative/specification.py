@@ -115,6 +115,14 @@ class ScopeSpec:
     def set_host(self, host, attr):
         self._host = host
         self._host_attr = attr
+
+    def set_values(self, **kwargs):
+        """
+            Set values of variables in the namespace by passing keyword arguments corresponding to variable names.
+        """
+        for k, v in kwargs.items():
+            self._variables[k].value = v
+
     def _generate_variables(self, equation):
         ...
 
