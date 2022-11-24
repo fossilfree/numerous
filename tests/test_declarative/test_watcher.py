@@ -1,13 +1,15 @@
 from numerous.declarative.context_managers import _active_declarative
 from numerous.declarative.specification import ScopeSpec, ItemsSpec, Module, EquationSpec
 from numerous.declarative.variables import Parameter
-import pytest
+
 
 class TestSpec(ScopeSpec):
     A = Parameter(0)
 
+
 class TestItemSpec(ItemsSpec):
     ...
+
 
 class TestModule(Module):
     """
@@ -25,6 +27,7 @@ class TestModule(Module):
     def eval(self, scope: TestSpec):
         scope.var1 = 19
 
+
 """
 def test_watcher():
     watcher.declarations = []
@@ -40,11 +43,12 @@ def test_watcher():
 
     watcher.finalize()"""
 
+
 def test_no_active_context():
     assert not _active_declarative.is_active_manager_context_set()
 
-def test_watch_module():
 
+def test_watch_module():
     tm = TestModule()
 
     tm.finalize()
@@ -52,7 +56,6 @@ def test_watch_module():
 
 
 def test_watch_itemsspec_clone():
-
     tis = TestItemSpec()
 
     tis_clone = tis._clone()
@@ -73,9 +76,3 @@ def test_capture_not_used():
 
         def __init__(self, tag=None):
             super(TestModuleNotUsed, self).__init__(tag)
-
-
-
-
-
-

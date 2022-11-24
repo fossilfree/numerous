@@ -1,9 +1,10 @@
-
 class AnotherManagerContextActiveException(Exception):
     pass
 
+
 class NoManagerContextActiveException(Exception):
     pass
+
 
 class ActiveContextManager:
     _instance = None
@@ -38,23 +39,28 @@ class ActiveContextManager:
         if self.is_active_manager_context(context_manager):
             self._active_manager_context = None
         else:
-            raise ValueError(f'Trying to clear different context manager, trying to clear: {context_manager}, but active one is: {self._active_manager_context}')
+            raise ValueError(
+                f'Trying to clear different context manager, trying to clear: {context_manager}, but active one is: {self._active_manager_context}')
 
 
 class SubsystemContextManager(ActiveContextManager):
     pass
 
+
 _active_subsystem = SubsystemContextManager()
+
 
 class MappingsContextManager(ActiveContextManager):
     pass
 
+
 _active_mappings = MappingsContextManager()
+
 
 class DeclarativeContextManager(ActiveContextManager):
     pass
 
-_active_declarative = DeclarativeContextManager()
 
+_active_declarative = DeclarativeContextManager()
 
 _active_connections = DeclarativeContextManager()

@@ -7,10 +7,9 @@ from numerous.engine.system import Item
 
 
 def recursive_get_attr(obj, attr_list):
-
     attr_ = getattr(obj, attr_list[0])
 
-    if len(attr_list)>1:
+    if len(attr_list) > 1:
         return recursive_get_attr(attr_, attr_list[1:])
     else:
         return attr_
@@ -28,12 +27,10 @@ def print_map(var):
 
 class RegisterHelper:
 
-
     def __init__(self):
         self._items = {}
 
     def register_item(self, item):
-
         if item.tag in self._items:
             raise DuplicateItemError(f"An item with tag {item.tag} already registered.")
         self._items[item.tag] = item
@@ -45,25 +42,22 @@ class RegisterHelper:
 def allow_implicit(func):
     sign = inspect.signature(func)
 
-
     def check_implicit(*args, **kwargs):
 
-        if len(args)>1 and isinstance(item:=args[1], Item):
+        if len(args) > 1 and isinstance(item := args[1], Item):
             _kwargs = {}
             _args = []
             for n, p in sign.parameters.items():
                 if n != "self":
-                    val = getattr(getattr(item, 'variables'),n)
+                    val = getattr(getattr(item, 'variables'), n)
                     if n in kwargs:
 
                         _kwargs[n] = val
                     else:
                         _args.append(val)
 
-
             func(args[0], *_args, **kwargs)
         else:
             func(*args, **kwargs)
-
 
     return check_implicit

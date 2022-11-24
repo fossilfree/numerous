@@ -1,17 +1,10 @@
-from numerous.declarative.specification import ItemsSpec, Module, ScopeSpec, EquationSpec
-from numerous.declarative.mappings import create_mappings
-from numerous.declarative.exceptions import MappingOutsideMappingContextError
-from numerous.declarative.utils import print_map
-from numerous.declarative.variables import Parameter
-
+from numerous.declarative.debug_utils import print_all_variables
 from numerous.engine import model, simulation
 from .test_mappings import TestCompositeNodeConnector
 
-from numerous.declarative.debug_utils import print_all_variables
-import pytest
 
 def test_print_all_var():
-    F=1
+    F = 1
     composite = TestCompositeNodeConnector("composite", F=F)
     composite.finalize()
 

@@ -1,15 +1,16 @@
-from numerous.declarative.specification import ItemsSpec
-from numerous.declarative.exceptions import ItemNotAssignedError
-
 import pytest
 
+from numerous.declarative.exceptions import ItemNotAssignedError
+from numerous.declarative.specification import ItemsSpec
 from tests.test_declarative.mock_objects import TestItemSpec, TestModule
+
 
 def test_clone():
     test_spec = TestItemSpec()
     clone = test_spec._clone()
 
     assert clone != test_spec, 'Clone should create another ItemSpec'
+
 
 def test_check_assigned():
     class TestItems(ItemsSpec):
@@ -66,8 +67,8 @@ def test_check_assigned():
 
     items._check_assigned()
 
-def test_finalize():
 
+def test_finalize():
     class TestItems(ItemsSpec):
         side1: TestModule
 

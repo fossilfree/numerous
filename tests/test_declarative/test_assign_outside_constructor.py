@@ -1,22 +1,18 @@
-from numerous.declarative.specification import ItemsSpec, Module, ScopeSpec, EquationSpec
-from numerous.declarative.mappings import create_mappings
-from numerous.declarative.exceptions import MappingOutsideMappingContextError
-from numerous.declarative.utils import print_map
+from numerous.declarative.specification import ItemsSpec, Module, ScopeSpec
 from numerous.declarative.variables import Parameter
 
-from numerous.engine import model, simulation
-
-
-import pytest
 
 class TestSpec(ScopeSpec):
     var1 = Parameter(0)
 
+
 class ExtTestSpec(TestSpec):
     var2 = Parameter(0)
 
+
 class TestItemSpec(ItemsSpec):
     ...
+
 
 class TestModule(Module):
     """
@@ -31,6 +27,7 @@ class TestModule(Module):
     def __init__(self, tag=None):
         super(TestModule, self).__init__(tag)
 
+
 class TestAssignOutside(Module):
     """
         Class implementing a test module
@@ -42,6 +39,7 @@ class TestAssignOutside(Module):
         mod1: TestModule
 
     items = Items()
+
 
 def test_assign_outside_init():
     class OuterTest(Module):
@@ -63,9 +61,7 @@ def test_assign_outside_init():
             self.items.inner = TestAssignOutside("test")
             self.items.inner.items.mod1 = self.items.testmod
 
-
         items = Items()
-
 
     test_outer = OuterTest("outer")
     test_outer.finalize()

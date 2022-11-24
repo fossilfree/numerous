@@ -13,13 +13,11 @@ class Obj:
 
 
 class MappingTypes(Enum):
-
     ASSIGN = 0
     ADD = 1
 
 
 class ModuleMappings:
-
     mappings = []
 
     def __init__(self, *args):
@@ -43,12 +41,10 @@ class ModuleMappings:
         self.mappings.append((a, b, MappingTypes.ASSIGN))
         a.mapped_to.append(b)
 
-
     def add(self, a, b):
         self.mappings.append((a, b, MappingTypes.ADD))
         a.mapped_to.append(b)
 
 
 def create_mappings(*args):
-
     return ModuleMappings(*args)

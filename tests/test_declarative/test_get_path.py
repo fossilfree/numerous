@@ -1,16 +1,12 @@
-from numerous.declarative.specification import ItemsSpec, Module, ScopeSpec, EquationSpec, \
-    recursive_get_attr
-from numerous.declarative.mappings import create_mappings
-from numerous.declarative.exceptions import MappingOutsideMappingContextError, NotMappedError, FixedMappedError
-from numerous.declarative.variables import Parameter, Constant
+from numerous.declarative.specification import ItemsSpec, Module, ScopeSpec, recursive_get_attr
+from numerous.declarative.variables import Parameter
 
-import pytest
-from typing import Annotated
 
 class TestLeafModule(Module):
     """
     Class implementing a test module
     """
+
     class Variables(ScopeSpec):
         a = Parameter(0)
 
@@ -20,8 +16,6 @@ class TestLeafModule(Module):
 
     def __init__(self, tag=None):
         super(TestLeafModule, self).__init__(tag)
-
-
 
 
 class TestBranchLevel1Module(Module):
@@ -36,6 +30,7 @@ class TestBranchLevel1Module(Module):
 
     items = Items()
 
+
 class TestBranchLevel2Module(Module):
     """
     Class implementing a test module
@@ -47,6 +42,7 @@ class TestBranchLevel2Module(Module):
     tag: str = 'mod2'
 
     items = Items()
+
 
 class TestBranchLevel3Module(Module):
     """
@@ -61,8 +57,6 @@ class TestBranchLevel3Module(Module):
     items = Items()
 
     def __init__(self, tag=None):
-
-
         super(TestBranchLevel3Module, self).__init__(tag)
 
 

@@ -1,10 +1,11 @@
-from numerous.declarative.specification import ItemsSpec, Module, ScopeSpec, EquationSpec
-from numerous.declarative.mappings import create_mappings
-from numerous.declarative.exceptions import MappingOutsideMappingContextError, NotMappedError, FixedMappedError
-from numerous.declarative.variables import Parameter, Constant
+from typing import Annotated
 
 import pytest
-from typing import Annotated
+
+from numerous.declarative.exceptions import NotMappedError, FixedMappedError
+from numerous.declarative.specification import ItemsSpec, Module, ScopeSpec, EquationSpec
+from numerous.declarative.variables import Parameter, Constant
+
 
 class TestSpec(ScopeSpec):
     var1 = Parameter(0)
@@ -12,6 +13,7 @@ class TestSpec(ScopeSpec):
 
 class TestItemSpec(ItemsSpec):
     ...
+
 
 class TestModule(Module):
     """
@@ -30,9 +32,11 @@ class TestModule(Module):
     def eval(self, scope: TestSpec):
         scope.var1 = 19
 
+
 def test_module():
     tm = TestModule()
     tm.finalize()
+
 
 class TestModuleWithItems(Module):
     """
@@ -52,7 +56,8 @@ class TestModuleWithItems(Module):
 
         self.items.A = A
         self.items.B = B
-        #A.default.var1 = B.default.var1
+        # A.default.var1 = B.default.var1
+
 
 def test_module_with_items():
     A = TestModule('A')
@@ -61,13 +66,16 @@ def test_module_with_items():
     tmi = TestModuleWithItems(A=A, B=B, tag="tmi")
     tmi.finalize()
 
+
 class TestSysMustMapped(Module):
     tag = "test sys"
+
     class Variables(ScopeSpec):
         var1 = Parameter(0, must_be_mapped=True)
         var2 = Constant(0)
 
     default = Variables()
+
     class TestItems(ItemsSpec):
         A: TestModule
         B: TestModule
@@ -81,23 +89,26 @@ class TestSysMustMapped(Module):
         self.items.B = TestModule(tag='tm2')
         self.items.tm = TestModuleWithItems(A=self.items.A, B=self.items.B)
 
-        #self.default.var1 = self.items.A.default.var1
+        # self.default.var1 = self.items.A.default.var1
         self.items.B.default.var1 = self.default.var2
 
-def test_module_with_items_must_mapped_light():
 
+def test_module_with_items_must_mapped_light():
     ts = TestSysMustMapped()
 
     with pytest.raises(NotMappedError):
         ts.finalize()
 
+
 class TestSysFixed(Module):
     tag = "test sys"
+
     class Variables(ScopeSpec):
         var1 = Parameter(0)
         var2 = Constant(0)
 
     default = Variables()
+
     class TestItems(ItemsSpec):
         A: TestModule
         B: TestModule
@@ -111,11 +122,11 @@ class TestSysFixed(Module):
         self.items.B = TestModule(tag='tm2')
         self.items.tm = TestModuleWithItems(A=self.items.A, B=self.items.B)
 
-        #self.default.var1 = self.items.A.default.var1
+        # self.default.var1 = self.items.A.default.var1
         self.default.var2 = self.items.B.default.var1
 
-def test_module_with_items_fixed_light():
 
+def test_module_with_items_fixed_light():
     ts = TestSysFixed()
 
     with pytest.raises(FixedMappedError):
