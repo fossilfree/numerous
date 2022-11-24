@@ -121,6 +121,9 @@ class CompiledModel:
 
         self.func(t, self.get_states())
 
+    def post_step(self):
+        pass
+
     def update_external_data(self, external_mappings_numpy, external_mappings_time, max_external_t, min_external_t):
         self.external_mappings_time = external_mappings_time
         self.external_mappings_numpy = external_mappings_numpy

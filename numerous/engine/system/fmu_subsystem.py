@@ -51,6 +51,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         debug_logging = False
         visible = False
         self.run_after_solve = ['fmi2Terminate_', 'fmi2FreeInstance_']
+        self.post_step = ['completedIntegratorStep']
         self.fmu_input = pandas.read_csv(fmu_in) if fmu_in is not None else None
         self.dataframe_aliases = {}
         model_description = read_model_description(fmu_filename, validate=validate)
@@ -133,6 +134,9 @@ class FMU_Subsystem(Subsystem, EquationBase):
         fmi2FreeInstance.argtypes = [ctypes.c_void_p]
         fmi2FreeInstance.restype = ctypes.c_uint
 
+        def completedIntegratorStep_():
+            completedIntegratorStep(component)
+
         def fmi2Terminate_():
             fmi2Terminate(component)
 
@@ -209,8 +213,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
 
         namespace = {"carray": carray, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q, "getreal": getreal,
-                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time, "fmi2SetC": fmi2SetC,
-                     "completedIntegratorStep": completedIntegratorStep}
+                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time, "fmi2SetC": fmi2SetC}
         exec(code, namespace)
         equation_call = namespace["equation_call"]
 
@@ -250,8 +253,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
                          "getreal": getreal,
                          "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
-                         "get_event_indicators": get_event_indicators,
-                         "completedIntegratorStep": completedIntegratorStep}
+                         "get_event_indicators": get_event_indicators}
             exec(code, namespace)
 
             f1, f2 = generate_njit_event_cond(var_states_ordered, i, var_names_ordered_ns)
@@ -263,8 +265,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                          "event_ind_call_" + str(i): namespace["event_ind_call_" + str(i)],
                          "c_ptr": self._c_ptrs_a[i].ctypes.data,
                          "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
-                         "njit": njit, "address_as_void_pointer": address_as_void_pointer,
-                         "completedIntegratorStep": completedIntegratorStep}
+                         "njit": njit, "address_as_void_pointer": address_as_void_pointer}
             exec(code, namespace)
             event_cond.append(namespace["event_cond_inner_" + str(i)])
             event_cond_2 = namespace["event_cond_" + str(i)]
@@ -293,8 +294,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                      "q_a": q_ptr,
                      "component": component, "enter_event_mode": enter_event_mode, "set_time": set_time,
                      "get_event_indicators": get_event_indicators, "newDiscreteStates": newDiscreteStates,
-                     "enter_cont_mode": enter_cont_mode, "fmi2SetReal": fmi2SetReal,
-                     "completedIntegratorStep": completedIntegratorStep}
+                     "enter_cont_mode": enter_cont_mode, "fmi2SetReal": fmi2SetReal}
         exec(code, namespace)
         event_ind_call = namespace["event_ind_call"]
 
@@ -317,8 +317,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                      "component": component, "enter_event_mode": enter_event_mode, "set_time": set_time,
                      "get_event_indicators": get_event_indicators, "event_ind_call": event_ind_call,
                      "njit": njit,
-                     "address_as_void_pointer": address_as_void_pointer,
-                     "completedIntegratorStep": completedIntegratorStep}
+                     "address_as_void_pointer": address_as_void_pointer}
 
         for i in range(len_q):
             namespace.update({"a_e_" + str(i): ae_vars[i]})

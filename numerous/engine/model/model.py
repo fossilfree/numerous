@@ -441,6 +441,8 @@ class Model:
             self.variables[k].value = v
             self.var_write(v, self.vars_ordered_values[k])
 
+
+
     def set_variables(self, variables: dict):
         for k, v in variables.items():
             var_id = self.aliases[k]

@@ -56,6 +56,7 @@ class NumerousEngineModelInterface(Interface):
         :type y: :class:`np.ndarray`
         :return: :class:`~numerous.solver.interface.SolveEvent`
         """
+        self.model.numba_model.post_step()
         self._map_external_data(t)
 
         if self._is_store_required() and not self._is_external_data_update_needed(t):
