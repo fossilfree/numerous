@@ -1,12 +1,9 @@
-from numerous.multiphysics.equation_decorators import Equation
-from numerous.multiphysics.equation_base import EquationBase
-from numerous.engine.system.item import Item
-from numerous.engine.system import Subsystem, ConnectorTwoWay, ItemsStructure
 from numerous.declarative.specification import ScopeSpec, ItemsSpec, Module, EquationSpec
 from numerous.declarative.variables import Parameter, Constant, State
 from numerous.declarative.bus import Connector, create_connections, get_value_for, set_value_from
 
 import numpy as np
+
 
 class DampenedOscillator(Module):
     """
