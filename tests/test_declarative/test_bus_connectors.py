@@ -1,14 +1,13 @@
 import pytest
 
-from numerous.declarative.specification import ItemsSpec, Module, ScopeSpec, ModuleSpec
-from numerous.declarative.variables import Parameter
 from numerous.declarative.bus import *
 from numerous.declarative.exceptions import *
+from numerous.declarative.specification import ItemsSpec, Module, ScopeSpec, ModuleSpec
+from numerous.declarative.variables import Parameter
 from .mock_objects import TestModule
 
 
 def test_create_connector():
-
     class Variables(ScopeSpec):
         var1 = Parameter(0)
 
@@ -71,8 +70,8 @@ def test_connector_module():
 def test_create_connector_assign():
     module = ModuleSpec(TestModule)
     connector = Connector("connector",
-                    channel1=get_value_for(module)
-              )
+                          channel1=get_value_for(module)
+                          )
 
     assert list(connector.channels.keys())[0] == "channel1"
 
@@ -101,8 +100,7 @@ class TestModuleWConnector(Module):
 
     def __init__(self, tag=None):
         super(TestModuleWConnector, self).__init__(tag)
-        #self.items.mod = TestModule("test")
-
+        # self.items.mod = TestModule("test")
 
 
 class TestModuleWConnector2(Module):
@@ -134,16 +132,13 @@ class TestModuleWConnector2(Module):
 
 
 class TestModuleWConnectorInOtherModule(Module):
-
     class Items(ItemsSpec):
         mod_w_conn_1: TestModuleWConnector
         mod_w_conn_2: TestModuleWConnector2
 
     items = Items()
     with create_connections() as connections:
-
         items.mod_w_conn_1.connector >> items.mod_w_conn_2.connector
-
 
     def __init__(self, tag):
         super(TestModuleWConnectorInOtherModule, self).__init__(tag)
@@ -152,9 +147,7 @@ class TestModuleWConnectorInOtherModule(Module):
         ...
 
 
-
 def test_module_with_connector():
-
     t = TestModuleWConnectorInOtherModule('test')
     t.finalize()
     ...

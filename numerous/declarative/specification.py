@@ -1,21 +1,21 @@
 from __future__ import annotations
 
-from uuid import uuid4
 import dataclasses
 import inspect
-from .context_managers import _active_mappings, _active_subsystem, NoManagerContextActiveException
-from .exceptions import MappingOutsideMappingContextError, ItemNotAssignedError, NoSuchItemInSpec, MappingFailed, \
-    NotMappedError, FixedMappedError
-from .mappings import Obj, MappingTypes, ModuleMappings
-from .variables import Variable, Operations, PartialResult
-from numerous.declarative.bus import Connector, ModuleConnections
-from .module import ModuleSpecInterface
-from .utils import recursive_get_attr, RegisterHelper
+from uuid import uuid4
 
+from numerous.declarative.bus import Connector, ModuleConnections
 from numerous.engine.system import Subsystem
 from numerous.engine.variables import VariableType
 from numerous.multiphysics.equation_base import EquationBase
 from numerous.multiphysics.equation_decorators import add_equation
+from .context_managers import _active_mappings, _active_subsystem, NoManagerContextActiveException
+from .exceptions import MappingOutsideMappingContextError, ItemNotAssignedError, NoSuchItemInSpec, MappingFailed, \
+    NotMappedError, FixedMappedError
+from .mappings import Obj, MappingTypes, ModuleMappings
+from .module import ModuleSpecInterface
+from .utils import recursive_get_attr, RegisterHelper
+from .variables import Variable, Operations, PartialResult
 
 
 class ScopeSpec:
@@ -47,7 +47,7 @@ class ScopeSpec:
                 # instance = v.instance(id=".".join(parent_path+[k]), name=k)
                 instance = v.instance(id=str(uuid4()) if new_var_ids else v.id, name=k, host=self)
                 instance.set_host(self, k)
-                #instance = v.instance(id=str(uuid4()), name=k, host=self)
+                # instance = v.instance(id=str(uuid4()), name=k, host=self)
                 setattr(self, k, instance)
 
                 self._variables[k] = instance
@@ -58,6 +58,7 @@ class ScopeSpec:
                 return attr
 
         raise ModuleNotFoundError(f"{child} not an attribute on {self}")
+
     def get_path(self, parent):
 
         if self == parent:
@@ -69,6 +70,7 @@ class ScopeSpec:
             else:
                 path = self._host.get_path(parent) + [self._host_attr]
             return path
+
     def __setattr__(self, key, value, clone=False):
 
         if clone:
@@ -91,7 +93,8 @@ class ScopeSpec:
             try:
                 mapping_context: ModuleMappings = _active_mappings.get_active_manager_context()
             except NoManagerContextActiveException:
-                raise MappingOutsideMappingContextError("Mapping outside mapping context not possible. Place mappings inside a mapping context using 'create_mappings' context manager.")
+                raise MappingOutsideMappingContextError(
+                    "Mapping outside mapping context not possible. Place mappings inside a mapping context using 'create_mappings' context manager.")
             map_to = getattr(self, key)
             mapping_context.assign(map_to, value)
 
@@ -115,6 +118,14 @@ class ScopeSpec:
     def set_host(self, host, attr):
         self._host = host
         self._host_attr = attr
+
+    def set_values(self, **kwargs):
+        """
+            Set values of variables in the namespace by passing keyword arguments corresponding to variable names.
+        """
+        for k, v in kwargs.items():
+            self._variables[k].value = v
+
     def _generate_variables(self, equation):
         ...
 
@@ -144,11 +155,9 @@ class ItemsSpec:
 
         for var, hint in annotations.items():
             if not hasattr(self, var):
-
                 self._handle_item(var, hint)
 
-
-        vallist = list(self.__class__.__dict__.items())# + list(self._items.items())
+        vallist = list(self.__class__.__dict__.items())  # + list(self._items.items())
         for var, val in vallist:
             self._handle_item(var, val)
 
@@ -160,6 +169,7 @@ class ItemsSpec:
         for name, item in self._items.items():
             if isinstance(item, Module) or isinstance(item, ModuleSpec):
                 item.set_host(self, name)
+
     def get_child_attr(self, child):
         for attr, val in self.__dict__.items():
             if val == child:
@@ -183,7 +193,7 @@ class ItemsSpec:
     def _clone(self):
 
         clone_ = self.__class__()
-        #clone_._items = {k: v.clone() for k, v in self._items.items()}
+        # clone_._items = {k: v.clone() for k, v in self._items.items()}
         clone_._items = self._items.copy()
         for name, item in clone_._items.items():
             setattr(clone_, name, item)
@@ -197,7 +207,7 @@ class ItemsSpec:
 
             raise NotImplementedError()
 
-        elif inspect.isclass(val) and issubclass(val, Module) or val.__class__.__name__== "_AnnotatedAlias":
+        elif inspect.isclass(val) and issubclass(val, Module) or val.__class__.__name__ == "_AnnotatedAlias":
 
             clone_ = val.clone_tree()
 
@@ -207,7 +217,7 @@ class ItemsSpec:
 
         elif isinstance(val, ModuleSpec):
             raise NotImplementedError()
-        #else:
+        # else:
         #    raise UnrecognizedItemSpec(f"The class {val.__class__.__name__} cannot be used as an item for {var}.")
 
     def _check_assigned(self):
@@ -219,21 +229,21 @@ class ItemsSpec:
 
             if inspect.isclass(item_):
                 raise ItemNotAssignedError(f'Item <{name}> is not assigned properly, value is a class {item_}.')
-            elif isinstance(item_, ModuleSpec) and (item_._assigned_to is None or isinstance(item_._assigned_to, ModuleSpec)):
-                raise ItemNotAssignedError(f'Item <{name}> on <{self._host.tag if self._host is not None else ""}> is still a {item_.__class__} object, meaning it as not been assigned during Module initialization.')
+            elif isinstance(item_, ModuleSpec) and (
+                    item_._assigned_to is None or isinstance(item_._assigned_to, ModuleSpec)):
+                raise ItemNotAssignedError(
+                    f'Item <{name}> on <{self._host.tag if self._host is not None else ""}> is still a {item_.__class__} object, meaning it as not been assigned during Module initialization.')
             elif item_ is None:
                 raise ItemNotAssignedError(f'Item <{name}> is not assigned, value is {item_}.')
             elif not isinstance(item_, Module) and (not hasattr(item_, '_assigned_to') or item_._assigned_to is None):
-                raise ItemNotAssignedError(f"The item <{item_}> is not a Module but instead <{item_.__class__.__name__}>")
-
-
+                raise ItemNotAssignedError(
+                    f"The item <{item_}> is not a Module but instead <{item_.__class__.__name__}>")
 
     def finalize(self):
         """
         Finalize this module. Checks if all items from item specifications have been assigned.
         """
         for name, item in self._items.items():
-
 
             item_ = getattr(self, name)
 
@@ -246,37 +256,36 @@ class ItemsSpec:
 
         self._check_assigned()
 
-
     def __setattr__(self, key, value):
         if value is None and key not in ["_items", '_host', '_host_attr']:
             raise ItemNotAssignedError("You can not assign an item to None")
 
-        if self._initialized and key not in ["_items", '_host', '_host_attr'] and not hasattr(self,key):
-            raise NoSuchItemInSpec(f"ItemsSpec {self.__class__.__name__} class has no item {key}. Please add the item to the ItemsSpec class.")
+        if self._initialized and key not in ["_items", '_host', '_host_attr'] and not hasattr(self, key):
+            raise NoSuchItemInSpec(
+                f"ItemsSpec {self.__class__.__name__} class has no item {key}. Please add the item to the ItemsSpec class.")
 
-        elif self._initialized and key!="_items" and isinstance(ms := getattr(self, key), ModuleSpec)  and key not in ["_items", '_host', '_host_attr']:
+        elif self._initialized and key != "_items" and isinstance(ms := getattr(self, key), ModuleSpec) and key not in [
+            "_items", '_host', '_host_attr']:
             ms._assigned_to = value
 
             if not isinstance(value, Module) and not isinstance(value, ModuleSpec):
-
                 raise TypeError(f"Can only assign modules as item. Not: {value}")
             value._from_spec = ms
             value._host = self
             value._host_attr = key
-        #Transfer connectors
+        # Transfer connectors
 
-        super(ItemsSpec, self).__setattr__(key,value)
+        super(ItemsSpec, self).__setattr__(key, value)
 
 
 class ModuleSpec(ModuleSpecInterface):
     """
     This class is used to represent a module as a specification added to an ItemsSpec, before it is replaced by an instanciated Module in the instanciation of a parent module.
     """
+
     def __init__(self, module_cls: object):
 
         super(ModuleSpec, self).__init__()
-
-
 
         self.module_cls = module_cls
         self._item_specs = {}
@@ -317,16 +326,17 @@ class ModuleSpec(ModuleSpecInterface):
                 self._connectors[k] = clone_
                 setattr(self, k, clone_)
 
-
     def set_host(self, host, attr):
         self._host_attr = attr
         self._host = host
+
     def get_child_attr(self, child):
         for attr, val in self.__dict__.items():
             if val == child:
                 return attr
 
         raise ModuleNotFoundError(f"{child} not an attribute on {self}")
+
     def get_path(self, parent):
         if self == parent:
             path = []
@@ -350,6 +360,7 @@ class EquationSpec:
     """
        Specification of an equation in a module. Use this as a decorator for your methods implementing the equations in a module.
    """
+
     def __init__(self, scope: ScopeSpec):
         """
             scope: instance of the scope specification to which this equation will be added.
@@ -368,9 +379,8 @@ class EquationSpec:
         self.func = func
         self.scope._equations.append(self)
 
-
-
         return self.func
+
 
 @dataclasses.dataclass
 class ResolveInfo:
@@ -378,8 +388,8 @@ class ResolveInfo:
     path: list = dataclasses.field(default_factory=lambda: list())
     name: str = ""
 
-def resolve_variable_(obj, resolve_var: Variable) -> ResolveInfo:
 
+def resolve_variable_(obj, resolve_var: Variable) -> ResolveInfo:
     if isinstance(obj, Module) or isinstance(obj, Obj):
         if obj._scopes is not None:
 
@@ -388,7 +398,6 @@ def resolve_variable_(obj, resolve_var: Variable) -> ResolveInfo:
                 for var_name, var in scope._variables.items():
 
                     if var.id == resolve_var.id:
-
                         return ResolveInfo(resolved=True, path=[scope_name], name=var_name)
 
         if obj._item_specs is not None:
@@ -407,7 +416,7 @@ def resolve_variable_(obj, resolve_var: Variable) -> ResolveInfo:
                 for var_name, var in attr_val._variables.items():
 
                     if var.id == resolve_var.id:
-                        return ResolveInfo(resolved=True, path= [attr_name], name=var_name)
+                        return ResolveInfo(resolved=True, path=[attr_name], name=var_name)
             if isinstance(attr_val, ItemsSpec):
                 resolve = resolve_variable_(attr_val, resolve_var)
                 if resolve.resolved:
@@ -429,7 +438,6 @@ def resolve_variable_(obj, resolve_var: Variable) -> ResolveInfo:
 
                 for var_name, var in attr_val._variables.items():
                     if var.id == resolve_var.id:
-
                         return ResolveInfo(resolved=True, path=[attr_name], name=var_name)
 
         for item_name, item in obj._item_specs.items():
@@ -443,10 +451,11 @@ def resolve_variable_(obj, resolve_var: Variable) -> ResolveInfo:
     else:
         raise MappingFailed('Not a compatible object ' + str(obj))
 
-    #raise MappingFailed(
+    # raise MappingFailed(
     #    f"Could not find variable with id <{resolve_var.id}> and name <{resolve_var.name}> in scope spec <{attr_name}> of module spec <{obj.module_cls.__name__}>")
 
     return ResolveInfo()
+
 
 def resolve_variable(obj, resolve_var: Variable) -> ResolveInfo:
     """
@@ -460,7 +469,6 @@ def resolve_variable(obj, resolve_var: Variable) -> ResolveInfo:
 
 
 class Module(Subsystem, EquationBase):
-
     """
         Module for builduing combined subsystems and equations using a declarative approach.
 
@@ -511,8 +519,6 @@ class Module(Subsystem, EquationBase):
 
         for b in list(cls.__bases__) + [cls]:
             _objects.update(b.__dict__)
-
-
 
         org_init = cls.__init__
 
@@ -606,7 +612,6 @@ class Module(Subsystem, EquationBase):
         cls.__init__ = wrap
         instance = object.__new__(cls)
 
-
         # watcher.add_watched_object(instance)
 
         return instance
@@ -617,17 +622,16 @@ class Module(Subsystem, EquationBase):
         self._host = None
         self._host_attr = None
 
-        #self._scope_specs = self._scope_specs.copy()
+        # self._scope_specs = self._scope_specs.copy()
         for k, v in self._scope_specs.items():
             clone_ = v._clone(host=self)
             clone_.set_host(self, k)
-            #v.attach()
-            #watcher.add_watched_object(clone_)
+            # v.attach()
+            # watcher.add_watched_object(clone_)
             setattr(self, k, clone_)
 
             #    v.check_assigned()
             self.add_scope(self, k, clone_, kwargs)
-
 
     def check_variables(self):
 
@@ -705,8 +709,6 @@ class Module(Subsystem, EquationBase):
                 else:
                     raise ValueError('Unknown mapping type: ', map_type)
 
-
-
             self.check_variables()
 
             self._finalized = True
@@ -718,7 +720,6 @@ class Module(Subsystem, EquationBase):
 
         self.prefinalize()
         self._finalize(top=top)
-
 
     @classmethod
     def add_scope(cls, obj, namespace, scope, values: dict):
@@ -737,8 +738,7 @@ class Module(Subsystem, EquationBase):
             eq_func = eq_spec.func
             eq_func.__self__ = obj
             eq_func_dec = add_equation(eq_, eq_func)
-            #eq_spec.attach()
-
+            # eq_spec.attach()
 
         prescope = list(scope.__dict__.items())
 
@@ -779,5 +779,5 @@ class Module(Subsystem, EquationBase):
         if self == parent or self.__class__ == parent:
             return []
         else:
-            path = self._host.get_path(parent) +[self._host_attr]
+            path = self._host.get_path(parent) + [self._host_attr]
             return path

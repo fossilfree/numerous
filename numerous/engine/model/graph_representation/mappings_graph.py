@@ -1,4 +1,4 @@
-from numerous.engine.variables import VariableType, SetOfVariables
+from numerous.engine.variables import VariableType, SetOfVariables, Variable
 from numerous.engine.model.graph_representation.utils import EdgeType
 from numerous.engine.model.utils import NodeTypes
 from numerous.utils.string_utils import d_u
@@ -6,8 +6,9 @@ from numerous.utils.string_utils import d_u
 from .graph import Graph, Node, Edge
 
 
-class TemporaryVar():
+class TemporaryVar(Variable):
     def __init__(self, id, svi, tag, set_var, set_var_ix):
+        super().empty_variable()
         self.temporary_variable = True
         self.id = id
         self.tag = tag + id

@@ -4,11 +4,14 @@ from __future__ import annotations
 class ChannelAlreadyOnBusError(Exception):
     ...
 
+
 class AlreadyConnectedError(Exception):
     ...
 
+
 class ChannelNotFound(Exception):
     ...
+
 
 class WrongMappingDirectionError(Exception):
     ...

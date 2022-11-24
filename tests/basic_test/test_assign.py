@@ -9,8 +9,6 @@ from numerous.multiphysics.equation_base import EquationBase
 from numerous.multiphysics.equation_decorators import Equation
 
 
-
-
 class SingleAssign(Item, EquationBase):
     def __init__(self, tag='item1'):
         super(SingleAssign, self).__init__(tag)
@@ -89,7 +87,6 @@ class SingleUnaryOperator(Item, EquationBase):
     def eval(self, scope):
         res = -scope.t
         scope.x_dot = res + 3
-
 
 
 class System(Subsystem):

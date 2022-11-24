@@ -7,6 +7,7 @@ def test_clone():
 
     assert clone != test_spec, 'Clone should create another TestSpec'
 
+
 def test_extending():
     test_spec = ExtTestSpec()
 

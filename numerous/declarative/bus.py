@@ -1,18 +1,20 @@
-from enum import Enum
 import dataclasses
-
-from numerous.declarative.exceptions import ChannelAlreadyOnBusError, AlreadyConnectedError, ChannelNotFound, WrongMappingDirectionError
 from abc import ABC
+from enum import Enum
 
-from numerous.declarative.signal import Signal, module_signal
-from numerous.declarative.variables import Variable
-from numerous.declarative.module import ModuleSpecInterface
 from numerous.declarative.context_managers import _active_connections
+from numerous.declarative.exceptions import ChannelAlreadyOnBusError, AlreadyConnectedError, ChannelNotFound, \
+    WrongMappingDirectionError
+from numerous.declarative.module import ModuleSpecInterface
+from numerous.declarative.signal import Signal, module_signal
 from numerous.declarative.utils import recursive_get_attr
+from numerous.declarative.variables import Variable
+
 
 class Directions(Enum):
     GET = 0
     SET = 1
+
 
 @dataclasses.dataclass
 class Channel:
@@ -22,10 +24,12 @@ class Channel:
     name: str
     signal: Signal
 
+
 class BusInterface(ABC):
     name: str
     channels: {}
     connections: []
+
 
 class Connection:
     """
@@ -37,8 +41,8 @@ class Connection:
     map: dict
     _finalized = False
 
-    def __init__(self, side1: BusInterface, side2: BusInterface, map:dict):
-        #Remember, this is just sides - directions determined on channel level!
+    def __init__(self, side1: BusInterface, side2: BusInterface, map: dict):
+        # Remember, this is just sides - directions determined on channel level!
         """
             map: dictionary where the keys are channels on side1 and values are channels on side 2
         """
@@ -64,7 +68,7 @@ class Connection:
             to_path = to_decl_var.get_path(host)
             to_var = recursive_get_attr(host, to_path)
             if isinstance(to_decl_var, ModuleSpecInterface):
-                to_var._assigned_to  = from_var
+                to_var._assigned_to = from_var
                 ...
             else:
                 if to_decl_var.additive:
@@ -72,14 +76,13 @@ class Connection:
                 else:
                     to_var.add_mapping(from_var)
 
-class ModuleConnections:
 
+class ModuleConnections:
     connections = []
     _host: str
     _host_attr: str
 
     def __init__(self, *args):
-
         super(ModuleConnections, self).__init__()
 
         self.connections = list(args)
@@ -91,7 +94,7 @@ class ModuleConnections:
     def __exit__(self, exc_type, exc_val, exc_tb):
         _active_connections.clear_active_manager_context(self)
 
-    def register_connection(self, connection:Connection):
+    def register_connection(self, connection: Connection):
         self.connections.append(connection)
 
     def set_host(self, host, attr):
@@ -108,11 +111,13 @@ class ModuleConnections:
         for connection in self.connections:
             connection.finalize(self._host)
 
+
 def create_connections():
     """
         helper method to create a Connection context manager to capture defined connections of the module where is used.
     """
     return ModuleConnections()
+
 
 class Bus(BusInterface):
     """
@@ -122,7 +127,7 @@ class Bus(BusInterface):
     _host: str
     _host_attr: str
 
-    def __init__(self, name:str):
+    def __init__(self, name: str):
         self.name = name
         self.channels = {}
         self.connections = []
@@ -131,13 +136,13 @@ class Bus(BusInterface):
         self._host = host
         self._host_attr = attr
 
-    def add_channel(self, channel:Channel):
+    def add_channel(self, channel: Channel):
 
         if channel.name in self.channels:
             raise ChannelAlreadyOnBusError()
         self.channels[channel.name] = channel
 
-    def add_connection(self, other: BusInterface, map:dict=None):
+    def add_connection(self, other: BusInterface, map: dict = None):
 
         if other in self.connections:
             raise AlreadyConnectedError()
@@ -150,12 +155,14 @@ class Bus(BusInterface):
             if not own_channel_name in self.channels:
                 self.add_channel(other_channel)
 
-            assert other_channel.signal == self.channels[own_channel_name].signal, f"Cannot connect channel with signal {other_channel.signal} to channel with signal {self.channels[own_channel_name].signal}"
+            assert other_channel.signal == self.channels[
+                own_channel_name].signal, f"Cannot connect channel with signal {other_channel.signal} to channel with signal {self.channels[own_channel_name].signal}"
 
         self.connections[other] = map
 
     def finalize(self):
-        raise ValueError()
+        raise NotImplementedError()
+
 
 def get_value_for(object):
     """
@@ -170,6 +177,7 @@ def set_value_from(object):
     """
     return object, Directions.SET
 
+
 class Connector(Bus):
     """
         A connector is a Bus where the channels are linked to variables. This is to terminate the bus by reading/writing to actual variables.
@@ -177,19 +185,23 @@ class Connector(Bus):
     """
     variable_mappings = {}
 
-    def __init__(self, name:str=None, **channels):
+    def __init__(self, name: str = None, **channels):
         super(Connector, self).__init__(name)
         self.variable_mappings = {}
 
         for channel_name, object_direction in channels.items():
-            object, direction = object_direction
+            try:
+                object, direction = object_direction
 
-            if isinstance(object, ModuleSpecInterface):
-                self._add_module(object, channel_name, direction)
-            elif isinstance(object, Variable):
-                self.add_variable(object, channel_name, direction)
+                if isinstance(object, ModuleSpecInterface):
+                    self._add_module(object, channel_name, direction)
+                elif isinstance(object, Variable):
+                    self.add_variable(object, channel_name, direction)
+            except TypeError:
+                raise ValueError(
+                    f"Could not unpack the channel <{channel_name}> into a variable and a direction. Have you forgot to wrap the variable or module with a <set_value_from> or <get_value_for> call?")
 
-    def add_variable(self, variable:Variable, channel_name=None, direction=Directions.GET):
+    def add_variable(self, variable: Variable, channel_name=None, direction=Directions.GET):
         if channel_name is None:
             channel_name = variable.name
 
@@ -198,7 +210,6 @@ class Connector(Bus):
 
         if not channel_name in self.channels:
             self.channels[channel_name] = Channel(name=channel_name, signal=variable.signal)
-
 
         self.variable_mappings[channel_name].append((variable, direction))
 
@@ -216,12 +227,10 @@ class Connector(Bus):
         for connection in self.connections:
             if connection.side1 == other or connection.side2 == other:
                 raise AlreadyConnectedError()
-        #if len(self.connections)>0:
+        # if len(self.connections)>0:
         #    raise AlreadyConnectedError()
 
-    def _add_module(self, module:ModuleSpecInterface, channel_name:str, direction:Directions):
-
-
+    def _add_module(self, module: ModuleSpecInterface, channel_name: str, direction: Directions):
 
         if channel_name is None:
             channel_name = module._host_attr
@@ -232,16 +241,15 @@ class Connector(Bus):
         if not channel_name in self.channels:
             self.channels[channel_name] = Channel(name=channel_name, signal=module_signal)
 
-
         self.variable_mappings[channel_name].append((module, direction))
 
-    def add_module_get(self, module:ModuleSpecInterface, channel_name:str=None):
+    def add_module_get(self, module: ModuleSpecInterface, channel_name: str = None):
         self._add_module(module, channel_name, Directions.GET)
 
-    def add_module_set(self, module:ModuleSpecInterface, channel_name:str=None):
+    def add_module_set(self, module: ModuleSpecInterface, channel_name: str = None):
         self._add_module(module, channel_name, Directions.SET)
 
-    def add_connection(self, other: BusInterface, map:dict=None, connection=None):
+    def add_connection(self, other: BusInterface, map: dict = None, connection=None):
 
         self._check_not_connected(other)
 
@@ -253,18 +261,20 @@ class Connector(Bus):
             if not own_channel_name in self.channels:
                 raise ChannelNotFound()
 
-            other_channel:Channel = other.channels[other_channel_name]
-            own_channel:Channel = self.channels[own_channel_name]
+            other_channel: Channel = other.channels[other_channel_name]
+            own_channel: Channel = self.channels[own_channel_name]
 
             if self.variable_mappings[own_channel_name][0][1] == Directions.GET:
-                if isinstance(other, Connector) and not other.variable_mappings[other_channel_name][0][1] == Directions.SET:
+                if isinstance(other, Connector) and not other.variable_mappings[other_channel_name][0][
+                                                            1] == Directions.SET:
                     raise WrongMappingDirectionError()
             else:
-                if isinstance(other, Connector) and not other.variable_mappings[other_channel_name][0][1] == Directions.GET:
+                if isinstance(other, Connector) and not other.variable_mappings[other_channel_name][0][
+                                                            1] == Directions.GET:
                     raise WrongMappingDirectionError()
 
-
-            assert other.channels[other_channel_name].signal == self.channels[own_channel.name].signal, f"Cannot connect channel with signal {other_channel_name.signal} to channel with signal {self.channels[own_channel_name].signal}"
+            assert other.channels[other_channel_name].signal == self.channels[
+                own_channel.name].signal, f"Cannot connect channel with signal {other_channel_name.signal} to channel with signal {self.channels[own_channel_name].signal}"
 
         if connection is None:
             connection = Connection(self, other, map)
@@ -289,13 +299,27 @@ class Connector(Bus):
         connection = self.add_connection(other)
         return connection
 
-    #def __eq__(self, other):
+    # def __eq__(self, other):
     #    connection = self.add_connection(other)
     #    return connection
 
     def finalize(self):
+
+        if len(self.connections) <= 0:
+            raise ValueError(f"{self.name} is not connected!")
+
         for connection in self.connections:
             connection.finalize()
 
+    def connect_reversed(self, **variables):
+        reverse_connector = Connector(self.name)
 
+        for name, channel in self.channels.items():
+            reverse_connector.add_channel(Channel(name, channel.signal))
+            print(self.variable_mappings[name])
+            direction = self.variable_mappings[name][0][1]
+            reverse_direction = Directions.SET if direction == Directions.GET else Directions.GET
 
+            reverse_connector.variable_mappings[name] = [(variables[name], reverse_direction)]
+
+        self.add_connection(reverse_connector)

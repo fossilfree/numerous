@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import dataclasses
 from enum import Enum
+from typing import Any
 from uuid import uuid4
 
 from numerous.engine import VariableType
-from typing import Any
-
 from .signal import Signal, default_signal
+
+
 @dataclasses.dataclass
 class VariableAttrs:
     name: str = None
@@ -42,10 +43,6 @@ class PartialResult:
         self.op = op
         self.func = func
 
-
-
-
-
     def __add__(self, other):
         return PartialResult(self, other, op=Operations.ADD)
 
@@ -70,7 +67,6 @@ class PartialResult:
     def __eq__(self, other):
         return PartialResult(self, other, op=Operations.EQ)
 
-
     def clone(self, variables):
 
         args_ = []
@@ -83,7 +79,6 @@ class PartialResult:
 
             args_.append(a)
 
-
         return PartialResult(*args_, op=self.op, func=self.func)
 
 
@@ -91,6 +86,7 @@ class Variable(PartialResult):
     """
     Declation of a variable
     """
+
     def __init__(self, **kwargs):
 
         kwargs_ = {}
@@ -114,7 +110,6 @@ class Variable(PartialResult):
         else:
             return super(Variable, self).__getattribute__(item)
 
-
     def set_variable(self, var):
         if self._variable:
             raise ValueError(f'Variable already set! {self._variable}')
@@ -122,10 +117,11 @@ class Variable(PartialResult):
 
     def clone(self, id, name=None, is_instance=False, host=None):
 
-
-        return Variable(id=id, value=self.value, name=self.name if name is None else name, is_deriv=self.is_deriv, is_instance=is_instance, type=self.type,
+        return Variable(id=id, value=self.value, name=self.name if name is None else name, is_deriv=self.is_deriv,
+                        is_instance=is_instance, type=self.type,
                         var_instance=self.var_instance, integrate=self.integrate, construct=self.construct,
-                        fixed=self.fixed, mapped_to=self.mapped_to, must_map=self.must_map, _host=host if host is not None else self._host
+                        fixed=self.fixed, mapped_to=self.mapped_to, must_map=self.must_map,
+                        _host=host if host is not None else self._host
                         )
 
     def instance(self, id, name, host):
@@ -138,7 +134,7 @@ class Variable(PartialResult):
     def __repr__(self):
         return f"{self.name}, {self.id}"
 
-    def __eq__(self, other:Variable):
+    def __eq__(self, other: Variable):
         if hasattr(other, 'id'):
             return self.id == other.id
         else:
@@ -154,20 +150,25 @@ class Variable(PartialResult):
         self._host = host
         self._host_attr = attr
 
+
 class Parameter(Variable):
     """
     Declaration of a Parameter
     """
+
     def __init__(self, value, id=None, name=None, integrate=None, must_be_mapped=False, is_fixed=False):
-        super(Parameter, self).__init__(value=value, id=id, name=name, is_deriv=False, type=VariableType.PARAMETER, integrate=integrate, must_map=must_be_mapped, fixed=is_fixed)
+        super(Parameter, self).__init__(value=value, id=id, name=name, is_deriv=False, type=VariableType.PARAMETER,
+                                        integrate=integrate, must_map=must_be_mapped, fixed=is_fixed)
 
 
 class Constant(Variable):
     """
     Declaration of a Constant. A constant cannot be changed.
     """
+
     def __init__(self, value, id=None, name=None):
-        super(Constant, self).__init__(value=value, id=id, name=name, is_deriv=False, type=VariableType.CONSTANT, fixed=True)
+        super(Constant, self).__init__(value=value, id=id, name=name, is_deriv=False, type=VariableType.CONSTANT,
+                                       fixed=True)
 
 
 def State(value):
@@ -183,7 +184,6 @@ def integrate(var, integration_spec):
 
 
 class Operations(Enum):
-
     ADD = 1
     SUB = 2
     DIV = 3

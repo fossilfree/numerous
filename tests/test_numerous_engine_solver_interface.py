@@ -2,7 +2,6 @@ from numerous.engine.system import Subsystem, Item
 from numerous.multiphysics import EquationBase, Equation
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
-from numerous.engine.simulation.solvers.base_solver import SolverType
 from numerous.utils.logger_levels import LoggerLevel
 from numerous.utils.historian import InMemoryHistorian
 import pytest
@@ -61,11 +60,11 @@ def variables(model: model):
 
 @pytest.fixture
 def simulation(model: model, variables: variables):
-    def fn(solver: SolverType, method: str, historian_max_size=2000, historian=None):
+    def fn(method: str, historian_max_size=2000, historian=None):
         model_o = model(historian_max_size=historian_max_size, historian=historian)
         model_o.update_variables(variables)
-        sim = Simulation(model_o, t_start=0, t_stop=1000, num=1000, solver_type=solver, method=method)
-        sim.reset()
+        sim = Simulation(model_o, t_start=0, t_stop=1000, num=1000, method=method)
+        sim.reset(0)
         sim.model.historian_df = None
         return sim
 
@@ -74,8 +73,8 @@ def simulation(model: model, variables: variables):
 
 @pytest.fixture
 def step_solver(simulation: simulation):
-    def fn(solver: SolverType, method: str, historian_max_size=2000, historian=None):
-        sim = simulation(solver=solver, method=method, historian_max_size=historian_max_size, historian=historian)
+    def fn(method: str, historian_max_size=2000, historian=None):
+        sim = simulation(method=method, historian_max_size=historian_max_size, historian=historian)
         t = 0
         dt = 1
         while True:
@@ -92,8 +91,8 @@ def step_solver(simulation: simulation):
 
 @pytest.fixture()
 def normal_solver(simulation: simulation):
-    def fn(solver: SolverType, method: str, historian_max_size=2000, historian=None):
-        sim = simulation(solver=solver, method=method, historian_max_size=historian_max_size,
+    def fn(method: str, historian_max_size=2000, historian=None):
+        sim = simulation(method=method, historian_max_size=historian_max_size,
                          historian=historian)
         sim.solve()
         df = sim.model.historian_df
@@ -104,9 +103,9 @@ def normal_solver(simulation: simulation):
 
 def test_numerous_solver(normal_solver: normal_solver, step_solver: step_solver):
     rel = 1e-6
-    df_step = step_solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
+    df_step = step_solver(method='RK45', historian=InMemoryHistorian(),
                           historian_max_size=2000)
-    df_normal_solver = normal_solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
+    df_normal_solver = normal_solver(method='RK45', historian=InMemoryHistorian(),
                                      historian_max_size=2000)
 
     assert df_step['abstestsys.abstest.t1.x'].values == approx(df_normal_solver['abstestsys.abstest.t1.x'].values,
@@ -118,10 +117,10 @@ def test_store_historian(normal_solver: normal_solver, step_solver: step_solver)
     results = {}
     for solver, name in zip([normal_solver, step_solver], ["normal_solver", "step_solver"]):
 
-        df_split = solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
+        df_split = solver(method='RK45', historian=InMemoryHistorian(),
                           historian_max_size=10)
 
-        df_single = solver(solver=SolverType.NUMEROUS, method='RK45', historian=InMemoryHistorian(),
+        df_single = solver(method='RK45', historian=InMemoryHistorian(),
                            historian_max_size=2000)
 
         results.update({name: [df_split, df_single]})

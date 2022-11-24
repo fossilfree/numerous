@@ -1,14 +1,18 @@
 from numerous.declarative.specification import ScopeSpec, Module, ItemsSpec
 from numerous.declarative.variables import Parameter
 
+
 class TestSpec(ScopeSpec):
     A = Parameter(0)
+
 
 class ExtTestSpec(TestSpec):
     B = Parameter(0)
 
+
 class TestItemSpec(ItemsSpec):
     ...
+
 
 class TestModule(Module):
     """
@@ -22,6 +26,3 @@ class TestModule(Module):
 
     def __init__(self, tag=None):
         super(TestModule, self).__init__(tag)
-
-
-
