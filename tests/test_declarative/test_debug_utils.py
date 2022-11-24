@@ -25,4 +25,4 @@ def test_print_all_var():
     # Solve
     s.solve()
 
-    print_all_variables(composite, s)
+    print_all_variables(composite, s.model.historian_df)
