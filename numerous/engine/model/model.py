@@ -2,15 +2,15 @@ import itertools
 import os
 import pickle
 import sys
+from numba.typed import List
 
-from copy import copy, deepcopy
 from ctypes import CFUNCTYPE, c_int64, POINTER, c_double, c_void_p
 
 import numpy as np
 import time
 import uuid
 
-from numba import njit, carray
+from numba import njit, carray, types
 import numpy.typing as npt
 from numba.core.registry import CPUDispatcher
 
@@ -137,6 +137,8 @@ class Model:
             external_mappings_unpacked) else EmptyMapping()
 
         self.run_after_solve = system.get_run_after_solve()
+
+        self.post_step = system.get_post_step()
 
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
@@ -441,8 +443,6 @@ class Model:
             self.variables[k].value = v
             self.var_write(v, self.vars_ordered_values[k])
 
-
-
     def set_variables(self, variables: dict):
         for k, v in variables.items():
             var_id = self.aliases[k]
@@ -742,7 +742,8 @@ class Model:
                                              self.is_external_data,
                                              self.external_mappings.t_max,
                                              self.external_mappings.t_min,
-                                             self.external_idx
+                                             self.external_idx,
+                                             self.post_step
                                              )
 
         for key, value in self.path_variables.items():

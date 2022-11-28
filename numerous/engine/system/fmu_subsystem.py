@@ -51,7 +51,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         debug_logging = False
         visible = False
         self.run_after_solve = ['fmi2Terminate_', 'fmi2FreeInstance_']
-        self.post_step = ['completedIntegratorStep']
+        self.post_step = ['completedIntegratorStep_']
         self.fmu_input = pandas.read_csv(fmu_in) if fmu_in is not None else None
         self.dataframe_aliases = {}
         model_description = read_model_description(fmu_filename, validate=validate)
@@ -134,8 +134,9 @@ class FMU_Subsystem(Subsystem, EquationBase):
         fmi2FreeInstance.argtypes = [ctypes.c_void_p]
         fmi2FreeInstance.restype = ctypes.c_uint
 
+        @njit()
         def completedIntegratorStep_():
-            completedIntegratorStep(component)
+            completedIntegratorStep(component, 1, 0, 0)
 
         def fmi2Terminate_():
             fmi2Terminate(component)
@@ -144,7 +145,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             fmi2FreeInstance(component)
 
         self.fmi2Terminate_ = fmi2Terminate_
-
+        self.completedIntegratorStep_ = completedIntegratorStep_
         self.fmi2FreeInstance_ = fmi2FreeInstance_
 
         len_q = len(self.value_ref_used)

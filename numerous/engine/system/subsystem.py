@@ -1,6 +1,9 @@
 import copy
 from enum import Enum
 
+from numba import types
+from numba.typed import List
+
 from numerous.engine.system.external_mappings import ExternalMappingUnpacked
 
 from numerous.multiphysics import EquationBase
@@ -194,11 +197,14 @@ class Subsystem(ConnectorItem):
         return run_after_solve
 
     def get_post_step(self):
-        post_step = [getattr(self, name) for name in self.post_step]
+        post_step = List.empty_list(types.FunctionType(types.void()))
+        for x in [getattr(self, name) for name in self.post_step]:
+            post_step.append(x)
 
         for item in self.registered_items.values():
             if isinstance(item, Subsystem):
-                post_step.extend(item.get_post_step())
+                for x in item.get_post_step():
+                    post_step.append(x)
 
         return post_step
 

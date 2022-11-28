@@ -162,11 +162,6 @@ def generate_eval_llvm(assign_ptrs, output_args, states_idx, var_order: list, ou
                                         args=[ast.Name(id='component', ctx=ast.Load()),
                                               ast.Name(id='t', ctx=ast.Load())], keywords=[])))
 
-    body.append(ast.Expr(value=ast.Call(func=ast.Name(id='completedIntegratorStep', ctx=ast.Load()),
-                                        args=[ast.Name(id='component', ctx=ast.Load()), ast.Constant(value=1),
-                                              ast.Name(id='event', ctx=ast.Load()),
-                                              ast.Name(id='term', ctx=ast.Load())], keywords=[]),
-                         keywords=[]))
     body.append(_generate_fet_real_expr())
     return_elts = []
     for idx, (assign_ptr, arr_id) in enumerate(assign_ptrs):

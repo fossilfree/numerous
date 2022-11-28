@@ -1,3 +1,5 @@
+from types import FunctionType
+
 from numba import int32, float64, boolean, int64, njit, types, typed
 import numpy as np
 import numpy.typing as npt
@@ -33,7 +35,8 @@ numba_model_spec = [
     ('max_external_t', float64),
     ('min_external_t', float64),
     ('external_idx', int64[:]),
-    ('previous_external_mappings', float64[:])
+    ('previous_external_mappings', float64[:]),
+    ('post_step', types.ListType(types.FunctionType(types.void())))
 ]
 
 
@@ -53,12 +56,12 @@ class CompiledModel:
                  global_vars, number_of_timesteps, start_time, historian_max_size,
                  external_mappings_time, number_of_external_mappings,
                  external_mappings_numpy, external_df_idx, interpolation_info,
-                 is_external_data, t_max, t_min, external_idx):
+                 is_external_data, t_max, t_min, external_idx, post_step):
         self.external_idx = external_idx
         self.external_mappings_time = external_mappings_time
         self.number_of_external_mappings = number_of_external_mappings
         self.external_mappings_numpy = external_mappings_numpy
-
+        self.post_step = post_step
         self.external_df_idx = external_df_idx
         self.approximation_type = interpolation_info
         self.is_external_data = is_external_data
@@ -121,8 +124,9 @@ class CompiledModel:
 
         self.func(t, self.get_states())
 
-    def post_step(self):
-        pass
+    def run_post_step(self):
+        for post_step_ in self.post_step:
+            post_step_()
 
     def update_external_data(self, external_mappings_numpy, external_mappings_time, max_external_t, min_external_t):
         self.external_mappings_time = external_mappings_time
