@@ -51,7 +51,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         debug_logging = False
         visible = False
         self.run_after_solve = ['fmi2Terminate_', 'fmi2FreeInstance_']
-        self.post_step = ['completedIntegratorStep_']
+        # self.post_step = ['completedIntegratorStep_']
         self.fmu_input = pandas.read_csv(fmu_in) if fmu_in is not None else None
         self.dataframe_aliases = {}
         model_description = read_model_description(fmu_filename, validate=validate)
@@ -214,7 +214,8 @@ class FMU_Subsystem(Subsystem, EquationBase):
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
 
         namespace = {"carray": carray, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q, "getreal": getreal,
-                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time, "fmi2SetC": fmi2SetC}
+                     "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time, "fmi2SetC": fmi2SetC,
+                     "completedIntegratorStep": completedIntegratorStep}
         exec(code, namespace)
         equation_call = namespace["equation_call"]
 
@@ -252,7 +253,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
                 print(ast.unparse(module_func))
             code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
             namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
-                         "getreal": getreal,
+                         "getreal": getreal,"completedIntegratorStep": completedIntegratorStep,
                          "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
                          "get_event_indicators": get_event_indicators}
             exec(code, namespace)
@@ -264,7 +265,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
             code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval_2', mode='exec')
             namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np,
                          "event_ind_call_" + str(i): namespace["event_ind_call_" + str(i)],
-                         "c_ptr": self._c_ptrs_a[i].ctypes.data,
+                         "c_ptr": self._c_ptrs_a[i].ctypes.data,"completedIntegratorStep": completedIntegratorStep,
                          "component": component, "fmi2SetReal": fmi2SetReal, "set_time": set_time,
                          "njit": njit, "address_as_void_pointer": address_as_void_pointer}
             exec(code, namespace)
@@ -292,7 +293,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
         code = compile(ast.parse(ast.unparse(module_func)), filename='fmu_eval', mode='exec')
         namespace = {"carray": carray, "event_n": event_n, "cfunc": cfunc, "types": types, "np": np, "len_q": len_q,
                      "getreal": getreal,
-                     "q_a": q_ptr,
+                     "q_a": q_ptr,"completedIntegratorStep": completedIntegratorStep,
                      "component": component, "enter_event_mode": enter_event_mode, "set_time": set_time,
                      "get_event_indicators": get_event_indicators, "newDiscreteStates": newDiscreteStates,
                      "enter_cont_mode": enter_cont_mode, "fmi2SetReal": fmi2SetReal}
@@ -317,7 +318,7 @@ class FMU_Subsystem(Subsystem, EquationBase):
 
                      "component": component, "enter_event_mode": enter_event_mode, "set_time": set_time,
                      "get_event_indicators": get_event_indicators, "event_ind_call": event_ind_call,
-                     "njit": njit,
+                     "njit": njit,"completedIntegratorStep": completedIntegratorStep,
                      "address_as_void_pointer": address_as_void_pointer}
 
         for i in range(len_q):
