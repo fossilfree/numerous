@@ -1,4 +1,4 @@
-from numerous.declarative.specification import ScopeSpec, ItemsSpec, Module, EquationSpec
+from numerous.declarative import ScopeSpec, ItemsSpec, Module, EquationSpec
 from numerous.declarative.variables import Parameter, Constant, State
 from numerous.declarative.bus import Connector, create_connections, get_value_for, set_value_from
 

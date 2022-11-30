@@ -20,8 +20,28 @@ class Signal:
     """
         Class to represent a physical signal specification.
     """
-    physical_quantity: PhysicalQuantities
-    unit: Units
+    _physical_quantity: PhysicalQuantities
+    _unit: Units
+
+    def __init__(self, physical_quantity: PhysicalQuantities, unit: Units):
+        self.physical_quantity = physical_quantity
+        self.unit = unit
+
+    @property
+    def physical_quantity(self):
+        return self._physical_quantity
+
+    @physical_quantity.setter
+    def physical_quantity(self, physical_quantity:PhysicalQuantities):
+        self._physical_quantity = physical_quantity
+
+    @property
+    def unit(self):
+        return self._physical_quantity
+
+    @unit.setter
+    def unit(self, unit: Units):
+        self._unit = unit
 
     def __cmp__(self, other):
         if not isinstance(other, Signal):

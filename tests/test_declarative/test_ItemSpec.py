@@ -19,7 +19,7 @@ def test_check_assigned():
     items = TestItems()
 
     with pytest.raises(ItemNotAssignedError):
-        items._check_assigned()
+        items._check_assigned(parent=object())
 
     """
     with pytest.raises(ItemNotAssignedError):
@@ -76,6 +76,6 @@ def test_finalize():
 
     items.side1 = TestModule()
 
-    items.finalize()
+    items.finalize(parent=object())
 
     assert items.side1._finalized, "Side 1 should be finalized"

@@ -151,3 +151,4 @@ def test_module_with_connector():
     t = TestModuleWConnectorInOtherModule('test')
     t.finalize()
     ...
+

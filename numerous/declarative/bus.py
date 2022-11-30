@@ -10,6 +10,7 @@ from numerous.declarative.signal import Signal, module_signal
 from numerous.declarative.utils import recursive_get_attr
 from numerous.declarative.variables import Variable
 
+from numerous.declarative.clonable_interfaces import ClassVarSpec
 
 class Directions(Enum):
     GET = 0
@@ -29,7 +30,6 @@ class BusInterface(ABC):
     name: str
     channels: {}
     connections: []
-
 
 class Connection:
     """
@@ -54,27 +54,46 @@ class Connection:
 
     def finalize(self, host):
         self._finalized = True
-        for from_attr, to_attr in self.map.items():
-            if self.side1.variable_mappings[from_attr][0][1] == Directions.SET:
-                from_decl_var = self.side1.variable_mappings[from_attr][0][0]
-                to_decl_var = self.side2.variable_mappings[to_attr][0][0]
-            else:
-                from_decl_var = self.side2.variable_mappings[from_attr][0][0]
-                to_decl_var = self.side1.variable_mappings[to_attr][0][0]
 
-            from_path = from_decl_var.get_path(host)
+        for from_attr, to_attr in self.map.items():
+            print("connection: ", to_attr, " = ", from_attr)
+
+            #self.side1.relativize(host)
+            #self.side2.relativize(host)
+
+            if not self.side1._relativized:
+                raise ValueError("should be relativized")
+
+            #print(self.side1._relativized)
+            #print(self.side2._relativized)
+
+
+            if self.side1.variable_mappings[from_attr][0][1] == Directions.SET:
+
+                from_rel_path = self.side1.get_path(host)
+                from_path = from_rel_path + self.side1.variable_mappings[from_attr][0][2]
+                to_path = self.side2.get_path(host) + self.side2.variable_mappings[to_attr][0][2]
+            else:
+                from_rel_path = self.side2.get_path(host)
+
+                from_path = from_rel_path + self.side2.variable_mappings[from_attr][0][2]
+                to_path = self.side1.get_path(host) + self.side1.variable_mappings[to_attr][0][2]
+            print(from_rel_path)
+            #from_path = from_decl_var.get_path(host)
+            print(from_path)
+
             from_var = recursive_get_attr(host, from_path)
 
-            to_path = to_decl_var.get_path(host)
+            #to_path = to_decl_var.get_path(host)
             to_var = recursive_get_attr(host, to_path)
-            if isinstance(to_decl_var, ModuleSpecInterface):
+            if isinstance(to_var, ModuleSpecInterface):
                 to_var._assigned_to = from_var
                 ...
             else:
-                if to_decl_var.additive:
-                    to_var.add_sum_mapping(from_var)
-                else:
-                    to_var.add_mapping(from_var)
+                #if to_var.additive:
+                to_var.add_sum_mapping(from_var)
+                #else:
+                #    to_var.add_mapping(from_var)
 
 
 class ModuleConnections:
@@ -85,6 +104,7 @@ class ModuleConnections:
     def __init__(self, *args):
         super(ModuleConnections, self).__init__()
 
+        self._host = None
         self.connections = list(args)
 
     def __enter__(self):
@@ -95,11 +115,15 @@ class ModuleConnections:
         _active_connections.clear_active_manager_context(self)
 
     def register_connection(self, connection: Connection):
+
         self.connections.append(connection)
 
     def set_host(self, host, attr):
-        self._host = host
-        self._host_attr = attr
+        if self._host is None:
+            self._host = host
+            self._host_attr = attr
+        else:
+            raise ValueError('!')
 
     def clone(self):
         clone = self.__class__(*self.connections.copy())
@@ -119,7 +143,7 @@ def create_connections():
     return ModuleConnections()
 
 
-class Bus(BusInterface):
+class Bus(BusInterface, ClassVarSpec):
     """
         A bus is a collection of channels to which connectors can connect to read/write variables on the bus.
     """
@@ -127,7 +151,10 @@ class Bus(BusInterface):
     _host: str
     _host_attr: str
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, parent=None, references=None, clone_refs=False):
+
+        super(Bus, self).__init__(parent=parent, references=references, clone_refs=clone_refs)
+
         self.name = name
         self.channels = {}
         self.connections = []
@@ -135,6 +162,19 @@ class Bus(BusInterface):
     def set_host(self, host, attr):
         self._host = host
         self._host_attr = attr
+
+    def get_path(self, parent):
+
+        #_attr = self._host_attr
+
+        if self == parent:
+
+            path = []
+            return path
+        else:
+
+            path = self._host.get_path(parent)
+            return path
 
     def add_channel(self, channel: Channel):
 
@@ -184,6 +224,7 @@ class Connector(Bus):
         Connectors are used to define interfaces for a module.
     """
     variable_mappings = {}
+    _relativized = False
 
     def __init__(self, name: str = None, **channels):
         super(Connector, self).__init__(name)
@@ -194,6 +235,7 @@ class Connector(Bus):
                 object, direction = object_direction
 
                 if isinstance(object, ModuleSpecInterface):
+
                     self._add_module(object, channel_name, direction)
                 elif isinstance(object, Variable):
                     self.add_variable(object, channel_name, direction)
@@ -283,13 +325,15 @@ class Connector(Bus):
 
         return connection
 
-    def clone(self):
-        clone = self.__class__()
-        clone.name = self.name
-        clone.channels = self.channels.copy()
-        clone.connections = self.connections.copy()
-        clone.variable_mappings = self.variable_mappings.copy()
-        return clone
+    #def clone(self):
+    #    clone = self.__class__()
+    #    clone.name = self.name
+    #    clone.channels = self.channels.copy()
+    #    clone.connections = self.connections.copy()
+    #    clone.variable_mappings = self.variable_mappings.copy()
+    #    clone._relativized = self._relativized
+        #clone.variable_mappings = {k: [(vi[0].clone(), vi[1]) if not isinstance(vi[0], Variable) else (vi[0], vi[1]) for vi in v] for k, v in self.variable_mappings.items()}
+    #    return clone
 
     def __rshift__(self, other: Bus):
         connection = self.add_connection(other)
@@ -323,3 +367,22 @@ class Connector(Bus):
             reverse_connector.variable_mappings[name] = [(variables[name], reverse_direction)]
 
         self.add_connection(reverse_connector)
+
+
+    def relativize(self, host):
+        if not self._relativized:
+            relative_variable_mappings = {}
+            for key, variable_mappings in self.variable_mappings.items():
+                relative_mappings = []
+                for mapping, direction in variable_mappings:
+                    print(mapping)
+                    if isinstance(mapping, list):
+                        rel_map = mapping
+                    else:
+                        rel_map = mapping.get_path(host)
+                    print('rel_map: ', rel_map)
+                    relative_mappings.append((mapping, direction, rel_map))
+                relative_variable_mappings[key] = relative_mappings
+            self.variable_mappings = relative_variable_mappings
+
+            self._relativized = True

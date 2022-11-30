@@ -59,9 +59,9 @@ def test_watch_itemsspec_clone():
     tis = TestItemSpec()
 
     tis_clone = tis._clone()
-    tis.finalize()
+    tis.finalize(parent=object())
 
-    tis_clone.finalize()
+    tis_clone.finalize(parent=object())
 
 
 def test_capture_not_used():

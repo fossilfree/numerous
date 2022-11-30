@@ -1,0 +1,16 @@
+from abc import ABC, abstractmethod
+
+class ScopeSpecInterface(ABC):
+    ...
+
+class ModuleSpecInterface(ABC):
+    ...
+
+class ItemsSpecInterface(ABC):
+    ...
+
+class ModuleInterface(ABC):
+    ...
+
+class ConnectorInterface(ABC):
+    ...
