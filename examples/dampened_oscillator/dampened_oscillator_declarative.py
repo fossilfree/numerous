@@ -1,7 +1,7 @@
 from numerous.declarative import ScopeSpec, ItemsSpec, Module, EquationSpec
 from numerous.declarative.variables import Parameter, Constant, State
-from numerous.declarative.bus import Connector, create_connections, get_value_for, set_value_from
-
+from numerous.declarative.connector import Connector, get_value_for, set_value_from
+from numerous.declarative.generate_system import generate_system
 import numpy as np
 
 
@@ -47,10 +47,6 @@ class SpringCoupling(Module):
 
     mechanics = Mechanics()
 
-    class Items(ItemsSpec):
-        side1: DampenedOscillator
-        side2: DampenedOscillator
-
     side1 = Connector(
         F = set_value_from(mechanics.F1),
         x = get_value_for(mechanics.x1)
@@ -61,10 +57,8 @@ class SpringCoupling(Module):
         x=get_value_for(mechanics.x2)
     )
 
-    items = Items()
-
-    def __init__(self, tag="springcoup", k=1.0):
-        super().__init__(tag)
+    def __init__(self, k=1.0):
+        super().__init__()
 
         self.mechanics.set_values(k=k)
 
@@ -90,21 +84,20 @@ class OscillatorSystem(Module):
 
     items = Items()
 
-    with create_connections() as connections:
-        # connect oscillators via the coupling
-        items.oscillator1.coupling >> items.coupling.side1
-        items.oscillator2.coupling >> items.coupling.side2
+    # connect oscillators via the coupling
+    items.oscillator1.coupling >> items.coupling.side1
+    items.oscillator2.coupling >> items.coupling.side2
 
 
     def __init__(self, k=0.01, c=0.001, x0=(1, 2),  tag=None):
-        super(OscillatorSystem, self).__init__(tag=tag)
+        super(OscillatorSystem, self).__init__()
 
         # Initialized the modules in the oscillator system
 
-        self.items.oscillator1 = DampenedOscillator(tag='osc1')
+        self.items.oscillator1 = DampenedOscillator()
         self.items.oscillator1.mechanics.set_values(k=k, c=c, x=x0[0])
 
-        self.items.oscillator2 = DampenedOscillator(tag='osc2')
+        self.items.oscillator2 = DampenedOscillator()
         self.items.oscillator2.mechanics.set_values(k=k, c=c, x=x0[1])
 
         self.items.coupling = SpringCoupling(k=k)
@@ -115,16 +108,21 @@ if __name__ == "__main__":
     from numerous.engine import simulation
     from numerous.engine import model
     from matplotlib import pyplot as plt
+    import logging
 
-    subsystem = OscillatorSystem(tag='system', k=0.01, c=0.001, x0=[1.0, 2.0])
+    logging.basicConfig(level=logging.DEBUG)
+
+    oscillator_system = OscillatorSystem(k=0.01, c=0.001, x0=[1.0, 2.0])
+
+    system = generate_system('system', oscillator_system)
     # Define simulation
-    s = simulation.Simulation(model.Model(subsystem, use_llvm=False), t_start=0, t_stop=500.0, num=1000, num_inner=100,
+    s = simulation.Simulation(model.Model(system, use_llvm=False), t_start=0, t_stop=500.0, num=1000, num_inner=100,
                               max_step=1)
     # Solve and plot
 
     s.solve()
 
-    s.model.historian_df[['system.osc1.mechanics.x', 'system.osc2.mechanics.x']].plot()
+    s.model.historian_df[['system.oscillator1.mechanics.x', 'system.oscillator2.mechanics.x']].plot()
     # print()
     plt.show()
     plt.interactive(False)

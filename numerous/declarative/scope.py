@@ -22,6 +22,10 @@ class ScopeSpec(ScopeSpecInterface, ClassVarSpec):
     def get_variables(self):
         return self._references
 
+    @property
+    def equations(self):
+        return self._equations
+
     def clone(self):
         clone = super(ScopeSpec, self).clone()
         clone._equations = self._equations
@@ -34,3 +38,10 @@ class ScopeSpec(ScopeSpecInterface, ClassVarSpec):
             getattr(self, key).assign(value)
         else:
             super(ScopeSpec, self).__setattr__(key, value)
+
+    def set_values(self, **kwargs):
+
+        variables = self.get_variables()
+
+        for k, v in kwargs.items():
+            variables[k].value = v

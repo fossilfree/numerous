@@ -2,6 +2,11 @@ from enum import Enum
 from .clonable_interfaces import Clonable, ParentReference, get_class_vars
 from .signal import Signal, PhysicalQuantities, Units
 
+class MappingTypes(Enum):
+    ASSIGN = 0
+    ADD = 1
+
+
 class Operations(Enum):
     ADD = 1
     SUB = 2
@@ -17,27 +22,32 @@ class Operations(Enum):
     EQ = 12
 
 class Variable(Clonable):
-    _mappings: list
+
     _value: float
     signal: Signal
-    _value: float
+    native_ref: object
+    _mapping_types: dict
 
     def __init__(self, value=None, signal: Signal = Signal(physical_quantity=PhysicalQuantities.Default, unit=Units.NA)):
 
         super(Variable, self).__init__(clone_refs=False)
 
         self.signal = signal
-
         self._value = value
-
+        self._mapping_types = {}
+        self.native_ref = None
 
     def __add__(self, other):
-        self.add_reference(other._id, other)
+        return self.add(other)
 
+    def add(self, other):
+        self.add_reference(other._id, other)
+        self._mapping_types[other._id] = MappingTypes.ADD
         return self
 
     def assign(self, other):
         self.add_reference(other._id, other)
+        self._mapping_types[other._id] = MappingTypes.ASSIGN
 
     @property
     def value(self):
@@ -51,11 +61,15 @@ class Variable(Clonable):
     def mappings(self):
         return self._references
 
+    @property
+    def mapping_with_types(self):
+        return [(k, v, self._mapping_types[k]) for k, v in self._references.items()]
 
     def clone(self):
         clone = super(Variable, self).clone()
         clone.value = self.value
         clone.signal = self.signal
+        clone._mapping_types = self._mapping_types.copy()
 
         return clone
 

@@ -55,3 +55,6 @@ class HostNotFoundError(Exception):
 
 class DuplicateItemError(Exception):
     ...
+
+class ItemAlreadyAssigned(Exception):
+    ...

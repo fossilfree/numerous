@@ -26,12 +26,13 @@ def set_value_from(object):
 class Connector(ConnectorInterface, ClassVarSpec):
 
     _channel_directions: dict = {}
-
+    _connection_map: dict
 
     def __init__(self, **channels):
         super(Connector, self).__init__(class_var_type=(ModuleSpec, Variable), set_parent_on_references=False)
         self.set_references({k: c[0] for k, c in channels.items()})
         self._channel_directions = {k: c[1] for k, c in channels.items()}
+        self._connection_map = None
 
     def get_channels(self):
         return self.get_references_of_type((Variable, ModuleSpec))
@@ -52,17 +53,21 @@ class Connector(ConnectorInterface, ClassVarSpec):
         if map is None:
             map = {key: key for key in other.channels.keys()}
 
+
+        self._connection_map = map
+
         # Check if all channels exist and have same signal and opposite direction
-        for from_key, to_key in map.items():
-            assert isinstance(other.channels[to_key], (ModuleSpec,)) and isinstance(self.channels[from_key], (ModuleSpec,)) or \
-                   isinstance(other.channels[to_key], (Variable,)) and isinstance(self.channels[from_key], (Variable,)), \
-                f"Cannot connect channel different types {self.channels[from_key]} != {other.channels[to_key]}"
+        for other_key, self_key in map.items():
+            assert isinstance(other.channels[other_key], (ModuleSpec,)) and isinstance(self.channels[self_key], (ModuleSpec,)) or \
+                   isinstance(other.channels[other_key], (Variable,)) and isinstance(self.channels[self_key], (Variable,)), \
+                f"Cannot connect channel different types {self.channels[self_key]} != {other.channels[other_key]}"
 
-            assert other.channels[to_key].signal == self.channels[
-                from_key].signal, f"Cannot connect channel with signal {other.channels[to_key].signal} to channel with signal {self.channels[from_key].signal}"
+            if isinstance(self.channels[self_key], Variable):
+                assert other.channels[other_key].signal == self.channels[
+                    self_key].signal, f"Cannot connect channel with signal {other.channels[other_key].signal} to channel with signal {self.channels[self_key].signal}"
 
-            assert other.channel_directions[to_key] != self.channel_directions[
-                from_key], f"Cannot connect channel of same directions <{to_key}> to <{from_key}> with direction {self.channel_directions[from_key]}"
+            assert other.channel_directions[other_key] != self.channel_directions[
+                self_key], f"Cannot connect channel of same directions <{self_key}> to <{other_key}> with direction {self.channel_directions[self_key]}"
 
         self.add_reference('_connection', other)
 
@@ -71,7 +76,16 @@ class Connector(ConnectorInterface, ClassVarSpec):
         if len(connection)>0:
             return connection[0]
 
+    @property
+    def connection_map(self):
+        return self.get_connection(), self._connection_map
+    def __lshift__(self, other):
+        self.connect(other)
+    def __rshift__(self, other):
+        other.connect(self)
+
     def clone(self):
         clone = super(Connector, self).clone()
         clone._channel_directions = self._channel_directions
+        clone._connection_map = self._connection_map.copy() if self._connection_map else None
         return clone

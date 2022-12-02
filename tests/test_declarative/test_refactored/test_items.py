@@ -15,5 +15,5 @@ def test_scope_spec(TestItems):
 
     items = TestItems()
 
-    assert "a" in items.get_items()
+    assert "a" in items._references
     assert isinstance(items.a, ModuleSpec)
