@@ -42,16 +42,7 @@ from numerous.engine.system import SetNamespace
 
 from numerous.utils import logger as log
 
-import faulthandler
-import llvmlite.binding as llvm
-
-faulthandler.enable()
-llvm.initialize()
-llvm.initialize_native_target()
-llvm.initialize_native_asmprinter()
-llvmmodule = llvm.parse_assembly("")
-target_machine = llvm.Target.from_default_triple().create_target_machine()
-ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
+from numerous.engine.model.lowering.llvm_initializer import ee, llvm
 
 
 class ModelNamespace:
@@ -461,7 +452,7 @@ class Model:
                                    imports=self.imports, eq_used=self.eq_used)
 
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.variables, \
-        self.state_idx, self.derivatives_idx = \
+            self.state_idx, self.derivatives_idx = \
             eq_gen.generate_equations(export_model=self.export_model, clonable=self.clonable)
 
         for varname, ix in self.vars_ordered_values.items():
@@ -894,7 +885,7 @@ class Model:
     @classmethod
     def from_file(cls, param):
         system_, logger_level, imports, use_llvm, vars_ordered_values, variables, state_idx, \
-        derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(open(param, "rb"))
+            derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(open(param, "rb"))
         model = Model(system=system_, assemble=False, logger_level=logger_level,
                       use_llvm=use_llvm)
         model.variables = variables
