@@ -14,3 +14,6 @@ class ModuleInterface(ABC):
 
 class ConnectorInterface(ABC):
     ...
+
+class ModuleConnectionsInterface(ABC):
+    ...

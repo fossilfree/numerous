@@ -35,10 +35,10 @@ class ActiveContextManager:
     def is_active_manager_context(self, context_manager):
         return self.get_active_manager_context(ignore_no_context=True) == context_manager
 
-    def clear_active_manager_context(self, context_manager):
+    def clear_active_manager_context(self, context_manager, ignore_not_set=False):
         if self.is_active_manager_context(context_manager):
             self._active_manager_context = None
-        else:
+        elif not ignore_not_set:
             raise ValueError(
                 f'Trying to clear different context manager, trying to clear: {context_manager}, but active one is: {self._active_manager_context}')
 

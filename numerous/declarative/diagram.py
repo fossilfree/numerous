@@ -1,6 +1,6 @@
 from graphviz import Digraph
 
-from .specification import Module
+from .module import Module
 
 
 class VariableNode:

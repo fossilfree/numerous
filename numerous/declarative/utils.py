@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import uuid
 
 from numerous.declarative.exceptions import DuplicateItemError
 from numerous.engine.system import Item
@@ -31,9 +32,9 @@ class RegisterHelper:
         self._items = {}
 
     def register_item(self, item):
-        if item.tag in self._items:
-            raise DuplicateItemError(f"An item with tag {item.tag} already registered.")
-        self._items[item.tag] = item
+        #if item.tag in self._items:
+        #    raise DuplicateItemError(f"An item with tag {item.tag} already registered.")
+        self._items[str(uuid.uuid4())] = item
 
     def get_items(self):
         return self._items

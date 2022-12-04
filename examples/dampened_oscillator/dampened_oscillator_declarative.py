@@ -1,6 +1,6 @@
 from numerous.declarative import ScopeSpec, ItemsSpec, Module, EquationSpec
 from numerous.declarative.variables import Parameter, Constant, State
-from numerous.declarative.connector import Connector, get_value_for, set_value_from
+from numerous.declarative.connector import Connector, get_value_for, set_value_from, create_connections
 from numerous.declarative.generate_system import generate_system
 import numpy as np
 
@@ -84,9 +84,10 @@ class OscillatorSystem(Module):
 
     items = Items()
 
-    # connect oscillators via the coupling
-    items.oscillator1.coupling >> items.coupling.side1
-    items.oscillator2.coupling >> items.coupling.side2
+    with create_connections() as connections:
+        # connect oscillators via the coupling
+        items.oscillator1.coupling >> items.coupling.side1
+        items.oscillator2.coupling >> items.coupling.side2
 
 
     def __init__(self, k=0.01, c=0.001, x0=(1, 2),  tag=None):
@@ -99,6 +100,11 @@ class OscillatorSystem(Module):
 
         self.items.oscillator2 = DampenedOscillator()
         self.items.oscillator2.mechanics.set_values(k=k, c=c, x=x0[1])
+
+        self.oscillator3 = DampenedOscillator()
+
+        self.items.oscillator2.mechanics.v_dot += self.oscillator3.mechanics.a
+        self.oscillator3.mechanics.v_dot = self.items.oscillator1.mechanics.a
 
         self.items.coupling = SpringCoupling(k=k)
 
@@ -115,11 +121,12 @@ if __name__ == "__main__":
     oscillator_system = OscillatorSystem(k=0.01, c=0.001, x0=[1.0, 2.0])
 
     system = generate_system('system', oscillator_system)
+
     # Define simulation
     s = simulation.Simulation(model.Model(system, use_llvm=False), t_start=0, t_stop=500.0, num=1000, num_inner=100,
                               max_step=1)
-    # Solve and plot
 
+    # Solve and plot
     s.solve()
 
     s.model.historian_df[['system.oscillator1.mechanics.x', 'system.oscillator2.mechanics.x']].plot()

@@ -47,11 +47,16 @@ class Clonable(ABC):
     _set_parent_on_references: bool = False
     _id: str
     _initialized: bool = False
+    _clone_of: object
+    _first_clone: object
     #_clone_refs: bool
 
     def __init__(self, bind=False,
                  set_parent_on_references=False, clone_refs=True):
+
         self._id = str(uuid4())
+        self._clone_of = None
+        self._first_clone = None
         self._references = {}
 
         self._bind = bind
@@ -75,7 +80,7 @@ class Clonable(ABC):
 
         clone_ = self.clone()
         self.configure_clone(clone_, cloned_references, do_clone=False)
-
+        clone_._parent = self._parent
         return clone_
 
     def add_reference(self, key, reference):
@@ -87,7 +92,7 @@ class Clonable(ABC):
         if self._bind:
 
             self._initialized = False
-            setattr(self, key, reference)
+            self.__setattr__(key, reference, add_ref=True)
             self._initialized = True
 
             if self._set_parent_on_references:
@@ -97,6 +102,8 @@ class Clonable(ABC):
         elif self._set_parent_on_references:
             raise KeyError("Can only set parent if reference is set to bind.")
 
+    def __setattr__(self, key, value, add_ref=False):
+        super(Clonable, self).__setattr__(key, value)
     def set_references(self, references):
 
         for key, reference in references.items():
@@ -106,9 +113,20 @@ class Clonable(ABC):
         self._parent = parent_ref
 
     def get_path(self, host):
+
+
+        if not self._parent and not self._clone_of:
+            if not self._first_clone:
+                print('here')
+                print(self)
+                print(host)
+                ...
+            self._parent = self._first_clone._parent
+
         path = [self._parent.attr]
 
         if not self._parent.parent == host:
+            print(path)
             path = self._parent.parent.get_path(host) + path
 
         return path
@@ -116,9 +134,10 @@ class Clonable(ABC):
 
     def clone(self):
         clone = self.__class__()
-
+        clone._clone_of = self
         self.configure_clone(clone, self._references)
-
+        if not self._first_clone:
+            self._first_clone = clone
 
         return clone
 

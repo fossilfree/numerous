@@ -1,6 +1,7 @@
 from enum import Enum
 from .clonable_interfaces import Clonable, ParentReference, get_class_vars
 from .signal import Signal, PhysicalQuantities, Units
+from numerous.declarative.context_managers import _active_mappings
 
 class MappingTypes(Enum):
     ASSIGN = 0
@@ -43,11 +44,16 @@ class Variable(Clonable):
     def add(self, other):
         self.add_reference(other._id, other)
         self._mapping_types[other._id] = MappingTypes.ADD
+
+        _active_mappings.get_active_manager_context().add(self, other)
+
+
         return self
 
     def assign(self, other):
         self.add_reference(other._id, other)
         self._mapping_types[other._id] = MappingTypes.ASSIGN
+        _active_mappings.get_active_manager_context().assign(self, other)
 
     @property
     def value(self):
@@ -111,4 +117,4 @@ def State(value):
 
 def integrate(var, integration_spec):
     var.integrate = integration_spec
-    return var, Variable(value=0, construct=False)
+    return var, Variable(value=0)

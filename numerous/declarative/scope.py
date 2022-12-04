@@ -31,7 +31,7 @@ class ScopeSpec(ScopeSpecInterface, ClassVarSpec):
         clone._equations = self._equations
         return clone
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key, value, add_ref=False):
 
         if self._initialized and isinstance(value, Variable) and hasattr(self, key) and getattr(self, key) != value:
 

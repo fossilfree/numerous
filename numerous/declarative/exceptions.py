@@ -58,3 +58,6 @@ class DuplicateItemError(Exception):
 
 class ItemAlreadyAssigned(Exception):
     ...
+
+class ItemUndeclaredWarning(Warning):
+    ...
