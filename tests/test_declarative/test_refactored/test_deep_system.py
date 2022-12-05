@@ -151,7 +151,7 @@ def ConnectedVolumes(ThermalMass, Conductor):
     return ConnectedVolumes
 
 @pytest.fixture
-def ForwardedThermalRelaxation():
+def ForwardedThermalRelaxation(ThermalRelaxation):
     class ForwardedThermalRelaxation(Module):
         class Items(ItemsSpec):
             tr: ThermalRelaxation
@@ -164,6 +164,70 @@ def ForwardedThermalRelaxation():
             self.items.tr = ThermalRelaxation(T=T)
 
     return ForwardedThermalRelaxation
+
+@pytest.fixture
+def ForwardReservoir(ThermalReservoir):
+    class ForwardReservoir(Module):
+
+        class Items(ItemsSpec):
+            reservoir: ThermalReservoir
+
+        items = Items()
+
+        connector = items.reservoir.connector
+
+        def __init__(self, T=0):
+            super(ForwardReservoir, self).__init__()
+
+            self.items.reservoir = ThermalReservoir(T)
+    return ForwardReservoir
+
+@pytest.fixture
+def ConnectForwardedReservoirs(ThermalMass, ForwardReservoir):
+    class ConnectForwardedReservoirs(Module):
+        class Items(ItemsSpec):
+            tm1: ThermalMass
+            tm2: ThermalMass
+            fr1: ForwardReservoir
+            fr2: ForwardReservoir
+
+        items = Items()
+
+        with create_connections() as connections:
+            items.fr1.connector.connect_reversed(
+                T=items.tm1.variables.T,
+                P=items.tm1.variables.P
+            )
+
+            items.fr2.connector.connect_reversed(
+                T=items.tm2.variables.T,
+                P=items.tm2.variables.P
+            )
+
+        def __init__(self, T0=15, T1=10, T2=20):
+            super(ConnectForwardedReservoirs, self).__init__()
+
+            self.items.tm1 = ThermalMass(T=T0)
+            self.items.tm2 = ThermalMass(T=T0)
+            self.items.fr1 = ForwardReservoir(T=T1)
+            self.items.fr2 = ForwardReservoir(T=T2)
+
+    return ConnectForwardedReservoirs
+
+@pytest.fixture
+def ForwardModuleWithReverseConnections(ConnectForwardedReservoirs):
+
+    class ForwardModuleWithReverseConnections(Module):
+        class Items(ItemsSpec):
+            cfr: ConnectForwardedReservoirs
+
+        items = Items()
+
+        def __init__(self, T1=10, T2=20):
+            super(ForwardModuleWithReverseConnections, self).__init__()
+
+            self.items.cfr = ConnectForwardedReservoirs(T1=T1, T2=T2)
+    return ForwardModuleWithReverseConnections
 
 def test_connected_volumes(ConnectedVolumes):
 
@@ -229,111 +293,12 @@ def test_connectors(ThermalRelaxation):
     # Cold side
     assert last(test_system.items.mass.variables.T) == pytest.approx(T)
 
-"""
-class ForwardReservoir(Module):
-
-    class Items(ItemsSpec):
-        reservoir: ThermalReservoir
-
-    items = Items()
-
-    connector = items.reservoir.connector
-
-    def __init__(self, T=0):
-        super(ForwardReservoir, self).__init__()
-
-        self.items.reservoir = ThermalReservoir(T)
-
-class ConnectForwardedReservoirs(Module):
-
-    class Items(ItemsSpec):
-        tm1: ThermalMass
-        tm2: ThermalMass
-        fr1: ForwardReservoir
-        fr2: ForwardReservoir
-
-    items = Items()
-
-    with create_connections() as connections:
-        items.fr1.connector.connect_reversed(
-            T=items.tm1.variables.T,
-            P=items.tm1.variables.P
-        )
-
-        items.fr2.connector.connect_reversed(
-            T=items.tm2.variables.T,
-            P=items.tm2.variables.P
-        )
-
-    def __init__(self, T0=15, T1=10, T2=20):
-        super(ConnectForwardedReservoirs, self).__init__()
-
-        self.items.tm1 = ThermalMass(T=T0)
-        self.items.tm2 = ThermalMass(T=T0)
-        self.items.fr1 = ForwardReservoir(T=T1)
-        self.items.fr2 = ForwardReservoir(T=T2)
-
-@pytest.fixture
-def ForwardedThermalRelaxationFixture():
-
-    return ForwardedThermalRelaxation
-
-
-@pytest.fixture
-def ConnectForwardedReservoirFixture():
-    return ConnectForwardedReservoirs
-
-@pytest.fixture
-def ForwardModuleWithReverseConnectionsFixture():
-    return ForwardModuleWithReverseConnections
-
-class ForwardModuleWithReverseConnections(Module):
-
-    class Items(ItemsSpec):
-        cfr: ConnectForwardedReservoirs
-
-    items = Items()
-
-    def __init__(self):
-
-        super(ForwardModuleWithReverseConnections, self).__init__()
-
-        self.items.cfr = ConnectForwardedReservoirs()
-
-def test_fowarded_connector(ForwardedThermalRelaxationFixture):
-    T = 10
-    test_system = ForwardedThermalRelaxationFixture(T=T)
-
-    system = generate_system('system', test_system)
-
-    from numerous.engine import simulation
-    from numerous.engine import model
-    from matplotlib import pyplot as plt
-
-    # Define simulation
-    s = simulation.Simulation(model.Model(system, use_llvm=False), t_start=0, t_stop=500.0, num=1000, num_inner=100,
-                              max_step=1)
-
-    # Solve and plot
-    s.solve()
-
-    df = s.model.historian_df
-
-    def last(var):
-        return df[var.native_ref.path.primary_path].tail(1).values[0]
-
-        # Run check that all WaterVol flow (F) are zero
-
-    print_all_variables(test_system, df)
-    # Cold side
-    assert last(test_system.items.tr.items.mass.variables.T) == pytest.approx(T)
-
-def test_forwarded_reservoirs(ConnectForwardedReservoirFixture):
+def test_forwarded_reservoirs(ConnectForwardedReservoirs):
     T0 = 15
     T1 = 10
     T2 = 20
 
-    test_system = ConnectForwardedReservoirFixture(T0, T1, T2)
+    test_system = ConnectForwardedReservoirs(T0, T1, T2)
 
     system = generate_system('system', test_system)
 
@@ -360,9 +325,9 @@ def test_forwarded_reservoirs(ConnectForwardedReservoirFixture):
     assert last(test_system.items.tm1.variables.T) == pytest.approx(T1)
     assert last(test_system.items.tm2.variables.T) == pytest.approx(T2)
 
-def test_forwarded_reverse_connectors(ForwardModuleWithReverseConnectionsFixture):
-
-    test_system = ForwardModuleWithReverseConnectionsFixture()
+def test_fowarded_connector(ForwardedThermalRelaxation):
+    T = 10
+    test_system = ForwardedThermalRelaxation(T=T)
 
     system = generate_system('system', test_system)
 
@@ -386,5 +351,35 @@ def test_forwarded_reverse_connectors(ForwardModuleWithReverseConnectionsFixture
 
     print_all_variables(test_system, df)
     # Cold side
-    assert last(test_system.items.tm1.variables.T) == pytest.approx(T1)
-    assert last(test_system.items.tm2.variables.T) == pytest.approx(T2)"""
+    assert last(test_system.items.tr.items.mass.variables.T) == pytest.approx(T)
+
+def test_forwarded_reverse_connectors(ForwardModuleWithReverseConnections):
+    T1 = 10
+    T2 = 20
+
+    test_system = ForwardModuleWithReverseConnections(T1=T1, T2=T2)
+
+    system = generate_system('system', test_system)
+
+    from numerous.engine import simulation
+    from numerous.engine import model
+    from matplotlib import pyplot as plt
+
+    # Define simulation
+    s = simulation.Simulation(model.Model(system, use_llvm=False), t_start=0, t_stop=500.0, num=1000, num_inner=100,
+                              max_step=1)
+
+    # Solve and plot
+    s.solve()
+
+    df = s.model.historian_df
+
+    def last(var):
+        return df[var.native_ref.path.primary_path].tail(1).values[0]
+
+        # Run check that all WaterVol flow (F) are zero
+
+    print_all_variables(test_system, df)
+    # Cold side
+    assert last(test_system.items.cfr.items.tm1.variables.T) == pytest.approx(T1)
+    assert last(test_system.items.cfr.items.tm2.variables.T) == pytest.approx(T2)

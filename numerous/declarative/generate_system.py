@@ -65,7 +65,7 @@ def recursive_get_attr(obj, attr_list):
         return attr_
 
 
-def process_connection(host: Module, connection: Connection):
+def process_connection(host: Module, module: Module, connection: Connection):
     #print(connection.side1.var1.get_path(host))
     #print(connection.side2.var1.get_path(host))
 
@@ -97,13 +97,13 @@ def process_connection(host: Module, connection: Connection):
         # TODO improve this error handling
         ValueError("no map!?")
 
-def process_connection_sets(module:Module):
+def process_connection_sets(host:Module, module:Module):
     # process connectors on this module
     connection_sets = module.get_connection_sets()
 
     for connection_set_name, connection_set in connection_sets.items():
         for connection in connection_set.connections:
-            process_connection(module, connection)
+            process_connection(host, module, connection)
 
     #process recursive
 
@@ -112,8 +112,8 @@ def process_connection_sets(module:Module):
         modules = items_spec.get_modules(check=False)
 
         for module_name, module in modules.items():
-            #if isinstance(module, Module):
-                process_connection_sets(module)
+            if isinstance(module, Module):
+                process_connection_sets(host, module)
 
 def process_mappings(module: Module, host: Module,tabs_int:list):
 
@@ -252,7 +252,7 @@ def generate_system(name:str, module: Module, tabs=None):
 
     tabs_int = tabs + ["\t"]
 
-    process_connection_sets(module)
+    process_connection_sets(module, module)
 
     system = process_items_scopes(module, name, module, tabs_int)
 
