@@ -7,15 +7,12 @@ from numerous.engine.system import Subsystem
 from numerous.engine.system.fmu_subsystem import FMU_Subsystem
 
 fmu_filename = '/home/artem/fmu/PCU_RHU_EnergyMachines_01_modex_Linux.fmu'
-fmu_subsystem = FMU_Subsystem(fmu_filename, "PCU_RHU", debug_output=False, fmu_logging=False)
+fmu_subsystem = FMU_Subsystem(fmu_filename, "PCU_RHU", debug_output=False, fmu_logging=True)
 
 class S3(Subsystem):
     def __init__(self, tag):
         super().__init__(tag)
-
-        # fmu_subsystem.t1.variables["h"].value = 19
         self.register_items([fmu_subsystem])
-
 
 subsystem1 = S3('q1')
 

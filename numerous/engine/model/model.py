@@ -2,15 +2,15 @@ import itertools
 import os
 import pickle
 import sys
+from numba.typed import List
 
-from copy import copy, deepcopy
 from ctypes import CFUNCTYPE, c_int64, POINTER, c_double, c_void_p
 
 import numpy as np
 import time
 import uuid
 
-from numba import njit, carray
+from numba import njit, carray, types
 import numpy.typing as npt
 from numba.core.registry import CPUDispatcher
 
@@ -31,7 +31,7 @@ from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
 
 from numerous.engine.system.subsystem import Subsystem, ItemSet
-from numerous.engine.variables import VariableType
+from numerous.engine.variables import VariableType, VariableDescription, _VariableFactory
 
 from numerous.engine.model.ast_parser.parser_ast import parse_eq
 from numerous.engine.model.graph_representation.graph import Graph
@@ -42,16 +42,7 @@ from numerous.engine.system import SetNamespace
 
 from numerous.utils import logger as log
 
-import faulthandler
-import llvmlite.binding as llvm
-
-faulthandler.enable()
-llvm.initialize()
-llvm.initialize_native_target()
-llvm.initialize_native_asmprinter()
-llvmmodule = llvm.parse_assembly("")
-target_machine = llvm.Target.from_default_triple().create_target_machine()
-ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
+from numerous.engine.model.lowering.llvm_initializer import ee, llvm
 
 
 class ModelNamespace:
@@ -120,7 +111,8 @@ class Model:
 
     def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
                  imports=None, historian=InMemoryHistorian(),
-                 use_llvm=True, save_to_file=False, generate_graph_pdf=False, export_model=False, clonable=False):
+                 use_llvm=True, save_to_file=False, generate_graph_pdf=False, global_variables=None,
+                 export_model=False, clonable=False):
 
         self.path_to_variable = {}
         self.generate_graph_pdf = generate_graph_pdf
@@ -136,6 +128,8 @@ class Model:
             external_mappings_unpacked) else EmptyMapping()
 
         self.run_after_solve = system.get_run_after_solve()
+
+        self.post_step = system.get_post_step()
 
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
@@ -155,6 +149,7 @@ class Model:
         self.numba_callbacks = []
         self.numba_callbacks_init_run = []
         self.callbacks = []
+        self.global_tag_vars = {}
         self.historian_filter = historian_filter
         self.system = system
         self.event_function = None
@@ -172,8 +167,7 @@ class Model:
         self.events = []
         self.timestamp_events = []
         self.global_variables_tags = ['time']
-        self.global_vars = np.array([0], dtype=np.float64)
-
+        self.global_variables = {}
         self.equation_dict = {}
         self.variables = {}
         self.name_spaces = {}
@@ -192,6 +186,12 @@ class Model:
         self.numba_model = None
 
         self.info = {}
+        self.add_global_variable("t", 0.0)
+
+        if global_variables:
+            for g_var in global_variables:
+                self.add_global_variable(g_var[0], g_var[1])
+
         if assemble:
             self.assemble()
 
@@ -221,6 +221,23 @@ class Model:
             return self.__get_mapping__variable(variable.mapping, depth - 1)
         else:
             return variable
+
+    def _add_global_var(self, name: str, initial_value: float):
+        if name in self.global_variables:
+            return self.global_variables[name]
+        else:
+            var_desc = VariableDescription(tag=name, initial_value=initial_value,
+                                           type=VariableType.PARAMETER, global_var=True,
+                                           global_var_idx=len(self.global_variables.values()))
+            self.global_variables[name] = _VariableFactory._create_from_variable_desc_unbound(
+                variable_description=var_desc, initial_value=initial_value)
+            return self.global_variables[name]
+
+    def add_global_variable(self, name: str, initial_value: float):
+        tag = "global_vars_"
+        x = self._add_global_var(tag + name, initial_value)
+        self.global_tag_vars[tag + name] = x
+        self.variables.update({x.id: x})
 
     def assemble(self):
         """
@@ -256,6 +273,9 @@ class Model:
             self.variables.update(variables)
 
         mappings = []
+        for variable in self.variables.values():
+            if not (variable.global_var):
+                variable.top_item = self.system.id
 
         for scope_var_idx, var in enumerate(self.variables.values()):
             if var.mapping:
@@ -274,8 +294,6 @@ class Model:
         self.equations_parsed = {}
 
         log.info('Parsing equations starting')
-        for v in self.variables.values():
-            v.top_item = self.system.id
 
         eq_used = []
         for item_id, namespaces in model_namespaces.items():
@@ -285,7 +303,7 @@ class Model:
                     tag_vars = ns.set_variables
                 else:
                     tag_vars = {v.tag: v for k, v in ns.variables.items()}
-
+                tag_vars.update(self.global_tag_vars)
                 parse_eq(model_namespace=ns, item_id=item_id, mappings_graph=self.mappings_graph,
                          variables=tag_vars, parsed_eq_branches=self.equations_parsed, eq_used=eq_used)
         self.eq_used = eq_used
@@ -334,7 +352,7 @@ class Model:
             self.mappings_graph.as_graphviz(self.system.tag, force=True)
         self.lower_model_codegen(tmp_vars)
         self.assembly_tail()
-        self._initial_variables_dict = {k: v.value for k, v in self.variables.items()}
+        self._initial_variables_dict = {k: v.value for k, v in self.variables.items() if not v.global_var}
 
     def assembly_tail(self):
         self.logged_aliases = {}
@@ -347,16 +365,18 @@ class Model:
             logvar = False
             if variable.logger_level.value >= self.logger_level.value:
                 logvar = True
-            for path in variable.path.path[self.system.id]:
-                self.aliases.update({path: variable.id})
-                if logvar:
-                    self.logged_aliases.update({path: variable.id})
+            if self.system.id in variable.path.path:
+                for path in variable.path.path[self.system.id]:
+                    self.aliases.update({path: variable.id})
+                    if logvar:
+                        self.logged_aliases.update({path: variable.id})
+                for path in variable.path.path[self.system.id]:
+                    self.path_variables.update({path: variable.value})  # is this used at all?
+
             if variable.alias is not None:
                 self.aliases.update({variable.alias: variable.id})
                 if logvar:
                     self.logged_aliases.update({variable.alias: variable.id})
-            for path in variable.path.path[self.system.id]:
-                self.path_variables.update({path: variable.value})  # is this used at all?
 
         self.inverse_aliases = {v: k for k, v in self.aliases.items()}
         inverse_logged_aliases = {}  # {id: [alias1, alias2...], ...}
@@ -434,7 +454,7 @@ class Model:
                                    imports=self.imports, eq_used=self.eq_used)
 
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.variables, \
-        self.state_idx, self.derivatives_idx = \
+            self.state_idx, self.derivatives_idx = \
             eq_gen.generate_equations(export_model=self.export_model, clonable=self.clonable)
 
         for varname, ix in self.vars_ordered_values.items():
@@ -445,7 +465,7 @@ class Model:
                 setattr(var, 'logger_level', LoggerLevel.ALL)
 
         def c1(self, array_):
-            return compiled_compute(array_)
+            return compiled_compute(array_, self.global_vars)
 
         def c2(self):
             return var_func()
@@ -699,7 +719,8 @@ class Model:
         NM_instance = CompiledModel_instance(self.init_values,
                                              self.derivatives_idx,
                                              self.state_idx,
-                                             self.global_vars,
+                                             np.array([v.value for v in self.global_variables.values()],
+                                                      dtype=np.float),
                                              number_of_timesteps,
                                              start_time,
                                              self.historian.get_historian_max_size(number_of_timesteps,
@@ -712,7 +733,8 @@ class Model:
                                              self.is_external_data,
                                              self.external_mappings.t_max,
                                              self.external_mappings.t_min,
-                                             self.external_idx
+                                             self.external_idx,
+                                             self.post_step
                                              )
 
         for key, value in self.path_variables.items():
@@ -737,7 +759,7 @@ class Model:
 
         c_float_type = type(np.ctypeslib.as_ctypes(np.float64()))
 
-        diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type))(cfptr)
+        diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type), POINTER(c_float_type))(cfptr)
 
         vars_r = CFUNCTYPE(POINTER(c_float_type), c_int64)(cfptr_var_r)
 
@@ -748,7 +770,7 @@ class Model:
 
         @njit('float64[:](float64[:],float64[:])')
         def compiled_compute(y, global_vars):
-            deriv_pointer = diff_(y.ctypes)
+            deriv_pointer = diff_(y.ctypes, global_vars.ctypes)
             return carray(deriv_pointer, (n_deriv,)).copy()
 
         @njit('float64[:]()')
@@ -812,17 +834,15 @@ class Model:
             import pandas as pd
             self.historian_df = AliasedDataFrame(pd.concat([self.historian_df.df,
                                                             self._generate_history_df(
-                                                                self.generate_not_nan_history_array(),
-                                                                rename_columns=False).df],
+                                                                self.generate_not_nan_history_array()).df],
                                                            axis=0, sort=False, ignore_index=True),
                                                  aliases=self.aliases, rename_columns=True)
 
         else:
-            self.historian_df = self._generate_history_df(self.generate_not_nan_history_array(),
-                                                          rename_columns=False)
+            self.historian_df = self._generate_history_df(self.generate_not_nan_history_array())
         self.historian.store(self.historian_df)
 
-    def _generate_history_df(self, historian_data, rename_columns=True):
+    def _generate_history_df(self, historian_data):
         data = self.create_historian_dict(historian_data)
         return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
 
@@ -868,7 +888,7 @@ class Model:
     @classmethod
     def from_file(cls, param):
         system_, logger_level, imports, use_llvm, vars_ordered_values, variables, state_idx, \
-        derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(open(param, "rb"))
+            derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(open(param, "rb"))
         model = Model(system=system_, assemble=False, logger_level=logger_level,
                       use_llvm=use_llvm)
         model.variables = variables

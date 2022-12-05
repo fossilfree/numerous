@@ -5,7 +5,6 @@ from numerous.engine.simulation import Simulation
 
 from numerous.engine.system import Subsystem, LoggerLevel
 from numerous.multiphysics import EquationBase, Equation
-from numerous.engine.simulation.solvers.base_solver import SolverType
 
 
 class SimpleInt(Subsystem, EquationBase):
@@ -21,10 +20,10 @@ class SimpleInt(Subsystem, EquationBase):
 
 
 def test_euler():
-    model = Model(SimpleInt(tag='system'))
+    model = Model(SimpleInt(tag='system'), use_llvm=True)
 
     n = 10
-    sim = Simulation(model=model, t_start=0, t_stop=10, num=n, solver=SolverType.NUMEROUS, method='Euler')
+    sim = Simulation(model=model, t_start=0, t_stop=10, num=n, method='Euler')
     sim.solve()
 
     df_1 = sim.model.historian_df
@@ -36,7 +35,7 @@ def test_RK45():
     model = Model(SimpleInt(tag='system'))
 
     n = 10
-    sim = Simulation(model=model, t_start=0, t_stop=10, num=n, solver=SolverType.NUMEROUS, method='RK45')
+    sim = Simulation(model=model, t_start=0, t_stop=10, num=n, method='RK45')
     sim.solve()
 
     df_1 = sim.model.historian_df
