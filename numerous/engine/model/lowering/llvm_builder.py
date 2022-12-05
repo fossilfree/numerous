@@ -10,19 +10,13 @@ from numpy import ndarray
 
 from numerous.engine.model.lowering.utils import VariableArgument
 from numerous.utils import config, logger as log
-import faulthandler
+
 import numpy as np
 
 import llvmlite.ir as ll
-import llvmlite.binding as llvm
 
-faulthandler.enable()
-llvm.initialize()
-llvm.initialize_native_target()
-llvm.initialize_native_asmprinter()
-llvmmodule = llvm.parse_assembly("")
-target_machine = llvm.Target.from_default_triple().create_target_machine()
-ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
+from numerous.engine.model.lowering.llvm_initializer import ee, llvm, target_machine
+
 
 LISTING_FILEPATH = "tmp/listings/"
 LISTINGFILENAME = "_llvm_listing.ll"

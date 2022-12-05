@@ -2,15 +2,15 @@ import itertools
 import os
 import pickle
 import sys
+from numba.typed import List
 
-from copy import copy, deepcopy
 from ctypes import CFUNCTYPE, c_int64, POINTER, c_double, c_void_p
 
 import numpy as np
 import time
 import uuid
 
-from numba import njit, carray
+from numba import njit, carray, types
 import numpy.typing as npt
 from numba.core.registry import CPUDispatcher
 
@@ -42,16 +42,7 @@ from numerous.engine.system import SetNamespace
 
 from numerous.utils import logger as log
 
-import faulthandler
-import llvmlite.binding as llvm
-
-faulthandler.enable()
-llvm.initialize()
-llvm.initialize_native_target()
-llvm.initialize_native_asmprinter()
-llvmmodule = llvm.parse_assembly("")
-target_machine = llvm.Target.from_default_triple().create_target_machine()
-ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
+from numerous.engine.model.lowering.llvm_initializer import ee, llvm
 
 
 class ModelNamespace:
@@ -137,6 +128,8 @@ class Model:
             external_mappings_unpacked) else EmptyMapping()
 
         self.run_after_solve = system.get_run_after_solve()
+
+        self.post_step = system.get_post_step()
 
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
@@ -461,7 +454,7 @@ class Model:
                                    imports=self.imports, eq_used=self.eq_used)
 
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.variables, \
-        self.state_idx, self.derivatives_idx = \
+            self.state_idx, self.derivatives_idx = \
             eq_gen.generate_equations(export_model=self.export_model, clonable=self.clonable)
 
         for varname, ix in self.vars_ordered_values.items():
@@ -740,7 +733,8 @@ class Model:
                                              self.is_external_data,
                                              self.external_mappings.t_max,
                                              self.external_mappings.t_min,
-                                             self.external_idx
+                                             self.external_idx,
+                                             self.post_step
                                              )
 
         for key, value in self.path_variables.items():
@@ -894,7 +888,7 @@ class Model:
     @classmethod
     def from_file(cls, param):
         system_, logger_level, imports, use_llvm, vars_ordered_values, variables, state_idx, \
-        derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(open(param, "rb"))
+            derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(open(param, "rb"))
         model = Model(system=system_, assemble=False, logger_level=logger_level,
                       use_llvm=use_llvm)
         model.variables = variables
