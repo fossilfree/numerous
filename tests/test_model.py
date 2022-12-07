@@ -368,7 +368,7 @@ class SetVar(Subsystem, EquationBase):
         scope.x_dot = 1
 
 
-@pytest.mark.parametrize("use_llvm", [True, False])
+@pytest.mark.parametrize("use_llvm", [False, True])
 def test_static_system(use_llvm):
     s = Simulation(Model(StaticDataSystem('system_static', n=1), use_llvm=use_llvm), t_start=0, t_stop=100.0, num=100,
                    num_inner=100, max_step=.1)
