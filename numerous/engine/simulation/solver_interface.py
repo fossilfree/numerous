@@ -12,6 +12,7 @@ class NumerousEngineModelInterface(Interface):
     """
     def __init__(self, model):
         self.model: NumerousEngineModel = model
+        self.last_time_event_idx = np.zeros(len(self.model.time_events), dtype='int')
 
     def get_deriv(self, t: float, y: np.array) -> np.ascontiguousarray:
         y = self.get_states()
@@ -44,6 +45,9 @@ class NumerousEngineModelInterface(Interface):
             return SolveEvent.Historian
         else:
             return SolveEvent.NoneEvent
+
+    def init_solver(self, t: float, y: np.array) -> None:
+        self.last_time_event_idx = np.zeros(len(self.model.time_events), dtype='int')
 
     def pre_step(self, t: float, y: np.array) -> None:
         self._map_external_data(t)
@@ -124,26 +128,24 @@ class NumerousEngineModelInterface(Interface):
 
         return states
 
-    def get_next_time_event(self, t) -> tuple[int, float]:
-        if len(self.model.time_events) == 0:
-            return -1, -1
-        else:
-            t_event_min = -1
-            event_ix_min = -1
-            for event_ix, timestamps in enumerate(self.model.time_events):
-                ix = np.searchsorted(timestamps, t, 'left')
-                if ix > len(timestamps) - 1:
-                    continue
-                else:
-                    t_event = timestamps[ix]
-                    if t_event_min < 0:
-                        t_event_min = t_event
-                        event_ix_min = event_ix
-                    if t_event < t_event_min:
-                        t_event_min = t_event
-                        event_ix_min = event_ix
+    def get_next_time_event(self, t) -> (np.array, float):
+        t_events = np.ones_like(self.last_time_event_idx) * -1.0
+        for event_ix, time_events in enumerate(self.model.time_events):
+            possible_time_events = [t for t in time_events[self.last_time_event_idx[event_ix]:] if t >= 0]
+            ix = np.searchsorted(possible_time_events, t, 'left')
+            if ix > len(possible_time_events) - 1:
+                continue
+            else:
+                t_events[event_ix] = possible_time_events[ix]
 
-            return event_ix_min, t_event_min
+        possible_t_events = np.array([t_event for t_event in t_events if t_event >= 0])
+
+        if len(possible_t_events) == 0:
+            return np.array([-1]), -1.0
+        first_event = np.min(possible_t_events)
+        ix = np.argwhere(np.abs(first_event - t_events) < 1e-6).flatten()  # multiple events are not sorted
+
+        return ix, first_event
 
     def run_time_event_action(self, t: float, y: np.array, event_idx: int) -> np.array:
         """
@@ -161,6 +163,7 @@ class NumerousEngineModelInterface(Interface):
         :rtype: :class:`np.ndarray`
         """
 
+        self.last_time_event_idx[event_idx] += 1
         modified_variables = self.model.time_event_actions(t, self._get_variables(), event_idx)
         states = modified_variables[self.model.numba_model.state_idx]
         variables = np.delete(modified_variables, self.model.numba_model.state_idx)
@@ -241,7 +244,9 @@ def generate_numerous_engine_solver_model(model: Model) -> (NumerousEngineModel,
     if len(model.timestamp_events) == 0:
         model.generate_mock_timestamp_event()
     time_event_actions = model.generate_event_action_ast(model.timestamp_events)
-    time_events = np.array([np.array(event.timestamps) for event in model.timestamp_events])
+    time_events_ = np.array([event.timestamps for event in model.timestamp_events])
+
+    time_events = numpy_fill_array(time_events_)
 
     numerous_engine_model = NumerousEngineModel(model.numba_model, event_functions, event_directions, event_actions,
                                                 time_events, time_event_actions)
@@ -249,3 +254,15 @@ def generate_numerous_engine_solver_model(model: Model) -> (NumerousEngineModel,
     numerous_event_handler = NumerousEngineEventHandler(model, model.numba_model)
 
     return numerous_engine_model, numerous_event_handler
+
+def numpy_fill_array(data):
+    # Get lengths of each row of data
+    lens = np.array([len(i) for i in data])
+
+    # Mask of valid places in each row
+    mask = np.arange(max(lens)) < lens[:, None]
+
+    # Setup output array and put elements from data into masked positions
+    out = np.ones(mask.shape, dtype='float') * -1
+    out[mask] = np.concatenate(data)
+    return out

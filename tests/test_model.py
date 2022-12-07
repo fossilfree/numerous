@@ -368,7 +368,7 @@ class SetVar(Subsystem, EquationBase):
         scope.x_dot = 1
 
 
-@pytest.mark.parametrize("use_llvm", [True, False])
+@pytest.mark.parametrize("use_llvm", [False, True])
 def test_static_system(use_llvm):
     s = Simulation(Model(StaticDataSystem('system_static', n=1), use_llvm=use_llvm), t_start=0, t_stop=100.0, num=100,
                    num_inner=100, max_step=.1)
@@ -409,3 +409,73 @@ def test_get_init_variables():
     model = Model(SetVar(tag='system'))
 
     assert model.get_variables_initial_values()['system.t1.p1'] == p1_val
+
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_timestamp_event(use_llvm, capsys):
+    sys = ExponentialDecay(tag='system')
+    def time_callback(t, variables):
+        print(t)
+
+    timestamps = [float((i+1) * 3600) for i in range(24)]
+
+    sys.add_timestamp_event('test', time_callback, timestamps=timestamps)
+    model = Model(sys, use_llvm=use_llvm)
+    #num not aligned with timestamps output
+    sim = Simulation(model=model, t_start=0, t_stop=24*3600, num=33)
+    sim.solve()
+
+    captured = capsys.readouterr()
+
+    assert captured.out == "\n".join([str(t) for t in timestamps])+"\n"
+
+@pytest.mark.parametrize("use_llvm", [False, True])
+def test_multiple_timestamp_events(use_llvm, capsys):
+    sys = ExponentialDecay(tag='system')
+    def time_callback1(t, variables):
+        print("callback1:", t)
+
+    def time_callback2(t, variables):
+        print("callback2:", t)
+
+    timestamps1 = [float((i+1) * 3600) for i in range(24)]
+    timestamps2 = [float((i+1) * 7200) for i in range(12)]
+
+    sys.add_timestamp_event('callback1', time_callback1, timestamps=timestamps1)
+    sys.add_timestamp_event('callback2', time_callback2, timestamps=timestamps2)
+    model = Model(sys, use_llvm=use_llvm)
+    #num not aligned with timestamps output
+    sim = Simulation(model=model, t_start=0, t_stop=24*3600, num=33)
+    sim.solve()
+
+    captured = capsys.readouterr()
+    expected = []
+    for t in timestamps1:
+        s = f"callback1: {t}\n"
+        if t in timestamps2:
+            s += f"callback2: {t}\n"
+
+        expected.append(s)
+
+    assert captured.out == "".join(expected)
+
+@pytest.mark.skip
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_timestamp_periodicity(use_llvm, capsys):
+    """
+    Feature not yet implemented
+    """
+    sys = ExponentialDecay(tag='system')
+    def time_callback(t, variables):
+        print(t)
+
+    timestamps = [float((i+1) * 1800) for i in range(48)]
+
+    # Use an input specifying the periodicity of the callbacks instead of a list of timestamps.
+    sys.add_timestamp_event('test', time_callback, periodicity=1800.0)
+    model = Model(sys, use_llvm=use_llvm)
+    sim = Simulation(model=model, t_start=0, t_stop=24*3600, num=48)
+    sim.solve()
+
+    captured = capsys.readouterr()
+
+    assert captured.out == "\n".join([str(t) for t in timestamps])+"\n"
