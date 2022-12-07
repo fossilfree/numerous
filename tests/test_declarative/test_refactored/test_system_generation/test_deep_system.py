@@ -136,7 +136,7 @@ def ConnectedVolumes(ThermalMass, Conductor):
     class ConnectedVolumes(Module):
         class Items(ItemsSpec):
             tm1: ThermalMass
-            # volume2: Volume
+            tm2: ThermalMass
             conductor: Conductor
 
         items = Items()
@@ -228,6 +228,50 @@ def ForwardModuleWithReverseConnections(ConnectForwardedReservoirs):
 
             self.items.cfr = ConnectForwardedReservoirs(T1=T1, T2=T2)
     return ForwardModuleWithReverseConnections
+
+
+@pytest.fixture
+def MultipleLinkedMasses(ThermalMass, Conductor):
+
+    class MultipleLinkedMasses(Module):
+        class Items(ItemsSpec):
+            tm_right: ThermalMass
+            tm_left: ThermalMass
+            conductor_left: Conductor
+            conductor_right: Conductor
+            tm_middle: ThermalMass
+
+        items = Items()
+
+        def __init__(self, T_left, T_middle, T_right):
+            super(MultipleLinkedMasses, self).__init__()
+
+            self.items.tm_left = ThermalMass(T=T_left)
+            #tm_middle = local("tm_middle", ThermalMass(T=10))
+            self.items.tm_middle = ThermalMass(T=T_middle)
+            self.items.conductor_left = Conductor(side1=self.items.tm_left, side2=self.items.tm_middle)
+
+            self.items.tm_right = ThermalMass(T=T_right)
+
+            self.items.conductor_right = Conductor(side1=self.items.tm_right, side2=self.items.tm_middle)
+    return MultipleLinkedMasses
+
+@pytest.fixture
+def ForwardMultipleLinkedMasses(MultipleLinkedMasses):
+    class ForwardMultipleLinkedMasses(Module):
+
+        class Items(ItemsSpec):
+            fmlm: MultipleLinkedMasses
+
+        items = Items()
+
+        def __init__(self, T_left=0, T_middle=0, T_right=0):
+            super(ForwardMultipleLinkedMasses, self).__init__()
+
+            self.items.fmlm = MultipleLinkedMasses(T_left=T_left, T_middle=T_middle, T_right=T_right)
+    return ForwardMultipleLinkedMasses
+
+
 
 def test_connected_volumes(ConnectedVolumes):
 
@@ -383,3 +427,75 @@ def test_forwarded_reverse_connectors(ForwardModuleWithReverseConnections):
     # Cold side
     assert last(test_system.items.cfr.items.tm1.variables.T) == pytest.approx(T1)
     assert last(test_system.items.cfr.items.tm2.variables.T) == pytest.approx(T2)
+
+def test_multiple_linked(MultipleLinkedMasses):
+    T_left=60
+    T_right=T_middle=0
+    T_mean=(T_left+T_right+T_middle)/3
+
+    test_system = MultipleLinkedMasses(T_left=T_left, T_middle=T_middle, T_right=T_right)
+
+    system = generate_system('system', test_system)
+
+    from numerous.engine import simulation
+    from numerous.engine import model
+    from matplotlib import pyplot as plt
+
+    # Define simulation
+    s = simulation.Simulation(model.Model(system, use_llvm=False), t_start=0, t_stop=500.0, num=1000, num_inner=100,
+                              max_step=1)
+
+    # Solve and plot
+    s.solve()
+
+    df = s.model.historian_df
+
+    def last(var):
+        return df[var.native_ref.path.primary_path].tail(1).values[0]
+
+        # Run check that all WaterVol flow (F) are zero
+
+    print_all_variables(test_system, df)
+
+    assert last(test_system.items.tm_left.variables.T) == pytest.approx(T_mean, abs=0.01)
+    assert last(test_system.items.tm_middle.variables.T) == pytest.approx(T_mean, abs=0.01)
+    assert last(test_system.items.tm_right.variables.T) == pytest.approx(T_mean, abs=0.01)
+
+def test_forwarded_multiple_linked(ForwardMultipleLinkedMasses):
+    T_left = 60
+    T_right = T_middle = 0
+    T_mean = (T_left + T_right + T_middle) / 3
+
+    test_system = ForwardMultipleLinkedMasses(T_left=T_left, T_middle=T_middle, T_right=T_right)
+
+
+
+    system = generate_system('system', test_system)
+
+
+
+    from numerous.engine import simulation
+    from numerous.engine import model
+    from matplotlib import pyplot as plt
+
+    # Define simulation
+    s = simulation.Simulation(model.Model(system, use_llvm=False), t_start=0, t_stop=500.0, num=1000, num_inner=100,
+                              max_step=1)
+
+    # Solve and plot
+    s.solve()
+
+    df = s.model.historian_df
+
+    def last(var):
+        return df[var.native_ref.path.primary_path].tail(1).values[0]
+
+        # Run check that all WaterVol flow (F) are zero
+
+    print_all_variables(test_system, df)
+    # Cold side
+    assert last(test_system.items.fmlm.items.tm_left.variables.T) == pytest.approx(T_mean, abs=0.01)
+    assert last(test_system.items.fmlm.items.tm_middle.variables.T) == pytest.approx(T_mean, abs=0.01)
+    assert last(test_system.items.fmlm.items.tm_right.variables.T) == pytest.approx(T_mean, abs=0.01)
+
+

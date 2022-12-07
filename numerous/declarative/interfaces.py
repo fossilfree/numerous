@@ -17,3 +17,6 @@ class ConnectorInterface(ABC):
 
 class ModuleConnectionsInterface(ABC):
     ...
+
+class EquationSpecInterface(ABC):
+    ...

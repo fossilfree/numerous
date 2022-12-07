@@ -1,6 +1,6 @@
-from .interfaces import ScopeSpecInterface
+from .interfaces import ScopeSpecInterface, EquationSpecInterface
 
-class EquationSpec:
+class EquationSpec(EquationSpecInterface):
     """
        Specification of an equation in a module. Use this as a decorator for your methods implementing the equations in a module.
    """

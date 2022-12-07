@@ -1,6 +1,7 @@
-from numerous.declarative.scope import ScopeSpec
-from numerous.declarative.module import ModuleSpec, Module, local
-from numerous.declarative.items import ItemsSpec
-from numerous.declarative.equations import EquationSpec
-from numerous.declarative.variables import Parameter
-from numerous.declarative.connector import Connector, set_value_from, get_value_for, create_connections
+from .scope import ScopeSpec
+from .module import ModuleSpec, Module, local, BoundValues
+from .items import ItemsSpec
+from .equations import EquationSpec
+from .variables import Parameter
+from .connector import Connector, set_value_from, get_value_for, create_connections, get_value_for, set_value_from
+from .mappings import create_mappings

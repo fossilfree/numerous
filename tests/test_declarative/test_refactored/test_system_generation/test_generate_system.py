@@ -6,7 +6,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 from numerous.declarative.generate_system import generate_system
-from numerous.declarative import Module, ItemsSpec, ScopeSpec, Connector, Parameter, set_value_from, get_value_for, EquationSpec
+from numerous.declarative import Module, ItemsSpec, ScopeSpec, Connector, Parameter, set_value_from, get_value_for, EquationSpec, create_mappings, create_connections
 
 @pytest.fixture
 def TestModule():
@@ -27,7 +27,8 @@ def TestModule():
 
         variables = Variables()
 
-        variables.var3 += variables.var4
+        with create_mappings() as mappings:
+            variables.var3 += variables.var4
 
         connector = Connector(
             var1=set_value_from(variables.var1),
@@ -40,7 +41,8 @@ def TestModule():
 
         )
 
-        connector >> connector2
+        with create_connections() as connections:
+            connector >> connector2
         
         def __init__(self):
             super(TestModule, self).__init__()
@@ -64,7 +66,7 @@ def test_generate_module(TestModule):
     from numerous.engine import model
     from matplotlib import pyplot as plt
 
-    if True:
+    if False:
         # Define simulation
         s = simulation.Simulation(model.Model(system, use_llvm=False), t_start=0, t_stop=500.0, num=1000, num_inner=100,
                                   max_step=1)

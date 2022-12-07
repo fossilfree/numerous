@@ -1,4 +1,4 @@
-from .interfaces import ScopeSpecInterface
+from .interfaces import ScopeSpecInterface, EquationSpecInterface
 from .clonable_interfaces import ClassVarSpec
 from .variables import Variable, Operations
 from .context_managers import _active_mappings, _active_subsystem, NoManagerContextActiveException
@@ -45,3 +45,5 @@ class ScopeSpec(ScopeSpecInterface, ClassVarSpec):
 
         for k, v in kwargs.items():
             variables[k].value = v
+
+

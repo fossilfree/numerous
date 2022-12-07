@@ -104,6 +104,7 @@ class Clonable(ABC):
 
     def __setattr__(self, key, value, add_ref=False):
         super(Clonable, self).__setattr__(key, value)
+
     def set_references(self, references):
 
         for key, reference in references.items():
@@ -113,7 +114,8 @@ class Clonable(ABC):
         self._parent = parent_ref
 
     def get_path(self, host):
-
+        if self == host:
+            return []
 
         if not self._parent and not self._clone_of:
             if not self._first_clone:
@@ -126,7 +128,6 @@ class Clonable(ABC):
         path = [self._parent.attr]
 
         if not self._parent.parent == host:
-            print(path)
             path = self._parent.parent.get_path(host) + path
 
         return path
@@ -140,6 +141,14 @@ class Clonable(ABC):
             self._first_clone = clone
 
         return clone
+
+    @classmethod
+    def merge(cls, current:dict, update:dict, types:tuple):
+        for k, v in update.items():
+            if isinstance(v, types):
+                current[k] = v
+
+        return current
 
     def get_references_of_type(self, type):
         return {k: v for k, v in self._references.items() if isinstance(v, type)}
@@ -162,11 +171,11 @@ def get_class_vars(obj, class_var_type:type, _handle_annotations=None):
 
 
     for b in _class.__bases__:
-        class_var.update(b.__dict__)
+        class_var = _class.merge(class_var, b.__dict__, class_var_type)
 
-    class_var.update(_class.__dict__)
+    class_var = _class.merge(class_var, _class.__dict__, class_var_type)
+    class_var = _class.merge(class_var, obj.__dict__, class_var_type)
 
-    class_var.update(obj.__dict__)
 
 
     for key, var in class_var.items():

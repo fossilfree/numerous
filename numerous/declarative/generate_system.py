@@ -1,7 +1,7 @@
 import logging
 import uuid
 
-from .module import Module, ModuleSpec, AutoItemsSpec
+from .module import Module, ModuleSpec, AutoItemsSpec, BoundValues
 from ..engine.system.subsystem import Subsystem
 from ..multiphysics.equation_base import EquationBase
 from ..multiphysics.equation_decorators import add_equation
@@ -46,9 +46,11 @@ def process_items_spec(host, host_system, host_module, items_spec_name, items_sp
         _logger.debug(tab_str(tabs, f"Auto detected {len(items_spec.modules)}."))
 
     #Check module specs have been instanciated
+
+
     modules = items_spec.get_modules()
 
-    systems = {module_name: process_items_scopes(host, module_name, module, tabs) for module_name, module in modules.items() if isinstance(module, Module) and not module._processed and items_spec == module._parent.parent}
+    systems = {module_name: process_items_scopes(host, module_name, module, tabs) for module_name, module in modules.items() if not module._processed and items_spec == module._parent.parent}
 
     host_system.register_items(systems.values())
 
@@ -65,30 +67,38 @@ def recursive_get_attr(obj, attr_list):
         return attr_
 
 
-def process_connection(host: Module, module: Module, connection: Connection):
-    #print(connection.side1.var1.get_path(host))
-    #print(connection.side2.var1.get_path(host))
-
+def process_connection(host: Module, module: Module, connection: Connection, all_connections, tabs):
 
     map = connection.map
     directions = connection.side1.channel_directions
     if map:
-
+        _logger.debug(tab_str(tabs, f"Connection being mapped."))
         with create_mappings() as mappings:
 
             for side2_key, side1_key in map.items():
                 direction = directions[side2_key]
+                side1_path = connection.side1.channels[side1_key].get_path(host)
+                side2_path = connection.side2.channels[side2_key].get_path(host)
 
-                side1_obj = recursive_get_attr(host, connection.side1.channels[side1_key].get_path(host))
-                side2_obj = recursive_get_attr(host, connection.side2.channels[side2_key].get_path(host))
+                side1_obj = recursive_get_attr(host, side1_path)
+                side2_obj = recursive_get_attr(host, side2_path)
 
                 to_obj = side1_obj if direction == Directions.GET else side2_obj
                 from_obj = side1_obj if direction == Directions.SET else side2_obj
 
                 if isinstance(from_obj, Variable) and isinstance(to_obj, Variable):
+
+                    _logger.debug(tab_str(tabs, f"Mapping: {path_str(side1_path)}<<{path_str(side2_path)}"))
+
+
+
                     to_obj.add(from_obj)
                 elif isinstance(from_obj, (Module,ModuleSpec)) and isinstance(from_obj, (Module, ModuleSpec)):
-                    setattr(to_obj._parent.parent, to_obj._parent.attr, from_obj)
+                    module_path = module.get_path(host)
+                    target_path = side1_path if direction == Directions.GET else side2_path
+                    replace_path = side1_path if direction == Directions.SET else side2_path
+                    all_connections.append((connection, module_path, target_path, replace_path))
+                    #setattr(to_obj._parent.parent, to_obj._parent.attr, from_obj)
                 else:
                     raise ValueError(f"Expected either Module or Variable, not {from_obj} and {to_obj}")
 
@@ -97,13 +107,13 @@ def process_connection(host: Module, module: Module, connection: Connection):
         # TODO improve this error handling
         ValueError("no map!?")
 
-def process_connection_sets(host:Module, module:Module):
+def process_connection_sets(host:Module, module:Module, all_connections, tabs):
     # process connectors on this module
     connection_sets = module.get_connection_sets()
 
     for connection_set_name, connection_set in connection_sets.items():
         for connection in connection_set.connections:
-            process_connection(host, module, connection)
+            process_connection(host, module, connection, all_connections, tabs)
 
     #process recursive
 
@@ -113,10 +123,10 @@ def process_connection_sets(host:Module, module:Module):
 
         for module_name, module in modules.items():
             if isinstance(module, Module):
-                process_connection_sets(host, module)
+                process_connection_sets(host, module, all_connections, tabs)
 
 def process_mappings(module: Module, host: Module,tabs_int:list):
-
+    _logger.debug(tab_str(tabs_int, f"Module: {module}"))
 
     """for scope_name, scope in module.get_scope_specs().items():
         _logger.debug(tab_str(tabs_int, f"create mappings for {scope_name}"))
@@ -149,24 +159,30 @@ def process_mappings(module: Module, host: Module,tabs_int:list):
                     f"Variable <{var_name}> with a <{mapping._parent.attr}> does not have a native reference set yet!")"""
     for mappings_name, mappings in module.get_mappings().items():
 
-        for a, b, mapping_type in mappings.mappings:
+        for mapping in mappings.mappings.values():
 
-            path_a = a.get_path(host)
-            path_b = b.get_path(host)
+            path_a = mapping.to_var.get_path(host)
+            path_b = mapping.from_var.get_path(host)
             _logger.debug(tab_str(tabs_int, f"Mapping: {path_str(path_a)}<<{path_str(path_b)}"))
 
 
             var_a = recursive_get_attr(host, path_a)
             var_b = recursive_get_attr(host, path_b)
+            try:
+                a_prim = var_a.native_ref.path.primary_path
+                b_prim = var_b.native_ref.path.primary_path
+            except:
 
-            _logger.debug(tab_str(tabs_int, f"Native: {var_a.native_ref.path.primary_path}<<{var_b.native_ref.path.primary_path}"))
+                s=1
+                a=2
+            _logger.debug(tab_str(tabs_int, f"Native: {a_prim}<<{b_prim}"))
 
-            if mapping_type == MappingTypes.ADD:
+            if mapping.mapping_type == MappingTypes.ADD:
                 var_a.native_ref.add_sum_mapping(var_b.native_ref)
-            elif mapping_type == MappingTypes.ASSIGN:
+            elif mapping.mapping_type == MappingTypes.ASSIGN:
                 var_a.native_ref.add_mapping(var_b.native_ref)
             else:
-                raise TypeError(f"Unknown mapping type {mapping_type}")
+                raise TypeError(f"Unknown mapping type {mapping.mapping_type}")
 
 
         _logger.debug(tab_str(tabs_int, f"created mappings"))
@@ -182,6 +198,7 @@ def process_mappings(module: Module, host: Module,tabs_int:list):
 
 
 
+
 def process_items_scopes(host, name, module, tabs_int):
 
 
@@ -190,6 +207,12 @@ def process_items_scopes(host, name, module, tabs_int):
         _logger.debug(tab_str(tabs_int, f'initializing generation of system <{path_str(module.get_path(host))}>'))
 
     system = Subsystem(tag=name)
+
+    for k, v in module.__dict__.items():
+        if isinstance(v, BoundValues):
+            for k, vv in v.bound_values.items():
+                setattr(system, k, vv)
+
     # Go through items specs
     items_specs = module.get_items_specs()
 
@@ -197,8 +220,6 @@ def process_items_scopes(host, name, module, tabs_int):
     process_items_spec(host, system, module, "unbound", items_specs.pop("unbound"), tabs=tabs_int + ["\t"])
     for items_spec_name, items_spec in items_specs.items():
         process_items_spec(host, system, module, items_spec_name, items_spec, tabs=tabs_int + ["\t"])
-
-
 
     # Make namespaces from scopespecs
     scopes = module.get_scope_specs()
@@ -244,6 +265,53 @@ def tab_str(tabs, text):
     - different variable types 
 """
 
+def perform_connections(host, connections, tabs):
+    _logger.debug(tab_str(tabs, f'Perform connections'))
+
+    last_len = len(connections)
+    _logger.debug(tab_str(tabs, f'{connections}'))
+
+    while len(connections) > 0:
+        _logger.debug(tab_str(tabs, f'Remaining connections {len(connections)}'))
+
+        pop_ix = []
+        for i, connection in enumerate(connections):
+            mod = recursive_get_attr(host, connection[3])
+            if isinstance(mod, Module):
+                recursive_get_attr(host, connection[2][:-1]).add_reference(connection[2][-1], mod)
+                pop_ix.append(i)
+        for ix in reversed(pop_ix):
+            connections.pop(ix)
+
+        if len(connections) == last_len:
+            raise ValueError(f"Cannot resolve connections: {connections}")
+        last_len = len(connections)
+
+def assign_items(host, module_host: Module, items_spec, tabs):
+#WHERE USED"!!!
+    modules = items_spec.get_modules(check=False)
+
+    modules_no_spec = {}
+    #_logger.debug(tab_str(tabs, f'Assigning items for  <{items_spec.get_path(host)}>'))
+    for name, module in modules.items():
+        _logger.debug(tab_str(tabs, f'Assigning items for  <{items_spec.get_path(host)+[name]}>'))
+
+        if isinstance(module, ModuleSpec) and not module.assigned_to is None:
+
+            modules_no_spec[name] = module.assigned_to
+            items_spec.add_reference(name, module.assigned_to)
+            # setattr(items_spec, name, module.assigned_to)
+
+        elif isinstance(module, Module):
+            modules_no_spec[name] = module
+        else:
+            ...
+            raise TypeError("!")
+
+        for module_items_spec_name, module_items_spec in module.get_items_specs().items():
+            assign_items(host, module, module_items_spec, tabs=tabs+['\t'])
+
+
 def generate_system(name:str, module: Module, tabs=None):
 
     if tabs is None:
@@ -252,7 +320,14 @@ def generate_system(name:str, module: Module, tabs=None):
 
     tabs_int = tabs + ["\t"]
 
-    process_connection_sets(module, module)
+    all_connections = []
+
+    process_connection_sets(module, module, all_connections, tabs_int)
+
+    perform_connections(module, all_connections, tabs_int)
+
+    for module_items_spec_name, module_items_spec in module.get_items_specs().items():
+        assign_items(module, module, module_items_spec, tabs_int)
 
     system = process_items_scopes(module, name, module, tabs_int)
 

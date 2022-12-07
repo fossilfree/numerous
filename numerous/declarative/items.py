@@ -20,8 +20,8 @@ class ItemsSpec(ItemsSpecInterface, ClassVarSpec):
         for k, v in modules_and_specs.items():
             module = getattr(self, k)
 
-            if v!= module:
-                modules_self[k+"_spec"] = v
+            #if v!= module:
+            #    modules_self[k+"_spec"] = v
 
             if isinstance(module, Module):
                 ...

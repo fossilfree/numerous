@@ -14,6 +14,6 @@ def test_get_connection():
     with create_connections() as connections:
         connector1.connect(connector2)
 
-    assert connector1.get_connection() == connector2
+    assert connector1.get_connection().side2 == connector2
 
 

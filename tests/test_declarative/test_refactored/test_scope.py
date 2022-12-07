@@ -22,8 +22,8 @@ def test_mapping(TestScope):
 
     test_scope = TestScope()
     test_scope_2 = TestScope()
-
-    test_scope_2.a = test_scope.a
+    with create_mappings() as mappings:
+        test_scope_2.a = test_scope.a
 
     assert len(test_scope_2.a.mappings) == 1
     assert test_scope.a._id in test_scope_2.a.mappings
@@ -33,7 +33,8 @@ def test_mapping_sum(TestScope):
     test_scope = TestScope()
     test_scope_2 = TestScope()
 
-    test_scope_2.a += test_scope.a
+    with create_mappings() as mappings:
+        test_scope_2.a += test_scope.a
 
     assert len(test_scope_2.a.mappings) == 1
     assert test_scope.a._id in test_scope_2.a.mappings

@@ -23,6 +23,12 @@ class ModuleSpec(ModuleSpecInterface, ClassVarSpec):
         module_spec.configure_clone(module_spec, module_vars, do_clone=True)
         return module_spec
 
+    def get_path(self, host):
+        if self._assigned_to:
+            return self._assigned_to.get_path(host)
+        else:
+            return super(ModuleSpec, self).get_path(host)
+    
     def clone(self):
         clone = super(ModuleSpec, self).clone()
         clone._assigned_to = self._assigned_to
@@ -40,6 +46,14 @@ class ModuleSpec(ModuleSpecInterface, ClassVarSpec):
     def get_items_specs(self):
 
         return self.get_references_of_type(ItemsSpecInterface)
+
+    @property
+    def assigned_to(self):
+        return self._assigned_to
+
+    @assigned_to.setter
+    def assigned_to(self, val):
+        self._assigned_to = val
 
 class AutoItemsSpec(Clonable, ItemsSpecInterface):
 
@@ -137,8 +151,6 @@ class Module(ModuleInterface, ClassVarSpec):
     def set_tag(self, tag):
         self.tag = tag
 
-
-
     def get_scope_specs(self):
 
         return self.get_references_of_type(ScopeSpecInterface)
@@ -147,7 +159,6 @@ class Module(ModuleInterface, ClassVarSpec):
         items_specs = self.get_references_of_type(ItemsSpecInterface)
         return items_specs
 
-
     def get_connection_sets(self):
 
         return self.get_references_of_type(ModuleConnectionsInterface)
@@ -155,3 +166,26 @@ class Module(ModuleInterface, ClassVarSpec):
     def get_mappings(self):
 
         return self.get_references_of_type(ModuleMappings)
+
+    @classmethod
+    def merge(cls, current: dict, update: dict, types: tuple):
+        #return super(Module, cls).merge(current, update)
+        for k, v in update.items():
+            if isinstance(v, ScopeSpecInterface):
+                if k in current:
+                    for e in current[k].equations:
+                        if e not in v.equations:
+                            v.equations.append(e)
+                current[k] = v
+
+            elif isinstance(v, types):
+                current[k] = v
+
+
+
+        return current
+class BoundValues:
+
+    def __init__(self, **kwargs):
+
+        self.bound_values = kwargs
