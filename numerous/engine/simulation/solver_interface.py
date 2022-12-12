@@ -262,7 +262,7 @@ def generate_numerous_engine_solver_model(model: Model) -> (NumerousEngineModel,
     if len(model.timestamp_events) == 0:
         model.generate_mock_timestamp_event()
     time_event_actions = model.generate_event_action_ast(model.timestamp_events)
-    time_stamped_events_ = [(event_ix, event.timestamp) for event_ix, event in enumerate(model.timestamp_events) if
+    time_stamped_events_ = [(event_ix, event.timestamps) for event_ix, event in enumerate(model.timestamp_events) if
                            event.timestamps]
     periodic_time_events = [(event_ix, event.periodicity) for event_ix, event in enumerate(model.timestamp_events) if
                             event.periodicity]
