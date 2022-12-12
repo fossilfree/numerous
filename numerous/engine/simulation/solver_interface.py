@@ -58,7 +58,7 @@ class NumerousEngineModelInterface(Interface):
     def __init__(self, model: NumerousEngineModel):
         self.model: NumerousEngineModel = model
         self.last_time_event_idx = np.zeros(len(model.time_stamped_events) + len(model.periodic_time_events),
-                                       dtype='int')
+                                       dtype='int64')
 
     def get_deriv(self, t: float, y: np.array) -> np.ascontiguousarray:
         y = self.get_states()
@@ -94,7 +94,7 @@ class NumerousEngineModelInterface(Interface):
 
     def init_solver(self, t: float, y: np.array) -> None:
         self.last_time_event_idx = np.zeros(len(self.model.time_stamped_events) + len(self.model.periodic_time_events),
-                                            dtype='int')
+                                            dtype='int64')
 
     def pre_step(self, t: float, y: np.array) -> None:
         self._map_external_data(t)
@@ -177,6 +177,8 @@ class NumerousEngineModelInterface(Interface):
 
     def _get_next_timestamped_event(self, t, t_events) -> np.array:
         for event_ix, time_events in self.model.time_stamped_events:
+            if event_ix < 0:
+                continue
             possible_time_events = [t for t in time_events[self.last_time_event_idx[event_ix]:] if t >= 0]
             ix = np.searchsorted(possible_time_events, t, 'left')
             if ix > len(possible_time_events) - 1:
@@ -185,13 +187,15 @@ class NumerousEngineModelInterface(Interface):
                 t_events[event_ix] = possible_time_events[ix]
         return t_events
 
-    def _get_next_periodic_event(self, t, t_events) -> np.array:
+    def _get_next_periodic_event(self, t, t_events: np.ndarray) -> np.array:
         for event_ix, dt in self.model.periodic_time_events:
+            if event_ix < 0:
+                continue
             t_events[event_ix] = self.last_time_event_idx[event_ix] * dt
         return t_events
 
     def _possible_time_events(self, t):
-        t_events = np.ones_like(self.last_time_event_idx) * -1.0
+        t_events = np.ones_like(self.last_time_event_idx, dtype='float') * -1.0
         t_events = self._get_next_timestamped_event(t, t_events)
         t_events = self._get_next_periodic_event(t, t_events)
         return t_events
@@ -262,18 +266,25 @@ def generate_numerous_engine_solver_model(model: Model) -> (NumerousEngineModel,
     if len(model.timestamp_events) == 0:
         model.generate_mock_timestamp_event()
     time_event_actions = model.generate_event_action_ast(model.timestamp_events)
+
+    # Extract time events
     time_stamped_events_ = [(event_ix, event.timestamps) for event_ix, event in enumerate(model.timestamp_events) if
                            event.timestamps]
     periodic_time_events = [(event_ix, event.periodicity) for event_ix, event in enumerate(model.timestamp_events) if
                             event.periodicity]
 
-    time_stamped_events = numpy_fill_array(time_stamped_events_)
+
+    time_stamped_events = []
+    time_stamps = [time_stamp for _, time_stamp in time_stamped_events_]
+    time_stamped_events__ = numpy_fill_array(time_stamps)
+    for event, time_stamp_ in zip(time_stamped_events_, time_stamped_events__):
+        time_stamped_events.append((event[0], time_stamp_))
 
     if len(time_stamped_events) == 0:
         time_stamped_events = [(-1, np.array([-1.0]))]
 
     if len(periodic_time_events) == 0:
-        periodic_time_events = [(-1, np.array([-1.0]))]
+        periodic_time_events = [(-1, -1.0)]
 
     numerous_engine_model = NumerousEngineModel(model.numba_model, event_functions, event_directions, event_actions,
                                                 tuple(time_stamped_events), tuple(periodic_time_events),
