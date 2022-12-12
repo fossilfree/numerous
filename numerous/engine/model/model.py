@@ -619,9 +619,9 @@ class Model:
         event = NumerousEvent(key, condition, action, compiled, terminal, direction)
         self.events.append(event)
 
-    def add_timestamp_event(self, key, action, timestamps):
+    def add_timestamp_event(self, key, action, timestamps=None, periodicity=None):
         action = _replace_path_strings(self, action, "var")
-        event = TimestampEvent(key, action, timestamps)
+        event = TimestampEvent(key, action, timestamps, periodicity)
         self.timestamp_events.append(event)
 
     def generate_mock_event(self) -> None:

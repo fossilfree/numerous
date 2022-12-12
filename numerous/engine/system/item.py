@@ -130,9 +130,9 @@ class Item(Node):
 
         self.events.append(event)
 
-    def add_timestamp_event(self, key, action, timestamps):
+    def add_timestamp_event(self, key, action, timestamps=None, periodicity=None):
         action = action
-        event = TimestampEvent(key, action, timestamps)
+        event = TimestampEvent(key, action, timestamps, periodicity)
         self.timestamp_events.append(event)
 
     def _increase_level(self):
