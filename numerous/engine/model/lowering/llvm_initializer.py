@@ -1,7 +1,11 @@
 import faulthandler
 import llvmlite.binding as llvm
 
-faulthandler.enable()
+import os
+
+NUMEROUS_LLVM_DEBUGGING = os.getenv("NUMEROUS_LLVM_DEBUGGING", 0)
+if NUMEROUS_LLVM_DEBUGGING:
+    faulthandler.enable()
 llvm.initialize()
 llvm.initialize_native_target()
 llvm.initialize_native_asmprinter()
