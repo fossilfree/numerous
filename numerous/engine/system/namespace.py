@@ -179,8 +179,8 @@ class VariableNamespaceBase:
         if create_variables:
             any(self.create_variable_from_desc(variable_description)
                 for variable_description in equation.variables_descriptions)
-            equation.set_equation = set_equation
-            self.associated_equations.update({equation.tag: equation})
+        equation.set_equation = set_equation
+        self.associated_equations.update({equation.tag: equation})
 
 
 class VariableNamespace(VariableNamespaceBase):

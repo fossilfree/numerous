@@ -186,10 +186,10 @@ def ms3():
 def test_model_without_update(ms3):
     m1 = Model(ms3)
     n_m = m1.generate_compiled_model(0, 1)
-    assert n_m.path_variables["S3_nm.1.t1.R"] == 10
-    assert n_m.path_variables["S3_nm.2.t1.R"] == 5
-    assert n_m.path_variables["S3_nm.3.t1.R"] == 3
-    assert n_m.path_variables["S3_nm.4.t1.R"] == 2
+    assert n_m.read_variables()[m1.path_to_variable["S3_nm.1.t1.R"].llvm_idx] == 10.0
+    assert n_m.read_variables()[m1.path_to_variable["S3_nm.2.t1.R"].llvm_idx] == 5.0
+    assert n_m.read_variables()[m1.path_to_variable["S3_nm.3.t1.R"].llvm_idx] == 3.0
+    assert n_m.read_variables()[m1.path_to_variable["S3_nm.4.t1.R"].llvm_idx] == 2.0
 
 @pytest.mark.skip(reason="Functionality not implemented in current version")
 def test_model_with_update(ms3):
