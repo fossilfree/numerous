@@ -172,7 +172,6 @@ class Model:
         self.variables = {}
         self.name_spaces = {}
         self.flat_variables = {}
-        self.path_variables = {}
         self.states = {}
         self.period = 1
         self.mapping_from = []
@@ -370,9 +369,6 @@ class Model:
                     self.aliases.update({path: variable.id})
                     if logvar:
                         self.logged_aliases.update({path: variable.id})
-                for path in variable.path.path[self.system.id]:
-                    self.path_variables.update({path: variable.value})  # is this used at all?
-
             if variable.alias is not None:
                 self.aliases.update({variable.alias: variable.id})
                 if logvar:
@@ -737,9 +733,6 @@ class Model:
                                              self.post_step
                                              )
 
-        for key, value in self.path_variables.items():
-            NM_instance.path_variables[key] = value
-            NM_instance.path_keys.append(key)
         # NM_instance.run_init_callbacks(start_time)
         NM_instance.map_external_data(start_time)
 

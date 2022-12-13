@@ -22,8 +22,6 @@ numba_model_spec = [
     ('global_vars', float64[:]),
     ('historian_ix', int64),
     ('historian_data', float64[:, :]),
-    ('path_variables', types.DictType(*kv_ty)),
-    ('path_keys', types.ListType(types.unicode_type)),
     ('historian_max_size', int64),
     ('in_memory_history_correction', boolean),
     ('external_mappings_time', float64[:, :]),
@@ -70,8 +68,6 @@ class CompiledModel:
         self.global_vars = global_vars
         self.deriv_idx = deriv_idx
         self.state_idx = state_idx
-        self.path_variables = typed.Dict.empty(*kv_ty)
-        self.path_keys = typed.List.empty_list(types.unicode_type)
         self.number_of_timesteps = number_of_timesteps
         self.start_time = start_time
         self.historian_ix = 0
