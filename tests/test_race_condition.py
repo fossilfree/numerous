@@ -86,7 +86,7 @@ def test_race_condition_1(use_llvm):
 
     df1 = sim1.model.historian_df
 
-    m2 = Model(s2, use_llvm=True)
+    m2 = Model(s2, use_llvm=use_llvm)
     sim2 = Simulation(m2, num=500, max_step=dt)
     sim2.solve()
     df2 = sim2.model.historian_df
