@@ -268,17 +268,14 @@ def generate_numerous_engine_solver_model(model: Model) -> (NumerousEngineModel,
     time_event_actions = model.generate_event_action_ast(model.timestamp_events)
 
     # Extract time events
-    time_stamped_events_ = [(event_ix, event.timestamps) for event_ix, event in enumerate(model.timestamp_events) if
+
+    time_stamped_events = [(event_ix, event.timestamps) for event_ix, event in enumerate(model.timestamp_events) if
                            event.timestamps]
+
+    time_stamped_events = numpy_fill_array(time_stamped_events)
+
     periodic_time_events = [(event_ix, event.periodicity) for event_ix, event in enumerate(model.timestamp_events) if
                             event.periodicity]
-
-
-    time_stamped_events = []
-    time_stamps = [time_stamp for _, time_stamp in time_stamped_events_]
-    time_stamped_events__ = numpy_fill_array(time_stamps)
-    for event, time_stamp_ in zip(time_stamped_events_, time_stamped_events__):
-        time_stamped_events.append((event[0], time_stamp_))
 
     if len(time_stamped_events) == 0:
         time_stamped_events = [(-1, np.array([-1.0]))]
@@ -294,16 +291,22 @@ def generate_numerous_engine_solver_model(model: Model) -> (NumerousEngineModel,
 
     return numerous_engine_model, numerous_event_handler
 
-def numpy_fill_array(data):
+
+def numpy_fill_array(data: list[tuple]) -> list[tuple]:
     if len(data) == 0:
         return data
+    data_ = [d[1] for d in data]
     # Get lengths of each row of data
-    lens = np.array([len(i) for i in data])
+    lens = np.array([len(i) for i in data_])
 
     # Mask of valid places in each row
     mask = np.arange(max(lens)) < lens[:, None]
 
     # Setup output array and put elements from data into masked positions
     out = np.ones(mask.shape, dtype='float') * -1
-    out[mask] = np.concatenate(data)
-    return out
+    out[mask] = np.concatenate(data_)
+    data_out = data
+    for ix, (event_ix, _) in enumerate(data):
+        data_out[ix] = (event_ix, out[ix])
+
+    return data_out
