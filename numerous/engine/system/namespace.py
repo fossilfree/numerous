@@ -1,6 +1,8 @@
 import logging
 import uuid
 import deprecation
+
+from numerous.multiphysics import EquationBase
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.variables import Variable, VariableDescription, _VariableFactory, SetOfVariables
 
@@ -29,7 +31,7 @@ class VariableNamespaceBase:
         self.variables = _DictWrapper(self.__dict__, Variable)
         self.variable_scope = [self.variables]
         self.registered = False
-        self.part_of_set=False
+        self.part_of_set = False
         ## if it is part of set it will be ignored during assembly.
         # print('creating ns with tag: ',tag)
 
@@ -134,31 +136,51 @@ class VariableNamespaceBase:
     def clear_equations(self):
         self.associated_equations = {}
 
-    def add_equations(self, list_of_equations, update_bindings=True, create_variables=True, set_equation=False):
+    def add_equations(self, list_of_equations: list[EquationBase], update_bindings: bool = True,
+                      create_variables: bool = True, set_equation: bool = False):
         """
         Adding a list of equations to namespace. Each equation in the list is parsed and all
          required variables are created and registered in the namespace.
 
-        Parameters
+         Parameters
         ----------
-        list_of_equations: list of 'Equation'
-            list of equations to be added
-
-        update_bindings: bool
-            if True creates and register a binding variables in all bindings associated with item
+        list_of_equations : list of 'EquationBase'
+            List of the equations to be added to the namespace.
+        update_bindings : bool, optional
+             if True creates and register a binding variables in all bindings associated with item
              that namespace is created in.
+        create_variables : bool, optional
+            Create variables defined in the 'EquationBase' inside namespace, by default True
+        set_equation : bool, optional
+            Only used when registering set of items, by default False
+        """
+        for eq in list_of_equations:
+            self.add_equation(eq, update_bindings, create_variables, set_equation)
 
-
+    def add_equation(self, equation: EquationBase, update_bindings: bool = True, create_variables: bool = True,
+                     set_equation: bool = False):
+        """
+        Add an equation to a namespace.
+        Parameters
+          ----------
+        equation : 'EquationBase'
+            The equation to add to the namespace.
+        update_bindings : bool, optional
+             if True creates and register a binding variables in all bindings associated with item
+             that namespace is created in.
+        create_variables : bool, optional
+            Create variables defined in the 'EquationBase' inside namespace, by default True
+        set_equation : bool, optional
+            Only used when registering set of items, by default False
         """
         if update_bindings and self.is_connector:
-            self.item.update_bindings(list_of_equations, self.tag)
+            self.item.update_bindings([equation], self.tag)
 
-        for eq in list_of_equations:
-            if create_variables:
-                any(self.create_variable_from_desc(variable_description)
-                    for variable_description in eq.variables_descriptions)
-            eq.set_equation = set_equation
-            self.associated_equations.update({eq.tag: eq})
+        if create_variables:
+            any(self.create_variable_from_desc(variable_description)
+                for variable_description in equation.variables_descriptions)
+            equation.set_equation = set_equation
+            self.associated_equations.update({equation.tag: equation})
 
 
 class VariableNamespace(VariableNamespaceBase):
@@ -187,7 +209,7 @@ class SetNamespace(VariableNamespace):
         flat_variables = []
         for set_of_variables in self.set_variables.values():
             flat_variables.append(set_of_variables)
-        return  flat_variables
+        return flat_variables
 
 
 class _BindingVariable(Variable):

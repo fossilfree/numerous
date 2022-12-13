@@ -15,7 +15,7 @@ class Item1(Item, EquationBase):
         self.add_parameter('P', 0)
         self.add_constant('o', omega)
         self.add_constant('a', amplitude)
-        self.t1.add_equations([self])
+        self.t1.add_equation(self)
 
     @Equation()
     def eval(self, scope):
@@ -47,7 +47,7 @@ class Item2(Item, EquationBase):
         self.add_constant('a', amplitude)
         self.add_constant('o', omega)
         self.add_parameter('P', 0)
-        self.t1.add_equations([self])
+        self.t1.add_equation(self)
 
     @Equation()
     def eval(self, scope):
