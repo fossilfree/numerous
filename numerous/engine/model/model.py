@@ -2,8 +2,7 @@ import itertools
 import os
 import pickle
 import sys
-from numba.typed import List
-
+from typing import Optional, Callable
 from ctypes import CFUNCTYPE, c_int64, POINTER, c_double, c_void_p
 
 import numpy as np
@@ -619,7 +618,23 @@ class Model:
         event = NumerousEvent(key, condition, action, compiled, terminal, direction)
         self.events.append(event)
 
-    def add_timestamp_event(self, key, action, timestamps=None, periodicity=None):
+    def add_timestamp_event(self, key: str, action: Callable[[float, dict[str, float]], None],
+                            timestamps: Optional[list] = None, periodicity: Optional[float] = None):
+        """
+        Method for adding time stamped events, that can trigger at a specific time, either given as an explicit list of
+        timestamps, or a periodic trigger time. A time event must be associated with a time event action function with
+        the signature (t, variables).
+
+        :param key: A name for the event
+        :type key: str
+        :param action: callable with signature (t, variables)
+        :type action: Callable[[float, dict[str, float]]
+        :param timestamps: an optional list of timestamps
+        :type timestamps: Optional[list]
+        :param periodicity: an optional time value for which the event action function is triggered at each multiple of
+        :type periodicity: Optional[float]
+
+        """
         action = _replace_path_strings(self, action, "var")
         event = TimestampEvent(key, action, timestamps, periodicity)
         self.timestamp_events.append(event)
