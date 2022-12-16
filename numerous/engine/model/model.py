@@ -289,7 +289,7 @@ class Model:
 
         self.mappings_graph = Graph(preallocate_items=1000000)
 
-        nodes_dep = {}
+
         self.equations_parsed = {}
 
         log.info('Parsing equations starting')
