@@ -19,67 +19,103 @@ def tab_str(tabs, text):
     return "".join(tabs + [text])
 
 
-def process_module_items(module: Module, path):
-
+def process_module_items(module: Module|ModuleSpec, path, tabs):
+    _logger.info(f'process module: {module}')
     for scope_name, scope in module.scopes.items():
-        scope_path = tuple(path+(scope_name,))
-        for var_name, variable in scope.variables.items():
+        scope_path = path+(scope_name,)
+        _logger.info(f'process scope: {scope}')
 
-            variable.path = scope_path + (var_name,)
+        for var_name, variable in scope.variables.items():
+            _logger.info(f"Path for {variable}")
+            if variable.path is None:
+                #sdfsfd=dsfsdfdfg
+                variable.path = scope_path + (var_name,)
+
+                _logger.info(f"Setting path of {path_str(variable.path)}")
+            else:
+                _logger.info(f"Already have path: {path_str(variable.path)}")
+                _logger.info(f"Wanted to set {path_str(scope_path + (var_name,))}")
+
+
 
     if hasattr(module,"module_spec") and module.module_spec:
-        process_module_items(module.module_spec, path)
+        _logger.info(f"Setting path for 'spec' {path_str(path)}")
+        process_module_items(module.module_spec, path, tabs)
 
     for itemsspec_name, itemsspec in module.items_specs.items():
-        items_path = tuple(path+(itemsspec_name,))
-        print(path_str(items_path))
-        for sub_module_name, sub_module in itemsspec.get_modules().items():
-            module_path = tuple(items_path+(sub_module_name,))
+        items_path = path+(itemsspec_name,)
+        _logger.info(f"Processing {path_str(items_path)}, {itemsspec}")
+        _logger.info(f"{itemsspec._modules.items()}")
+        for sub_module_name, sub_module in itemsspec._modules.items():
+            module_path = items_path+(sub_module_name,)
+            _logger.info(f"Setting path for {path_str(module_path)}, {sub_module}")
 
-            process_module_items(sub_module, module_path)
+            process_module_items(sub_module, module_path, tabs)
 
-def process_module_connections(module: Module):
+def process_module_connections(module_path: tuple[str], module: Module, tabs):
     all_connections = []
-    with create_mappings() as mappings:
-        for connection_set_name, connection_set in module.connection_sets.items():
-            # Check all connections
-            for connection in connection_set.connections:
-                for side1_name, side1, side2_name, side2, direction in connection.channels:
-                    to_ = side1 if direction == Directions.GET else side2
-                    from_ = side2 if direction == Directions.GET else side1
+    _logger.info(tabs+f"Processing connections of module {path_str(module_path)}")
+    for connection_set_name, connection_set in module.connection_sets.items():
+        # Check all connections
+        for connection in connection_set.connections:
+            _logger.info(tabs + f"Processing connection {connection}")
 
-                    if isinstance(to_, (ModuleSpec,)) and isinstance(from_, (ModuleSpec,)) and from_.assigned_to:
-                        to_.assigned_to = from_.assigned_to
+            for side1_name, side1, side2_name, side2, direction in connection.channels:
+                to_ = side1 if direction == Directions.GET else side2
+                from_ = side2 if direction == Directions.GET else side1
+                _logger.info(tabs + f"{side1_name} <<>> {side2_name}")
+                if isinstance(to_, (ModuleSpec,)) and isinstance(from_, (ModuleSpec,)) and from_.assigned_to:
+                    to_.assigned_to = from_.assigned_to
 
-                    elif isinstance(from_, Variable) and isinstance(to_, Variable):
-                        to_.add_sum_mapping(from_)
-                    else:
-                        raise TypeError('!')
+                elif isinstance(from_, Variable) and isinstance(to_, Variable):
+                    to_.add_sum_mapping(from_)
+                else:
+                    raise TypeError('!')
 
-def process_mappings(module: Module, path, objects):
+    for itemsspec_name, itemsspec in module.items_specs.items():
+        items_path = module_path+(itemsspec_name,)
+        for sub_module_name, sub_module in itemsspec.get_modules(include_specs=True, ignore_not_assigned=True).items():
+            sub_module_path = items_path + (sub_module_name,)
+
+            process_module_connections(sub_module_path, sub_module, tabs+"\t")
+
+def process_mappings(module: Module|ModuleSpec, path, objects, tabs, spec=False):
+    _logger.info(f"Process for {path_str(path)} - spec: {spec}")
 
     for scope_name, scope in module.scopes.items():
 
         for variable_name, variable in scope.variables.items():
+            #_logger.info(tabs+f"Mappings for {path_str(path+(scope_name, variable_name))}")
+            var_path = path_str(variable.path)
+            #_logger.info(f"Process mappings for {var_path}")
 
             for mapping in variable.mappings:
+                #_logger.info(f"Process mapping {mapping[1]}")
+
+
+                if mapping[1].path is None:
+                    _logger.info(tabs + f"{var_path} << ?")
+                map_path = path_str(mapping[1].path)
+                _logger.info(tabs+f"{var_path} << {map_path}")
 
                 var = objects[variable.path].native_ref
                 mapping_var = objects[mapping[1].path].native_ref
 
                 var.add_sum_mapping(mapping_var)
 
-                ...
-
     if isinstance(module, Module) and module.module_spec:
-        process_mappings(module.module_spec, path, objects)
+
+        process_mappings(module.module_spec, path, objects, tabs, spec=True)
 
     for itemsspec_name, itemsspec in module.items_specs.items():
-        items_path = tuple(path+(itemsspec_name,))
-        for sub_module_name, sub_module in itemsspec.get_modules(include_specs=False, ignore_not_assigned=True).items():
-            sub_module_path = tuple(items_path + (sub_module_name,))
+        items_path = path+(itemsspec_name,)
+        for sub_module_name, sub_module in itemsspec._modules.items():
 
-            process_mappings(sub_module, sub_module_path, objects)
+            sub_module_path = items_path + (sub_module_name,)
+
+            #_logger.info(f"Process mappings for {sub_module_path}")
+
+            process_mappings(sub_module, sub_module_path, objects, tabs+"\t")
 
 
 
@@ -166,31 +202,32 @@ def create_equation(system, name, equation_specifications):
 
     return equation
 
-def generate_system(name:str, module: Module, tabs=None):
+def generate_system(name:str, module: Module):
 
     objects = {}
     path = (name,)
     processed_modules = []
 
-    if tabs is None:
-        tabs = []
-
-
-    tabs_int = tabs + ["\t"]
+    tabs = ""
 
     # Process connections - this ensures all modules are updated through connectors, before check of items specs assignments are complete.
-    process_module_connections(module)
+    _logger.info("Processing model connections")
+
+    process_module_connections(path, module, tabs+"\t")
 
     # Process items specs - create system hierarchy
-    process_module_items(module, path)
+    _logger.info("Processing model items")
+
+    process_module_items(module, path, tabs)
+
+    _logger.info("Generating numerous engine system")
 
     system = generate_subsystem(name, module, processed_modules, path, objects)
 
     # Process mappings - finally loop to ensure all mappings are in place
-    process_mappings(module, path, objects)
+    _logger.info("Processing model mappings")
+    process_mappings(module, path, objects, tabs)
 
-    print(objects)
-
-    _logger.debug(tab_str(tabs, f'completed generation of system <{name}>'))
+    _logger.info(f'completed generation of system from model.')
 
     return system

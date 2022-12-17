@@ -59,8 +59,12 @@ def Conductor(ThermalMass):
         items = Items()
 
         # Map side1_ variables to side 1 item
+
+        #This mapping will only be found in module spec on this module
         items.side1.variables.P += variables.side1_P
+        #This mapping will be found in both module and module spec
         variables.side1_T = items.side1.variables.T
+
         # Map side2_ variables to side 2 item
         items.side2.variables.P += variables.side2_P
         variables.side2_T = items.side2.variables.T
@@ -116,10 +120,11 @@ def ThermalRelaxation(ThermalMass, ThermalReservoir):
 
         items = Items()
 
-        items.reservoir.connector.connect_reversed(
-            T=items.mass.variables.T,
-            P=items.mass.variables.P
-        )
+        with create_connections() as connections:
+            items.reservoir.connector.connect_reversed(
+                T=items.mass.variables.T,
+                P=items.mass.variables.P
+            )
 
         def __init__(self, T=0):
             super(ThermalRelaxation, self).__init__()
@@ -144,6 +149,7 @@ def ConnectedVolumes(ThermalMass, Conductor):
             self.items.tm1 = ThermalMass(T=T1)
             self.items.tm2 = ThermalMass(T=T2)
             self.items.conductor = Conductor(side1=self.items.tm1, side2=self.items.tm2)
+            ...
 
     return ConnectedVolumes
 
@@ -267,7 +273,11 @@ def ForwardMultipleLinkedMasses(MultipleLinkedMasses):
             self.items.fmlm = MultipleLinkedMasses(T_left=T_left, T_middle=T_middle, T_right=T_right)
     return ForwardMultipleLinkedMasses
 
-
+def test_conductor_mappings(Conductor, ThermalMass):
+    tm = ThermalMass(T=10)
+    tm2 = ThermalMass(T=20)
+    conductor  = Conductor(tm, tm2)
+    ...
 
 def test_connected_volumes(ConnectedVolumes):
 
@@ -309,7 +319,7 @@ def test_connectors(ThermalRelaxation):
     T=10
     test_system = ThermalRelaxation(T)
 
-    system = generate_subsystem('system', test_system)
+    system = generate_system('system', test_system)
 
     from numerous.engine import simulation
     from numerous.engine import model
@@ -340,7 +350,7 @@ def test_forwarded_reservoirs(ConnectForwardedReservoirs):
 
     test_system = ConnectForwardedReservoirs(T0, T1, T2)
 
-    system = generate_subsystem('system', test_system)
+    system = generate_system('system', test_system)
 
     from numerous.engine import simulation
     from numerous.engine import model
@@ -369,7 +379,7 @@ def test_fowarded_connector(ForwardedThermalRelaxation):
     T = 10
     test_system = ForwardedThermalRelaxation(T=T)
 
-    system = generate_subsystem('system', test_system)
+    system = generate_system('system', test_system)
 
     from numerous.engine import simulation
     from numerous.engine import model
@@ -399,7 +409,7 @@ def test_forwarded_reverse_connectors(ForwardModuleWithReverseConnections):
 
     test_system = ForwardModuleWithReverseConnections(T1=T1, T2=T2)
 
-    system = generate_subsystem('system', test_system)
+    system = generate_system('system', test_system)
 
     from numerous.engine import simulation
     from numerous.engine import model
@@ -431,7 +441,7 @@ def test_multiple_linked(MultipleLinkedMasses):
 
     test_system = MultipleLinkedMasses(T_left=T_left, T_middle=T_middle, T_right=T_right)
 
-    system = generate_subsystem('system', test_system)
+    system = generate_system('system', test_system)
 
     from numerous.engine import simulation
     from numerous.engine import model
@@ -466,7 +476,7 @@ def test_forwarded_multiple_linked(ForwardMultipleLinkedMasses):
 
 
 
-    system = generate_subsystem('system', test_system)
+    system = generate_system('system', test_system)
 
 
 

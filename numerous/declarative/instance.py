@@ -47,20 +47,25 @@ def get_class_vars(obj, class_var_type:tuple[type], _handle_annotations=None):
 
 class Class:
     _is_instance:bool = False
+    _from: list
+    _context: dict[str:object]
 
     def __init__(self):
         self._id = str(uuid.uuid4())
+        self._from = []
+        self._context = None
 
     def instance(self, context):
-
-
 
         if self._id in context:
             return context[self._id]
         else:
             instance_ = self._instance_recursive(context)
             instance_._is_instance = True
+            instance_._from = self._from + [self]
             context[self._id] = instance_
+            instance_._context = context
+            #instance_._id = self._id
             return instance_
 
     def _instance_recursive(self, context:dict):

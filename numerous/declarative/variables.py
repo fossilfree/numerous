@@ -13,6 +13,7 @@ class Variable(Class, VariableInterface):
     _mappings:list[tuple[MappingTypes, VariableInterface]] = []
     signal: Signal
     value: float
+    path: tuple[str] = None
 
     def __init__(self, value=None, signal: Signal = Signal(physical_quantity=PhysicalQuantities.Default, unit=Units.NA)):
         Class.__init__(self)
@@ -32,9 +33,11 @@ class Variable(Class, VariableInterface):
 
     def __add__(self, other):
         self.add_sum_mapping(other)
+        return self
 
     def _instance_recursive(self, context):
-        instance = Variable()
+        instance = self.__class__()
+        instance._context = context
         instance.set_mappings([(v[0], v[1].instance(context)) for v in self._mappings])
         instance.value = self.value
         instance.signal = self.signal
