@@ -1,5 +1,5 @@
-from numerous.declarative import ItemsSpec, Module, ModuleSpec, ScopeSpec, Parameter, Connector, EquationSpec, create_connections, get_value_for, set_value_from
-
+from numerous.declarative import ItemsSpec, Module, ScopeSpec, Parameter, Connector, equation, get_value_for, set_value_from
+from numerous.declarative.module import ModuleSpec
 
 import pytest
 
@@ -27,10 +27,10 @@ def TestModule():
             var1=get_value_for(variables.var2)
         )
 
-        with create_connections() as connections:
-            connector.connect(connector2)
+        #with create_connections() as connections:
+        connector.connect(connector2)
 
-        @EquationSpec(variables)
+        @equation(variables)
         def eq(self, scope:Variables):
             scope.var1 = 1.0
 
@@ -44,7 +44,7 @@ def test_module(TestModule):
     assert isinstance(test_module, Module)
 
     assert isinstance(test_module.items.a, ModuleSpec)
-    assert TestModule.connector.get_connection().side2 == TestModule.connector2
+    assert TestModule.connector.connection[0] is TestModule.connector2
 
     assert TestModule.variables != test_module.variables
     assert TestModule.connector != test_module.connector
@@ -59,6 +59,6 @@ def test_module(TestModule):
     assert test_module.variables.var1 == test_module.connector.var1
 
 
-    assert test_module.variables.var1.get_path(test_module) == test_module.connector.var1.get_path(test_module)
+    assert test_module.variables.var1 is test_module.connector.var1
 
 

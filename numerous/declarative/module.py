@@ -1,71 +1,18 @@
 import uuid
-
-from .interfaces import ModuleSpecInterface, ScopeSpecInterface, ItemsSpecInterface, ModuleInterface, ConnectorInterface, ModuleConnectionsInterface
-from .mappings import ModuleMappings, create_mappings
-from numerous.declarative.context_managers import _active_mappings
-from .clonable_interfaces import ClassVarSpec, get_class_vars, Clonable, ParentReference
-from .variables import Variable
-from .utils import recursive_get_attr, RegisterHelper
-
+from .interfaces import ModuleSpecInterface, ModuleInterface, ItemsSpecInterface, ConnectorInterface, ModuleConnectionsInterface, ScopeSpecInterface
+from .instance import get_class_vars, Class
 from .context_managers import _active_subsystem, NoManagerContextActiveException
+from .connector import ModuleConnections
 
-class ModuleSpec(ModuleSpecInterface, ClassVarSpec):
-    _assigned_to: ModuleInterface = None
-
-    def __init__(self):
-
-        super(ModuleSpec, self).__init__(clone_refs=True)
-
-    @classmethod
-    def from_module(cls, module:ModuleInterface):
-        module_vars = get_class_vars(module, (ScopeSpecInterface, ItemsSpecInterface, ModuleConnectionsInterface, ConnectorInterface, ModuleMappings))
-        module_spec = cls()
-        module_spec.configure_clone(module_spec, module_vars, do_clone=True)
-        return module_spec
-
-    def get_path(self, host):
-        if self._assigned_to:
-            return self._assigned_to.get_path(host)
-        else:
-            return super(ModuleSpec, self).get_path(host)
-    
-    def clone(self):
-        clone = super(ModuleSpec, self).clone()
-        clone._assigned_to = self._assigned_to
-
-        return clone
-
-    def get_connection_sets(self):
-
-        return self.get_references_of_type(ModuleConnectionsInterface)
-
-    def get_scope_specs(self):
-
-        return self.get_references_of_type(ScopeSpecInterface)
-
-    def get_items_specs(self):
-
-        return self.get_references_of_type(ItemsSpecInterface)
-
-    @property
-    def assigned_to(self):
-        return self._assigned_to
-
-    @assigned_to.setter
-    def assigned_to(self, val):
-        self._assigned_to = val
-
-class AutoItemsSpec(Clonable, ItemsSpecInterface):
+class AutoItemsSpec(Class, ItemsSpecInterface):
 
     def __init__(self, modules:list):
         counter = 0
         for module in modules:
-            if not module.tag:
+            if not hasattr(module, 'tag') or not module.tag:
                 module.tag = "unnamed_"+str(counter)
                 counter+=1
         self.modules = {module.tag: module for module in modules}
-    def get_modules(self, check=False):
-        return self.modules
 
     def remove_non_orphants(self):
 
@@ -74,7 +21,6 @@ class AutoItemsSpec(Clonable, ItemsSpecInterface):
         for name, module in self.modules.items():
             if module._parent is None:
                 orphants[name] = module
-                module.set_parent(ParentReference(self, name))
                 setattr(self, name, module)
         self.modules = orphants
 
@@ -84,14 +30,52 @@ def local(tag, mod: ModuleInterface):
 
     return mod
 
-class Module(ModuleInterface, ClassVarSpec):
+class ModuleSpec(Class, ModuleSpecInterface):
+    assigned_to: ModuleInterface|None = None
+    def __init__(self, items:dict):
+        super(ModuleSpec, self).__init__()
+        self._items = items
+        for k, v in self._items.items():
+            setattr(self, k, v)
 
-    _initialized = False
-    _processed = False
+    @classmethod
+    def from_module_cls(cls, module):
+        items = get_class_vars(module, (Class,))
+        context = {}
+        module_spec = cls({k: v.instance(context) for k, v in items.items()})
+        return module_spec
 
-    tag: None
+    def _instance_recursive(self, context:dict):
+        instance = ModuleSpec({k: v.instance(context) for k, v in self._items.items()})
 
+        return instance
+
+    @property
+    def scopes(self):
+        return self._items_of_type(ScopeSpecInterface)
+
+    @property
+    def items_specs(self):
+        return self._items_of_type(ItemsSpecInterface)
+
+class RegisterHelper:
+
+    def __init__(self):
+        self._items = {}
+
+    def register_item(self, item):
+        #if item.tag in self._items:
+        #    raise DuplicateItemError(f"An item with tag {item.tag} already registered.")
+        self._items[str(uuid.uuid4())] = item
+
+    def get_items(self):
+        return self._items
+
+
+class Module(ModuleInterface, Class):
+    module_spec: ModuleSpec|None = None
     def __new__(cls, *args, **kwargs):
+
         parent_module = _active_subsystem.get_active_manager_context(ignore_no_context=True)
         register_helper = RegisterHelper()
 
@@ -102,90 +86,67 @@ class Module(ModuleInterface, ClassVarSpec):
 
         def wrap(self, *args, **kwargs):
 
-            #Call original init
-
-            parent_mappings = _active_mappings.get_active_manager_context(ignore_no_context=True)
-            _active_mappings.clear_active_manager_context(parent_mappings)
-
-            with create_mappings() as internal_mappings:
-                org_init(self, *args, **kwargs)
-
-            _active_mappings.set_active_manager_context(parent_mappings)
-
-            self.add_reference("internal_mappings", internal_mappings)
-
-            cls.__init__ = org_init
+            org_init(self, *args, **kwargs)
             _active_subsystem.clear_active_manager_context(register_helper)
             _active_subsystem.set_active_manager_context(parent_module)
 
             if isinstance(parent_module, RegisterHelper):
+
                 parent_module.register_item(self)
 
-            _auto_modules = []
-            for module in register_helper.get_items().values():
-                if module._parent is None:
-                    _auto_modules.append(module)
-            self._auto_modules = AutoItemsSpec(_auto_modules)
-            #if len(_auto_modules)>0:
+            #_auto_modules = []
+            #for module in register_helper.get_items().values():
+                #if module._parent is None:
+            #    _auto_modules.append(module)
 
-            self.add_reference('unbound', self._auto_modules)
+            #self._auto_modules = AutoItemsSpec(_auto_modules)
+
+            cls.__init__ = org_init
 
         cls.__init__ = wrap
 
-        instance = object.__new__(cls)
+        instance = Class.__new__(cls)
 
         return instance
 
     def __init__(self):
-        self.tag = None
-        _class_var_type = (ScopeSpecInterface, ItemsSpecInterface, ModuleConnectionsInterface, ConnectorInterface, ModuleMappings)
+        super(Module, self).__init__()
+        vars = get_class_vars(self, (Class,))
+
+        context = {}
+
+        self._items = {}
+
+        for k, v in vars.items():
+            instance =  v.instance(context)
+            setattr(self, k, instance)
+            self._items[k] = instance
 
 
 
-        if not self.__class__._initialized:
-            get_class_vars(self.__class__, _class_var_type)
-            self.__class__._initialized = True
+    @property
+    def connectors(self):
+        return self._items_of_type(ConnectorInterface)
 
-        super(Module, self).__init__(class_var_type=_class_var_type)
 
-    def set_tag(self, tag):
-        self.tag = tag
+    @property
+    def items_specs(self):
+        return self._items_of_type(ItemsSpecInterface)
 
-    def get_scope_specs(self):
+    @property
+    def connection_sets(self):
+        #connection_sets = {k: v for k, v in self.__class__.__dict__.items() if isinstance(v, ModuleConnections)}
+        connection_sets = {k: v for k, v in self.__dict__.items() if isinstance(v, ModuleConnections)}
 
-        return self.get_references_of_type(ScopeSpecInterface)
+        return connection_sets
 
-    def get_items_specs(self):
-        items_specs = self.get_references_of_type(ItemsSpecInterface)
-        return items_specs
+    @property
+    def scopes(self):
+        return self._items_of_type(ScopeSpecInterface)
 
-    def get_connection_sets(self):
-
-        return self.get_references_of_type(ModuleConnectionsInterface)
-
-    def get_mappings(self):
-
-        return self.get_references_of_type(ModuleMappings)
-
-    @classmethod
-    def merge(cls, current: dict, update: dict, types: tuple):
-        #return super(Module, cls).merge(current, update)
-        for k, v in update.items():
-            if isinstance(v, ScopeSpecInterface):
-                if k in current:
-                    for e in current[k].equations:
-                        if e not in v.equations:
-                            v.equations.append(e)
-                current[k] = v
-
-            elif isinstance(v, types):
-                current[k] = v
+def handler(annotation):
+    return ModuleSpec.from_module_cls(annotation)
 
 
 
-        return current
-class BoundValues:
 
-    def __init__(self, **kwargs):
-
-        self.bound_values = kwargs

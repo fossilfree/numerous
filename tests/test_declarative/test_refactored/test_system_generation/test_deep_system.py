@@ -1,10 +1,9 @@
-from numerous.declarative import ItemsSpec, Module, ModuleSpec, ScopeSpec, Parameter, Connector, EquationSpec, local
+from numerous.declarative import ItemsSpec, Module, ScopeSpec, Parameter, Connector, equation, create_connections
 from numerous.declarative.variables import State, Parameter, Constant
 from numerous.declarative.connector import get_value_for, set_value_from
-from numerous.declarative.generate_system import generate_system
-from numerous.declarative.mappings import create_mappings
-from numerous.declarative.connector import create_connections
+from numerous.declarative.module import ModuleSpec
 from numerous.declarative.debug_utils import print_all_variables
+from numerous.declarative.generator import generate_system
 
 import logging
 import pytest
@@ -22,7 +21,7 @@ def ThermalMass():
 
         variables = Variables()
 
-        @EquationSpec(variables)
+        @equation(variables)
         def eq(self, scope: Variables):
             scope.T_dot = 0.001 * scope.P
 
@@ -59,13 +58,12 @@ def Conductor(ThermalMass):
 
         items = Items()
 
-        with create_mappings() as mappings:
-            # Map side1_ variables to side 1 item
-            items.side1.variables.P += variables.side1_P
-            variables.side1_T = items.side1.variables.T
-            # Map side2_ variables to side 2 item
-            items.side2.variables.P += variables.side2_P
-            variables.side2_T = items.side2.variables.T
+        # Map side1_ variables to side 1 item
+        items.side1.variables.P += variables.side1_P
+        variables.side1_T = items.side1.variables.T
+        # Map side2_ variables to side 2 item
+        items.side2.variables.P += variables.side2_P
+        variables.side2_T = items.side2.variables.T
 
         def __init__(self, side1: ThermalMass, side2: ThermalMass):
             super(Conductor, self).__init__()
@@ -75,7 +73,7 @@ def Conductor(ThermalMass):
             self.items.side2 = side2
 
 
-        @EquationSpec(variables)
+        @equation(variables)
         def diff(self, scope: Variables):
             P = (scope.side1_T - scope.side2_T) * 100
             scope.side1_P = -P
@@ -99,7 +97,7 @@ def ThermalReservoir():
             P=set_value_from(variables.P)
         )
 
-        @EquationSpec(variables)
+        @equation(variables)
         def eq(self, scope: Variables):
             scope.P = (scope.T - scope.T_inlet) * scope.h
 
@@ -118,11 +116,10 @@ def ThermalRelaxation(ThermalMass, ThermalReservoir):
 
         items = Items()
 
-        with create_connections() as connections:
-            items.reservoir.connector.connect_reversed(
-                T=items.mass.variables.T,
-                P=items.mass.variables.P
-            )
+        items.reservoir.connector.connect_reversed(
+            T=items.mass.variables.T,
+            P=items.mass.variables.P
+        )
 
         def __init__(self, T=0):
             super(ThermalRelaxation, self).__init__()
@@ -192,7 +189,6 @@ def ConnectForwardedReservoirs(ThermalMass, ForwardReservoir):
             fr2: ForwardReservoir
 
         items = Items()
-
         with create_connections() as connections:
             items.fr1.connector.connect_reversed(
                 T=items.tm1.variables.T,
@@ -313,7 +309,7 @@ def test_connectors(ThermalRelaxation):
     T=10
     test_system = ThermalRelaxation(T)
 
-    system = generate_system('system', test_system)
+    system = generate_subsystem('system', test_system)
 
     from numerous.engine import simulation
     from numerous.engine import model
@@ -344,7 +340,7 @@ def test_forwarded_reservoirs(ConnectForwardedReservoirs):
 
     test_system = ConnectForwardedReservoirs(T0, T1, T2)
 
-    system = generate_system('system', test_system)
+    system = generate_subsystem('system', test_system)
 
     from numerous.engine import simulation
     from numerous.engine import model
@@ -373,7 +369,7 @@ def test_fowarded_connector(ForwardedThermalRelaxation):
     T = 10
     test_system = ForwardedThermalRelaxation(T=T)
 
-    system = generate_system('system', test_system)
+    system = generate_subsystem('system', test_system)
 
     from numerous.engine import simulation
     from numerous.engine import model
@@ -403,7 +399,7 @@ def test_forwarded_reverse_connectors(ForwardModuleWithReverseConnections):
 
     test_system = ForwardModuleWithReverseConnections(T1=T1, T2=T2)
 
-    system = generate_system('system', test_system)
+    system = generate_subsystem('system', test_system)
 
     from numerous.engine import simulation
     from numerous.engine import model
@@ -435,7 +431,7 @@ def test_multiple_linked(MultipleLinkedMasses):
 
     test_system = MultipleLinkedMasses(T_left=T_left, T_middle=T_middle, T_right=T_right)
 
-    system = generate_system('system', test_system)
+    system = generate_subsystem('system', test_system)
 
     from numerous.engine import simulation
     from numerous.engine import model
@@ -470,7 +466,7 @@ def test_forwarded_multiple_linked(ForwardMultipleLinkedMasses):
 
 
 
-    system = generate_system('system', test_system)
+    system = generate_subsystem('system', test_system)
 
 
 

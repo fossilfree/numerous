@@ -1,10 +1,8 @@
 import pytest
-from numerous.declarative import ItemsSpec, Module, ModuleSpec, ScopeSpec, Parameter, Connector, EquationSpec, local
+from numerous.declarative import ItemsSpec, Module, ScopeSpec, Parameter, Connector, equation
+from numerous.declarative.module import ModuleSpec
 from numerous.declarative.variables import State, Parameter, Constant
 from numerous.declarative.connector import get_value_for, set_value_from
-from numerous.declarative.generate_system import generate_system
-from numerous.declarative.mappings import create_mappings
-from numerous.declarative.connector import create_connections
 from numerous.declarative.debug_utils import print_all_variables
 
 @pytest.fixture
@@ -17,7 +15,7 @@ def ThermalMass():
 
         variables = Variables()
 
-        @EquationSpec(variables)
+        @equation(variables)
         def eq(self, scope: Variables):
             scope.T_dot = 0.001 * scope.P
 
@@ -53,8 +51,7 @@ def ThermalMassConnectionAssign(ThermalMass, ThermalMassConnector):
 
         connector = Connector(tm=set_value_from(items.in_tm))
 
-        with create_connections() as connections:
-            connector >> items.tm_conn.connector
+        connector >> items.tm_conn.connector
 
         def __init__(self):
             super(ThermalMassConnectionAssign, self).__init__()

@@ -1,7 +1,7 @@
-from .scope import ScopeSpec
-from .module import ModuleSpec, Module, local, BoundValues
+from .connector import Connector, get_value_for, set_value_from, create_connections, ModuleConnections
+from .variables import Variable, Parameter
+from .scopespec import ScopeSpec
+from .module import Module
 from .items import ItemsSpec
-from .equations import EquationSpec
-from .variables import Parameter
-from .connector import Connector, set_value_from, get_value_for, create_connections, get_value_for, set_value_from
+from .equations import equation
 from .mappings import create_mappings

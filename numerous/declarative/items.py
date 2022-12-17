@@ -1,62 +1,71 @@
-from .interfaces import ItemsSpecInterface, ModuleSpecInterface, ModuleInterface
-from .clonable_interfaces import ClassVarSpec, ParentReference
-from .module import ModuleSpec, Module
-from .exceptions import ItemNotAssignedError, ItemAlreadyAssigned, ItemUndeclaredWarning
-import warnings
+from numerous.declarative.interfaces import ModuleInterface, ItemsSpecInterface, ModuleSpecInterface
+from numerous.declarative.instance import Class, get_class_vars
+from .module import handler
+from .exceptions import ItemNotAssignedError
+class ItemsSpec(Class, ItemsSpecInterface):
+    _modules: dict
 
+    def __init__(self, init=True):
+        super(ItemsSpec, self).__init__()
+        if init:
+            modules = get_class_vars(self, (ModuleInterface,), _handle_annotations=handler)
+            print(modules)
+            context = {}
 
-class ItemsSpec(ItemsSpecInterface, ClassVarSpec):
+            self._modules = {}
+            for k, v in modules.items():
+                instance = v.instance(context)
 
-    def __init__(self):
+                self._modules[k] = instance
+                setattr(self, k, instance)
 
-        super(ItemsSpec, self).__init__(class_var_type=ModuleInterface, handle_annotations=ModuleSpec.from_module)
+    def _instance_recursive(self, context):
 
-    def get_modules(self, check=True):
+        instance = ItemsSpec(init=False)
+        instance._modules = {k: m.instance(context) for k, m in self._modules.items()}
 
-        modules_and_specs = self.get_references_of_type((ModuleSpecInterface, ModuleInterface))
+        for name, module in instance._modules.items():
 
-        modules_self = {}
+            setattr(instance, name, module)
 
-        for k, v in modules_and_specs.items():
-            module = getattr(self, k)
+        return instance
 
-            #if v!= module:
-            #    modules_self[k+"_spec"] = v
+    def get_modules(self, include_specs=False, ignore_not_assigned=False):
+        if include_specs:
+            module_specs = self._items_of_type(ModuleSpecInterface)
 
-            if isinstance(module, Module):
-                ...
-            elif module._assigned_to is not None:
-                module = module.assigned_to
-            elif isinstance(module, ModuleSpec) and check:
-                raise ItemNotAssignedError(f"Found an item which has not been assigned to a module <{k}>.")
-            modules_self[k] = module
+            items = {}
+            not_assigned = {}
 
-        return modules_self
+            for name, module_spec in module_specs.items():
+                if module_spec.assigned_to:
+                    items[name] = module_spec.assigned_to
+                else:
+                    not_assigned[name] = module_spec
 
+            if not ignore_not_assigned and len(not_assigned) > 0:
+                raise ItemNotAssignedError(f"Items not assigned: {list(not_assigned.keys())}")
 
-    def __setattr__(self, key, value, add_ref=False):
-        if hasattr(self, key):
-            if isinstance(assigned_item:=getattr(self, key), (ModuleSpec,)) \
-                    and isinstance(value, (ModuleSpec, Module)):
-
-                assigned_item.assigned_to = value
-                if not value._parent:
-                    value.set_parent(ParentReference(self, key))
-            elif isinstance(getattr(self, key), (Module,)):
-                raise ItemAlreadyAssigned("The module has already been assigned.")
+            items.update(self._items_of_type(ModuleInterface))
         else:
-            if isinstance(value, (ModuleSpec, Module)) and not add_ref:
+            return self._items_of_type(ModuleInterface)
 
-                if not value._parent:
+        return items
 
-                    self.add_reference(key, value)
-                    value.set_parent(ParentReference(self, key))
+    @property
+    def modules(self):
 
-                    warnings.warn(f"Item {value._parent.attr} added dynamically.", ItemUndeclaredWarning)
+        return self.get_modules(include_specs=True)
+
+    def __setattr__(self, key, value):
+        if isinstance(value, ModuleInterface):
+            # TODO add checks on if assigned etc
+            value.module_spec = getattr(self, key)
+
+            self._modules[key].assigned_to = value
+
+            #check mappings and connections
+
 
 
         super(ItemsSpec, self).__setattr__(key, value)
-            
-
-
-

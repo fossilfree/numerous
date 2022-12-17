@@ -1,14 +1,16 @@
 from enum import Enum
-from .context_managers import _active_connections
-from .interfaces import ConnectorInterface, ModuleConnectionsInterface
-from .clonable_interfaces import ClassVarSpec, Clonable
-from .module import ModuleSpec
-from .variables import Variable
+
+from .instance import Class
+from .interfaces import ConnectorInterface, VariableInterface, ModuleInterface, ModuleSpecInterface, ModuleConnectionsInterface
 from .exceptions import AlreadyConnectedError
+from .context_managers import _active_connections
 
 class Directions(Enum):
     GET = 0
     SET = 1
+
+def reversed_direction(direction: Directions):
+    return Directions.SET if direction == Directions.GET else Directions.GET
 
 def get_value_for(object):
     """
@@ -24,32 +26,46 @@ def set_value_from(object):
     return object, Directions.SET
 
 
-class Connection():
+class Connection(Class):
     """
         A connection is respresenting two connectors connected
     """
 
     side1: ConnectorInterface
     side2: ConnectorInterface
-    map: dict
+    map: dict[str,str]
+    directions: dict[str:Directions]
+    processed: bool = False
 
-
-    def __init__(self, side1: ConnectorInterface, side2: ConnectorInterface, map: dict):
-        
+    def __init__(self, side1: ConnectorInterface, side2: ConnectorInterface, map: dict, directions: dict, init=True):
         super(Connection, self).__init__()
         # Remember, this is just sides - directions determined on channel level!
         """
             map: dictionary where the keys are channels on side1 and values are channels on side 2
         """
+        if init:
+            self.side1 = side1
+            self.side2 = side2
+            self.map = map
+            self.directions = directions
 
-        self.side1 = side1
-        self.side2 = side2
-        self.map = map
+            _active_connections.get_active_manager_context().register_connection(self)
 
-        _active_connections.get_active_manager_context().register_connection(self)
+    @property
+    def channels(self):
+        for k, v in self.map.items():
+            yield k, self.side1.channels[k][0], v, self.side2.channels[v][0], self.directions[k]
 
+    def _instance_recursive(self, context:dict):
+        instance = Connection(None, None, None, None, False)
+        instance.side1 = self.side1.instance(context)
+        instance.side2 = self.side2.instance(context)
+        instance.directions = self.directions
+        instance.map = self.map
 
-class ModuleConnections(ModuleConnectionsInterface, Clonable):
+        return instance
+
+class ModuleConnections(ModuleConnectionsInterface, Class):
     connections = []
 
     def __init__(self, *args):
@@ -65,21 +81,14 @@ class ModuleConnections(ModuleConnectionsInterface, Clonable):
     def __exit__(self, exc_type, exc_val, exc_tb):
         _active_connections.clear_active_manager_context(self)
 
-    def register_connection(self, connection: ConnectorInterface):
+    def register_connection(self, connection: Connection):
 
         self.connections.append(connection)
 
-    def set_host(self, host, attr):
-        if self._host is None:
-            self._host = host
-            self._host_attr = attr
-        else:
-            raise ValueError('!')
+    def _instance_recursive(self, context:dict):
+        instance = ModuleConnections(*(v.instance(context) for v in self.connections))
 
-    def clone(self):
-        clone = super(ModuleConnections, self).clone()
-        clone.connections = self.connections
-        return clone
+        return instance
 
 def create_connections():
     """
@@ -87,82 +96,74 @@ def create_connections():
     """
     return ModuleConnections()
 
-class Connector(ConnectorInterface, ClassVarSpec):
 
-    _channel_directions: dict = {}
-    _connection: Connection
+class Connector(Class, ConnectorInterface):
+    channels: dict[str:tuple[VariableInterface|ModuleInterface], Directions]
+    connection: Connection
+    optional: False
 
-    def __init__(self, **channels):
-        super(Connector, self).__init__(class_var_type=(ModuleSpec, Variable), set_parent_on_references=False)
-        self.set_references({k: c[0] for k, c in channels.items()})
-        self._channel_directions = {k: c[1] for k, c in channels.items()}
-        self._connection = None
+    def __init__(self, optional=False, **kwargs):
+        super(Connector, self).__init__()
+        self.channels = kwargs
+        self.connection = None
+        self.optional = optional
 
-    def get_channels(self):
-        return self.get_references_of_type((Variable, ModuleSpec))
 
-    @property
-    def channels(self):
-        return self.get_channels()
+        for k, v in self.channels.items():
+            if not isinstance(v, tuple):
+                raise TypeError("Did you miss a call to get_value_for or set_value_from")
+            setattr(self, k, v[0])
 
-    @property
-    def channel_directions(self):
-        return self._channel_directions
+    def _instance_recursive(self, context):
+        instance = Connector(**{k: (v[0].instance(context), v[1]) for k, v in self.channels.items()})
+        #instance.connection = Connection(self.connection.side1.instance(context), self.connection.side2, self.connection.map) if self.connection else None
+        instance.optional = self.optional
+        return instance
 
     def connect(self, other: ConnectorInterface, map: dict = None):
 
-        if self.get_connection():
+        if self.connection:
             raise AlreadyConnectedError()
 
         if map is None:
             map = {key: key for key in other.channels.keys()}
 
 
+        directions = {}
+
         # Check if all channels exist and have same signal and opposite direction
         for other_key, self_key in map.items():
-            assert isinstance(other.channels[other_key], (ModuleSpec,)) and isinstance(self.channels[self_key], (ModuleSpec,)) or \
-                   isinstance(other.channels[other_key], (Variable,)) and isinstance(self.channels[self_key], (Variable,)), \
-                f"Cannot connect channel different types {self.channels[self_key]} != {other.channels[other_key]}"
+            assert isinstance(other.channels[other_key][0], (ModuleInterface,ModuleSpecInterface)) and isinstance(self.channels[self_key][0], (ModuleInterface,ModuleSpecInterface)) or \
+                   isinstance(other.channels[other_key][0], (VariableInterface,)) and isinstance(self.channels[self_key][0], (VariableInterface,)), \
+                f"Cannot connect channel different types {self.channels[self_key][0]} != {other.channels[other_key][0]}"
 
-            if isinstance(self.channels[self_key], Variable):
-                assert other.channels[other_key].signal == self.channels[
-                    self_key].signal, f"Cannot connect channel with signal {other.channels[other_key].signal} to channel with signal {self.channels[self_key].signal}"
+            if isinstance(self.channels[self_key][0], VariableInterface):
+                assert other.channels[other_key][0].signal == self.channels[
+                    self_key][0].signal, f"Cannot connect channel with signal {other.channels[other_key][0].signal} to channel with signal {self.channels[self_key][0].signal}"
 
-            assert other.channel_directions[other_key] != self.channel_directions[
-                self_key], f"Cannot connect channel of same directions <{self_key}> to <{other_key}> with direction {self.channel_directions[self_key]}"
+            assert other.channels[other_key][1] != self.channels[
+                self_key][1], f"Cannot connect channel of same directions <{self_key}> to <{other_key}> with direction {self.channels[self_key][1]}"
 
-        self._connection = Connection(side1=self, side2=other, map=map)
+            directions[other_key] = self.channels[self_key][1]
 
+        self.connection = Connection(self, other, map, directions)
 
-    def get_connection(self):
-        return self._connection
+    def connect_reversed(self, **kwargs):
+        reverse_connector = Connector(**{k: (v, reversed_direction(self.channels[k][1])) for k, v in kwargs.items()})
+        self.connect(reverse_connector)
 
     @property
-    def connection(self):
-        return self.get_connection()
+    def connected(self):
+        return self.connection is not None
+    def check_connection(self):
+        if self.optional or self.connected:
+            return
+        raise ConnectionError("Connector is not connected!")
+
+    def get_connection(self):
+        return self.connection
+
     def __lshift__(self, other):
         self.connect(other)
     def __rshift__(self, other):
         other.connect(self)
-
-    def clone(self):
-        clone = super(Connector, self).clone()
-        clone._channel_directions = self._channel_directions
-        clone._connection = self._connection
-        return clone
-
-    def connect_reversed(self, **kwargs):
-
-        channels = {}
-        map = {}
-        for k, v in kwargs.items():
-            channels[k] = get_value_for(v) if self.channel_directions[k] == Directions.SET else set_value_from(v)
-            map[k] = k
-
-        reverse_connector = Connector(
-            **channels
-        )
-
-        self.connect(reverse_connector, map)
-
-        return reverse_connector

@@ -3,6 +3,7 @@ from collections import deque
 import numpy as np
 import numbers
 
+import numerous.declarative.equations
 from numerous.engine.variables import VariableBase, VariableDescription, VariableType
 from numerous.multiphysics.equation_decorators import InlineEquation
 
@@ -23,7 +24,7 @@ class VariableDescriptionMap(VariableBase):
             self.variables_descriptions[variable_description.tag].update = True
             return
             raise ValueError('Variable description with tag {} is already exist in equation {}'.format(
-                variable_description.tag, self.equation.tag))
+                variable_description.tag, numerous.dec.equations.equation.tag))
 
     # refactored in a more functional way
     def __iter__(self):

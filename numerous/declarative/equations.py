@@ -1,6 +1,7 @@
-from .interfaces import ScopeSpecInterface, EquationSpecInterface
+from numerous.declarative.interfaces import EquationSpecInterface, ScopeSpecInterface
 
-class EquationSpec(EquationSpecInterface):
+
+class equation(EquationSpecInterface):
     """
        Specification of an equation in a module. Use this as a decorator for your methods implementing the equations in a module.
    """
@@ -10,7 +11,7 @@ class EquationSpec(EquationSpecInterface):
             scope: instance of the scope specification to which this equation will be added.
         """
 
-        super(EquationSpec, self).__init__()
+        super(equation, self).__init__()
         """
         Create an equation specification.
 

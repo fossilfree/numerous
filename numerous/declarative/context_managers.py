@@ -57,10 +57,7 @@ class MappingsContextManager(ActiveContextManager):
 _active_mappings = MappingsContextManager()
 
 
-class DeclarativeContextManager(ActiveContextManager):
+class ConnectionsContextManager(ActiveContextManager):
     pass
 
-
-_active_declarative = DeclarativeContextManager()
-
-_active_connections = DeclarativeContextManager()
+_active_connections = ConnectionsContextManager()
