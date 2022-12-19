@@ -2,7 +2,6 @@ import itertools
 import os
 import pickle
 import sys
-from numba.typed import List
 
 from ctypes import CFUNCTYPE, c_int64, POINTER, c_double, c_void_p
 
@@ -10,7 +9,7 @@ import numpy as np
 import time
 import uuid
 
-from numba import njit, carray, types
+from numba import njit, carray
 import numpy.typing as npt
 from numba.core.registry import CPUDispatcher
 
@@ -109,18 +108,23 @@ class Model:
      so they can be accessed as variable values there.
     """
 
-    def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
-                 imports=None, historian=InMemoryHistorian(),
-                 use_llvm=True, save_to_file=False, generate_graph_pdf=False, global_variables=None,
-                 export_model=False, clonable=False):
+    def __init__(self, system=None,
+                 logger_level: LoggerLevel = LoggerLevel.ALL,
+                 historian_filter=None,
+                 assemble: bool = True,
+                 imports:dict=None, historian=InMemoryHistorian(),
+                 use_llvm: bool = True,
+                 save_to_file: bool = False,
+                 generate_graph_pdf: bool = False,
+                 global_variables: dict = None,
+                 export_model: bool = False,
+                 clonable: bool = False):
 
         self.path_to_variable = {}
         self.generate_graph_pdf = generate_graph_pdf
         self.export_model = export_model
-        if logger_level == None:
-            self.logger_level = LoggerLevel.ALL
-        else:
-            self.logger_level = logger_level
+
+        self.logger_level = logger_level
         external_mappings_unpacked = system.get_external_mappings()
         self.system_external_mappings = external_mappings_unpacked
         self.is_external_data = True if len(external_mappings_unpacked) else False
@@ -193,9 +197,6 @@ class Model:
 
         if assemble:
             self.assemble()
-
-        if validate:
-            self.validate()
 
     def __add_item(self, item):
         model_namespaces = {}
@@ -288,7 +289,6 @@ class Model:
                 mappings.append((var.id, sum_mapping))
 
         self.mappings_graph = Graph(preallocate_items=1000000)
-
 
         self.equations_parsed = {}
 
