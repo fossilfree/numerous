@@ -112,7 +112,7 @@ class Model:
                  logger_level: LoggerLevel = LoggerLevel.ALL,
                  historian_filter=None,
                  assemble: bool = True,
-                 imports:dict=None, historian=InMemoryHistorian(),
+                 imports: dict = None, historian=InMemoryHistorian(),
                  use_llvm: bool = True,
                  save_to_file: bool = False,
                  generate_graph_pdf: bool = False,
@@ -204,7 +204,7 @@ class Model:
             return model_namespaces
 
         self.model_items.update({item.id: item})
-        model_namespaces[item.id] = self.create_model_namespaces(item)
+        model_namespaces[item.id] = self._create_model_namespaces(item)
         if isinstance(item, ItemSet):
             return model_namespaces
         if isinstance(item, Connector):
@@ -350,10 +350,10 @@ class Model:
         if self.generate_graph_pdf:
             self.mappings_graph.as_graphviz(self.system.tag, force=True)
         self.lower_model_codegen(tmp_vars)
-        self.assembly_tail()
+        self._assembly_tail()
         self._initial_variables_dict = {k: v.value for k, v in self.variables.items() if not v.global_var}
 
-    def assembly_tail(self):
+    def _assembly_tail(self):
         self.logged_aliases = {}
 
         for i, variable in enumerate(self.variables.values()):
@@ -547,8 +547,6 @@ class Model:
         """
         return self.variables[self.state_idx]
 
-    def update_states(self, y):
-        self.variables[self.states_idx] = y
 
     def history_as_dataframe(self):
         time = self.data[0]
@@ -629,7 +627,7 @@ class Model:
 
         self.add_event("mock", condition, action)
 
-    def generate_mock_timestamp_event(self):
+    def _generate_mock_timestamp_event(self):
         def action(t, v):
             i = 1
 
@@ -649,21 +647,7 @@ class Model:
         if idx_type == "var":
             return [var.llvm_idx]
 
-    def create_alias(self, variable_name, alias):
-        """
-
-        Parameters
-        ----------
-        variable_name
-        alias
-
-        Returns
-        -------
-
-        """
-        self.variables[variable_name].alias = alias
-
-    def create_model_namespaces(self, item):
+    def _create_model_namespaces(self, item):
         namespaces_list = []
         for namespace in item.registered_namespaces.values():
             set_namespace = isinstance(namespace, SetNamespace)
@@ -696,7 +680,7 @@ class Model:
         return namespaces_list
 
     # Method that generates numba_model
-    def generate_compiled_model(self, start_time, number_of_timesteps):
+    def _generate_compiled_model(self, start_time, number_of_timesteps):
         for spec_dict in self.numba_callbacks_variables:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
@@ -740,7 +724,7 @@ class Model:
         self.numba_model = NM_instance
         return self.numba_model
 
-    def set_functions(self, equations_llvm_opt, n_deriv, max_var):
+    def _set_functions(self, equations_llvm_opt, n_deriv, max_var):
         for equation in equations_llvm_opt:
             llmod2 = llvm.parse_assembly(equation)
             ee.add_module(llmod2)
@@ -808,7 +792,7 @@ class Model:
 
         setattr(self, "update_variables", c4)
         setattr(self, "get_variables", c5)
-        self.assembly_tail()
+        self._assembly_tail()
 
     def create_historian_dict(self, historian_data=None):
         if historian_data is None:
@@ -840,6 +824,7 @@ class Model:
         return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
 
     def set_external_mappings(self, external_mappings, data_loader):
+
         external_mappings_unpacked = [ExternalMappingUnpacked(external_mappings, data_loader)]
         external_mappings_unpacked = self.system_external_mappings + external_mappings_unpacked
         self.is_external_data = True if len(external_mappings_unpacked) else False
@@ -879,9 +864,11 @@ class Model:
                                                   self.external_mappings.t_max, self.external_mappings.t_min)
 
     @classmethod
-    def from_file(cls, param):
+    def from_file(cls, filename: str):
+
         system_, logger_level, imports, use_llvm, vars_ordered_values, variables, state_idx, \
-            derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(open(param, "rb"))
+            derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(
+            open(filename, "rb"))
         model = Model(system=system_, assemble=False, logger_level=logger_level,
                       use_llvm=use_llvm)
         model.variables = variables
@@ -892,10 +879,11 @@ class Model:
         model.init_values = init_values
         model.aliases = aliases
 
-        model.set_functions(equations_llvm_opt, n_deriv, max_var)
+        model._set_functions(equations_llvm_opt, n_deriv, max_var)
         return model
 
     def clone(self, clonable=False):
+
         if not self.clonable:
             raise Exception("Model isn't clonable")
         system_ = self.system
@@ -911,7 +899,7 @@ class Model:
         model.init_values = self.init_values
         model.aliases = self.aliases
 
-        model.set_functions(self.equations_llvm_opt, self.n_deriv, self.max_var)
+        model._set_functions(self.equations_llvm_opt, self.n_deriv, self.max_var)
 
         if clonable:
             model.clonable = True

@@ -182,8 +182,8 @@ def ms3():
 
 def test_llvm_diff_function_simple(ms1):
     m1 = Model(ms1, use_llvm=True)
-    cm1 = m1.generate_compiled_model(0, 100)
+    cm1 = m1._generate_compiled_model(0, 100)
     m2 = Model(ms1, use_llvm=False)
-    cm2 = m2.generate_compiled_model(0, 100)
+    cm2 = m2._generate_compiled_model(0, 100)
 
     assert approx(cm1.func(0, np.array([1.0, 1.0, 1.0, 1.0])), rel=0.01) == cm2.func(0, np.array([1.0, 1.0, 1.0, 1.0]))

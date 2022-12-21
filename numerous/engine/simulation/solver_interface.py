@@ -242,7 +242,7 @@ def generate_numerous_engine_solver_model(model: Model) -> (NumerousEngineModel,
     event_functions, event_directions = model.generate_event_condition_ast()
     event_actions = model.generate_event_action_ast(model.events)
     if len(model.timestamp_events) == 0:
-        model.generate_mock_timestamp_event()
+        model._generate_mock_timestamp_event()
     time_event_actions = model.generate_event_action_ast(model.timestamp_events)
     time_events_ = np.array([event.timestamps for event in model.timestamp_events])
 
