@@ -5,14 +5,28 @@ from .context_managers import _active_subsystem, NoManagerContextActiveException
 from .connector import ModuleConnections
 
 class AutoItemsSpec(Class, ItemsSpecInterface):
-
+    _modules: dict
     def __init__(self, modules:list):
+        super(AutoItemsSpec, self).__init__()
         counter = 0
         for module in modules:
             if not hasattr(module, 'tag') or not module.tag:
                 module.tag = "unnamed_"+str(counter)
                 counter+=1
-        self.modules = {module.tag: module for module in modules}
+        self._modules = {module.tag: module for module in modules}
+        setattr(self, module.tag, module)
+
+    def get_modules(self, ignore_not_assigned=False, update_first=False):
+
+        return self._modules
+
+    def get_module_specs(self):
+
+        return {}
+
+    @property
+    def modules(self):
+        return self._modules
 
     def remove_non_orphants(self):
 
@@ -32,9 +46,12 @@ def local(tag, mod: ModuleInterface):
 
 class ModuleSpec(Class, ModuleSpecInterface):
     assigned_to: ModuleInterface|None = None
+    path: tuple[str] | None
     def __init__(self, items:dict):
         super(ModuleSpec, self).__init__()
         self._items = items
+        self.path = None
+
         for k, v in self._items.items():
             setattr(self, k, v)
 
@@ -74,6 +91,8 @@ class RegisterHelper:
 
 class Module(ModuleInterface, Class):
     module_spec: ModuleSpec|None = None
+    _parent = None
+    path: tuple[str]|None
     def __new__(cls, *args, **kwargs):
 
         parent_module = _active_subsystem.get_active_manager_context(ignore_no_context=True)
@@ -94,12 +113,13 @@ class Module(ModuleInterface, Class):
 
                 parent_module.register_item(self)
 
-            #_auto_modules = []
-            #for module in register_helper.get_items().values():
-                #if module._parent is None:
-            #    _auto_modules.append(module)
-
-            #self._auto_modules = AutoItemsSpec(_auto_modules)
+            _auto_modules = []
+            for module in register_helper.get_items().values():
+                if module._parent is None:
+                    _auto_modules.append(module)
+                    module._parent = self
+            if len(_auto_modules)>0:
+                self._auto_modules = AutoItemsSpec(_auto_modules)
 
             cls.__init__ = org_init
 
@@ -111,6 +131,8 @@ class Module(ModuleInterface, Class):
 
     def __init__(self):
         super(Module, self).__init__()
+
+        self.path = None
         vars = get_class_vars(self, (Class,))
 
         context = {}
@@ -122,12 +144,9 @@ class Module(ModuleInterface, Class):
             setattr(self, k, instance)
             self._items[k] = instance
 
-
-
     @property
     def connectors(self):
         return self._items_of_type(ConnectorInterface)
-
 
     @property
     def items_specs(self):
@@ -149,4 +168,8 @@ def handler(annotation):
 
 
 
+class BoundValues:
 
+    def __init__(self, **kwargs):
+
+        self.bound_values = kwargs

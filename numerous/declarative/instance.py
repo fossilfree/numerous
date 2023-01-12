@@ -44,7 +44,7 @@ def get_class_vars(obj, class_var_type:tuple[type], _handle_annotations=None):
 
     return vars
 
-
+all_class_objects = {}
 class Class:
     _is_instance:bool = False
     _from: list
@@ -52,6 +52,7 @@ class Class:
 
     def __init__(self):
         self._id = str(uuid.uuid4())
+        all_class_objects[self._id] = self
         self._from = []
         self._context = None
 

@@ -4,6 +4,7 @@ from numerous.declarative.connector import get_value_for, set_value_from
 from numerous.declarative.module import ModuleSpec
 from numerous.declarative.debug_utils import print_all_variables
 from numerous.declarative.generator import generate_system
+from numerous.declarative.instance import all_class_objects
 
 import logging
 import pytest
@@ -154,6 +155,25 @@ def ConnectedVolumes(ThermalMass, Conductor):
     return ConnectedVolumes
 
 @pytest.fixture
+def ConnectedVolumesAuto(ThermalMass, Conductor):
+    class ConnectedVolumesAuto(Module):
+        class Items(ItemsSpec):
+            tm1: ThermalMass
+
+
+        items = Items()
+
+        def __init__(self, T1=20, T2=20):
+            super(ConnectedVolumesAuto, self).__init__()
+
+            self.items.tm1 = ThermalMass(T=T1)
+            tm2 = ThermalMass(T=T2)
+            conductor = Conductor(side1=self.items.tm1, side2=tm2)
+            ...
+
+    return ConnectedVolumesAuto
+
+@pytest.fixture
 def ForwardedThermalRelaxation(ThermalRelaxation):
     class ForwardedThermalRelaxation(Module):
         class Items(ItemsSpec):
@@ -239,9 +259,10 @@ def MultipleLinkedMasses(ThermalMass, Conductor):
         class Items(ItemsSpec):
             tm_right: ThermalMass
             tm_left: ThermalMass
+            tm_middle: ThermalMass
+            tm_middle2: ThermalMass
             conductor_left: Conductor
             conductor_right: Conductor
-            tm_middle: ThermalMass
 
         items = Items()
 
@@ -251,6 +272,8 @@ def MultipleLinkedMasses(ThermalMass, Conductor):
             self.items.tm_left = ThermalMass(T=T_left)
             #tm_middle = local("tm_middle", ThermalMass(T=10))
             self.items.tm_middle = ThermalMass(T=T_middle)
+            self.items.tm_middle2 = ThermalMass(T=T_middle)
+
             self.items.conductor_left = Conductor(side1=self.items.tm_left, side2=self.items.tm_middle)
 
             self.items.tm_right = ThermalMass(T=T_right)
@@ -276,20 +299,23 @@ def ForwardMultipleLinkedMasses(MultipleLinkedMasses):
 def test_conductor_mappings(Conductor, ThermalMass):
     tm = ThermalMass(T=10)
     tm2 = ThermalMass(T=20)
-    conductor  = Conductor(tm, tm2)
+    conductor = Conductor(tm, tm2)
     ...
 
 def test_connected_volumes(ConnectedVolumes):
-
+    from time import time
     T1=20
     T2=10
     T= (T1+T2)/2
+
+    tic = time()
     test_system = ConnectedVolumes(T1=T1, T2=T2)
 
 
 
     system = generate_system('system', test_system)
-
+    toc = time()
+    print('Dur: ', toc-tic)
 
 
 
@@ -314,6 +340,44 @@ def test_connected_volumes(ConnectedVolumes):
     # Cold side
     assert last(test_system.items.conductor.variables.side1_T) == pytest.approx(T)
     assert last(test_system.items.conductor.variables.side2_T) == pytest.approx(T)
+
+
+def test_connected_volumes_auto(ConnectedVolumesAuto):
+    from time import time
+    T1 = 20
+    T2 = 10
+    T = (T1 + T2) / 2
+
+    tic = time()
+    test_system = ConnectedVolumesAuto(T1=T1, T2=T2)
+
+    system = generate_system('system', test_system)
+    toc = time()
+    print('Dur: ', toc - tic)
+
+    from numerous.engine import simulation
+    from numerous.engine import model
+    from matplotlib import pyplot as plt
+
+    # Define simulation
+    s = simulation.Simulation(model.Model(system, use_llvm=False), t_start=0, t_stop=500.0, num=1000, num_inner=100,
+                              max_step=1)
+
+    # Solve and plot
+    s.solve()
+
+    df = s.model.historian_df
+
+    def last(var):
+        return df[var.native_ref.path.primary_path].tail(1).values[0]
+
+    # Run check that all WaterVol flow (F) are zero
+    print_all_variables(test_system, df)
+    # Cold side
+    assert last(test_system._auto_modules.unnamed_0.variables.side1_T) == pytest.approx(T)
+    assert last(test_system._auto_modules.unnamed_0.variables.side2_T) == pytest.approx(T)
+
+
 
 def test_connectors(ThermalRelaxation):
     T=10
@@ -442,6 +506,10 @@ def test_multiple_linked(MultipleLinkedMasses):
     test_system = MultipleLinkedMasses(T_left=T_left, T_middle=T_middle, T_right=T_right)
 
     system = generate_system('system', test_system)
+
+    for k, v in all_class_objects.items():
+        if hasattr(v, 'path'):
+            print(v, " ", v.path, "   ", v._from)
 
     from numerous.engine import simulation
     from numerous.engine import model

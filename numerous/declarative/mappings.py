@@ -59,5 +59,5 @@ class ModuleMappings():
         return self._mappings
 
 
-def create_mappings(*args):
-    return ModuleMappings(*args)
+#def create_mappings(*args):
+    #return ModuleMappings(*args)
