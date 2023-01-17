@@ -11,7 +11,8 @@ from numerous.utils.historian import InMemoryHistorian
 from numerous.engine.system.external_mappings.interpolation_type import InterpolationType
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
-from numerous.engine.system import Subsystem, Item, LoggerLevel
+from numerous.engine.system import Subsystem, Item
+from numerous.utils.logger_levels import LoggerLevel
 from numerous.multiphysics import EquationBase, Equation
 
 try:
