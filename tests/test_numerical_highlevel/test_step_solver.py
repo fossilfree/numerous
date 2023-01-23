@@ -137,7 +137,7 @@ if __name__ == '__main__':
             break
         t_last=t_
     toc = time()
-    s.complete()
+    s._complete()
     print('solve time: ', toc-tic)
     print(s.model.historian_df['time'])
 

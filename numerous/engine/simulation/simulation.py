@@ -61,8 +61,8 @@ class Simulation:
             generate_numerous_engine_solver_model(model)
 
         self.solver = NumerousSolver(model=numerous_engine_model,
-                                      use_jit=model.use_llvm, event_handler=numerous_engine_event_handler,
-                                      **kwargs)
+                                     use_jit=model.use_llvm, event_handler=numerous_engine_event_handler,
+                                     **kwargs)
 
         self.start_datetime = start_datetime
         self.info = model.info["Solver"]
@@ -74,14 +74,12 @@ class Simulation:
         log.info(
             f"Numba equations compiled, historian initizalized, compilation time: {compilation_finished - compilation_start}")
 
-
-
     def solve(self):
 
         self.solver.solve(self.time)
-        self.complete()
+        self._complete()
 
-    def reset(self, t_start):
+    def reset(self, t_start: float):
         """
         Method which resets the simulation and model states to their initial values
 
@@ -101,22 +99,34 @@ class Simulation:
             self.model.numba_model.is_external_data = self.model.external_mappings.load_new_external_data_batch(t_start)
         if self.model.numba_model.is_external_data:
             self.model.numba_model.update_external_data(self.model.external_mappings.external_mappings_numpy,
-                                                  self.model.external_mappings.external_mappings_time,
-                                                  self.model.external_mappings.t_max,
-                                                  self.model.external_mappings.t_min)
+                                                        self.model.external_mappings.external_mappings_time,
+                                                        self.model.external_mappings.t_max,
+                                                        self.model.external_mappings.t_min)
 
-    def complete(self):
+    def _complete(self):
 
         list(map(lambda x: x.restore_variables_from_numba(self.model.numba_model,
                                                           self.model.path_variables), self.model.callbacks))
         self.model.create_historian_df()
-        self.run_after()
+        self._run_after()
 
-    def run_after(self):
+    def _run_after(self):
         for function in self.model.run_after_solve:
             function()
 
-    def step_solve(self, t_start, step_size):
+    def step_solve(self, t_start: float, step_size: float):
+        """
+        making one simulation step
+        Parameters
+        ----------
+        t_start : starting time
+        step_size : simulation step size
+
+        Returns
+        -------
+
+        """
+
         try:
             t, results_status = self.solver.solver_step(t_start, step_size)
 
