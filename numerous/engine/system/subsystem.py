@@ -1,4 +1,3 @@
-import copy
 from enum import Enum
 
 from numba import types
@@ -99,10 +98,10 @@ class Subsystem(ConnectorItem):
             for i in items:
                 setattr(self, i.tag, i)
 
-    def increase_level(self):
-        super().increase_level()
+    def _increase_level(self):
+        super()._increase_level()
         for item in self.registered_items.values():
-            item.increase_level()
+            item._increase_level()
 
     def get_graph_visualisation(self, DG=None, parent=None):
         if DG is None:
