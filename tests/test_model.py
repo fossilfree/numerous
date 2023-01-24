@@ -6,7 +6,8 @@ from pytest import approx
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 
-from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay, LoggerLevel
+from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
+from numerous.utils.logger_levels import LoggerLevel
 from numerous.multiphysics import EquationBase, Equation
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 
@@ -458,24 +459,58 @@ def test_multiple_timestamp_events(use_llvm, capsys):
 
     assert captured.out == "".join(expected)
 
-@pytest.mark.skip
-@pytest.mark.parametrize("use_llvm", [True, False])
+@pytest.mark.parametrize("use_llvm", [False, True])
 def test_timestamp_periodicity(use_llvm, capsys):
     """
-    Feature not yet implemented
+    Tests periodic time events
     """
     sys = ExponentialDecay(tag='system')
     def time_callback(t, variables):
         print(t)
-
-    timestamps = [float((i+1) * 1800) for i in range(48)]
+    num = 48
+    timestamps = [float((i) * 1800) for i in range(num+1)]
 
     # Use an input specifying the periodicity of the callbacks instead of a list of timestamps.
     sys.add_timestamp_event('test', time_callback, periodicity=1800.0)
     model = Model(sys, use_llvm=use_llvm)
-    sim = Simulation(model=model, t_start=0, t_stop=24*3600, num=48)
+    sim = Simulation(model=model, t_start=0, t_stop=24*3600, num=num)
     sim.solve()
 
     captured = capsys.readouterr()
 
     assert captured.out == "\n".join([str(t) for t in timestamps])+"\n"
+
+@pytest.mark.parametrize("use_llvm", [False, True])
+def test_periodicity_and_timestamp_lists(use_llvm, capsys):
+    """
+    Test both types of time events
+    """
+    sys = ExponentialDecay(tag='system')
+
+    def time_callback1(t, variables):
+        print("callback1:", t)
+
+    def time_callback2(t, variables):
+        print("callback2:", t)
+
+    num = 48
+    timestamps = [float((i) * 1800) for i in range(num+1)]
+
+    # Use an input specifying the periodicity of the callbacks instead of a list of timestamps.
+    sys.add_timestamp_event("periodic", time_callback1, periodicity=1800.0)
+    sys.add_timestamp_event("list", time_callback2, timestamps=timestamps)
+    model = Model(sys, use_llvm=use_llvm)
+    sim = Simulation(model=model, t_start=0, t_stop=24*3600, num=num)
+    sim.solve()
+
+    captured = capsys.readouterr()
+
+    expected = []
+    for t in timestamps:
+        s = f"callback1: {t}\n"
+        if t in timestamps:
+            s += f"callback2: {t}\n"
+
+        expected.append(s)
+
+    assert captured.out == "".join(expected)
