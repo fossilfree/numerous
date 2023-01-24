@@ -4,15 +4,61 @@ from numerous.engine.model.compiled_model import CompiledModel
 from numerous.engine.model import Model
 from numerous.solver.interface import Interface, EventHandler, Model as SolverModel, SolveEvent
 
+@SolverModel
+class NumerousEngineModel:
+    def __init__(self, numba_model, event_functions, event_directions, event_actions, time_stamped_events,
+                 periodic_time_events, time_event_actions):
+        self.numba_model = numba_model
+        self.event_functions = event_functions
+        self.event_directions = event_directions
+        self.event_actions = event_actions
+        self.time_stamped_events = time_stamped_events
+        self.periodic_time_events = periodic_time_events
+        self.time_event_actions = time_event_actions
 
+
+class NumerousEngineEventHandler(EventHandler):
+    def __init__(self, model: Model, nm: CompiledModel):
+        super(NumerousEngineEventHandler, self).__init__()
+        self._model = model
+        self._nm = nm
+
+    def handle_solve_event(self, interface, event_id: SolveEvent, t: float):
+        if event_id == SolveEvent.Historian:
+            self._model.create_historian_df()
+            self._nm.historian_reinit()
+        elif event_id == SolveEvent.ExternalDataUpdate:
+            self._load_external_data(t)
+        elif event_id == SolveEvent.HistorianAndExternalUpdate:
+            self._model.create_historian_df()
+            self._nm.historian_reinit()
+            self._load_external_data(t)
+
+    def _load_external_data(self, t):
+        is_external_data = self._model.external_mappings.load_new_external_data_batch(t)
+        external_mappings_numpy = self._model.external_mappings.external_mappings_numpy
+        external_mappings_time = self._model.external_mappings.external_mappings_time
+        max_external_t = self._model.external_mappings.t_max
+        min_external_t = self._model.external_mappings.t_min
+
+        if t > max_external_t:
+            raise ValueError(f"No more external data at t={t} (t_max={max_external_t}")
+        self._nm.is_external_data = is_external_data
+        self._nm.update_external_data(external_mappings_numpy, external_mappings_time, max_external_t,
+                                      min_external_t)
+
+@SolverModel.interface(model=NumerousEngineModel)
 class NumerousEngineModelInterface(Interface):
+
     """
     The numerous engine solver interface. Contains the numerous engine model, which holds the numba model, and other
     methods necessary for handling events and time-events inside Numerous engine.
     """
-    def __init__(self, model):
+
+    def __init__(self, model: NumerousEngineModel):
         self.model: NumerousEngineModel = model
-        self.last_time_event_idx = np.zeros(len(self.model.time_events), dtype='int')
+        self.last_time_event_idx = np.zeros(len(model.time_stamped_events) + len(model.periodic_time_events),
+                                       dtype='int64')
 
     def get_deriv(self, t: float, y: np.array) -> np.ascontiguousarray:
         y = self.get_states()
@@ -47,7 +93,8 @@ class NumerousEngineModelInterface(Interface):
             return SolveEvent.NoneEvent
 
     def init_solver(self, t: float, y: np.array) -> None:
-        self.last_time_event_idx = np.zeros(len(self.model.time_events), dtype='int')
+        self.last_time_event_idx = np.zeros(len(self.model.time_stamped_events) + len(self.model.periodic_time_events),
+                                            dtype='int64')
 
     def pre_step(self, t: float, y: np.array) -> None:
         self._map_external_data(t)
@@ -128,15 +175,34 @@ class NumerousEngineModelInterface(Interface):
 
         return states
 
-    def get_next_time_event(self, t) -> (np.array, float):
-        t_events = np.ones_like(self.last_time_event_idx) * -1.0
-        for event_ix, time_events in enumerate(self.model.time_events):
+    def _get_next_timestamped_event(self, t, t_events) -> np.array:
+        for event_ix, time_events in self.model.time_stamped_events:
+            if event_ix < 0:
+                continue
             possible_time_events = [t for t in time_events[self.last_time_event_idx[event_ix]:] if t >= 0]
             ix = np.searchsorted(possible_time_events, t, 'left')
             if ix > len(possible_time_events) - 1:
                 continue
             else:
                 t_events[event_ix] = possible_time_events[ix]
+        return t_events
+
+    def _get_next_periodic_event(self, t, t_events: np.ndarray) -> np.array:
+        for event_ix, dt in self.model.periodic_time_events:
+            if event_ix < 0:
+                continue
+            t_events[event_ix] = self.last_time_event_idx[event_ix] * dt
+        return t_events
+
+    def _possible_time_events(self, t):
+        t_events = np.ones_like(self.last_time_event_idx, dtype='float') * -1.0
+        t_events = self._get_next_timestamped_event(t, t_events)
+        t_events = self._get_next_periodic_event(t, t_events)
+        return t_events
+
+    def get_next_time_event(self, t) -> (np.array, float):
+
+        t_events = self._possible_time_events(t)
 
         possible_t_events = np.array([t_event for t_event in t_events if t_event >= 0])
 
@@ -185,50 +251,6 @@ class NumerousEngineModelInterface(Interface):
     def get_event_directions(self) -> np.array:
         return self.model.event_directions
 
-
-@SolverModel.with_interface(interface=NumerousEngineModelInterface)
-class NumerousEngineModel:
-    def __init__(self, numba_model, event_functions, event_directions, event_actions, time_events,
-                 time_event_actions):
-        self.numba_model = numba_model
-        self.event_functions = event_functions
-        self.event_directions = event_directions
-        self.event_actions = event_actions
-        self.time_events = time_events
-        self.time_event_actions = time_event_actions
-
-
-class NumerousEngineEventHandler(EventHandler):
-    def __init__(self, model: Model, nm: CompiledModel):
-        super(NumerousEngineEventHandler, self).__init__()
-        self._model = model
-        self._nm = nm
-
-    def handle_solve_event(self, interface, event_id: SolveEvent, t: float):
-        if event_id == SolveEvent.Historian:
-            self._model.create_historian_df()
-            self._nm.historian_reinit()
-        elif event_id == SolveEvent.ExternalDataUpdate:
-            self._load_external_data(t)
-        elif event_id == SolveEvent.HistorianAndExternalUpdate:
-            self._model.create_historian_df()
-            self._nm.historian_reinit()
-            self._load_external_data(t)
-
-    def _load_external_data(self, t):
-        is_external_data = self._model.external_mappings.load_new_external_data_batch(t)
-        external_mappings_numpy = self._model.external_mappings.external_mappings_numpy
-        external_mappings_time = self._model.external_mappings.external_mappings_time
-        max_external_t = self._model.external_mappings.t_max
-        min_external_t = self._model.external_mappings.t_min
-
-        if t > max_external_t:
-            raise ValueError(f"No more external data at t={t} (t_max={max_external_t}")
-        self._nm.is_external_data = is_external_data
-        self._nm.update_external_data(external_mappings_numpy, external_mappings_time, max_external_t,
-                                      min_external_t)
-
-
 def generate_numerous_engine_solver_model(model: Model) -> (NumerousEngineModel, NumerousEngineEventHandler):
     """
     Method to generate the numerous-engine solver-model and its event handler
@@ -244,25 +266,47 @@ def generate_numerous_engine_solver_model(model: Model) -> (NumerousEngineModel,
     if len(model.timestamp_events) == 0:
         model._generate_mock_timestamp_event()
     time_event_actions = model.generate_event_action_ast(model.timestamp_events)
-    time_events_ = np.array([event.timestamps for event in model.timestamp_events])
 
-    time_events = numpy_fill_array(time_events_)
+    # Extract time events
+
+    time_stamped_events = [(event_ix, event.timestamps) for event_ix, event in enumerate(model.timestamp_events) if
+                           event.timestamps]
+
+    time_stamped_events = numpy_fill_array(time_stamped_events)
+
+    periodic_time_events = [(event_ix, event.periodicity) for event_ix, event in enumerate(model.timestamp_events) if
+                            event.periodicity]
+
+    if len(time_stamped_events) == 0:
+        time_stamped_events = [(-1, np.array([-1.0]))]
+
+    if len(periodic_time_events) == 0:
+        periodic_time_events = [(-1, -1.0)]
 
     numerous_engine_model = NumerousEngineModel(model.numba_model, event_functions, event_directions, event_actions,
-                                                time_events, time_event_actions)
+                                                tuple(time_stamped_events), tuple(periodic_time_events),
+                                                time_event_actions)
 
     numerous_event_handler = NumerousEngineEventHandler(model, model.numba_model)
 
     return numerous_engine_model, numerous_event_handler
 
-def numpy_fill_array(data):
+
+def numpy_fill_array(data: list[tuple]) -> list[tuple]:
+    if len(data) == 0:
+        return data
+    data_ = [d[1] for d in data]
     # Get lengths of each row of data
-    lens = np.array([len(i) for i in data])
+    lens = np.array([len(i) for i in data_])
 
     # Mask of valid places in each row
     mask = np.arange(max(lens)) < lens[:, None]
 
     # Setup output array and put elements from data into masked positions
     out = np.ones(mask.shape, dtype='float') * -1
-    out[mask] = np.concatenate(data)
-    return out
+    out[mask] = np.concatenate(data_)
+    data_out = data
+    for ix, (event_ix, _) in enumerate(data):
+        data_out[ix] = (event_ix, out[ix])
+
+    return data_out
