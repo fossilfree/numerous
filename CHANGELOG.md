@@ -1,7 +1,12 @@
 # Change Log
 
-## [0.2]
+## [0.3]
 
 ### Added
 
- - Automatic pypi deployment
+ - FMU ME import
+ - full accsess to variables in events
+ - external data mapping moved to system level
+ - historian updates
+
+## [0.4]
