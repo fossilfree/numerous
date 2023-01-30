@@ -1,4 +1,4 @@
-Simulation
+Get Started
 ===================
 
 .. toctree::

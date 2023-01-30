@@ -1,5 +1,6 @@
 Creating a System
 ==================
+
 To enable building complex systems in a modular way, subsystems are used to define
 combinations of items and subsystems. Items and subsystems can be registered to a subsystem
 to denote it as the parent for the registered items.
@@ -7,6 +8,7 @@ This allows for a hierarchical representation of the model system.
 
 Starting with Connector
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 Here we will look at how to create a simple system that contains 2 basic items and the connector.
 We will start by inheriting a :class:`numerous.engine.system.ConnectorTwoWay`
 that is special case of :class:`numerous.engine.system.Connector`
@@ -61,6 +63,7 @@ T1 will be readdressed to item that is binded to side1.
 
 Creating a System
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 Now we can create a class that inherits :class:`numerous.engine.system.Subsystem`.
 and inside of it we define 2 basic items and 1 Connector item.
 

@@ -1,6 +1,7 @@
 
 Numerous Engine System
 ==================
+
 At the front of the numerous engine is the :class:`numerous.engine.system.Subsystem` class, which is used to define and connect  Items with the equations and variables that make up a system.
 A System object is made up of one or more Item objects, each of which represents a single component of the system. Each Item object can contain one or more namespaces, which are used to organize the equations and variables for that component. Each namespace represents a specific physical domain or area of the system, and can contain its own set of equations and variables.
 namespace  can contain several types of variables: state, parameter, and constant. State variables are quantities that change over time by the solver, such as the position or velocity of an object. Parameters are quantities that can change over time but doesn't have a derivative. Constants are fixed quantities that do not change over time, such as the mass or length of an object.
@@ -16,6 +17,7 @@ Once the mappings have been defined, you can create a Model object from the Syst
 
 Namespaces
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 Namespaces are created by calling the create_namespace() method on an Item or Subsystem object. For example:
 .. code::
     class MyItem(Item):
@@ -117,6 +119,7 @@ In the example above, the input_port is defined as the input of the connector, a
 
 Set variables and Item set
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 In the Numerous engine, an Item represents a single component of a system, and a Subsystem represents a collection of multiple Item objects that work together to form a larger system. When creating a Subsystem, it's possible to register a list of Item objects as a set, using the register_items method.
 The register_items method accepts a list of Item objects, and an optional structure argument that defaults to ItemsStructure.SEQUENCE. By passing ItemsStructure.SET as the value of the structure argument, the registered Item objects will be treated as a set, rather than a sequence. This can be useful when working with systems where the order of the items doesn't matter and only unique items are considered.
 Here is an example of how to create a Subsystem and register a list of Item objects as a set:
@@ -141,8 +144,9 @@ It's important to note that, when using the ItemsStructure.SET, items passed to 
 
 
 
-Creation and   working with systems that include fmu subsystem
+Creation and working with systems that include fmu subsystem
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 In the Numerous engine, FMUs (Functional Mock-up Units) can be used to simulate the behavior of subsystems modeled using Modelica or other modeling languages that support the FMU standard. FMUs can be integrated into a larger system modeled using the Numerous engine by creating an FMUSubsystem object and registering it as a child of a Subsystem object.
 To create an FMUSubsystem, you need to provide the path to the FMU file, and the name of the model and the output variable(s) of the FMU that you want to use. The FMUSubsystem object can then be added to the system using the register_items() method of the parent Subsystem object.
 For example, let's say you have an FMU file called 'my_fmu.fmu' that models a mechanical system, and you want to use the output variable 'displacement' from the model 'MyModel'. You can create an FMUSubsystem object and add it to a system as follows:
@@ -169,6 +173,7 @@ It's also worth noting that some FMUs may have additional requirements, such as 
 
 State and time Events on system level
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 In the Numerous engine, a state event is a condition that is checked at each time step of a simulation to determine if a specific action should be taken. State events can be used to change the value of a state variable or parameter, or to change the integration method of the solver. State events are defined on a per-system basis, and are added to a system using the add_state_event() method.
 A state event is defined by a condition, which is a mathematical expression that is evaluated at each time step. If the condition is true, the action specified in the event is executed. The condition can be a simple comparison, such as x > 5, or a more complex expression involving multiple state variables and parameters.
 The action of a state event can be one of the following:

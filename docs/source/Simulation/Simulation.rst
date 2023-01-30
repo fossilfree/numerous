@@ -1,5 +1,6 @@
 Numerous Engine Simulation
 ==================
+
 The Simulation class in the :class:`numerous.engine.simulation` module is used to run the simulation of a system over time. To create a simulation, a Model object must first be instantiated, which represents the system being  completed and compiled. Once a Model object is created, it can be passed as the first argument to the Simulation class, along with the start and stop time of the simulation, the number of time steps to take, and the number of inner steps for the solver to use.
 Here is an example of how to create a simulation for a Subsystem object called system with a start time of 0, a stop time of 2, and a total of 2 time steps:
 .. code::

@@ -1,5 +1,6 @@
 Working with the model
 ======================
+
 For the engine to setup the equations,
 variables and mappings between these the top-level subsystem is passed to a model object.
 :class:`numerous.engine.model.Model`  traverses the system to
@@ -16,6 +17,7 @@ Model is created from the :class:`numerous.engine.system.Subsystem`:
 
 Adding callbacks to model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 It is possible to add two types of callbacks that will be executed during simulation.
 - `callback` functions. These are functions that are called each time a solver step has been completed.
 
@@ -41,6 +43,7 @@ It is possible to add two types of callbacks that will be executed during simula
 
 Creating aliases for variables
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 Having many nested subsytems can make it difficult to follow the changes of important variable.
 to highlight one of the variables we can add a special alias to it. Later we can only save such variables to history
 data frame
@@ -48,6 +51,7 @@ data frame
 
 Saving and restoring state of the model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 It is possible to periodically save the states of the system to the file. Such
 that the long running solution would not be lost.
 

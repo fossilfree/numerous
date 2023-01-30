@@ -1,5 +1,6 @@
 Numerous Engine Model
 ==================
+
 The Model class is initialized with a Subsystem object, which is the top-level container for the system's components. The Subsystem class allows users to organize the system's components into a hierarchical structure, with each Item representing a subsystem or a component of the system. Each Item can have one or more Namespace objects, each of which can contain a set of equations and variables.
 The Model class provides the following key features:
     • Cloning: The Model class is designed to be clonable, which means that it can be used to create multiple independent simulations of the same system. Cloning is useful when you need to run multiple simulations with different initial conditions or parameters. The clone() method creates a new Model object with the same Subsystem hierarchy, but with different states and parameters.
@@ -90,6 +91,7 @@ As a best practice, it is recommended to use caching and cloning as needed, and 
 
 Model external mappings and global variables
 ^^^^^^^^^^^^^^^^^^
+
  External mappings allow variables in one part of the system to be connected to variables in another part of the system, allowing the system to be more modular and easier to understand.
 In the Numerous Engine, external mappings are created by calling the add_mapping() method on a variable. This method takes a single argument, which is the variable that the current variable is being mapped to. For example, to map a variable x to a variable y, you would call x.add_mapping(y). This creates a mapping between x and y, and any changes to the value of x will be reflected in the value of y.
 External mappings can be created at both the system and model level. On the system level, external mappings are used to connect the inputs and outputs of different subsystems. For example, the output of one subsystem could be mapped to the input of another subsystem. This allows the subsystems to be connected together to form a larger system.
