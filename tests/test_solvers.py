@@ -3,7 +3,8 @@ from pytest import approx
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 
-from numerous.engine.system import Subsystem, LoggerLevel
+from numerous.engine.system import Subsystem
+from numerous.utils.logger_levels import LoggerLevel
 from numerous.multiphysics import EquationBase, Equation
 
 
