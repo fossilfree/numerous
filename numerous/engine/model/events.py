@@ -4,6 +4,7 @@ import inspect
 import numpy.typing as npt
 import numpy as np
 from numba.core.registry import CPUDispatcher
+from typing import List, Callable, Tuple
 
 from numerous.engine.model.utils import njit_and_compile_function
 from numerous.engine.numerous_event import NumerousEvent
@@ -75,12 +76,16 @@ def _replace_path_strings(model, function, idx_type, path_to_root=[]):
 
 
 def generate_event_action_ast(event_functions: list[NumerousEvent],
-                              from_imports: list[tuple[str, str]]) -> CPUDispatcher:
+                              from_imports: list[tuple[str, str]]) -> Tuple[CPUDispatcher, List[Callable]]:
     body = []
     compiled_functions = {}
+    external_functions = []
     for idx, event in enumerate(event_functions):
         if event.compiled_functions:
             compiled_functions.update(event.compiled_functions)
+        if event.is_external:
+            external_functions.append(event.action)
+            continue
         body.append(event.action)
         body.append(ast.If(test=ast.Compare(left=ast.Name(id='a_idx', ctx=ast.Load()), ops=[ast.Eq()],
                                             comparators=[ast.Constant(value=idx)]),
@@ -97,4 +102,5 @@ def generate_event_action_ast(event_functions: list[NumerousEvent],
                                                 kwonlyargs=[], kw_defaults=[], defaults=[]),
                              body=body, decorator_list=[], lineno=0)
 
-    return njit_and_compile_function(body_r, from_imports, compiled_functions=compiled_functions)
+    internal_functions = njit_and_compile_function(body_r, from_imports, compiled_functions=compiled_functions)
+    return internal_functions, external_functions

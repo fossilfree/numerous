@@ -1,4 +1,4 @@
-from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
+from numerous.engine.numerous_event import StateEvent, TimestampEvent
 from numerous.engine.system.connector import Connector
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.system.namespace import VariableNamespace, VariableNamespaceBase
@@ -125,13 +125,14 @@ class Item(Node):
     def add_event(self, key, condition, action, compiled_functions=None, terminal=True, direction=-1, compiled=False):
         condition = condition
         action = action
-        event = NumerousEvent(key, condition, action, compiled, terminal, direction,
+        event = StateEvent(key, condition, action, compiled, terminal, direction,
                               compiled_functions=compiled_functions)
 
         self.events.append(event)
 
     def add_timestamp_event(self, key: str, action: Callable[[float, dict[str, float]], None],
-                            timestamps: Optional[list] = None, periodicity: Optional[float] = None):
+                            timestamps: Optional[list] = None, periodicity: Optional[float] = None,
+                            is_external: bool = False):
         """
         Method for adding time stamped events, that can trigger at a specific time, either given as an explicit list of
         timestamps, or a periodic trigger time. A time event must be associated with a time event action function with
@@ -148,7 +149,7 @@ class Item(Node):
 
         """
         action = action
-        event = TimestampEvent(key, action, timestamps, periodicity)
+        event = TimestampEvent(key, action, timestamps, periodicity, is_external)
         self.timestamp_events.append(event)
 
     def _increase_level(self):

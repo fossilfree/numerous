@@ -7,7 +7,7 @@ from numerous.solver.interface import Interface, EventHandler, Model as SolverMo
 @SolverModel
 class NumerousEngineModel:
     def __init__(self, numba_model, event_functions, event_directions, event_actions, time_stamped_events,
-                 periodic_time_events, time_event_actions):
+                 periodic_time_events, time_event_actions, time_events):
         self.numba_model = numba_model
         self.event_functions = event_functions
         self.event_directions = event_directions
@@ -15,6 +15,7 @@ class NumerousEngineModel:
         self.time_stamped_events = time_stamped_events
         self.periodic_time_events = periodic_time_events
         self.time_event_actions = time_event_actions
+        self.time_events = time_events
 
 
 class NumerousEngineEventHandler(EventHandler):
@@ -132,7 +133,7 @@ class NumerousEngineModelInterface(Interface):
         """
         return self.historian_update(t, y)
 
-    def post_time_event(self, t: float, y: np.array) -> SolveEvent:
+    def post_time_event(self, t: float, y: np.array, event_idx) -> SolveEvent:
         """
         For numerous-engine, this method saves the solution after a time-event, and continues the solver internal loop
 
@@ -143,6 +144,9 @@ class NumerousEngineModelInterface(Interface):
         :return: a NoneEvent to continue the solver
         :rtype: :class:`~numerous.solver.interface.SolveEvent`
         """
+        if self.model.time_events[event_idx]["is_external"]:
+            return SolveEvent.TimeEvent
+
         self.historian_update(t, y)
         return SolveEvent.NoneEvent
 
@@ -176,7 +180,7 @@ class NumerousEngineModelInterface(Interface):
         return states
 
     def _get_next_timestamped_event(self, t, t_events) -> np.array:
-        for event_ix, time_events in self.model.time_stamped_events:
+        for event_ix, time_events, is_external in self.model.time_stamped_events:
             if event_ix < 0:
                 continue
             possible_time_events = [t for t in time_events[self.last_time_event_idx[event_ix]:] if t >= 0]
@@ -188,7 +192,7 @@ class NumerousEngineModelInterface(Interface):
         return t_events
 
     def _get_next_periodic_event(self, t, t_events: np.ndarray) -> np.array:
-        for event_ix, dt in self.model.periodic_time_events:
+        for event_ix, dt, is_external in self.model.periodic_time_events:
             if event_ix < 0:
                 continue
             t_events[event_ix] = self.last_time_event_idx[event_ix] * dt
@@ -228,6 +232,8 @@ class NumerousEngineModelInterface(Interface):
         :return: updated states
         :rtype: :class:`np.ndarray`
         """
+        if self.model.time_events[event_idx]["is_external"]:
+            return self.model.numba_model.state_idx
 
         self.last_time_event_idx[event_idx] += 1
         modified_variables = self.model.time_event_actions(t, self._get_variables(), event_idx)
@@ -262,30 +268,34 @@ def generate_numerous_engine_solver_model(model: Model) -> (NumerousEngineModel,
     """
 
     event_functions, event_directions = model.generate_event_condition_ast()
-    event_actions = model.generate_event_action_ast(model.events)
+    event_actions, event_actions_external = model.generate_event_action_ast(model.events)
     if len(model.timestamp_events) == 0:
         model.generate_mock_timestamp_event()
-    time_event_actions = model.generate_event_action_ast(model.timestamp_events)
+    time_event_actions, time_event_actions_external = model.generate_event_action_ast(model.timestamp_events)
 
     # Extract time events
 
-    time_stamped_events = [(event_ix, event.timestamps) for event_ix, event in enumerate(model.timestamp_events) if
-                           event.timestamps]
+    time_stamped_events = [(event_ix, event.timestamps, event.is_external) for event_ix, event in
+                           enumerate(model.timestamp_events) if event.timestamps]
 
     time_stamped_events = numpy_fill_array(time_stamped_events)
 
-    periodic_time_events = [(event_ix, event.periodicity) for event_ix, event in enumerate(model.timestamp_events) if
-                            event.periodicity]
+    periodic_time_events = [(event_ix, event.periodicity, event.is_external) for event_ix, event in
+                            enumerate(model.timestamp_events) if event.periodicity]
 
     if len(time_stamped_events) == 0:
-        time_stamped_events = [(-1, np.array([-1.0]))]
+        time_stamped_events = [(-1, np.array([-1.0]), False)]
 
     if len(periodic_time_events) == 0:
-        periodic_time_events = [(-1, -1.0)]
+        periodic_time_events = [(-1, -1.0, False)]
+
+    time_events = {event_idx: is_external for (event_idx, _, is_external) in time_stamped_events}
+    time_events.update({event_idx: is_external for (event_idx, _, is_external) in periodic_time_events})
 
     numerous_engine_model = NumerousEngineModel(model.numba_model, event_functions, event_directions, event_actions,
                                                 tuple(time_stamped_events), tuple(periodic_time_events),
-                                                time_event_actions)
+                                                time_event_actions, event_actions_external,
+                                                time_event_actions_external, time_events)
 
     numerous_event_handler = NumerousEngineEventHandler(model, model.numba_model)
 
