@@ -185,7 +185,7 @@ def ms3():
 
 def test_model_without_update(ms3):
     m1 = Model(ms3)
-    n_m = m1.generate_compiled_model(0, 1)
+    n_m = m1._generate_compiled_model(0, 1)
     assert n_m.read_variables()[m1.path_to_variable["S3_nm.1.t1.R"].llvm_idx] == 10.0
     assert n_m.read_variables()[m1.path_to_variable["S3_nm.2.t1.R"].llvm_idx] == 5.0
     assert n_m.read_variables()[m1.path_to_variable["S3_nm.3.t1.R"].llvm_idx] == 3.0

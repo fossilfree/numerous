@@ -52,7 +52,7 @@ class Simulation:
         if not model.numba_model:
             log.info("Generating Numba Model")
             generation_start = time.time()
-            model.generate_compiled_model(t_start, len(self.time))
+            model._generate_compiled_model(t_start, len(self.time))
 
             generation_finish = time.time()
             log.info(f"Numba model generation finished, generation time: {generation_finish - generation_start}")
