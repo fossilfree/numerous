@@ -13,8 +13,6 @@ Numerous is a simulation library for simulation
    Equation/index.rst
    Model/index.rst
    Simulation/index.rst
-   Troubleshooting/index.rst
-   release_notes.rst
 
 
 Indices and tables
