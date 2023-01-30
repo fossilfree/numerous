@@ -14,3 +14,11 @@ Numerous is a simulation library for simulation
    Model/index.rst
    Simulation/index.rst
    Troubleshooting/index.rst
+   release_notes.rst
+
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
