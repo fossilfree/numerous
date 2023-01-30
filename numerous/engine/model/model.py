@@ -697,7 +697,7 @@ class Model:
         return namespaces_list
 
     # Method that generates numba_model
-    def generate_compiled_model(self, start_time, number_of_timesteps):
+    def _generate_compiled_model(self, start_time, number_of_timesteps):
         for spec_dict in self.numba_callbacks_variables:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
