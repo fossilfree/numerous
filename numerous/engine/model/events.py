@@ -76,15 +76,13 @@ def _replace_path_strings(model, function, idx_type, path_to_root=[]):
 
 
 def generate_event_action_ast(event_functions: list[NumerousEvent],
-                              from_imports: list[tuple[str, str]]) -> Tuple[CPUDispatcher, List[Callable]]:
+                              from_imports: list[tuple[str, str]]) -> CPUDispatcher:
     body = []
     compiled_functions = {}
-    external_functions = []
     for idx, event in enumerate(event_functions):
         if event.compiled_functions:
             compiled_functions.update(event.compiled_functions)
         if event.is_external:
-            external_functions.append(event.action)
             continue
         body.append(event.action)
         body.append(ast.If(test=ast.Compare(left=ast.Name(id='a_idx', ctx=ast.Load()), ops=[ast.Eq()],
@@ -103,4 +101,4 @@ def generate_event_action_ast(event_functions: list[NumerousEvent],
                              body=body, decorator_list=[], lineno=0)
 
     internal_functions = njit_and_compile_function(body_r, from_imports, compiled_functions=compiled_functions)
-    return internal_functions, external_functions
+    return internal_functions

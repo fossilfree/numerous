@@ -19,4 +19,4 @@ wcwidth>=	0.1.7
 zipp >=	0.6.0
 fmpy == 0.3.7
 deprecation == 2.1.0
-numerous-solver == 2.0.0
+numerous-solver == 2.1.0

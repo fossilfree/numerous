@@ -20,7 +20,7 @@ from numerous.engine.model.aliased_dataframe import AliasedDataFrame
 
 from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
 from numerous.engine.model.utils import Imports
-from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
+from numerous.engine.numerous_event import StateEvent, TimestampEvent
 from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping, ExternalMappingUnpacked
 
 from numerous.utils.logger_levels import LoggerLevel
@@ -410,14 +410,15 @@ class Model:
                 for event in item.events:
                     if event.compiled:
                         pass
-                    else:
+                    elif not event.is_external:
                         event.condition = _replace_path_strings(self, event.condition, "var", item.path)
                         event.action = _replace_path_strings(self, event.action, "var", item.path)
 
                     self.events.append(event)
             if item.timestamp_events:
                 for event in item.timestamp_events:
-                    event.action = _replace_path_strings(self, event.action, "var", item.path)
+                    if not event.is_external:
+                        event.action = _replace_path_strings(self, event.action, "var", item.path)
                     self.timestamp_events.append(event)
 
         self.info.update({"Number of items": len(self.model_items)})
@@ -611,7 +612,7 @@ class Model:
     def add_event(self, key, condition, action, terminal=True, direction=-1, compiled=False):
         condition = _replace_path_strings(self, condition, "var")
         action = _replace_path_strings(self, action, "var")
-        event = NumerousEvent(key, condition, action, compiled, terminal, direction)
+        event = StateEvent(key, condition, action, compiled, terminal, direction)
         self.events.append(event)
 
     def add_timestamp_event(self, key: str, action: Callable[[float, dict[str, float]], None],

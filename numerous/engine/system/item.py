@@ -122,11 +122,12 @@ class Item(Node):
                 variables_result.append((variable, vn))
         return variables_result
 
-    def add_event(self, key, condition, action, compiled_functions=None, terminal=True, direction=-1, compiled=False):
+    def add_event(self, key, condition, action, compiled_functions=None, terminal=True, direction=-1, compiled=False,
+                  is_external: bool = False):
         condition = condition
         action = action
-        event = StateEvent(key, condition, action, compiled, terminal, direction,
-                              compiled_functions=compiled_functions)
+        event = StateEvent(key, condition, action, compiled, terminal=terminal, direction=direction,
+                              compiled_functions=compiled_functions, is_external=is_external)
 
         self.events.append(event)
 
@@ -149,7 +150,7 @@ class Item(Node):
 
         """
         action = action
-        event = TimestampEvent(key, action, timestamps, periodicity, is_external)
+        event = TimestampEvent(key, action, timestamps=timestamps, periodicity=periodicity, is_external=is_external)
         self.timestamp_events.append(event)
 
     def _increase_level(self):

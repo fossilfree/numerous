@@ -8,7 +8,8 @@ class NumerousEvent:
 
 class StateEvent(NumerousEvent):
 
-    def __init__(self, key, condition, action, compiled, terminal, direction, compiled_functions=None):
+    def __init__(self, key, condition, action, compiled, terminal, direction, compiled_functions=None,
+                 is_external=False):
         self.key = key
         self.condition = condition
         self.action = action
@@ -16,6 +17,7 @@ class StateEvent(NumerousEvent):
         self.compiled_functions = compiled_functions
         self.direction = direction
         self.terminal = terminal
+        self.is_external = is_external
 
 
 class TimestampEvent(NumerousEvent):
