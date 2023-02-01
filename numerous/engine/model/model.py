@@ -620,7 +620,7 @@ class Model:
         :param terminal: not used
         :param direction: Direction of the event that triggers it (<0 from positive to negative, and >0 from negative
         to positive)
-        :param compiled: if the action and condition functions are compiled
+        :param compiled: if the action and condition functions are compiled already when adding
         :param is_external: True if action function should not be compiled
 
         """
@@ -629,7 +629,8 @@ class Model:
         if not is_external:
             action = _replace_path_strings(self, action, "var")
 
-        event = StateEvent(key, condition, action, compiled, terminal, direction, is_external=is_external)
+        event = StateEvent(key=key, condition=condition, action=action, direction=direction, compiled=compiled,
+                           terminal=terminal, is_external=is_external)
         self.events.append(event)
 
     def add_timestamp_event(self, key: str, action: Callable[[float, dict[str, float]], None],
@@ -648,11 +649,14 @@ class Model:
         :type timestamps: Optional[list]
         :param periodicity: an optional time value for which the event action function is triggered at each multiple of
         :type periodicity: Optional[float]
+        :param is_external: True if action function should not be compiled
+        :type is_external: bool
 
         """
         if not is_external:
             action = _replace_path_strings(self, action, "var")
-        event = TimestampEvent(key, action, timestamps=timestamps, periodicity=periodicity, is_external=is_external)
+        event = TimestampEvent(key=key, action=action, timestamps=timestamps, periodicity=periodicity,
+                               is_external=is_external)
         self.timestamp_events.append(event)
 
     def generate_mock_event(self) -> None:

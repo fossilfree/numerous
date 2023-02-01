@@ -124,10 +124,27 @@ class Item(Node):
 
     def add_event(self, key, condition, action, compiled_functions=None, terminal=True, direction=-1, compiled=False,
                   is_external: bool = False):
+        """
+        Method for adding state events, that can trigger when a certain condition is fulfilled. A state event must have
+        a condition function and an action function, both of which must have the signature (t, variables).
+
+        :param key: A name for the event
+        :param condition: a function to call which determines if the condition for triggering the event is fulfilled
+        :param action: the action function to call once the triggering function fires it
+        :param compiled_functions: an internal parameter
+        :param terminal: presently unused parameter
+        :param direction: direction of the event triggering function: <0 if event triggers when function passes from
+        positive to negative, and >0 if the opposite is true
+        :param compiled: presently unused parameter
+        :param is_external: a bool, which determines if the action function is external or not (and will be compiled or
+        not). This allows the user to create custom action functions that are not necessarily numba compilable.
+        :return:
+        """
         condition = condition
         action = action
-        event = StateEvent(key, condition, action, compiled, terminal=terminal, direction=direction,
-                              compiled_functions=compiled_functions, is_external=is_external, parent_path=self.path)
+        event = StateEvent(key=key, condition=condition, action=action, compiled=compiled, terminal=terminal,
+                           direction=direction, compiled_functions=compiled_functions, is_external=is_external,
+                           parent_path=self.path)
 
         self.events.append(event)
 
@@ -147,11 +164,13 @@ class Item(Node):
         :type timestamps: Optional[list]
         :param periodicity: an optional time value for which the event action function is triggered at each multiple of
         :type periodicity: Optional[float]
+        :param is_external: a bool, which determines if the action function is external or not (and will be compiled or
+        not). This allows the user to create custom action functions that are not necessarily numba compilable.
 
         """
         action = action
-        event = TimestampEvent(key, action, timestamps=timestamps, periodicity=periodicity, is_external=is_external,
-                               parent_path=self.path)
+        event = TimestampEvent(key=key, action=action, timestamps=timestamps, periodicity=periodicity,
+                               is_external=is_external, parent_path=self.path)
         self.timestamp_events.append(event)
 
     def _increase_level(self):
