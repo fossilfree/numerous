@@ -22,7 +22,7 @@ time of 2, and a total of 2 time steps:
 You can also pass additional parameters to the ``Simulation`` constructor that represent options for numerous solver.
 Once the simulation is created, you can use the ``solve()`` method to run the simulation and solve the system of equations.
 The result of the simulation can be accessed through the model attribute of the ``Simulation`` object,
-which provides access to the states, parameters, and constants of the system.
+in ``historian_df`` field of the model.
 You can also use the ``reset(self, t_start:float)`` method to resets the simulation and model states to their initial values.
 The Numerous Engine allows users to create a step solver simulation by
 calling the ``step_solve(t_start:float, step_size:float)``  method.
@@ -36,7 +36,5 @@ To make a single simulation step.
 
     model = Model(system)
     simulation = Simulation(model, t_start=0, t_stop=2, num=2)
-    simulation.step_solve(0,0.1)
-
-The simulation results are saved in ``historian_df`` field of the model.
+    simulation.step_solve(t_start=0,  step_size=0.1)
 
