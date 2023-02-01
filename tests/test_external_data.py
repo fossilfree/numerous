@@ -301,7 +301,7 @@ def test_external_data_chunks_and_historian_update(external_data: external_data,
     data = external_data(t0, tmax, dt_data)
     s = simulation(data=data, chunksize=chunksize, historian_max_size=historian_max_size, t0=t0, max_step=dt,
                    dt_eval=dt, tmax=tmax,
-                   dataloader=dataloader, system=system, use_llvm=use_llvm, rtol=1e-8, atol=1e-8)
+                   dataloader=dataloader, system=system, use_llvm=use_llvm, rtol=1e-6, atol=1e-8)
     df = solver(s, t0, tmax, dt)
 
     for ix in df.index:
