@@ -1,11 +1,11 @@
 import numpy as np
 import numpy.typing as npt
 
-from typing import Union
+from typing import Union, Callable
 
 from numerous.engine.model.compiled_model import CompiledModel
 from numerous.engine.model import Model
-from numerous.engine.numerous_event import TimestampEvent, NumerousEvent, StateEvent
+from numerous.engine.numerous_event import TimestampEvent, StateEvent
 
 from numerous.solver import model, interface, Model as SolverModel, Interface, StateEvent as SolverStateEvent, \
     PeriodicTimeEvent as SolverPeriodicTimeEvent, TimestampedEvent as SolverTimestampedEvent, event
@@ -16,15 +16,15 @@ from numerous.solver.solve_states import SolveEvent
 @model
 class NumerousEngineModel(SolverModel):
     def __init__(self, numba_model,
-                 event_functions,
-                 event_directions,
-                 event_actions,
+                 state_event_functions,
+                 state_event_directions,
+                 state_event_actions,
                  time_event_actions):
 
         self.numba_model = numba_model
-        self.event_functions = event_functions
-        self.event_directions = event_directions
-        self.event_actions = event_actions
+        self.state_event_functions = state_event_functions
+        self.state_event_directions = state_event_directions
+        self.state_event_actions = state_event_actions
         self.time_event_actions = time_event_actions
 
 
@@ -122,14 +122,17 @@ class NumerousEngineModelInterface(Interface):
         else:
             return SolveEvent.NoneEvent
 
-    def post_event(self, t: float, y: np.array) -> SolveEvent:
+    def post_state_event(self, t: float, y: np.array, event_id: str) -> SolveEvent:
         """
         After an event, store the results inside internal historian
 
+
         :param t: time
         :type t: float
-        :param y: states
-        :type y: :class:`np.ndarray`
+        :param y: current solver and model states in numpy format
+        :type y: :class:`numpy.ndarray`
+        :param event_id: the id of the state event function that was triggered
+        :type event_id: str
         :return: the result of calling :meth:`~engine.simulation.solver_interface.historian_update`
         :rtype: :class:`~numerous.solver.interface.SolveEvent`
         """
@@ -150,107 +153,43 @@ class NumerousEngineModelInterface(Interface):
         self.historian_update(t, y)
         return SolveEvent.NoneEvent
 
-    def get_event_results(self, t, y):
-        ynew = self._get_variables_modified(y)
-        return self.model.event_functions(t, ynew)
-
-    def run_event_action(self, t_event: float, y: np.array, event_idx: int) -> np.array:
-        """
-        Runs the event action with event_idx. Numerous engine works with variables (states+derivatives+parameters), and
-        the function is optimized to reduce the necessary update of the variables inside numerous engine by applying a
-        mask.
-
-        :param t_event: time of the event
-        :type t_event: float
-        :param y: states
-        :type y: :class:`np.ndarray`
-        :param event_idx: event action function index
-        :type event_idx: int
-        :return: updated states
-        :rtype: :class:`np.ndarray`
-        """
-        modified_variables = self.model.event_actions(t_event, self._get_variables(), event_idx)
-        states = modified_variables[self.model.numba_model.state_idx]
-        variables = np.delete(modified_variables, self.model.numba_model.state_idx)
-        original_variables = np.delete(self._get_variables(), self.model.numba_model.state_idx)
-        modified_mask = (variables != original_variables)
-        for idx in np.argwhere(modified_mask):
-            self._write_variables(modified_variables[idx[0]], idx[0])
-
-        return states
-
-    def run_time_event_action(self, t: float, y: np.array, event_idx: int) -> np.array:
-        """
-        Runs the time event action with event_idx. Numerous engine works with variables (states+derivatives+parameters),
-        and the function is optimized to reduce the necessary update of the variables inside numerous engine by applying
-        a mask.
-
-        :param t: time of the event
-        :type t: float
-        :param y: states
-        :type y: :class:`np.ndarray`
-        :param event_idx: event action function index
-        :type event_idx: int
-        :return: updated states
-        :rtype: :class:`np.ndarray`
-        """
-        if self.model.time_events[event_idx]["is_external"]:
-            return self.model.numba_model.state_idx
-
-        self.last_time_event_idx[event_idx] += 1
-        modified_variables = self.model.time_event_actions(t, self._get_variables(), event_idx)
-        states = modified_variables[self.model.numba_model.state_idx]
-        variables = np.delete(modified_variables, self.model.numba_model.state_idx)
-        original_variables = np.delete(self._get_variables(), self.model.numba_model.state_idx)
-        modified_mask = (variables != original_variables)
-        for idx in np.argwhere(modified_mask):
-            self._write_variables(modified_variables[idx[0]], idx[0])
-
-        return states
-
-    def _get_variables_modified(self, y_):
-        old_states = self.get_states()
-        self.set_states(y_)
-
-        vars = self._get_variables().copy()
-        self.set_states(old_states)
-        return vars
-
-    def get_event_directions(self) -> np.array:
-        return self.model.event_directions
 
 def generate_numerous_engine_solver_model(model: Model) -> (NumerousEngineModel, NumerousEngineEventHandler):
     """
     Method to generate the numerous-engine solver-model and its event handler
+
     :param model: The numerous engine model object
     :type model: :class:`~engine.model.Model`
-    :return: tuple with numerousengine model and eventhandler
+    :return: tuple with :class:`~engine.simulation.solver_interface.NumerousEngineModel` and
+    :class:`~engine.simulation.solver_interface.NumerousEngineEventHandler`
     :rtype: tuple(:class:`~engine.simulation.solver_interface.NumerousEngineModel`,
         :class:`~engine.simulation.solver_interface.NumerousEngineEventHandler`
     """
 
-    event_functions, event_directions = model.generate_event_condition_ast()
-    event_actions = model.generate_event_action_ast(model.events)
+    state_event_functions, state_event_directions = model.generate_event_condition_ast()
+    state_event_actions = model.generate_event_action_ast(model.events)
 
     state_events = []
+    event_factory = EventFactory()
+
     for event_ix, numerousevent in enumerate(model.events):
-        state_event = wrap_events(numerousevent, event_ix, model)
+        state_event = event_factory.create_numerous_solver_event(numerousevent, event_ix, model)
         state_events.append(state_event)
 
     time_event_actions = model.generate_event_action_ast(model.timestamp_events)
 
     time_events = []
     for event_ix, numerousevent in enumerate(model.timestamp_events):
-        time_event = wrap_events(numerousevent, event_ix, model)
+        time_event = event_factory.create_numerous_solver_event(numerousevent, event_ix, model, time_event_actions)
         time_events.append(time_event)
 
 
     # Extract time events
 
     numerous_engine_model = NumerousEngineModel(model.numba_model,
-                                                event_functions,
-                                                event_directions,
-                                                event_actions,
+                                                state_event_functions,
+                                                state_event_directions,
+                                                state_event_actions,
                                                 time_event_actions)
 
     numerous_engine_model.add_time_events(time_events)
@@ -261,30 +200,96 @@ def generate_numerous_engine_solver_model(model: Model) -> (NumerousEngineModel,
     return numerous_engine_model, numerous_event_handler
 
 
-def numpy_fill_array(data: list[tuple]) -> list[tuple]:
-    if len(data) == 0:
-        return data
-    data_ = [d[1] for d in data]
-    # Get lengths of each row of data
-    lens = np.array([len(i) for i in data_])
+class EventFactory:
+    """
+    Factory class for creating Numerous Solver events from :class:`~engine.numerous_events.NumerousEvent`
 
-    # Mask of valid places in each row
-    mask = np.arange(max(lens)) < lens[:, None]
+    """
+    def wrap_internal_event(self, ix: int, event_actions: Callable):
+        class BaseInternalEvent(SolverEvent):
+            def run_event_action(self, interface: NumerousEngineModelInterface, t: float, y: np.array) -> np.array:
+                vars = interface._get_variables()
+                modified_variables = event_actions(t, vars, ix)
+                states = modified_variables[interface.model.numba_model.state_idx]
+                variables = np.delete(modified_variables, interface.model.numba_model.state_idx)
+                original_variables = np.delete(interface._get_variables(), interface.model.numba_model.state_idx)
+                modified_mask = (variables != original_variables)
+                for idx in np.argwhere(modified_mask):
+                    interface._write_variables(modified_variables[idx[0]], idx[0])
+                return states
+        return BaseInternalEvent
 
-    # Setup output array and put elements from data into masked positions
-    out = np.ones(mask.shape, dtype='float') * -1
-    out[mask] = np.concatenate(data_)
-    data_out = data
-    for ix, (event_ix, _) in enumerate(data):
-        data_out[ix] = (event_ix, out[ix])
+    def wrap_external_event(self, model: Model, external_action_function: Callable, parent_path: str):
 
-    return data_out
+        class BaseExternalEvent(SolverEvent):
+            def run_event_action(self, interface: NumerousEngineModelInterface, t: float, y: np.array) -> np.array:
+                model.update_local_variables()
+                variables = {tag: var.value for tag, var in model.path_to_variable.items()}
+                path_ = ""
+                if parent_path:
+                    path_ = ".".join(parent_path) + "."
+                    variables = {tag.strip(path_): value for tag, value in variables.items()}
+                external_action_function(t, variables)
+                for tag, value in variables.items():
+                    model.path_to_variable[path_ + tag].value = value
+                model.update_all_variables()
+                states = interface.get_states()
+                return states
 
-def wrap_events(event_: Union[TimestampEvent, StateEvent], ix: int, model: Model):
+        return BaseExternalEvent
 
-    def _new_time_event(BaseClass, is_external: bool = False, external_action_function = None) -> type(SolverEvent):
+    def create_numerous_solver_event(self, event_: Union[TimestampEvent, StateEvent], ix: int, model: Model,
+                                     event_actions=None) -> \
+        Union[SolverTimestampedEvent, SolverStateEvent, SolverPeriodicTimeEvent]:
+        """
+        Create a numerous solver event based on the type of :class:`~engine.numerous_events.NumerousEvent` and it's
+        properties (is_external, timestamps etc.)
+
+        :param event_: The :class:`~engine.numerous_events.NumerousEvent` derived class
+        :param ix: the index of the event in :attr:`~engine.model.Model.timestamp_events` and
+        :attr:`~engine.model.Model.events`
+        :param model: the :class:`~engine.model.Model`
+        :return:
+
+        """
+
+        if type(event_) == TimestampEvent:
+            if event_.periodicity:
+                baseclass = SolverPeriodicTimeEvent
+                periodic_event: type(SolverPeriodicTimeEvent) = self._new_time_event(ix, model, baseclass,
+                                                                            is_external=event_.is_external,
+                                                                            external_action_function=event_.action,
+                                                                            parent_path=event_.parent_path,
+                                                                            event_actions=event_actions)
+
+                return periodic_event(id=event_.key, period=event_.periodicity, is_external=event_.is_external)
+            else:
+                baseclass = SolverTimestampedEvent
+                timestamped_event: type(SolverTimestampedEvent) = self._new_time_event(ix, model, baseclass,
+                                                                              is_external=event_.is_external,
+                                                                              external_action_function=event_.action,
+                                                                              parent_path=event_.parent_path,
+                                                                              event_actions=event_actions)
+
+                return timestamped_event(id=event_.key, timestamps=event_.timestamps, is_external=event_.is_external)
+
+        elif type(event_) == StateEvent:
+            state_event = self._new_state_event(ix, model, is_external=event_.is_external,
+                                                external_action_function=event_.action,
+                                                parent_path=event_.parent_path)
+
+            return state_event(id=event_.key, is_external=event_.is_external)
+
+    def _new_time_event(self, ix: int, model: Model, TimeEventClass, is_external: bool = False,
+                        external_action_function=None,
+                        parent_path=None, event_actions=None) \
+            -> type(SolverEvent):
+
+        ExternalBaseEvent = self.wrap_external_event(model, external_action_function, parent_path)
+        InternalBaseEvent = self.wrap_internal_event(ix, event_actions)
+        """
         @event
-        class InternalNumerousTimeEvent(BaseClass):
+        class InternalNumerousTimeEvent(TimeEventClass):
             def run_event_action(self, interface: NumerousEngineModelInterface, t: float, y: np.array) -> np.array:
                 vars = interface._get_variables()
                 modified_variables = interface.model.time_event_actions(t, vars, ix)
@@ -297,46 +302,62 @@ def wrap_events(event_: Union[TimestampEvent, StateEvent], ix: int, model: Model
                 return states
 
         @event
-        class ExternalNumerousTimeEvent(BaseClass):
+        class ExternalNumerousTimeEvent(TimeEventClass):
+            def run_event_action(self, interface: NumerousEngineModelInterface, t: float, y: np.array):
+                return external_action_function_(self, interface, t, y)
+
+        
+        """
+        @event
+        class ExternalNumerousTimeEvent(TimeEventClass, ExternalBaseEvent):
+            pass
+
+        @event
+        class InternalNumerousTimeEvent(TimeEventClass, InternalBaseEvent):
+            pass
+
+
+        return ExternalNumerousTimeEvent if is_external else InternalNumerousTimeEvent
+
+    def _new_state_event(self, ix: int, model: Model, is_external: bool = False, external_action_function=None,
+                         parent_path=None) \
+            -> type(SolverStateEvent):
+
+        class BaseStateEvent(SolverStateEvent):
+            def get_event_results(self, interface: NumerousEngineModelInterface, t: float, y: np.array) -> float:
+                return interface.model.state_event_functions(t, y)[ix]
+
+            def get_event_directions(self, interface: NumerousEngineModelInterface, t: float, y: np.array) -> int:
+                return interface.model.state_event_directions[ix]
+
+        @event
+        class InternalNumerousStateEvent(BaseStateEvent):
+            def run_event_action(self, interface: NumerousEngineModelInterface, t: float, y: np.array) -> np.array:
+                vars = interface._get_variables()
+                modified_variables = interface.model.state_event_actions(t, vars, ix)
+                states = modified_variables[interface.model.numba_model.state_idx]
+                variables = np.delete(modified_variables, interface.model.numba_model.state_idx)
+                original_variables = np.delete(interface._get_variables(), interface.model.numba_model.state_idx)
+                modified_mask = (variables != original_variables)
+                for idx in np.argwhere(modified_mask):
+                    interface._write_variables(modified_variables[idx[0]], idx[0])
+
+                return states
+
+        @event
+        class ExternalNumerousStateEvent(BaseStateEvent):
             def run_event_action(self, interface: NumerousEngineModelInterface, t: float, y: np.array) -> np.array:
                 model.update_local_variables()
-                external_action_function(t, model.path_to_variable)
+                variables = {tag: var.value for tag, var in model.path_to_variable.items()}
+                path_ = ""
+                if parent_path:
+                    path_ = ".".join(parent_path) + "."
+                    variables = {tag.strip(path_): value for tag, value in variables.items()}
+                external_action_function(t, variables)
+                for tag, value in variables.items():
+                    model.path_to_variable[path_ + tag].value = value
                 model.update_all_variables()
                 states = interface.get_states()
                 return states
 
-        return ExternalNumerousTimeEvent if is_external else InternalNumerousTimeEvent
-
-    @event
-    class InternalNumerousStateEvent(SolverStateEvent):
-        def run_event_action(self, interface: NumerousEngineModelInterface, t: float, y: np.array) -> np.array:
-            modified_variables = interface.model.event_actions(t, interface._get_variables(), ix)
-            states = modified_variables[interface.model.numba_model.state_idx]
-            variables = np.delete(modified_variables, interface.model.numba_model.state_idx)
-            original_variables = np.delete(interface._get_variables(), interface.model.numba_model.state_idx)
-            modified_mask = (variables != original_variables)
-            for idx in np.argwhere(modified_mask):
-                interface._write_variables(modified_variables[idx[0]], idx[0])
-
-            return states
-
-        def get_event_results(self, interface: NumerousEngineModelInterface, t: float, y: np.array) -> float:
-            return interface.model.event_functions(t, y)[ix]
-
-        def get_event_directions(self, interface: NumerousEngineModelInterface, t: float, y: np.array) -> int:
-            return interface.model.event_directions[ix]
-
-
-    if type(event_) == TimestampEvent:
-        if event_.periodicity:
-            baseclass = SolverPeriodicTimeEvent
-            periodic_event: type(SolverPeriodicTimeEvent) = _new_time_event(baseclass, is_external=event_.is_external,
-                                                                            external_action_function=event_.action)
-            return periodic_event(id=event_.key, period=event_.periodicity, is_external=event_.is_external)
-        else:
-            baseclass = SolverTimestampedEvent
-            timestamped_event: type(SolverTimestampedEvent) = _new_time_event(baseclass, is_external=event_.is_external,
-                                                                              external_action_function=event_.action)
-            return timestamped_event(id=event_.key, timestamps = event_.timestamps)
-    elif type(event_) == StateEvent:
-        return InternalNumerousStateEvent(id=event_.key, is_external=event_.is_external)
+        return ExternalNumerousStateEvent if is_external else InternalNumerousStateEvent

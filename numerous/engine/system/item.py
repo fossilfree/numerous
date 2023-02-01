@@ -127,7 +127,7 @@ class Item(Node):
         condition = condition
         action = action
         event = StateEvent(key, condition, action, compiled, terminal=terminal, direction=direction,
-                              compiled_functions=compiled_functions, is_external=is_external)
+                              compiled_functions=compiled_functions, is_external=is_external, parent_path=self.path)
 
         self.events.append(event)
 
@@ -150,7 +150,8 @@ class Item(Node):
 
         """
         action = action
-        event = TimestampEvent(key, action, timestamps=timestamps, periodicity=periodicity, is_external=is_external)
+        event = TimestampEvent(key, action, timestamps=timestamps, periodicity=periodicity, is_external=is_external,
+                               parent_path=self.path)
         self.timestamp_events.append(event)
 
     def _increase_level(self):

@@ -609,14 +609,32 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
-    def add_event(self, key, condition, action, terminal=True, direction=-1, compiled=False):
-        condition = _replace_path_strings(self, condition, "var")
-        action = _replace_path_strings(self, action, "var")
-        event = StateEvent(key, condition, action, compiled, terminal, direction)
+    def add_event(self, key, condition: Callable, action: Callable, terminal: bool = False, direction: int = -1,
+                  compiled: bool = False, is_external: bool = False):
+        """
+
+        Method for adding state events on the model.
+
+        :param key: the name of the event
+        :param condition: the condition function that determines if the event takes place
+        :param action: the action function that executes the event
+        :param terminal: not used
+        :param direction: Direction of the event that triggers it (<0 from positive to negative, and >0 from negative
+        to positive)
+        :param compiled: if the action and condition functions are compiled
+        :param is_external: True if action function should not be compiled
+
+        """
+        if not is_external:
+            condition = _replace_path_strings(self, condition, "var")
+            action = _replace_path_strings(self, action, "var")
+
+        event = StateEvent(key, condition, action, compiled, terminal, direction, is_external=is_external)
         self.events.append(event)
 
     def add_timestamp_event(self, key: str, action: Callable[[float, dict[str, float]], None],
-                            timestamps: Optional[list] = None, periodicity: Optional[float] = None):
+                            timestamps: Optional[list] = None, periodicity: Optional[float] = None,
+                            is_external: bool = False):
         """
         Method for adding time stamped events, that can trigger at a specific time, either given as an explicit list of
         timestamps, or a periodic trigger time. A time event must be associated with a time event action function with
@@ -632,8 +650,9 @@ class Model:
         :type periodicity: Optional[float]
 
         """
-        action = _replace_path_strings(self, action, "var")
-        event = TimestampEvent(key, action, timestamps, periodicity)
+        if not is_external:
+            action = _replace_path_strings(self, action, "var")
+        event = TimestampEvent(key, action, timestamps=timestamps, periodicity=periodicity, is_external=is_external)
         self.timestamp_events.append(event)
 
     def generate_mock_event(self) -> None:

@@ -1,15 +1,16 @@
-from typing import Optional, List, Callable, Dict
+from typing import Optional, Callable, Dict
 class NumerousEvent:
     key: str
     compiled: bool
     is_external: bool
     compiled_functions: Optional[Dict[str, Callable]]
     action: Callable
+    parent_path: str
 
 class StateEvent(NumerousEvent):
 
     def __init__(self, key, condition, action, compiled, terminal, direction, compiled_functions=None,
-                 is_external=False):
+                 is_external=False, parent_path=None):
         self.key = key
         self.condition = condition
         self.action = action
@@ -18,11 +19,12 @@ class StateEvent(NumerousEvent):
         self.direction = direction
         self.terminal = terminal
         self.is_external = is_external
+        self.parent_path = parent_path
 
 
 class TimestampEvent(NumerousEvent):
     def __init__(self, key, action, timestamps: list=None, periodicity: float=None, compiled_functions=None,
-                 is_external: bool=False):
+                 is_external: bool=False, parent_path=None):
         self.key = key
         self.action = action
         self.compiled_functions = compiled_functions
@@ -33,3 +35,4 @@ class TimestampEvent(NumerousEvent):
         self.timestamps = timestamps
         self.periodicity = periodicity
         self.is_external = is_external
+        self.parent_path = parent_path
