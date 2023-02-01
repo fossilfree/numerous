@@ -408,11 +408,10 @@ class Model:
         for item in self.model_items.values():
             if item.events:
                 for event in item.events:
-                    if event.compiled:
-                        pass
-                    elif not event.is_external:
+                    if not event.compiled:
                         event.condition = _replace_path_strings(self, event.condition, "var", item.path)
-                        event.action = _replace_path_strings(self, event.action, "var", item.path)
+                        if not event.is_external:
+                            event.action = _replace_path_strings(self, event.action, "var", item.path)
 
                     self.events.append(event)
             if item.timestamp_events:
@@ -625,8 +624,9 @@ class Model:
         :param is_external: True if action function should not be compiled
 
         """
+
+        condition = _replace_path_strings(self, condition, "var")
         if not is_external:
-            condition = _replace_path_strings(self, condition, "var")
             action = _replace_path_strings(self, action, "var")
 
         event = StateEvent(key, condition, action, compiled, terminal, direction, is_external=is_external)

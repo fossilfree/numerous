@@ -4,13 +4,13 @@ import inspect
 import numpy.typing as npt
 import numpy as np
 from numba.core.registry import CPUDispatcher
-from typing import List, Callable, Tuple
+from typing import Union
 
 from numerous.engine.model.utils import njit_and_compile_function
-from numerous.engine.numerous_event import NumerousEvent
+from numerous.engine.numerous_event import NumerousEvent, StateEvent, TimestampEvent
 
 
-def generate_event_condition_ast(event_functions: list[NumerousEvent],
+def generate_event_condition_ast(event_functions: list[Union[StateEvent, TimestampEvent]],
                                  from_imports: list[tuple[str, str]]) -> tuple[CPUDispatcher, npt.ArrayLike]:
     array_label = "result"
     directions_array = []
