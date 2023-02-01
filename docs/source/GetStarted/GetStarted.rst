@@ -32,5 +32,6 @@ You can get started quickly here with a simple example:
 
 
 Or follow one of our comprehensive tutorials:
-*  `Bouncing_Ball <https://github.com/fossilfree/numerous/blob/master/examples/Bouncing_Ball/Bouncing%20Ball%20Example.ipynb>`_ model of a ball dropping from a certain height and bouncing off the ground, until it finally comes to rest
-*  `Two tanks modelhttps://github.com/fossilfree/numerous/blob/master/examples/Two_Tanks_System/TwoTanks_System.ipynb`_ that are placed on top of each other and connected by a valve.
+
+*  `Bouncing_Ball <https://github.com/fossilfree/numerous/blob/master/examples/Bouncing_Ball/Bouncing%20Ball%20Example.ipynb>`_ model of a ball dropping from a certain height and bouncing off the ground, until it finally comes to rest.
+*  `Two tanks model <https://github.com/fossilfree/numerous/blob/master/examples/Two_Tanks_System/TwoTanks_System.ipynb>`_ that are placed on top of each other and connected by a valve.
