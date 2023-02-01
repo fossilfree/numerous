@@ -78,12 +78,12 @@ def timestamp_callback(t, variables):
     print(t)
 
 
-@pytest.mark.parametrize("use_llvm", [True])
+@pytest.mark.parametrize("use_llvm", [True, False])
 def test_bouncing_ball(use_llvm):
     model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
     m1 = Model(model_system_2, use_llvm=use_llvm)
 
-    m1.add_event("hitground_event", hitground_event_fun, hitground_event_callback_fun, is_external=True)
+    m1.add_event("hitground_event", hitground_event_fun, hitground_event_callback_fun)
 
     sim = Simulation(m1, t_start=0, t_stop=tmax, num=num)
 

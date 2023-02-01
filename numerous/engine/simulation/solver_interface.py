@@ -243,19 +243,28 @@ class EventFactory:
     def _wrap_state_event(self, ix):
         class BaseStateEvent(SolverStateEvent):
             def get_event_results(self, interface: NumerousEngineModelInterface, t: float, y: np.array) -> float:
-                return interface.model.state_event_functions(t, y)[ix]
+                vars = self._get_variables_modified(interface, t, y)
+                return interface.model.state_event_functions(t, vars)[ix]
 
             def get_event_directions(self, interface: NumerousEngineModelInterface, t: float, y: np.array) -> int:
                 return interface.model.state_event_directions[ix]
 
+            def _get_variables_modified(self, interface: NumerousEngineModelInterface, t, y_) -> np.array:
+                old_states = interface.get_states()
+                interface.set_states(y_)
+
+                vars = interface.model.numba_model.read_variables().copy()
+                interface.set_states(old_states)
+                return vars
+
         return BaseStateEvent
 
     def create_numerous_solver_event(self, event_: Union[TimestampEvent, StateEvent], ix: int, model: Model,
-                                     event_actions=None) -> \
+                                     event_actions: Callable) -> \
         Union[SolverTimestampedEvent, SolverStateEvent, SolverPeriodicTimeEvent]:
         """
-        Create a numerous solver event based on the type of :class:`~engine.numerous_events.NumerousEvent` and it's
-        properties (is_external, timestamps etc.)
+        Factory method ot create a numerous solver event based on the type of
+        :class:`~engine.numerous_events.NumerousEvent` and it's properties (is_external, timestamps etc.)
 
         :param event_: The :class:`~engine.numerous_events.NumerousEvent` derived class
         :param ix: the index of the event in :attr:`~engine.model.Model.timestamp_events` and
@@ -264,37 +273,27 @@ class EventFactory:
         :return:
 
         """
-
         if type(event_) == TimestampEvent:
             if event_.periodicity:
                 baseclass = SolverPeriodicTimeEvent
-                periodic_event: type = self._new_event(ix, model, baseclass,
-                                                                            is_external=event_.is_external,
-                                                                            external_action_function=event_.action,
-                                                                            parent_path=event_.parent_path,
-                                                                            event_actions=event_actions)
-
-                return periodic_event(id=event_.key, period=event_.periodicity, is_external=event_.is_external)
+                kwargs = dict(id=event_.key, period=event_.periodicity, is_external=event_.is_external)
             else:
                 baseclass = SolverTimestampedEvent
-                timestamped_event: type = self._new_event(ix, model, baseclass,
-                                                                              is_external=event_.is_external,
-                                                                              external_action_function=event_.action,
-                                                                              parent_path=event_.parent_path,
-                                                                              event_actions=event_actions)
+                kwargs = dict(id=event_.key, timestamps=event_.timestamps, is_external=event_.is_external)
 
-                return timestamped_event(id=event_.key, timestamps=event_.timestamps, is_external=event_.is_external)
-
-        elif type(event_) == StateEvent:
+        else:
             baseclass = self._wrap_state_event(ix)
-            state_event: type = self._new_event(ix, model, baseclass, is_external=event_.is_external,
+            kwargs = dict(id=event_.key, is_external=event_.is_external)
+
+        new_event: type = self._new_event(ix, model, baseclass,
+                                          is_external=event_.is_external,
                                           external_action_function=event_.action,
                                           parent_path=event_.parent_path,
                                           event_actions=event_actions)
 
-            return state_event(id=event_.key, is_external=event_.is_external)
+        return new_event(**kwargs)
 
-    def _new_event(self, ix: int, model: Model, BaseEventClass, is_external: bool = False,
+    def _new_event(self, ix: int, model: Model, BaseEventClass: type, is_external: bool = False,
                         external_action_function: Callable = None,
                         parent_path: str = None, event_actions: Callable = None) \
             -> type(Union[SolverTimestampedEvent, SolverPeriodicTimeEvent]):
