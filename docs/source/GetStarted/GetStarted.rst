@@ -9,7 +9,8 @@ It is designed to be highly scalable and can handle large, complex models effici
 How to install it?
 ----------------
 To install using pip use::
-`pip install numerous-engine`
+
+$pip install numerous-engine
 
 
 Quick start
@@ -17,6 +18,7 @@ Quick start
 You can get started quickly here with a simple example:
 
 .. code::
+
     from numerous.engine import model, simulation
     from numerous.examples.dampened_oscillator.dampened_oscillator import OscillatorSystem
     #Define simulation
