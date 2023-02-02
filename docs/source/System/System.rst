@@ -91,7 +91,7 @@ the equations of MyItem2.
 
 
 Mappings with assign and argumented assign
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------
 
 Mappings are an important aspect of the Numerous engine system, as they allow for the connection of variables and parameters between different items and subsystems. Mappings can be defined using two different types of assignments: assign and argumented assign.
     1. Assign Mapping: A basic mapping can be defined using the add_mapping() method. It takes in a variable or parameter as an argument, and assigns it as the output of the current variable or parameter. For example, if we have an item A with a variable x, and we want to assign the value of x to another item B's variable y, we can use the following code:
