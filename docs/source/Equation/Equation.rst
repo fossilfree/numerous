@@ -1,26 +1,47 @@
 
 Equations in Numerous Engine.
-^^^^^^^^^^^^^^^^^^
-In Numerous Engine, an equation is a mathematical expression that describes how the state variables and parameters of a system change over time. Equations are written as methods on a class that inherits EquationBase class  from the  numerous.multiphysics.equation_base module. and are decorated with the Equation decorator. These classes are used in conjunction with the Item and Subsystem classes to simulate the behavior of a system over time. The values of the state variables and parameters are updated according to the equations and the chosen integration method.
+==================
+
+In Numerous Engine, an equation is a mathematical expression that describes how the state variables and parameters of a
+system change over time. Equations are written as methods on a class that inherits EquationBase class  from the
+numerous.multiphysics.equation_base module. and are decorated with the Equation decorator. These classes are used in
+conjunction with the Item and Subsystem classes to simulate the behavior of a system over time. The values of the state
+variables and parameters are updated according to the equations and the chosen integration method.
+
+Equation registration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To create an equation in the Numerous engine, you first need to add any of the following variables to a namespace:
 
-    • state: A state variable represents a quantity that changes over time, such as the position or velocity of an object. In Numerous, state variables are  defined using the add_state() method. Adding a state variable will automatically create two variables in the scope object: one for the state and another for its time-derivative with name <state_name>_dot.
-    • parameter: A parameter  quantity that can change over time, but is not a state variable.  In Numerous, parameters are  defined using the add_parameter() method.
-    • constant: A variable is a fixed quantity that does not change over time, such as the mass or length of an object. In Numerous, variables are  defined using the add_constant() method.
-Once the namespace has been created and the variables have been added, you can add an equation to it by calling the add_equation()
+* state: A state variable represents a quantity that changes over time, such as the position or velocity of an object.
+In Numerous, state variables are  defined using the add_state() method. Adding a state variable will automatically create
+two variables in the scope object: one for the state and another for its time-derivative with name <state_name>_dot.
+
+* parameter: A parameter  quantity that can change over time, but is not a state variable.  In Numerous, parameters
+are  defined using the add_parameter() method.
+
+* constant: A variable is a fixed quantity that does not change over time, such as the mass or length of an object.
+In Numerous, variables are  defined using the add_constant() method.
+
+Once the namespace has been created and the variables have been added, you can add an equation to it by calling
+the add_equation()
  method on the namespace, passing in the equation object as an argument. For example:
 
 .. code::
+
     self.<namespace_name>.add_equation(self)
 
 
-The Equation decorator in the :class:`numerous.multiphysics.equation_decorators` module allows users to define equations for use in the Numerous engine. This decorator takes in a function and modifies it to be used as an equation in a system. The function must take in a scope argument, which provides access to the state, parameter,constants, and global values of the system.
-The function should use the scope object to calculate the time-derivative of the state and store it in a derivatives named <state_name>_dot.
+The decorator in the ``numerous.multiphysics.equation_decorators`` module allows users to annotate functions as equations
+for use in the Numerous engine. This decorator takes in a function and modifies it to be used as an equation in a system.
+The function must take in a scope argument, which provides access to the state, parameter,constants, and global values of the system.
+The function should use the scope object to calculate the time-derivative of the state and store it in a derivatives
+named ``<state_name>_dot``.
 Here is an example of how to use the Equation decorator to define an equation for a simple system:
 
 
 .. code::
+
     class MyItem(Item,EquationBase):
         def __init__(self, tag='my_item'):
             super().__init__(tag)
@@ -38,14 +59,10 @@ Here is an example of how to use the Equation decorator to define an equation fo
 
 
 
-
-
-
-
-
-
 Limitation of equation functions.
 ^^^^^^^^^^^^^^^^^^
+
+
 The Numerous engine only allows the use of a limited set of statements inside an equation function because it needs to be able to convert the equations into a form that can be efficiently run by a solver. In order to do this, the engine compiles the code in functions decorated with @Equation().
 
 
@@ -85,6 +102,8 @@ There couple of ways how we can add such external functions to the equitation bo
 
 
 Global variables inside equation method:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 there is one pre-defined global variable in equation that is time variable that allow as to acsees curtrent time that is used by the solver.
 To add another global variable to  be used inside equation we have to import them separatle in the model. equation
 

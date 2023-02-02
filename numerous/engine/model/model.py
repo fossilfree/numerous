@@ -547,7 +547,7 @@ class Model:
         states : list of states
             list of all states.
         """
-        return self.variables[self.state_idx]
+        return self.variables[self.states]
 
 
     def history_as_dataframe(self):

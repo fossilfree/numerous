@@ -145,4 +145,9 @@ Using global variables can help in situations where you want to use the same val
 
 
 
+Creating aliases for variables
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Having many nested subsytems can make it difficult to follow the changes of important variable.
+to highlight one of the variables we can add a special alias to it. Later we can only save such variables to history
+data frame
