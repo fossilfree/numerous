@@ -2,24 +2,24 @@
 Numerous Engine System
 ==================
 
-At the front of the numerous engine is the :class:`numerous.engine.system.Subsystem` class, which is used to define and connect  Items with the equations and variables that make up a system.
-A System object is made up of one or more Item objects, each of which represents a single component of the system. Each Item object can contain one or more namespaces, which are used to organize the equations and variables for that component. Each namespace represents a specific physical domain or area of the system, and can contain its own set of equations and variables.
-namespace  can contain several types of variables: state, parameter, and constant. State variables are quantities that change over time by the solver, such as the position or velocity of an object. Parameters are quantities that can change over time but doesn't have a derivative. Constants are fixed quantities that do not change over time, such as the mass or length of an object.
-Each namespace can contain one or more Equation objects, which are used to define the mathematical relationships between the variables in the namespace. These equations are written as methods on a class that inherits EquationBase class and decorated with the Equation decorator.
-One of the key features of the Numerous engine is the ability to map variables between different Item objects. This allows you to define the relationships between different components of the system and to simulate the system as a whole.
-To create a mapping between two variables, you can use the add_mapping method on the variable you want to map from. For example:
-
-.. code::
-    item_1.namespace_1.x.add_mapping(item_2.namespace_2.y)
-
-This creates a mapping from `item_1.namespace_1.x` to `item_2.namespace_2.y`, so that the value of x is used as the value of y in the simulation.
-Once the mappings have been defined, you can create a Model object from the System object and use it to run a simulation.
+At the front of the numerous engine is the :class:`numerous.engine.system.Subsystem` class,
+which is used to define and connect Items with the equations and variables that make up a system.
+A System object is made up of one or more Item objects, each of which represents a single component of the system.
+One of the key features of the Numerous engine is the ability to map variables between different ``Item`` objects.
+This allows you to define the relationships between different components of the system
+and to simulate the system as a whole.
 
 Namespaces
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Namespaces are created by calling the create_namespace() method on an Item or Subsystem object. For example:
+Each ``Item`` object can contain one or more ``namespaces``, which are used to organize the equations and variables for that component.
+Namespace represents a specific physical domain or area of the system, and can contain its own set of equations and variables.
+namespace  can contain several types of variables: state, parameter, and constant.Each namespace can contain one or more Equation objects,
+which are used to define the mathematical relationships between the variables in the namespace.
+Namespaces are created by calling the ``create_namespace()`` method on an Item or Subsystem object. For example:
+
 .. code::
+
     class MyItem(Item):
         def __init__(self, tag='my_item'):
             super().__init__(tag)
@@ -27,8 +27,11 @@ Namespaces are created by calling the create_namespace() method on an Item or Su
             mechanics = self.create_namespace('mechanics')
             # Add variables to the namespace
             mechanics.add_state('x', 0)
-In the above example, a namespace called mechanics is created on the MyItem object, and a state variable x is added to it.
-Once a namespace is created, equations can be added to it by calling the add_equations() method on the namespace and passing in a list of equation objects as an argument.
+
+In the above example, a namespace called ``mechanics`` is created on the MyItem object, and a state variable x is added to it.
+Once a namespace is created, equations can be added to it by calling the ``add_equations()``
+method on the namespace and passing in a list of equation objects as an argument.
+
 .. code::
     class MyItem(Item,EquationBase):
         def __init__(self, tag='my_item'):
@@ -40,36 +43,51 @@ Once a namespace is created, equations can be added to it by calling the add_equ
         def eval_(self, scope):
             scope.x_dot = 1
 
-In this example, MyItem class is added to mechanics namespace.
-
 Mappings
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Mapping is used to connect variables between different Item and Subsystem objects within a system. This allows for the variables of one object to be used as input for the equations of another object. For example, the temperature of one object can be used as input for the heat transfer equation of another object.
-Mapping is done by calling the add_mapping() method on a variable, and passing in the variable that it should be mapped to. For example:
+Mapping is used to connect variables between different ``Item`` and ``Subsystem`` objects within a system.
+This allows for the variables of one object to be used as input for the equations of another object.
+For example, the temperature of one object can be used as input for the heat transfer equation of another object.
+
+To create a mapping between two variables, you can use the ``add_mapping`` method on the variable you want to map from. For example:
+
 .. code::
-    class MyItem1(Item):
+
+    item_1.namespace_1.x.add_mapping(item_2.namespace_2.y)
+
+
+This code creates a mapping from `item_1.namespace_1.x` to `item_2.namespace_2.y`,
+so that the value of y will be copied into value of x during the simulation.
+
+For example:
+
+.. code::
+    class MyItem1(Item,EquationBase):
         def __init__(self, tag='item1'):
             super().__init__(tag)
-            t1 = self.create_namespace('t1')
-            t1.add_state('T', 0)
+            namespace = self.create_namespace('t1')
+            namespace.add_state('T', 0)
+            namespace.add_equation([self])
 
-    class MyItem2(Item):
+
+    class MyItem2(Item,EquationBase):
         def __init__(self, tag='item2'):
             super().__init__(tag)
-            t1 = self.create_namespace('t1')
-            t1.add_parameter('Q', 0)
-            t1.add_equation(MyEquation())
+            namespace = self.create_namespace('t1')
+            namespace.add_parameter('Q', 0)
+            namespace.add_equation([self])
 
     # ...
 
     item1 = MyItem1()
     item2 = MyItem2()
     item2.t1.Q.add_mapping(item1.t1.T)
-In this example, the Q parameter of MyItem2 is mapped to the T state of MyItem1. This means that the value of item1.t1.T will be used as input for the Q parameter in the equations of MyItem2.
-It is important to note that if a variable is mapped to another variable, it will take on the same value
 
 
+In this example, the Q parameter of MyItem2 is mapped to the T state of MyItem1.
+This means that the value of item1.t1.T will be used as input (copied before any computation) for the parameter Q  in
+the equations of MyItem2.
 
 
 Mappings with assign and argumented assign
@@ -87,7 +105,7 @@ The use of mappings allows for the creation of complex systems with a high degre
 
 
 Mappings with connector and ports:
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------
 
 The Numerous engine provides a flexible way to model and simulate complex systems by using the concept of subsystems and connectors. A subsystem is a collection of items, each representing a part of the system, that are connected together through connectors.
 Binding with Connector: In Numerous, a connector is a special type of item that is used to connect the inputs and outputs of two or more items. Connectors are used to define the relationships between items in a subsystem. A connector can be created by instantiating the Connector class from the numerous.engine.system.connector module. Once a connector is created, it can be used to bind the inputs and outputs of different items together. For example, to bind the input of item A to the output of item B, you can use the following code:
@@ -147,9 +165,14 @@ It's important to note that, when using the ItemsStructure.SET, items passed to 
 Creation and working with systems that include fmu subsystem
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In the Numerous engine, FMUs (Functional Mock-up Units) can be used to simulate the behavior of subsystems modeled using Modelica or other modeling languages that support the FMU standard. FMUs can be integrated into a larger system modeled using the Numerous engine by creating an FMUSubsystem object and registering it as a child of a Subsystem object.
-To create an FMUSubsystem, you need to provide the path to the FMU file, and the name of the model and the output variable(s) of the FMU that you want to use. The FMUSubsystem object can then be added to the system using the register_items() method of the parent Subsystem object.
-For example, let's say you have an FMU file called 'my_fmu.fmu' that models a mechanical system, and you want to use the output variable 'displacement' from the model 'MyModel'. You can create an FMUSubsystem object and add it to a system as follows:
+FMUs (Functional Mock-up Units) can be used to import the system from other modeling languages that support the FMU standard.
+FMUs can be integrated into a larger system modeled using the Numerous engine by creating an FMUSubsystem object and
+registering it as a child of a Subsystem object or be simulated on is own.
+To create an FMUSubsystem, you need to provide the path to the FMU file,
+and the name of the model and the output variable(s) of the FMU that you want to use.
+The FMUSubsystem object can then be added to the system using the register_items() method of the parent Subsystem object.
+For example, let's say you have an FMU file called 'my_fmu.fmu' that models a mechanical system, and you want to use the
+output variable 'displacement' from the model 'MyModel'. You can create an FMUSubsystem object and add it to a system as follows:
 from numerous.engine.system import Subsystem, FMUSubsystem
 .. code::
     # Create a Subsystem object to represent the overall system
@@ -160,6 +183,7 @@ from numerous.engine.system import Subsystem, FMUSubsystem
 
     # Register the FMU subsystem as a child of the overall system
     system.register_items(fmu_subsystem)
+
 In addition, you can create mappings between variables in the FMU subsystem and variables in the rest of the system, allowing the FMU to interact with other parts of the system.
 For example, the following code snippet shows how to create a mapping between the input variable 'force' in the FMU and the output variable 'F_out' in the parent subsystem:
 fmu_subsystem.fmu_inputs.force.add_mapping(system.F_out)
