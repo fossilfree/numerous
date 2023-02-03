@@ -173,14 +173,14 @@ def generate_numerous_engine_solver_model(model: Model) -> (NumerousEngineModel,
     event_factory = EventFactory()
 
     for event_ix, numerousevent in enumerate(model.events):
-        state_event = event_factory.create_numerous_solver_event(numerousevent, event_ix, model, state_event_actions)
+        state_event = event_factory.create_numerous_solver_event(numerousevent, event_ix, model)
         state_events.append(state_event)
 
     time_event_actions = model.generate_event_action_ast(model.timestamp_events)
 
     time_events = []
     for event_ix, numerousevent in enumerate(model.timestamp_events):
-        time_event = event_factory.create_numerous_solver_event(numerousevent, event_ix, model, time_event_actions)
+        time_event = event_factory.create_numerous_solver_event(numerousevent, event_ix, model)
         time_events.append(time_event)
 
 
@@ -205,12 +205,17 @@ class EventFactory:
     Factory class for creating Numerous Solver events from :class:`~engine.numerous_events.NumerousEvent`
 
     """
-    def _wrap_internal_event(self, ix: int, event_actions: Callable):
-        # Use closure to wrap internal event class
+    def _wrap_internal_event(self, ix: int, event_type: str):
+        # don't use closure on event actions as it will not compile
+        assert event_type == "state" or event_type == "time", "unknown event type"
+
         class BaseInternalEvent(SolverEvent):
             def run_event_action(self, interface: NumerousEngineModelInterface, t: float, y: np.array) -> np.array:
                 vars = interface._get_variables()
-                modified_variables = event_actions(t, vars, ix)
+                if event_type == 'state':
+                    modified_variables = interface.model.state_event_actions(t, vars, ix)
+                else:
+                    modified_variables = interface.model.time_event_actions(t, vars, ix)
                 states = modified_variables[interface.model.numba_model.state_idx]
                 variables = np.delete(modified_variables, interface.model.numba_model.state_idx)
                 original_variables = np.delete(interface._get_variables(), interface.model.numba_model.state_idx)
@@ -220,7 +225,6 @@ class EventFactory:
                 return states
 
         return BaseInternalEvent
-
     def _wrap_external_event(self, model: Model, external_action_function: Callable, parent_path: str):
         # Use closure to wrap external event class
         class BaseExternalEvent(SolverEvent):
@@ -259,8 +263,7 @@ class EventFactory:
 
         return BaseStateEvent
 
-    def create_numerous_solver_event(self, event_: Union[TimestampEvent, StateEvent], ix: int, model: Model,
-                                     event_actions: Callable) -> \
+    def create_numerous_solver_event(self, event_: Union[TimestampEvent, StateEvent], ix: int, model: Model) -> \
         Union[SolverTimestampedEvent, SolverStateEvent, SolverPeriodicTimeEvent]:
         """
         Factory method ot create a numerous solver event based on the type of
@@ -274,6 +277,7 @@ class EventFactory:
 
         """
         if type(event_) == TimestampEvent:
+            event_type = 'time'
             if event_.periodicity:
                 baseclass = SolverPeriodicTimeEvent
                 kwargs = dict(id=event_.key, period=event_.periodicity, is_external=event_.is_external)
@@ -282,24 +286,24 @@ class EventFactory:
                 kwargs = dict(id=event_.key, timestamps=event_.timestamps, is_external=event_.is_external)
 
         else:
+            event_type = 'state'
             baseclass = self._wrap_state_event(ix)
             kwargs = dict(id=event_.key, is_external=event_.is_external)
 
         new_event: type = self._new_event(ix, model, baseclass,
                                           is_external=event_.is_external,
                                           external_action_function=event_.action,
-                                          parent_path=event_.parent_path,
-                                          event_actions=event_actions)
+                                          parent_path=event_.parent_path, event_type=event_type)
 
         return new_event(**kwargs)
 
     def _new_event(self, ix: int, model: Model, BaseEventClass: type, is_external: bool = False,
                         external_action_function: Callable = None,
-                        parent_path: str = None, event_actions: Callable = None) \
+                        parent_path: str = None, event_type: str = None) \
             -> type(Union[SolverTimestampedEvent, SolverPeriodicTimeEvent]):
 
         ExternalBaseEvent = self._wrap_external_event(model, external_action_function, parent_path)
-        InternalBaseEvent = self._wrap_internal_event(ix, event_actions)
+        InternalBaseEvent = self._wrap_internal_event(ix, event_type=event_type)
 
         @event
         class ExternalNumerousEvent(BaseEventClass, ExternalBaseEvent):
