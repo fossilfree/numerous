@@ -3,8 +3,8 @@ Equations in Numerous Engine.
 ==================
 
 In Numerous Engine, an equation is a mathematical expression that describes how the state variables and parameters of a
-system change over time. Equations are written as methods on a class that inherits EquationBase class  from the
-numerous.multiphysics.equation_base module. and are decorated with the Equation decorator. These classes are used in
+system change over time. Equations are written as methods on a class that inherits ``EquationBase`` class  from the
+``numerous.multiphysics.equation_base`` module. and are decorated with the Equation decorator. These classes are used in
 conjunction with the Item and Subsystem classes to simulate the behavior of a system over time. The values of the state
 variables and parameters are updated according to the equations and the chosen integration method.
 
@@ -14,17 +14,17 @@ Equation registration
 To create an equation in the Numerous engine, you first need to add any of the following variables to a namespace:
 
 * state: A state variable represents a quantity that changes over time, such as the position or velocity of an object.
-In Numerous, state variables are  defined using the add_state() method. Adding a state variable will automatically create
+In Numerous, state variables are  defined using the ``add_state()`` method. Adding a state variable will automatically create
 two variables in the scope object: one for the state and another for its time-derivative with name <state_name>_dot.
 
 * parameter: A parameter  quantity that can change over time, but is not a state variable.  In Numerous, parameters
-are  defined using the add_parameter() method.
+are  defined using the ``add_parameter()`` method.
 
 * constant: A variable is a fixed quantity that does not change over time, such as the mass or length of an object.
-In Numerous, variables are  defined using the add_constant() method.
+In Numerous, variables are  defined using the ``add_constant()`` method.
 
 Once the namespace has been created and the variables have been added, you can add an equation to it by calling
-the add_equation()
+the ``add_equation()``
  method on the namespace, passing in the equation object as an argument. For example:
 
 .. code::
@@ -63,10 +63,14 @@ Limitation of equation functions.
 ^^^^^^^^^^^^^^^^^^
 
 
-The Numerous engine only allows the use of a limited set of statements inside an equation function because it needs to be able to convert the equations into a form that can be efficiently run by a solver. In order to do this, the engine compiles the code in functions decorated with @Equation().
+The Numerous engine only allows the use of a limited set of statements inside an equation function because
+it needs to be able to convert the equations into a form that can be efficiently run by a solver.
+In order to do this, the engine compiles the code in functions decorated with ``@Equation()``.
 
 
-First limitation is that  assign operator can only be used to assign values to variables in a tuple,lists or a single scalar variable. This have to be accounted if we are using functions  inside eqaution that are not returning on of mentioned datatypes.. The following example shows use of assign operator:
+First limitation is that  assign operator can only be used to assign values to variables in a tuple,lists or
+a single scalar variable. This have to be accounted if we are using functions
+inside equation that are not returning on of mentioned datatypes. The following example shows use of assign operator:
 
 .. code::
     @Equation()
@@ -84,27 +88,26 @@ First limitation is that  assign operator can only be used to assign values to v
         scope.q = list(my_set)[0]
 
 
-Another important limitation of equations inside numerous engine is not full support of if statements and if expressions. We are not allowed to use nested if statmnts and only scalar variables are allowed to be compared in if stament.
+Another important limitation of equations inside numerous engine is not full support of if statements
+and if expressions.
+We are not allowed to use nested if statements and only scalar variables are allowed to be compared in if statement.
 
 
-
-
-
-
-
-One way to avoid such limitations is to write complex functions outside of the equation body and compile it using njit decorator or Numerous function decorator form numerous engine.
+One way to avoid such limitations is to write complex functions outside of the equation body
+and compile it using ``njit`` decorator or Numerous function decorator form numerous engine.
 There couple of ways how we can add such external functions to the equitation body.
 
-1.  Clousre inside the item class
-2. imported from external library
-3. usded with NumerousEngine decorator
+1.  Closure inside the item class
+2. Imported from external library
+3. Used with NumerousEngine decorator
 
 
 
 Global variables inside equation method:
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-there is one pre-defined global variable in equation that is time variable that allow as to acsees curtrent time that is used by the solver.
-To add another global variable to  be used inside equation we have to import them separatle in the model. equation
+there is one pre-defined global variable in equation that is time variable that allow as to accesses
+current time that is used by the solver.
+To add another global variable to  be used inside equation we have to import them separate in the model. equation
 
-To use global variables inseid the equation we can access them using global_vars key inside the scope that is passed to the equation annotated method.
+To use global variables instead the equation we can access them using global_vars key inside the scope that is passed to the equation annotated method.
