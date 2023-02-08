@@ -1,4 +1,4 @@
-from numerous.engine.numerous_event import StateEvent, TimestampEvent
+from numerous.engine.numerous_event import StateEvent, TimestampEvent, Action, Condition
 from numerous.engine.system.connector import Connector
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.system.namespace import VariableNamespace, VariableNamespaceBase
@@ -140,9 +140,9 @@ class Item(Node):
         not). This allows the user to create custom action functions that are not necessarily numba compilable.
         :return:
         """
-        condition = condition
-        action = action
-        event = StateEvent(key=key, condition=condition, action=action, compiled=compiled, terminal=terminal,
+        condition_ = Condition(condition, None, None)
+        action_ = Action(action, None, None)
+        event = StateEvent(key=key, condition=condition_, action=action_, compiled=compiled, terminal=terminal,
                            direction=direction, compiled_functions=compiled_functions, is_external=is_external,
                            parent_path=self.path)
 
@@ -168,8 +168,8 @@ class Item(Node):
         not). This allows the user to create custom action functions that are not necessarily numba compilable.
 
         """
-        action = action
-        event = TimestampEvent(key=key, action=action, timestamps=timestamps, periodicity=periodicity,
+        action_ = Action(action, None, None)
+        event = TimestampEvent(key=key, action=action_, timestamps=timestamps, periodicity=periodicity,
                                is_external=is_external, parent_path=self.path)
         self.timestamp_events.append(event)
 

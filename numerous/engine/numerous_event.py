@@ -1,5 +1,18 @@
 import numpy as np
-from typing import Optional, Callable, Dict, List
+from typing import Optional, Callable, Dict, List, Tuple
+
+class ParsedEventFunction:
+    def __init__(self, func, ast_func, closure_variables):
+        self.func = func
+        self.ast_func = ast_func
+        self.closure_variables = closure_variables
+
+class Condition(ParsedEventFunction):
+    type = 'condition'
+
+class Action(ParsedEventFunction):
+    type = 'action'
+
 class NumerousEvent:
     """
     Base event for numerous engine
@@ -8,7 +21,7 @@ class NumerousEvent:
     compiled: bool
     is_external: bool
     compiled_functions: Optional[Dict[str, Callable]]
-    action: Callable
+    action: Action
     parent_path: Optional[List[str]]
 
 class StateEvent(NumerousEvent):
@@ -17,15 +30,15 @@ class StateEvent(NumerousEvent):
     internally in numerous engine.
     """
 
-    def __init__(self, key: str, condition: Callable, action: Callable, direction: int, compiled: bool = False,
+    def __init__(self, key: str, condition: Condition, action: Action, direction: int, compiled: bool = False,
                  terminal: bool = False, compiled_functions = None,
                  is_external: bool = False, parent_path: Optional[List[str]] = None):
         """
 
         :param key: an identifier
-        :param condition: a callable condition function with signature (t, variables) used for root finding to check if
-        state event is triggered
-        :param action: a callable action function with signature (t, variables) called once state event is triggered
+        :param condition: a :class:`~engine.numerous_events.Condition` object containing the condition functions
+        used for root finding to check if state event is triggered
+        :param action: an :class:`~engine.numerous_events.Action` object containing the action functions
         :param direction: a value that is either positive or negative depending on the direction of the event trigger
         :param compiled: an internal parameter
         :param terminal: an internal parameter
@@ -50,13 +63,13 @@ class TimestampEvent(NumerousEvent):
     A variant of :class:`~engine.numerous_event.NumerousEvent` which is used to generate time stamp events. This is used
     internally in numerous engine.
     """
-    def __init__(self, key: str, action: Callable, timestamps: list = None, periodicity: float = None,
+    def __init__(self, key: str, action: Action, timestamps: list = None, periodicity: float = None,
                  compiled_functions=None, is_external: bool=False, parent_path: list[str] = None):
         """
         initialization function for time stamped events
 
         :param key: an identifier
-        :param action: a callable action function with signature (t, variables)
+        :param action: an :class:`~engine.numerous_events.Action` object containing the action functions
         :param timestamps: an optional list of timestamps given as a list or np array
         :type timestamps: Optional[List, :class:`numpy.ndarray`]
         :param periodicity: an optional parameter that is used instead of timestamps when using a fixed periodicity for
@@ -81,3 +94,6 @@ class TimestampEvent(NumerousEvent):
         self.periodicity = periodicity
         self.is_external = is_external
         self.parent_path = parent_path
+
+
+

@@ -18,9 +18,9 @@ from numba.experimental import jitclass
 import pandas as pd
 from numerous.engine.model.aliased_dataframe import AliasedDataFrame
 
-from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
+from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, replace_path_strings
 from numerous.engine.model.utils import Imports
-from numerous.engine.numerous_event import StateEvent, TimestampEvent
+from numerous.engine.numerous_event import StateEvent, TimestampEvent, Condition, Action
 from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping, ExternalMappingUnpacked
 
 from numerous.utils.logger_levels import LoggerLevel
@@ -409,15 +409,20 @@ class Model:
             if item.events:
                 for event in item.events:
                     if not event.compiled:
-                        event.condition = _replace_path_strings(self, event.condition, "var", item.path)
+                        condition_ast, condition_closurevariables = replace_path_strings(self, event.condition.func, "var",
+                                                                                         item.path)
+                        event.condition = Condition(event.condition.func, condition_ast, condition_closurevariables)
                         if not event.is_external:
-                            event.action = _replace_path_strings(self, event.action, "var", item.path)
+                            action_ast, action_closurevariables = replace_path_strings(self, event.action.func, "var",
+                                                                                       item.path)
+                            event.action = Action(event.action.func, action_ast, action_closurevariables)
 
                     self.events.append(event)
             if item.timestamp_events:
                 for event in item.timestamp_events:
                     if not event.is_external:
-                        event.action = _replace_path_strings(self, event.action, "var", item.path)
+                        action_ast, action_closurevariables = replace_path_strings(self, event.action.func, "var", item.path)
+                        event.action = Action(event.action.func, action_ast, action_closurevariables)
                     self.timestamp_events.append(event)
 
         self.info.update({"Number of items": len(self.model_items)})
@@ -625,11 +630,15 @@ class Model:
 
         """
 
-        condition = _replace_path_strings(self, condition, "var")
+        condition_ast, condition_closurevariables = replace_path_strings(self, condition, "var")
+        condition_ = Condition(condition, condition_ast, condition_closurevariables)
+        action_closeurevariables = None
+        action_ast = None
         if not is_external:
-            action = _replace_path_strings(self, action, "var")
+            action_ast, action_closeurevariables = replace_path_strings(self, action, "var")
 
-        event = StateEvent(key=key, condition=condition, action=action, direction=direction, compiled=compiled,
+        action_ = Action(action, action_ast, action_closeurevariables)
+        event = StateEvent(key=key, condition=condition_, action=action_, direction=direction, compiled=compiled,
                            terminal=terminal, is_external=is_external)
         self.events.append(event)
 
@@ -653,9 +662,13 @@ class Model:
         :type is_external: bool
 
         """
+        action_closeurevariables = None
+        action_ast = None
         if not is_external:
-            action = _replace_path_strings(self, action, "var")
-        event = TimestampEvent(key=key, action=action, timestamps=timestamps, periodicity=periodicity,
+            action_ast, action_closeurevariables = replace_path_strings(self, action, "var")
+
+        action_ = Action(action, action_ast, action_closeurevariables)
+        event = TimestampEvent(key=key, action=action_, timestamps=timestamps, periodicity=periodicity,
                                is_external=is_external)
         self.timestamp_events.append(event)
 

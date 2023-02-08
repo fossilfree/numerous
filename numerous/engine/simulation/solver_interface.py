@@ -234,7 +234,7 @@ class EventFactory:
                 path_ = ""
                 if parent_path:
                     path_ = ".".join(parent_path) + "."
-                    variables = {tag.strip(path_): value for tag, value in variables.items()}
+                    variables = {tag.replace(path_, ""): value for tag, value in variables.items()}
                 external_action_function(t, variables)
                 for tag, value in variables.items():
                     model.path_to_variable[path_ + tag].value = value
@@ -292,7 +292,7 @@ class EventFactory:
 
         new_event: type = self._new_event(ix, model, baseclass,
                                           is_external=event_.is_external,
-                                          external_action_function=event_.action,
+                                          external_action_function=event_.action.func,
                                           parent_path=event_.parent_path, event_type=event_type)
 
         return new_event(**kwargs)
