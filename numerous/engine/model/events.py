@@ -88,9 +88,9 @@ class VariablesVisitor(ast.NodeVisitor):
             left = node.value.left
 
             right = node.value.right
-            left_val = self._get_value(left)
-            right_val = self._get_value(right)
-            if not left_val or not right_val:
+            left_val, left_has_val = self._get_value(left)
+            right_val, right_has_val = self._get_value(right)
+            if not left_has_val or not right_has_val:
                 self.generic_visit(node)
                 return
 
@@ -105,11 +105,13 @@ class VariablesVisitor(ast.NodeVisitor):
     def _get_value(self, val):
         if isinstance(val, ast.Name):
             if val.id in self.closurevariables:
-                return self.closurevariables[val.id]
+                return self.closurevariables[val.id], True
             else:
-                return
-        if isinstance(val, ast.Constant):
-            return val.value
+                return None, False
+        elif isinstance(val, ast.Constant):
+            return val.value, True
+        else:
+            return None, False
 
 def replace_path_strings(model, function, idx_type, path_to_root=[]) -> Tuple:
     if hasattr(function, 'lines'):
