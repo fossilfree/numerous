@@ -120,7 +120,11 @@ current time that is used by the solver.
 To add another global variable to be used inside equation we have to import them separately
 on a model level.
 To use global variables inside the equation we can access them using ``global_vars`` key inside
-the scope that is passed to the equation annotated method. It is not possible to assign to ``global_vars`` variables.
+the scope that is passed to the equation annotated method.
+
+.. note::
+
+    It is not possible to assign to ``global_vars`` variables.
 
 .. code::
 
