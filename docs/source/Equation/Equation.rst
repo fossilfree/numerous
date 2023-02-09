@@ -1,5 +1,5 @@
 
-Equations in Numerous Engine.
+Equations in Numerous Engine
 ==================
 Equations in numerous engine is a mathematical expression that describes how the state variables and parameters of a
 system change over time. Equations are written as methods on a class that inherits ``EquationBase`` class  from the
@@ -59,7 +59,7 @@ Here is an example of how to use the Equation decorator to define an equation fo
 
 
 
-Limitation of equation functions.
+Limitation of equation functions
 ^^^^^^^^^^^^^^^^^^
 
 It needs to be able to convert the equations into a form that can be efficiently run by a solver.
@@ -87,22 +87,33 @@ inside equation that are not returning on of mentioned datatypes. The following 
         scope.q = list(my_set)[0]
 
 
-Another important limitation of equations inside numerous engine is not full support of if statements
+Another important limitation of equations inside numerous engine is not full support of ``if statements``
 and if expressions.
-We are not allowed to use nested if statements and only scalar variables are allowed to be compared in if statement.
+We are not allowed to use nested ``if statements`` and only
+scalar variables are allowed to be compared in ``if statement``.
 
 One way to avoid such limitations is to write complex functions outside of the equation body
 and compile it using ``njit`` decorator or Numerous function decorator form numerous engine.
 There couple of ways how we can add such external functions to the equitation body.
 
-1. Closure inside the item class
-2. Imported from external library
-3. Used with NumerousEngine decorator
+Closure inside the item class
+----------------
 
+Closure inside the item class
 
+Imported from external library
+----------------
 
-Global variables inside equation method:
+Imported from external library
+
+NumerousFunction decorator
+----------------
+
+NumerousFunction decorator
+
+Global variables inside equation method
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 It is possible to use global variables inside the equation decorated method.
 There is one pre-defined global variable ``t``  in equation that is time variable that allow as to accesses
 current time that is used by the solver.
