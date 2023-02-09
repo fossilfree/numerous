@@ -1,8 +1,7 @@
 
 Equations in Numerous Engine.
 ==================
-
-In Numerous Engine, an equation is a mathematical expression that describes how the state variables and parameters of a
+Equations in numerous engine is a mathematical expression that describes how the state variables and parameters of a
 system change over time. Equations are written as methods on a class that inherits ``EquationBase`` class  from the
 ``numerous.multiphysics.equation_base`` module. and are decorated with the Equation decorator. These classes are used in
 conjunction with the Item and Subsystem classes to simulate the behavior of a system over time. The values of the state
@@ -15,7 +14,8 @@ To create an equation in the Numerous engine, you first need to add any of the f
 
 * state: A state variable represents a quantity that changes over time, such as the position or velocity of an object.
 In Numerous, state variables are  defined using the ``add_state()`` method. Adding a state variable will automatically
-create two variables in the scope object: one for the state and another for its time-derivative with name <state_name>_dot.
+create two variables in the scope object: one for the state and another for
+its time-derivative with name ``<state_name>_dot``.
 
 * parameter: A parameter  quantity that can change over time, but is not a state variable.  In Numerous, parameters
 are  defined using the ``add_parameter()`` method.
@@ -53,7 +53,7 @@ Here is an example of how to use the Equation decorator to define an equation fo
             self.mechanics.add_equation(self)
 
       @Equation()
-        def eval_(self, scope):
+        def eval(self, scope):
             # Assign value to a derivative of state x
             scope.x_dot = 1
 
@@ -65,14 +65,15 @@ Limitation of equation functions.
 It needs to be able to convert the equations into a form that can be efficiently run by a solver.
 It is only allowed to use limited set of statements inside an equation function because
 In order to  notify that we need to do this, the engine compiles the code in functions decorated with ``@Equation()``.
-
+Augmented assign only support scalar numeric values.
 First limitation is that  assign operator can only be used to assign values to variables in a tuple,lists or
 a single scalar variable. This have to be accounted if we are using functions
 inside equation that are not returning on of mentioned datatypes. The following example shows use of assign operator:
 
 .. code::
+
     @Equation()
-    def eval_(self, scope):
+    def eval(self, scope):
 
         # Assign values to tuple of variables
         scope.x, scope.y, scope.z = (1, 2, 3)
@@ -102,10 +103,16 @@ There couple of ways how we can add such external functions to the equitation bo
 
 Global variables inside equation method:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-there is one pre-defined global variable in equation that is time variable that allow as to accesses
+It is possible to use global variables inside the equation decorated method.
+There is one pre-defined global variable ``t``  in equation that is time variable that allow as to accesses
 current time that is used by the solver.
-To add another global variable to  be used inside equation we have to import them separate in the model. equation
+To add another global variable to be used inside equation we have to import them separately
+on a model level.
+To use global variables inside the equation we can access them using ``global_vars`` key inside
+the scope that is passed to the equation annotated method. It is not possible to assign to ``global_vars`` variables.
 
-To use global variables instead the equation we can access them using global_vars key inside
-the scope that is passed to the equation annotated method.
+.. code::
+
+    @Equation()
+    def eval(self, scope):
+        scope.T = scope.global_vars.constant_value
