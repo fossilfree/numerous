@@ -15,6 +15,12 @@ Numerous is a simulation library for simulation
    Model/index.rst
    Simulation/index.rst
 
+.. toctree::
+   :caption: Release notes
+   :maxdepth: 2
+
+   release_notes.rst
+
 
 Indices and tables
 ==================

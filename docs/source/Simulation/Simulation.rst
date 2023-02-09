@@ -1,4 +1,4 @@
-Numerous Engine Simulation
+Simulation
 ==================
 
 The Simulation class in the :class:`numerous.engine.simulation` module is used to run the simulation of a system over time.

@@ -1,0 +1,27 @@
+Version 0.4.0 (10 February, 2023)
+------------------------------
+
+* Numerous solver split in separate project. All calls to solver are done through Solver interface.
+* Documentation update
+* Logging of FMU import
+* Constant global parameters in equation
+* post call functions on system level
+* Custom logger support
+* Periodic time events support
+* Improved CI
+
+
+Version 0.3.1 (5 August , 2022)
+------------------------------
+* fix: subsystem find variables recursion error.
+
+Version 0.3.0 (20 June , 2022)
+------------------------------
+* Improved CI
+* Support of FMI version 2.0 import
+* Full variable dictionary passed to event conditions
+* External mapping allowed on system level
+* Step solver now only updates historian if a multiple of dt has been reached (or event).
+* Corrected event detection when updating external dataframe required.
+* Increased support of python in equation
+* support of numpy version 1.22.0

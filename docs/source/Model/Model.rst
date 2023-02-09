@@ -1,4 +1,4 @@
-Numerous Engine Model
+Model
 ==================
 
 The Model class is initialized with a Subsystem object, which is the top-level container for the system's components. The Subsystem class allows users to organize the system's components into a hierarchical structure, with each Item representing a subsystem or a component of the system. Each Item can have one or more Namespace objects, each of which can contain a set of equations and variables.

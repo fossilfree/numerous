@@ -1,5 +1,5 @@
 
-Numerous Engine Item
+Item
 ==================
 
 At the front of the numerous engine is the ``Item`` class,

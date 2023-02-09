@@ -1,5 +1,5 @@
 
-Equations in Numerous Engine
+Equations
 ==================
 Equations in numerous engine is a mathematical expression that describes how the state variables and parameters of a
 system change over time. Equations are written as methods on a class that inherits ``EquationBase`` class  from the
@@ -122,12 +122,14 @@ on a model level.
 To use global variables inside the equation we can access them using ``global_vars`` key inside
 the scope that is passed to the equation annotated method.
 
-.. note::
 
-    It is not possible to assign to ``global_vars`` variables.
 
 .. code::
 
     @Equation()
     def eval(self, scope):
         scope.T = scope.global_vars.constant_value
+
+.. note::
+
+    It is not possible to assign to ``global_vars`` variables.
