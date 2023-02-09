@@ -9,7 +9,7 @@ with open('requirements.txt', "r") as requirements:
 
 setuptools.setup(
     name="numerous-engine",
-    version="0.3.1",
+    version="0.4.0",
 
     author='Artem Chupryna, EnergyMachines ApS',
     author_email='artem.chupryna@energymachines.com',
