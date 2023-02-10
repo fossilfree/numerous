@@ -99,21 +99,43 @@ There couple of ways how we can add such external functions to the equitation bo
 .. note::
 Numpy library is always imported for methods decorated with ``@Equation()``.
 
-
-Closure inside the item class
-----------------
-
-Closure inside the item class
-
 Imported from external library
 ----------------
+To use external libraries inside equations we have to import them on ``model`` level using ``imports``  keyword arg.
 
-Imported from external library
 
 NumerousFunction decorator
 ----------------
+The  ``@NumerousFunction `` decorator can be used to define notify that function should be compiled using numba
+and included into namespace of the equation. With this decorator can use all subset of python that is supported
+in numba.
 
-NumerousFunction decorator
+.. code::
+
+    class SelfTest(EquationBase, Item):
+        def __init__(self, tag="tm", offset=0):
+
+            Item.__init__(self, tag)
+            EquationBase.__init__(self, tag)
+
+            self.add_parameter('x', 0)
+            self.add_state('t', 0)
+
+            data = np.arange(100)
+
+            @NumerousFunction()
+            def test_self(t):
+                return data[round(t)] + offset
+
+            self.test_self = test_self
+
+            mechanics = self.create_namespace('test_nm')
+            mechanics.add_equations([self])
+
+        @Equation()
+        def eval(self, scope):
+            scope.t_dot = 1
+            scope.x = self.test_self(scope.t)
 
 Global variables inside equation method
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
