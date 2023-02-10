@@ -2,6 +2,6 @@ System
 ===================
 
 .. toctree::
-   System.rst
-   Item.rst
+   ItemandSystem.rst
    SystemCreation.rst
+   Mappings.rst
