@@ -8,6 +8,7 @@ This allows for a hierarchical representation of the model system.
 and connect Items with the equations and variables that make up a system
 A System object is made up of one or more Item objects, each of which represents a single component of the system.
 One of the key features of the Numerous engine is the ability to map variables between different ``Item`` objects.
+
 Starting with Connector
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -203,6 +204,7 @@ The Numerous engine allows users to register additional methods on subsystems an
 In summary, the Numerous engine provides several mechanisms for creating and managing
 connections between subsystems and items, including ports, connectors, and mapping
 which allows the user to effectively simulate complex systems of equations.
+
 Set variables and Item set
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

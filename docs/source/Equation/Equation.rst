@@ -30,9 +30,11 @@ the ``add_equation()`` method on the namespace, passing in the equation object a
 
     self.<namespace_name>.add_equation(self)
 
-
+It is possible to add multiple equations on the single namespace, they will be treated a single equation internally and
+executed in order they added.
 The decorator in the ``numerous.multiphysics.equation_decorators`` module allows users to annotate functions as equations
-that will be compiled in numerous engine. This decorator takes in a function and modifies it to be used as an equation in a system.
+that will be compiled in numerous engine. This decorator takes in a function and modifies it to be
+used as an equation in a system.
 The function must take in a scope argument, which provides access to the state, parameter,constants, and global values
 of the system.
 The function should use the scope object to calculate the time-derivative of the state and store it in a derivatives
@@ -56,7 +58,6 @@ Here is an example of how to use the Equation decorator to define an equation fo
         def eval(self, scope):
             # Assign value to a derivative of state x
             scope.x_dot = 1
-
 
 
 Limitation of equation functions
@@ -97,7 +98,9 @@ and compile it using ``njit`` decorator or Numerous function decorator form nume
 There couple of ways how we can add such external functions to the equitation body.
 
 .. note::
-Numpy library is always imported for methods decorated with ``@Equation()``.
+
+``Numpy`` library is always imported for methods decorated with ``@Equation()``.
+
 
 Imported from external library
 ----------------
@@ -106,7 +109,7 @@ To use external libraries inside equations we have to import them on ``model`` l
 
 NumerousFunction decorator
 ----------------
-The  ``@NumerousFunction `` decorator can be used to define notify that function should be compiled using numba
+The  ``@NumerousFunction()`` decorator can be used to define notify that function should be compiled using numba
 and included into namespace of the equation. With this decorator can use all subset of python that is supported
 in numba.
 
