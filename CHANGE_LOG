@@ -5,7 +5,7 @@ Version 0.4.0 (10 February, 2023)
 * Documentation update
 * Logging of FMU import
 * Constant global parameters in equation
-* post call functions on system level
+* Post call functions on system level
 * Custom logger support
 * Periodic time events support
 * Improved CI
@@ -13,7 +13,7 @@ Version 0.4.0 (10 February, 2023)
 
 Version 0.3.1 (5 August , 2022)
 ------------------------------
-* fix: subsystem find variables recursion error.
+* Fix: subsystem find variables recursion error.
 
 Version 0.3.0 (20 June , 2022)
 ------------------------------
