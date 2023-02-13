@@ -56,10 +56,14 @@ class VariablesVisitor(ast.NodeVisitor):
         self.idx_type = idx_type
         self.closurevariables = closurevariables
         self.assigned_variables = {}
+        self.variables_name = None
 
     def generic_visit(self, node):
+        if isinstance(node, ast.FunctionDef) and not self.variables_name: # Second argument is 'variables'
+            self.variables_name = node.args.args[1].arg
+
         if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
-            if node.value.id != "variables":
+            if node.value.id != self.variables_name:
                 return ast.NodeVisitor.generic_visit(self, node)
 
             if isinstance(node.slice.value, str):
@@ -73,7 +77,7 @@ class VariablesVisitor(ast.NodeVisitor):
                 raise KeyError(f'No such variable: {node.slice.value}')
 
         elif isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Name):
-            if node.value.id != "variables":
+            if node.value.id != self.variables_name:
                 return ast.NodeVisitor.generic_visit(self, node)
 
             found = False
@@ -113,6 +117,8 @@ class VariablesVisitor(ast.NodeVisitor):
             else:
                 raise NotImplementedError(f"{type(operator)} not yet implemented")
             self.assigned_variables.update({node.targets[0].id: evaluated})
+        elif isinstance(node.value, ast.Constant):
+            self.assigned_variables.update({node.targets[0].id: node.value.value})
         else:
             self.generic_visit(node)
 
