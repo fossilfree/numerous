@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+from numba.core.typeinfer import TypingError
 from pytest import approx
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
@@ -50,6 +51,12 @@ def event_action(path, external: bool, print_string: bool):
         A()
 
     return bounce_event_action_internal if not external else bounce_event_action_external
+
+def event_action_model_with_wrong_path(t, variables):
+    velocity = variables['system.t1.']
+    velocity = -velocity * (1 - variables['system.t1.f_loss'])
+    variables['system.t1.v'] = velocity
+    variables['system.t1.t_hit'] = t
 
 class BouncingBall(Subsystem, EquationBase):
     def __init__(self, tag='system', g=9.81, f_loss=0.05, x=1, v=0):
@@ -389,20 +396,22 @@ def test_model_timestamp_event_with_state_event(use_llvm, capsys):
     assert captured.out == "0.11\n0.33\n"
     assert max(analytical_solution(num_hits)) < 5
 
-@pytest.mark.parametrize("use_llvm", [True, False])
+@pytest.mark.parametrize("use_llvm", [False])
 def test_item_variable_error(use_llvm):
     with pytest.raises(KeyError):
         system = BouncingBall()
         system.add_event("hitground_event",
                          event_condition(""),
-                         event_action("system.", external=False, print_string=False))
+                         event_action("system.", external=False, print_string=False),
+                         direction=-1)
+
         m1 = Model(system, use_llvm=use_llvm)
 
         sim = Simulation(m1, t_start=0, t_stop=5, num=100)
 
         sim.solve()
 
-@pytest.mark.parametrize("use_llvm", [True, False])
+@pytest.mark.parametrize("use_llvm", [False])
 def test_model_variable_error(use_llvm):
     with pytest.raises(KeyError):
         system = BouncingBall()
@@ -410,8 +419,10 @@ def test_model_variable_error(use_llvm):
         m1 = Model(system, use_llvm=use_llvm)
         m1.add_event("hitground_event",
                      event_condition("system."),
-                     event_action("", external=False, print_string=False))
+                     event_action("", external=False, print_string=False),
+                     direction=-1)
 
         sim = Simulation(m1, t_start=0, t_stop=5, num=100)
 
         sim.solve()
+

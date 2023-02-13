@@ -59,6 +59,9 @@ class VariablesVisitor(ast.NodeVisitor):
 
     def generic_visit(self, node):
         if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
+            if node.value.id != "variables":
+                return ast.NodeVisitor.generic_visit(self, node)
+
             if isinstance(node.slice.value, str):
                 for (var_path, var) in self.model.path_to_variable.items():
                     if var_path.startswith(self.path_to_root_str):
@@ -68,14 +71,25 @@ class VariablesVisitor(ast.NodeVisitor):
                         break
             if isinstance(node.slice.value, str):
                 raise KeyError(f'No such variable: {node.slice.value}')
-        if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Name):
+
+        elif isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Name):
+            if node.value.id != "variables":
+                return ast.NodeVisitor.generic_visit(self, node)
+
+            found = False
+            if node.slice.id not in self.assigned_variables:
+                raise KeyError(f"Variable {node.slice.id} is not assigned a value")
+
             for (var_path, var) in self.model.path_to_variable.items():
                 if var_path.startswith(self.path_to_root_str):
                     var_path = var_path[len(self.path_to_root_str):]
-                if var_path in self.assigned_variables[node.slice.id]:
+                if var_path == self.assigned_variables[node.slice.id]:
                     node.slice = ast.Constant(value=self.model._get_var_idx(var, self.idx_type)[0])
+                    found = True
                     break
-        if isinstance(node, ast.Name):
+            if not found:
+                raise KeyError(f"No such variable: {self.assigned_variables[node.slice.id]}")
+        elif isinstance(node, ast.Name):
             if node.id in self.closurevariables:
                 node = ast.Constant(value=self.closurevariables[node.id])
 
