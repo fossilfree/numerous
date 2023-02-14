@@ -12,16 +12,16 @@ Equation registration
 
 To define an equation item, you first need to create an namespace and add any of the following variables to a namespace:
 
-* state: A state variable represents a quantity that changes over time, such as the position or velocity of an object.
-State variables are  defined using the ``add_state()`` method. Adding a state variable will automatically
-create two variables in the scope object: one for the state and another
-for its time-derivative with name ``<state_name>_dot``.
+* | state: A state variable represents a quantity that changes over time, such as the position or velocity of an object.
+  | State variables are  defined using the ``add_state()`` method. Adding a state variable will automatically
+  | create two variables in the scope object: one for the state and another
+  | for its time-derivative with name ``<state_name>_dot``.
 
-* parameter: A parameter  quantity that can change over time, but is not a state variable.  Parameters
-are  defined using the ``add_parameter()`` method.
+* | parameter: A parameter  quantity that can change over time, but is not a state variable.  Parameters
+  | are  defined using the ``add_parameter()`` method.
 
-* constant: A variable is a fixed quantity that does not change over time, such as the mass or length of an object.
-Constant variables are  defined using the ``add_constant()`` method.
+* | constant: A variable is a fixed quantity that does not change over time, such as the mass or length of an object.
+  | Constant variables are  defined using the ``add_constant()`` method.
 
 Once the namespace has been created and the variables have been added, you can add an equation to it by calling
 the ``add_equation()`` method on the namespace, passing in the equation object as an argument. For example:

@@ -9,60 +9,6 @@ and connect Items with the equations and variables that make up a system
 A System object is made up of one or more Item objects, each of which represents a single component of the system.
 One of the key features of the Numerous engine is the ability to map variables between different ``Item`` objects.
 
-Starting with Connector
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Here we will look at how to create a simple system that contains 2 basic items and the connector.
-We will start by inheriting a :class:`numerous.engine.system.ConnectorTwoWay`
-that is special case of :class:`numerous.engine.system.Connector`
-with two sides with default names for them side1 and side2.
-
-.. code::
-
-    class ThermalConductor(ConnectorTwoWay):
-        def __init__(self, tag):
-            super(ThermalConductor, self).__init__(tag)
-
-
-Alternatively we can specify our own names for the sides of the
-
-.. code::
-
-    super().__init__(tag,side1_name='inlet', side2_name='outlet')
-
-
-After we are creating  namespace to this item and adding two equations to it.
-`update_bindings` flag show that we expect to have variables of HeatConductance in side1 and side2.
-:class:`numerous.engine.OverloadAction` enum is describing an action that should be used in case
-of multiple reassign to variable during same step. `OverloadAction.SUM` will sum  values instead of overwriting.
-
-.. code::
-
-        hc1 = HeatConductance(h=1001)
-        hc2 = HeatConductance(h=1001)
-
-        thermal = self.create_namespace('thermal')
-
-        thermal.add_equations([hc1, hc2], on_assign_overload=OverloadAction.SUM, update_bindings=True)
-
-Now we have namespace created not only inside the item but inside the defined bindings
-(in this case inside side1 and side2).
-We can continue with mapping variables inside the namespace to variables in bindings.
-Inside an item, mappings are used to map the value of one variable onto another.
-This is used to tell the engine that the value of one variable inside one equation
-is actually the value of another variable inside another equation.
-Mappings are defining interactions between variables not in the same namespace explicitly.
-
-
-
-.. code::
-
-        thermal.T1 = self.side1.thermal.T
-        self.side2.ns.thermal = thermal.T1
-
-
-Now in equation in namespace thermal any access  to value of variable
-T1 will be readdressed to item that is binded to side1.
 
 Creating a System
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
