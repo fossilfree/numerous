@@ -2,19 +2,16 @@
 Item
 ==================
 
-At the front of the numerous engine is the ``Item`` class,
-which is used to define .
-
-This allows you to define the relationships between different components of the system
-and to simulate the system as a whole.
+Main modeling element of the  numerous engine is the ``Item`` class, which is used to define
+a single simulation element.
 
 Namespaces
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Each ``Item`` object can contain one or more ``namespaces``, which are used to organize the equations and variables for that component.
 Namespace represents a specific physical domain or area of the system, and can contain its own set of equations and variables.
-namespace  can contain several types of variables: state, parameter, and constant.Each namespace can contain one or more Equation objects,
-which are used to define the mathematical relationships between the variables in the namespace.
+Each namespace can contain one or more ``Equation`` objects, which are used to define the mathematical
+relationships between the variables in the namespace.
 Namespaces are created by calling the ``create_namespace()`` method on an Item or Subsystem object. For example:
 
 .. code::

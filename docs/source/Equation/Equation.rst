@@ -102,7 +102,7 @@ There couple of ways how we can add such external functions to the equitation bo
 ``Numpy`` library is always imported for methods decorated with ``@Equation()``.
 
 
-Imported from external library
+Import from external library
 ----------------
 To use external libraries inside equations we have to import them on ``model`` level using ``imports``  keyword arg.
 

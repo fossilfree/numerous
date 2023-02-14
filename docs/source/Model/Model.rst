@@ -126,22 +126,32 @@ In this example, we create two instances
 
 
 
-The Numerous engine allows the use of global variables in equations, which can be added to the model by passing a list of global variables in the form of tuples with variable name and value to the global_variables parameter of the Model class.
+The Numerous engine allows the use of global variables in equations, which can be added
+to the model by passing a list of global variables in the form of tuples with
+variable name and value to the global_variables parameter of the Model class.
 For example, to add a global variable g with a value of 9.81 to the model, you would create the model as follows:
 model = Model(system, global_variables=[("g", 9.81)])
-Once a global variable is added to the model, it can be accessed within the equation functions by using the scope object passed to the equation function, for example:
+Once a global variable is added to the model, it can be accessed within
+the equation functions by using the scope object passed to the equation function, for example:
 .. code::
     @Equation()
     def eval_(self, scope):
         acceleration = scope.g * scope.mass
-It's also possible to add global variables on system level by using the add_global_variable method of the Subsystem class, this will add the variable to the system and all sub-systems and items.
-Additionally, you can also add global variables on item level by using the add_global_variable method of the Item class, this will add the variable to the item and its namespaces.
-It's important to note that global variables are constant, meaning that their value will not change during the simulation, but you can change the value by passing a new value to the global_variables parameter of the Model class on the next simulation.
-In addition, it is also possible to access global variables on external mappings, by referencing the variable with the g prefix and the variable name, for example:
+It's also possible to add global variables on system level by using the
+add_global_variable method of the Subsystem class, this will add the variable to the system and all sub-systems and items.
+Additionally, you can also add global variables on item level by using
+the add_global_variable method of the Item class, this will add the variable to the item and its namespaces.
+It's important to note that global variables are constant, meaning that
+their value will not change during the simulation, but you can change
+the value by passing a new value to the global_variables parameter of the Model class on the next simulation.
+In addition, it is also possible to access global variables on external
+mappings, by referencing the variable with the g prefix and the variable name, for example:
 .. code::
     item.t1.T_o.add_mapping(item2.t2.T, global_mapping={"g.g": "g"})
 This will map the g.g variable of item1 to g variable of item2.
-Using global variables can help in situations where you want to use the same value in multiple equations, or when you want to change the value of a parameter that is used in multiple equations without modifying each equation individually.
+Using global variables can help in situations where you want to use the same value
+in multiple equations, or when you want to change the value of a parameter that is used
+in multiple equations without modifying each equation individually.
 
 
 

@@ -228,6 +228,3 @@ from numerous.engine.system import Subsystem, Item, ItemsStructure
 In this example, we create a MySubsystem class that inherits from Subsystem and a MyItem class that inherits from Item. We then create a list of MyItem objects and pass it to the register_items method, along with the structure argument set to ItemsStructure.SET.
 By registering the items as a set, it allows us to make sure that the subsystem only contains unique items and also allows us to use set operations like union and difference on items list.
 It's important to note that, when using the ItemsStructure.SET, items passed to the register_items method must have unique tags. If there are duplicates, it will raise an error.
-
-
-

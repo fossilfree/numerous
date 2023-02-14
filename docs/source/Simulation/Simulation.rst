@@ -37,4 +37,3 @@ To make a single simulation step.
     model = Model(system)
     simulation = Simulation(model, t_start=0, t_stop=2, num=2)
     simulation.step_solve(t_start=0,  step_size=0.1)
-
