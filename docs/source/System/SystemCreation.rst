@@ -31,16 +31,16 @@ Here's an example of how to create a simple system with two thermal masses:
 
 
 
-
 Creation and working with systems that include fmu subsystem
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-FMUs (Functional Mock-up Units) can be used to import the system from other modeling languages that support the FMU standard.
-FMUs can be integrated into a larger system modeled using the Numerous engine by creating an FMUSubsystem object and
-registering it as a child of a Subsystem object or be simulated on is own.
+``FMUs`` (Functional Mock-up Units) can be used to import the system from other modeling
+languages that support the ``FMU`` standard.
+FMUs can be integrated into a larger system modeled using the Numerous engine by creating an ``FMUSubsystem`` object and
+registering it as a child of a ``Subsystem`` object or be simulated on is own.
 To create an FMUSubsystem, you need to provide the path to the FMU file,
 and the name of the model and the output variable(s) of the FMU that you want to use.
-The FMUSubsystem object can then be added to the system using the register_items() method of the parent Subsystem object.
+The FMUSubsystem object can then be added to the system using the ``register_items()`` method of the parent Subsystem object.
 For example, let's say you have an FMU file called 'my_fmu.fmu' that models a mechanical system, and you want to use the
 output variable 'displacement' from the model 'MyModel'. You can create an FMUSubsystem object and add it to a system as follows:
 from numerous.engine.system import Subsystem, FMUSubsystem
@@ -51,20 +51,19 @@ from numerous.engine.system import Subsystem, FMUSubsystem
     system = Subsystem("my_system")
 
     # Create an FMUSubsystem object for the mechanical system
-    fmu_subsystem = FMUSubsystem("mechanical_system", "my_fmu.fmu", "MyModel", ["displacement"])
+    fmu_subsystem = FMUSubsystem("mechanical_system.fmu", "mechanical_system")
 
     # Register the FMU subsystem as a child of the overall system
-    system.register_items(fmu_subsystem)
+    system.register_items([fmu_subsystem])
 
-In addition, you can create mappings between variables in the FMU subsystem and variables in the rest of the system, allowing the FMU to interact with other parts of the system.
-For example, the following code snippet shows how to create a mapping between the input variable 'force' in the FMU and the output variable 'F_out' in the parent subsystem:
-fmu_subsystem.fmu_inputs.force.add_mapping(system.F_out)
-Once the FMU subsystem is added to the system, it can be simulated along with the other parts of the system using the Simulation class, just like any other item in the system. The Simulation class will automatically take care of initializing and communicating with the FMU during the simulation.
-Keep in mind FMU are independent models and their time step is independent from the time step of the system. Also, it's better to use the same solver in the FMU and in the system to ensure consistency.
+In addition, you can create mappings between variables in the ``FMUSubsystem`` and variables in the rest of the system,
+allowing the ``FMU`` to interact with other parts of the system.
+Once the ``FMUSubsystem`` is added to the system, it can be simulated along with the other parts of the system
+using the ``Simulation`` class, just like any other item in the system. The ``FMUSubsystem`` will automatically take
+care of initializing and communicating with the FMU during the simulation.
 Note that, it's also possible to use the FMU in stand alone mode, if you want to use the FMU outside of the system and use it as a black box.
-It's also worth noting that some FMUs may have additional requirements, such as external libraries or specific versions of Python or other dependencies. Be sure to check the documentation for the FMU you are using to ensure that you have the necessary dependencies installed.
-
-
+.. note::
+    Some FMUs may have additional requirements,such as external libraries or specific versions of operating system or other dependencies.Be sure to check the documentation for the FMU you are using to ensure that you have the necessary dependencies installed.
 
 
 State and time Events on system level
