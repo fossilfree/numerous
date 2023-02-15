@@ -4,55 +4,32 @@ System
 To enable building complex systems in a modular way, subsystems are used to define
 combinations of items and subsystems. Items and subsystems can be registered to a subsystem
 to denote it as the parent for the registered items.
-This allows for a hierarchical representation of the model system.
-and connect Items with the equations and variables that make up a system
-A System object is made up of one or more Item objects, each of which represents a single component of the system.
-One of the key features of the Numerous engine is the ability to map variables between different ``Item`` objects.
-
+This allows for a hierarchical representation of the model system
+and connect Items with the equations and variables that make up a system.
 
 Creating a System
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Now we can create a class that inherits :class:`numerous.engine.system.Subsystem`.
-and inside of it we define 2 basic items and 1 Connector item.
+Creating a system in the Numerous modeling and simulation engine involves defining a hierarchy of subsystems,
+which are collections of interconnected components. Here are the general steps:
+
+#. Create a class that inherits from the ``Subsystem`` class, which is a base class for all subsystems in Numerous.
+#. Define the subsystem's properties, which are represented by classes that inherit from ``Item``. These can include ``namespaces`` and ``mappings``.
+#. Register items and subsystems of the subsystem by calling the ``register_items`` method on the subsystem instance.
+#. Instantiate the system by creating an instance of the  ``Subsystem``.
+
+Here's an example of how to create a simple system with two thermal masses:
 
 .. code::
 
-    class System_Level_1(Subsystem):
+    class ThermalSystem(Subsystem):
         def __init__(self, tag):
             super().__init__(tag)
             TM1 = ThermalMass('TM1')
             TM2 = ThermalMass('TM2')
-            C12 = ThermalConductor('TC1')
-
-            #now we have to registered created items for the current subsystem
-            self.register_items([TM1, TM2, C12])
+            self.register_items([TM1, TM2])
 
 
-Different objects in the system needs a way to interact with each other.
-This can be achieved by passing some object instances
-as an argument to another item and mapping there variables explicitly.
-However, in numerous bindings can be used to specify
-prototypes of other items and their required namespaces and variables.
-
-Bindings furthermore enables two items to bi-directionally interact with each other,
-since both items can be instantiated and then bounded to each other.
-
-Having an instance of  ConnectorTwoWay and two items we can create binding by defining corespondance between
-sides and items:
-
-.. code::
-
-            C12.bind(side1=TM1,side2=TM2)
-
-
-
-If we are planning to use some parts of the subsystem for other binding we can define ports inside an subsystem:
-
-.. code::
-
-            self.add_port('inlet', TM1)
-            self.add_port('outlet', TM2)
 
 
 Creation and working with systems that include fmu subsystem
