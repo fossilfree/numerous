@@ -94,100 +94,39 @@ which represent the two  Subsystems or Items.
 The two sides have separate namespaces, where variables related to the side can be defined.
 
 To use a ``ConnectorTwoWay`` object, you should:
+#. Create a namespace within the ConnectorTwoWay object and add the equation class to it orcreate each individual variable expected in this namespace.
+#. Use assign operator mappings to map variables between two sides.
+#. Use bind(side1,side2) method of the ``ConnectorTwoWay`` after it is instantiated to specify the systems we are connecting.
 
-    1. Create a namespace within the ConnectorTwoWay object and add the equation class to it or
-       create each individual variable expected in this namespace.
-
-    2. Use assign operator mappings to map variables between two sides.
-
-    3. Use bind(side1,side2) method of the ``ConnectorTwoWay`` after it is instantiated to specify the systems we are connecting.
-
-    Create variables in each of the two sides and map them to the corresponding variables in the namespace.
-This is necessary to allow the equations to update the values of the variables in the sides.
-
-    Connect the ConnectorTwoWay object to the two connected Subsystems by setting the appropriate
-reference to the connector in the Subsystem objects.
 
 Example:
 
 .. code::
 
-    class Spring_Equation(EquationBase):
-        def __init__(self, k=1, dx0=1):
-            super().__init__(tag='spring_equation')
+        class T(ConnectorTwoWay):
+        def __init__(self, tag, T, R):
+            super().__init__(tag, side1_name='input', side2_name='output')
 
-            self.add_parameter('k', k)
-            self.add_parameter('c', 0)
-            self.add_parameter('F1', 0)
-            self.add_parameter('F2', 0)
-            self.add_parameter('x1', 0)
-            self.add_parameter('x2', 0)
+            t1 = self.create_namespace('t1')
+            t1.add_equations([Test_Eq(T=T, R=R)])
 
-        @Equation()
-        def eval(self, scope):
-            ...
+            t1.R_i = self.input.t1.R
+            t1.T_i = self.input.t1.T
 
-    class SpringCoupling(ConnectorTwoWay):
-        def __init__(self, tag="springcoup", k=1, dx0=0):
-            super().__init__(tag, side1_name='side1', side2_name='side2')
+            ##we ask for variable T
+            t1.T_o = self.output.t1.T
 
-            # 1 Create a namespace for mass flow rate equation and add the valve equation
-            mechanics = self.create_namespace('mechanics')
-            mechanics.add_equations([Spring_Equation(k=k, dx0=dx0)])
-
-            # 2 Create variables H and mdot in side 1 adn 2
-            self.side1.mechanics.create_variable(name='v_dot')
-            self.side1.mechanics
-
-
-Starting with Connector
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-
-
-.. code::
-
-    class ThermalConductor(ConnectorTwoWay):
+    class S3(Subsystem):
         def __init__(self, tag):
-            super(ThermalConductor, self).__init__(tag)
+            super().__init__(tag)
 
+            input = I('1', P=100, T=0, R=10)
+            item1 = T('2', T=0, R=5)
+            item2 = T('3', T=0, R=3)
+            item3 = T('4', T=0, R=2)
+            ## RG is redundant we use item3.R as a last value of R in a chain
+            ground = G('5', TG=10, RG=2)
 
-Alternatively we can specify our own names for the sides of the
+            input.bind(output=item1)
 
-.. code::
-
-    super().__init__(tag,side1_name='inlet', side2_name='outlet')
-
-
-After we are creating  namespace to this item and adding two equations to it.
-`update_bindings` flag show that we expect to have variables of HeatConductance in side1 and side2.
-:class:`numerous.engine.OverloadAction` enum is describing an action that should be used in case
-of multiple reassign to variable during same step. `OverloadAction.SUM` will sum  values instead of overwriting.
-
-.. code::
-
-        hc1 = HeatConductance(h=1001)
-        hc2 = HeatConductance(h=1001)
-
-        thermal = self.create_namespace('thermal')
-
-        thermal.add_equations([hc1, hc2], on_assign_overload=OverloadAction.SUM, update_bindings=True)
-
-Now we have namespace created not only inside the item but inside the defined bindings
-(in this case inside side1 and side2).
-We can continue with mapping variables inside the namespace to variables in bindings.
-Inside an item, mappings are used to map the value of one variable onto another.
-This is used to tell the engine that the value of one variable inside one equation
-is actually the value of another variable inside another equation.
-Mappings are defining interactions between variables not in the same namespace explicitly.
-
-
-
-.. code::
-
-        thermal.T1 = self.side1.thermal.T
-        self.side2.ns.thermal = thermal.T1
-
-
-Now in equation in namespace thermal any access  to value of variable
-T1 will be readdressed to item that is binded to side1.
+            item1.bind(input=input, output=item2)
