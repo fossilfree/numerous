@@ -95,7 +95,7 @@ The two sides have separate namespaces, where variables related to the side can 
 
 To use a ``ConnectorTwoWay`` object, you should:
 
-#. Create a namespace within the ConnectorTwoWay object and add the equation class to it orcreate each individual variable expected in this namespace.
+#. Create a namespace within the ConnectorTwoWay object and add the equation class to it or create each individual variable expected in this namespace.
 #. Use assign operator mappings to map variables between two sides.
 #. Use bind(side1,side2) method of the ``ConnectorTwoWay`` after it is instantiated to specify the systems we are connecting.
 

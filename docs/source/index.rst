@@ -14,6 +14,7 @@ Numerous is a simulation library for simulation
    Equation/index.rst
    Model/index.rst
    Simulation/index.rst
+   Events/index.rst
 
 .. toctree::
    :caption: Release notes

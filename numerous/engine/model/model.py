@@ -112,7 +112,6 @@ class Model:
 
     def __init__(self, system=None,
                  logger_level: LoggerLevel = LoggerLevel.ALL,
-                 historian_filter=None,
                  assemble: bool = True,
                  imports: dict = None, historian=InMemoryHistorian(),
                  use_llvm: bool = True,
@@ -156,7 +155,6 @@ class Model:
         self.numba_callbacks_init_run = []
         self.callbacks = []
         self.global_tag_vars = {}
-        self.historian_filter = historian_filter
         self.system = system
         self.event_function = None
         self.condition_function = None
