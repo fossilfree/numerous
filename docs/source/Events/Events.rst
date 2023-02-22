@@ -1,63 +1,98 @@
 Events
 ==================
 
+In the Numerous engine, a ``state event``  is a condition that is evaluated at each ``timestep``  of a simulation.
+If the condition is met, a specified action is triggered. ``State events``  can be used to change the value of
+a state variable or parameter, or to change the integration method of the solver.
 
+``State events``  are defined by a mathematical expression or a condition that is evaluated after each solver convergence.
+This condition is called the ``zero-crossing`` condition, which refers to the point at which a mathematical expression
+changes sign. If the condition is true, the action specified in the event is executed. The action of a ``state event``
+can include for example changing the value of a state variable or parameter
+
+A ``time event``  is a type of event that is conditioned on time and is only executed during specific
+time steps. The action of a ``time event``  is similar to a ``state event`` , where the specified action is triggered if
+the time condition is met. However, unlike a state event, the ``time event``
+is triggered only at specific times during the simulation.
 
 State and time Events on system level
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In the Numerous engine, a state event is a condition that is checked at each time step of a simulation to determine if a specific action should be taken. State events can be used to change the value of a state variable or parameter, or to change the integration method of the solver. State events are defined on a per-system basis, and are added to a system using the add_state_event() method.
-A state event is defined by a condition, which is a mathematical expression that is evaluated at each time step. If the condition is true, the action specified in the event is executed. The condition can be a simple comparison, such as x > 5, or a more complex expression involving multiple state variables and parameters.
-The action of a state event can be one of the following:
-    • Change the value of a state variable or parameter.
-    • Change the integration method of the solver.
-    • Execute a custom function that can perform any other action.
-For example, consider a system with a state variable x and a parameter p. The following code defines a state event that changes the value of x to 10 when x becomes greater than 5 and changes the value of p to 3:
+When working with systems, we can add both state and time events.
+Here's how you can add State Events on the system level:
+
+Adding State Events:
+
+    #. Create a condition function that checks for the desired state. This function should take the current time and system variables as input.
+    #. Create a action function that will be called when the state event is triggered. This function should take the current time and system variables as input, and can modify the variables as needed.
+    #. Call the add_event method on the system object, passing the name of the event, the state-checking function, and the state-modifying function as arguments. It is also possible to specify direction of zero crossing.
+
+Here's an example code snippet that adds a state event to a system:
 
 .. code::
 
-    class MySystem(Subsystem):
-        def __init__(self, tag):
-            super().__init__(tag)
-            self.add_state("x", 0)
-            self.add_parameter("p", 1)
-            self.add_state_event("x > 5", action="x = 10; p = 3")
 
-Similarly, Time events are a way of specifying conditions that are checked at specific times, rather than at each time step. They can be used, for example, to change the value of a state variable or parameter at a specific time, or to change the integration method of the solver at a specific time. They are defined on a per-system basis, and are added to a system using the add_time_event() method.
-A time event is defined by a time and a condition, which is a mathematical expression that is evaluated at the specified time. If the condition is true, the action specified in the event is executed. The condition can be a simple comparison, such as x > 5, or a more complex expression involving multiple state variables and parameters.
+    # returns position to find zero crossing using root finding algorithm of scipy solver
+    def hitground_event_fun(t, states):
+            return states['t1.x']
 
-.. code::
+    # change direction of movement upon event detection and reduce velocity
+    def hitground_event_callback_fun(t, variables):
+            velocity = variables['t1.v']
+            velocity = -velocity * (1 - variables['t1.f_loss'])
+            variables['t1.v'] = velocity
+            variables['t1.t_hit'] = t
 
-    class MySystem(Subsystem):
-        def __init__(self, tag):
-            super().__init__(tag)
-            self.add_state("x", 0)
-            self.add_parameter("p", 1)
-            self.add_time_event(2, "x > 5", action="x = 10; p = 3")
+    system.add_event("hitground_event", hitground_event_fun, hitground_event_callback_fun)
 
-It's important to note that state and time events are executed before the update of the state variables and parameters, so they can also be used to change the state of the system before the next step of the simulation.
-Also, when using state and time events, the model needs to be solved using the solve_with_events() method, to execute events at the appropriate times.
+Adding Time Events:
+
+    Create a function that takes the current time and system variables as input and returns a Boolean value
+indicating whether the time event should be triggered.
+    Create a second function that will be called when the time event is triggered. This function should take
+the current time and system variables as input, and can modify the variables as needed.
+    Call the add_timestamp_event method on the system object, passing the name of the event, the time-checking
+function, and the time-modifying function as arguments.
+
+Here's an example code snippet that adds a time event to a system:
+
+scss
+
+def alarm_callback(t, variables):
+    print('Alarm went off at time', t)
+
+system.add_timestamp_event('alarm_event', alarm_callback, timestamps=[10, 20, 30])
+
+In this example, the alarm_callback function will be called when the simulation time is equal to any of
+the values in the timestamps list, which triggers the time event. The function simply prints a message
+indicating that the alarm has gone off, but it could be used to modify system variables or take other actions as needed.
 
 Model state and time events
 ^^^^^^^^^^^^^^^^^^
-Events can be used to change the values of parameters or to perform other actions, such as updating the model's state or running additional calculations.
-State events are triggered when the value of a state variable reaches a specific threshold. The value of the state variable is checked at each time step during the simulation, and if it crosses the threshold, the event is triggered. For example, if a state variable represents the position of a moving object, a state event could be used to detect when the object reaches a specific point in space.
-Time events are triggered at a specific point in time, regardless of the value of any state variables. For example, a time event could be used to update the value of a parameter at a specific time, or to run additional calculations at a specific point in the simulation.
-To add a state event to a model, you can use the add_state_event() method on the Model class. This method takes in the following arguments:
-    • name: a string that identifies the event.
-    • state: the state variable that the event is associated with.
-    • threshold: the value of the state variable that the event is triggered at.
-    • event_function: the function that is called when the event is triggered. This function takes in the current time and the current state of the model as arguments.
-    • direction: the direction of the state variable crossing the threshold. this could be "both", "rising" or "falling"
-For example, the following code creates a state event that is triggered when the value of the x state variable reaches 10:
-model = Model(system)
-model.add_state_event("x_event", state = system.x, threshold = 10, event_function = some_function, direction = "rising")
-To add a time event, you can use the add_time_event() method on the Model class. This method takes in the following arguments:
-    • name: a string that identifies the event.
-    • time: the time at which the event is triggered.
-    • event_function: the function that is called when the event is triggered. This function takes in the current time and the current state of the model as arguments.
-For example, the following code creates a time event that is triggered at time t = 5:
-model = Model(system)
-model.add_time_event("t_event", time = 5, event_function = some_function)
-It should be noted that, events functions can only contain simple mathematical operations and assignments, while they cannot contain any logic operations like if else or loops.
-It is also important to note that when using events, the order in which the events are defined may affect the simulation results.
+def timestamp_callback(t, variables):
+    print(t)
+
+
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_bouncing_ball(use_llvm):
+    model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
+    m1 = Model(model_system_2, use_llvm=use_llvm)
+
+    m1.add_event("hitground_event", hitground_event_fun, hitground_event_callback_fun)
+
+    sim = Simulation(m1, t_start=0, t_stop=tmax, num=num)
+
+    sim.solve()
+    asign = np.sign(np.array(m1.historian_df['S1.ball.t1.v']))
+    signchange = ((np.roll(asign, 1) - asign) != 0).astype(int)
+    args = np.argwhere(signchange > 0)[2:].flatten()
+    assert approx(m1.historian_df['time'][args[0::2][:5]], rel=0.01) == t_hits[:5]
+
+
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_with_full_condition(use_llvm):
+    model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
+    m1 = Model(model_system_2, use_llvm=use_llvm)
+
+    m1.add_event("hitground_event", hitground_event_fun_g, hitground_event_callback_fun)
+    m1.add_timestamp_event("timestamp_event", timestamp_callback, timestamps=[0.11, 0.33])

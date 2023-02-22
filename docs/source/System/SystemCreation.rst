@@ -1,4 +1,4 @@
-System
+`System
 ==================
 
 To enable building complex systems in a modular way, subsystems are used to define
@@ -66,7 +66,9 @@ use it as a black box.
 
 .. note::
 
-    Some FMUs may have additional requirements,such as external libraries or specific versions of operating system or other dependencies.Be sure to check the documentation for the FMU you are using to ensure that you have the necessary dependencies installed.
+    Some FMUs may have additional requirements,such as external libraries or specific versions of operating system
+or other dependencies.Be sure to check the documentation for the FMU you are using to ensure that you have
+the necessary dependencies installed.
 
 
 
@@ -84,30 +86,42 @@ Run after solve method
 
 The ``run_after_solve`` is a field in ``Subsystem`` class that  contains a list of names of methods that will be
 called after the system of equations is solved for each time step. Methods should be part of  our system class instance.
-It can be used to perform custom computations on the state variables
-of the system, such as calculating additional quantities or updating the state of the system based on the results
-of the simulation. To register a ``run_after_solve`` method on a subsystem or item, call the register_run_after_solve
+ To register a ``run_after_solve`` method on a subsystem or item, call the register_run_after_solve
 method on the subsystem or item and pass in the method as an argument. For example:
 
 .. code::
 
-    def my_run_after_solve(self, scope):
-        scope.x = scope.x + 1
-    subsystem.post_step.append(my_run_after_solve)
+class Test_Subsystem(Subsystem):
+    def __init__(self tag: str):
+        super().__init__(tag)
+        external_id = ""
+        self.post_step = ['_terminate']
+
+        def _terminate():
+            print(external_id)
+
+        self.run_after_solve = _terminate
+
 
 Post step method
 ----------------
 
-The ``register_post_step`` method is a function that is called after the run_after_solve method
-is called, and it can be used to perform additional computations or update the state of the system based on the
-results of the simulation. To register a ``register_post_step`` method on a subsystem or item, call the ``register_post_step``
-method on the subsystem or item and pass in the method as an argument. For example:
+The ``post_step`` is a field in ``Subsystem`` class that  contains a list of names of methods that will be
+called after  each solver convergence. Methods should be part of  our system class instance. For example:
 
 .. code::
 
-    def my_post_step(self, scope):
-        scope.x = scope.x + 1
-    subsystem.register_post_step(my_post_step)
+class Test_Subsystem(Subsystem):
+    def __init__(self tag: str):
+        super().__init__(tag)
+        external_id = ""
+        self.post_step = ['_execute']
+
+        def _execute():
+            print(external_id)
+
+        self.fmi2Terminate_ = _execute
+
 
 
 Set variables and Item set
