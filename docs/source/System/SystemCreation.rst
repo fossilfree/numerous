@@ -1,4 +1,4 @@
-`System
+System
 ==================
 
 To enable building complex systems in a modular way, subsystems are used to define
@@ -66,9 +66,7 @@ use it as a black box.
 
 .. note::
 
-    Some FMUs may have additional requirements,such as external libraries or specific versions of operating system
-or other dependencies.Be sure to check the documentation for the FMU you are using to ensure that you have
-the necessary dependencies installed.
+    Some FMUs may have additional requirements,such as external libraries or specific versions of operating system or other dependencies.Be sure to check the documentation for the FMU you are using to ensure that you have the necessary dependencies installed.
 
 
 
@@ -91,16 +89,16 @@ method on the subsystem or item and pass in the method as an argument. For examp
 
 .. code::
 
-class Test_Subsystem(Subsystem):
-    def __init__(self tag: str):
-        super().__init__(tag)
-        external_id = ""
-        self.post_step = ['_terminate']
+    class Test_Subsystem(Subsystem):
+        def __init__(self tag: str):
+            super().__init__(tag)
+            external_id = ""
+            self.post_step = ['_terminate']
 
-        def _terminate():
-            print(external_id)
+            def _terminate():
+                print(external_id)
 
-        self.run_after_solve = _terminate
+            self.run_after_solve = _terminate
 
 
 Post step method
@@ -111,16 +109,16 @@ called after  each solver convergence. Methods should be part of  our system cla
 
 .. code::
 
-class Test_Subsystem(Subsystem):
-    def __init__(self tag: str):
-        super().__init__(tag)
-        external_id = ""
-        self.post_step = ['_execute']
+    class Test_Subsystem(Subsystem):
+        def __init__(self tag: str):
+            super().__init__(tag)
+            external_id = ""
+            self.post_step = ['_execute']
 
-        def _execute():
-            print(external_id)
+            def _execute():
+                print(external_id)
 
-        self.fmi2Terminate_ = _execute
+            self.fmi2Terminate_ = _execute
 
 
 
