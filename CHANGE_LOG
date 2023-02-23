@@ -1,7 +1,8 @@
-Version 0.4.0 (10 February, 2023)
+Version 0.4.0 (23 February, 2023)
 ------------------------------
 
 * Numerous solver split in separate project. All calls to solver are done through Solver interface.
+* External events
 * Documentation update
 * Logging of FMU import
 * Constant global parameters in equation
