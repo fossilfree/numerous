@@ -45,54 +45,35 @@ Here's an example code snippet that adds a state event to a system:
 
     system.add_event("hitground_event", hitground_event_fun, hitground_event_callback_fun)
 
-Adding Time Events:
-
-    Create a function that takes the current time and system variables as input and returns a Boolean value
-indicating whether the time event should be triggered.
-    Create a second function that will be called when the time event is triggered. This function should take
-the current time and system variables as input, and can modify the variables as needed.
-    Call the add_timestamp_event method on the system object, passing the name of the event, the time-checking
-function, and the time-modifying function as arguments.
-
-Here's an example code snippet that adds a time event to a system:
-
-scss
-
-def alarm_callback(t, variables):
-    print('Alarm went off at time', t)
-
-system.add_timestamp_event('alarm_event', alarm_callback, timestamps=[10, 20, 30])
-
-In this example, the alarm_callback function will be called when the simulation time is equal to any of
-the values in the timestamps list, which triggers the time event. The function simply prints a message
-indicating that the alarm has gone off, but it could be used to modify system variables or take other actions as needed.
-
 Model state and time events
 ^^^^^^^^^^^^^^^^^^
-def timestamp_callback(t, variables):
-    print(t)
+
+.. code::
+
+    def timestamp_callback(t, variables):
+        print(t)
 
 
-@pytest.mark.parametrize("use_llvm", [True, False])
-def test_bouncing_ball(use_llvm):
-    model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
-    m1 = Model(model_system_2, use_llvm=use_llvm)
+    @pytest.mark.parametrize("use_llvm", [True, False])
+    def test_bouncing_ball(use_llvm):
+        model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
+        m1 = Model(model_system_2, use_llvm=use_llvm)
 
-    m1.add_event("hitground_event", hitground_event_fun, hitground_event_callback_fun)
+        m1.add_event("hitground_event", hitground_event_fun, hitground_event_callback_fun)
 
-    sim = Simulation(m1, t_start=0, t_stop=tmax, num=num)
+        sim = Simulation(m1, t_start=0, t_stop=tmax, num=num)
 
-    sim.solve()
-    asign = np.sign(np.array(m1.historian_df['S1.ball.t1.v']))
-    signchange = ((np.roll(asign, 1) - asign) != 0).astype(int)
-    args = np.argwhere(signchange > 0)[2:].flatten()
-    assert approx(m1.historian_df['time'][args[0::2][:5]], rel=0.01) == t_hits[:5]
+        sim.solve()
+        asign = np.sign(np.array(m1.historian_df['S1.ball.t1.v']))
+        signchange = ((np.roll(asign, 1) - asign) != 0).astype(int)
+        args = np.argwhere(signchange > 0)[2:].flatten()
+        assert approx(m1.historian_df['time'][args[0::2][:5]], rel=0.01) == t_hits[:5]
 
 
-@pytest.mark.parametrize("use_llvm", [True, False])
-def test_with_full_condition(use_llvm):
-    model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
-    m1 = Model(model_system_2, use_llvm=use_llvm)
+    @pytest.mark.parametrize("use_llvm", [True, False])
+    def test_with_full_condition(use_llvm):
+        model_system_2 = ms1(Ball(tag="ball", g=9.81, f_loss=0.05))
+        m1 = Model(model_system_2, use_llvm=use_llvm)
 
-    m1.add_event("hitground_event", hitground_event_fun_g, hitground_event_callback_fun)
-    m1.add_timestamp_event("timestamp_event", timestamp_callback, timestamps=[0.11, 0.33])
+        m1.add_event("hitground_event", hitground_event_fun_g, hitground_event_callback_fun)
+        m1.add_timestamp_event("timestamp_event", timestamp_callback, timestamps=[0.11, 0.33])
