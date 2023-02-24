@@ -1,5 +1,5 @@
-Equation
+Simulation
 ===================
 
 .. toctree::
-   Equation.rst
+   Simulation.rst

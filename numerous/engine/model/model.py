@@ -4,6 +4,7 @@ import pickle
 import sys
 
 from typing import Optional, Callable
+
 from ctypes import CFUNCTYPE, c_int64, POINTER, c_double, c_void_p
 
 import numpy as np
@@ -111,7 +112,6 @@ class Model:
 
     def __init__(self, system=None,
                  logger_level: LoggerLevel = LoggerLevel.ALL,
-                 historian_filter=None,
                  assemble: bool = True,
                  imports: dict = None, historian=InMemoryHistorian(),
                  use_llvm: bool = True,
@@ -155,7 +155,6 @@ class Model:
         self.numba_callbacks_init_run = []
         self.callbacks = []
         self.global_tag_vars = {}
-        self.historian_filter = historian_filter
         self.system = system
         self.event_function = None
         self.condition_function = None
@@ -546,7 +545,7 @@ class Model:
         states : list of states
             list of all states.
         """
-        return self.variables[self.state_idx]
+        return self.variables[self.states]
 
 
     def history_as_dataframe(self):
