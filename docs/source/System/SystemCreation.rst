@@ -135,6 +135,7 @@ we speed up computation of a similar not interconnected ``Items``.
 
 
 .. code::
+
     class MyItem(Item):
         def __init__(self, tag):
             super().__init__(tag)
