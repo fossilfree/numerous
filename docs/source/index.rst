@@ -2,7 +2,8 @@
 
 Numerous documentation
 ====================================
-Numerous is a simulation library for simulation
+The Numerous engine is a package for modeling and simulating systems in Python. It is a Python library that provides a high-level, pythonic interface for defining systems of equations and running simulations of these systems. The Numerous engine is designed to be flexible and easy to use, and can handle a wide range of system models.
+It is designed to be highly scalable and can handle large, complex models efficiently.
 
 
 .. toctree::
