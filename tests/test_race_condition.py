@@ -15,7 +15,7 @@ class Item1(Item, EquationBase):
         self.add_parameter('P', 0)
         self.add_constant('o', omega)
         self.add_constant('a', amplitude)
-        self.t1.add_equations([self])
+        self.t1.add_equation(self)
 
     @Equation()
     def eval(self, scope):
@@ -47,7 +47,7 @@ class Item2(Item, EquationBase):
         self.add_constant('a', amplitude)
         self.add_constant('o', omega)
         self.add_parameter('P', 0)
-        self.t1.add_equations([self])
+        self.t1.add_equation(self)
 
     @Equation()
     def eval(self, scope):
@@ -72,7 +72,7 @@ def analytical(tvec, o, a, dt):
     return s, s_delayed
 
 
-@pytest.mark.parametrize("use_llvm", [True, False])
+@pytest.mark.parametrize("use_llvm", [False, True])
 def test_race_condition_1(use_llvm):
     omega0 = 0.01
     dt = 10
@@ -91,6 +91,4 @@ def test_race_condition_1(use_llvm):
     sim2.solve()
     df2 = sim2.model.historian_df
 
-    assert np.all(
-        np.isclose(np.array(df1['system_race_1.link.t1.S'])[2:], np.array(df2['system_race_2.item2.t1.S'][2:]),
-                   rtol=1e-02, atol=1e-04))
+    assert pytest.approx(df1['system_race_1.link.t1.S'], rel=1e-2, abs=1e-4) == df2['system_race_2.item2.t1.S']

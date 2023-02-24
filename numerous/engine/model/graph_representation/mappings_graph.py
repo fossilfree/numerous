@@ -1,4 +1,4 @@
-from numerous.engine.variables import VariableType, SetOfVariables
+from numerous.engine.variables import VariableType, SetOfVariables, Variable
 from numerous.engine.model.graph_representation.utils import EdgeType
 from numerous.engine.model.utils import NodeTypes
 from numerous.utils.string_utils import d_u
@@ -6,8 +6,9 @@ from numerous.utils.string_utils import d_u
 from .graph import Graph, Node, Edge
 
 
-class TemporaryVar():
+class TemporaryVar(Variable):
     def __init__(self, id, svi, tag, set_var, set_var_ix):
+        super().empty_variable()
         self.temporary_variable = True
         self.id = id
         self.tag = tag + id
@@ -63,16 +64,16 @@ class MappingsGraph(Graph):
 
     def variables(self):
         for n in self.node_map.values():
-            if self.get(n, 'node_type') == NodeTypes.VAR:
+            if self.nodes[n].node_type == NodeTypes.VAR:
                 yield n
 
     def remove_chains(self):
         for target in self.variables():
             # Get target
-            target_edges_indcs_edge_type_target, target_edges_edge_type_target = self.get_edges_for_node_filter(
-                end_node=target, attr='e_type', val=EdgeType.TARGET)
-            target_edges_indcs_edge_type_mapping, target_edges_edge_type_mapping = self.get_edges_for_node_filter(
-                end_node=target, attr='e_type', val=EdgeType.MAPPING)
+            target_edges_indcs_edge_type_target, target_edges_edge_type_target = self.get_edges_type_for_node_filter(
+                end_node=target, val=EdgeType.TARGET)
+            target_edges_indcs_edge_type_mapping, target_edges_edge_type_mapping = self.get_edges_type_for_node_filter(
+                end_node=target, val=EdgeType.MAPPING)
             target_edges_indcs = target_edges_indcs_edge_type_target + target_edges_indcs_edge_type_mapping
             target_edges = target_edges_edge_type_target + target_edges_edge_type_mapping
             for edge, edge_ix in zip(target_edges, target_edges_indcs):
@@ -89,8 +90,8 @@ class MappingsGraph(Graph):
                 self.vars_assignments_mappings[target].append(self.edges_c[edge_ix].mappings)
 
         for target in self.variables():
-            target_edges_indcs, target_edges = self.get_edges_for_node_filter(end_node=target, attr='e_type',
-                                                                              val=[EdgeType.TARGET, EdgeType.MAPPING])
+            target_edges_indcs, target_edges = self.get_edges_type_for_node_filter(end_node=target,
+                                                                                   val=[EdgeType.TARGET, EdgeType.MAPPING])
             if target in self.vars_assignments and len(self.vars_assignments[target]) > 1:
                 for edge_ix in target_edges_indcs:
                     self.remove_edge(edge_ix)
@@ -104,7 +105,7 @@ class MappingsGraph(Graph):
                 va = e[1].copy()
                 if va in self.vars_assignments and len(self.vars_assignments[va]) > 1:
                     # Make new temp var
-                    sv = self.get(e[1], 'scope_var')
+                    sv = self.nodes[e[1]].scope_var
                     tmp_key = sv.tag + str(self.key_map[va]) + '_tmp'
                     tmp_label = sv.tag + str(self.key_map[va]) + '_label' + '_tmp'
                     # Create fake scope variables for tmp setvar

@@ -1,8 +1,9 @@
-import copy
 from enum import Enum
 
-from numerous.engine.system.external_mappings import ExternalMappingUnpacked
+from numba import types
+from numba.typed import List
 
+from numerous.engine.system.external_mappings import ExternalMappingUnpacked
 
 from numerous.multiphysics import EquationBase
 from numerous.utils.dict_wrapper import _DictWrapper
@@ -25,9 +26,11 @@ class Subsystem(ConnectorItem):
 
     """
 
-    def __init__(self, tag, external_mappings=None, data_loader=None):
+    def __init__(self, tag, external_mappings=None, data_loader=None, run_after_solve=None, post_step=None):
         self.ports = _DictWrapper({}, Item)
         self.registered_items = {}
+        self.run_after_solve = run_after_solve if run_after_solve is not None else []
+        self.post_step = post_step if post_step is not None else []
         self.external_mappings = ExternalMappingUnpacked(external_mappings, data_loader) if external_mappings else None
         super().__init__(tag)
 
@@ -46,7 +49,7 @@ class Subsystem(ConnectorItem):
         if item.id not in self.registered_items.keys():
             raise ValueError(
                 "Item {0} cannot be registered as port for subsystem {1}. Item is not registered in subsystem"
-                    .format(item.tag, self.tag))
+                .format(item.tag, self.tag))
         self.ports[port_tag] = item
 
     def get_item(self, item_path):
@@ -95,10 +98,10 @@ class Subsystem(ConnectorItem):
             for i in items:
                 setattr(self, i.tag, i)
 
-    def increase_level(self):
-        super().increase_level()
+    def _increase_level(self):
+        super()._increase_level()
         for item in self.registered_items.values():
-            item.increase_level()
+            item._increase_level()
 
     def get_graph_visualisation(self, DG=None, parent=None):
         if DG is None:
@@ -182,6 +185,27 @@ class Subsystem(ConnectorItem):
                 external_mappings.extend(item._get_external_mappings())
 
         return external_mappings
+
+    def get_run_after_solve(self):
+        run_after_solve = [getattr(self, name) for name in self.run_after_solve]
+
+        for item in self.registered_items.values():
+            if isinstance(item, Subsystem):
+                run_after_solve.extend(item.get_run_after_solve())
+
+        return run_after_solve
+
+    def get_post_step(self):
+        post_step = List.empty_list(types.FunctionType(types.void()))
+        for x in [getattr(self, name) for name in self.post_step]:
+            post_step.append(x)
+
+        for item in self.registered_items.values():
+            if isinstance(item, Subsystem):
+                for x in item.get_post_step():
+                    post_step.append(x)
+
+        return post_step
 
     def get_external_mappings(self):
         external_mappings = self._get_external_mappings()

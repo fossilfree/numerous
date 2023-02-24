@@ -11,7 +11,8 @@ from numerous.utils.historian import InMemoryHistorian
 from numerous.engine.system.external_mappings.interpolation_type import InterpolationType
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
-from numerous.engine.system import Subsystem, Item, LoggerLevel
+from numerous.engine.system import Subsystem, Item
+from numerous.utils.logger_levels import LoggerLevel
 from numerous.multiphysics import EquationBase, Equation
 
 try:
@@ -143,7 +144,7 @@ class StaticDataSystemWithBall(Subsystem):
 
 def step_solver(sim, t0: float, tmax: float, dt: float):
     t_ = t0
-    while t_ < tmax:
+    while abs(t_ - tmax) > 1e-6:
         t_new, t_ = sim.step_solve(t_, dt)
 
     sim.model.create_historian_df()
@@ -187,7 +188,7 @@ def external_data():
 def simulation(tmpdir: tmpdir):
     def fn(data, dt_eval=0.1, chunksize=1, historian_max_size=None, t0=0, tmax=5, max_step=0.1, dataloader=csvdataloader,
            system=StaticDataSystemWithBall, mapped_name="Dew Point Temperature {C}",
-           variable_name='system_external.tm0.test_nm.T1'):
+           variable_name='system_external.tm0.test_nm.T1', use_llvm=True, rtol=1e-6, atol=1e-3):
         external_mappings = []
 
         df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}'])
@@ -209,8 +210,8 @@ def simulation(tmpdir: tmpdir):
         s = Simulation(
             Model(system
                   ('system_external', external_mappings=external_mappings, data_loader=data_loader),
-                  historian=historian),
-            t_start=t0, t_stop=tmax, num=len(np.arange(0, tmax, dt_eval)), max_step=max_step)
+                  historian=historian, use_llvm=use_llvm),
+            t_start=t0, t_stop=tmax, num=len(np.arange(0, tmax, dt_eval)), max_step=max_step, rtol=rtol, atol=atol)
         return s
     yield fn
 
@@ -284,13 +285,14 @@ def test_external_data_multiple(use_llvm, system, external_data):
         assert z3 == pytest.approx(z4), f"expected {z3} but got {z4} at {t}"
 
 
+@pytest.mark.parametrize("use_llvm", [False, True])
 @pytest.mark.parametrize("chunksize", [1, 10000])
 @pytest.mark.parametrize("historian_max_size", [1, 10000])
 @pytest.mark.parametrize("solver", [step_solver, normal_solver])
 @pytest.mark.parametrize("dataloader", [inmemorydataloader, csvdataloader])
 @pytest.mark.parametrize("system", [StaticDataSystem, StaticDataSystemWithBall])
 def test_external_data_chunks_and_historian_update(external_data: external_data, simulation: simulation,
-                                                   solver, chunksize, historian_max_size, dataloader, system):
+                                                   solver, chunksize, historian_max_size, dataloader, system, use_llvm):
 
     t0 = 0
     tmax = 5
@@ -299,7 +301,7 @@ def test_external_data_chunks_and_historian_update(external_data: external_data,
     data = external_data(t0, tmax, dt_data)
     s = simulation(data=data, chunksize=chunksize, historian_max_size=historian_max_size, t0=t0, max_step=dt,
                    dt_eval=dt, tmax=tmax,
-                   dataloader=dataloader, system=system)
+                   dataloader=dataloader, system=system, use_llvm=use_llvm, rtol=1e-6, atol=1e-8)
     df = solver(s, t0, tmax, dt)
 
     for ix in df.index:
@@ -440,3 +442,48 @@ def test_external_data_system_check_not_mapped(use_llvm):
         'This should not be mapped and thus not changed'
     assert pytest.approx(np.array(s.model.historian_df['system_external.t1.to_map_think_not'])) == 200, \
         'This should REALLY not be mapped and thus not changed'
+
+
+class TwoSystemInside(Subsystem):
+    def __init__(self, tag, system, n=1, external_mappings=None, data_loader=None):
+        super().__init__(tag, external_mappings, data_loader)
+        o_s = []
+        o_s.append(StaticDataSystem(tag='tag', n=1))
+
+        o_s.append(system)
+
+        # Register the items to the subsystem to make it recognize them.
+        self.register_items(o_s)
+
+
+@pytest.mark.parametrize("use_llvm", [True, False])
+def test_get_external_system_fix(use_llvm, external_data: external_data):
+    t0 = 0
+    tmax = 5
+    dt_data = 0.1
+    external_mappings = []
+    data = external_data(t0, tmax, dt_data)
+    data.update({'Dry Bulb Temperature {C}': data['Dew Point Temperature {C}'] + 1})
+
+    df = pd.DataFrame(data, columns=['time', 'Dew Point Temperature {C}', 'Dry Bulb Temperature {C}'])
+    index_to_timestep_mapping = 'time'
+    index_to_timestep_mapping_start = 0
+    dataframe_aliases = {
+        'system_outer.system_external.tm0.test_nm.T1': ("Dew Point Temperature {C}", InterpolationType.PIESEWISE),
+        'system_outer.system_external.tm0.test_nm.T2': ('Dry Bulb Temperature {C}', InterpolationType.PIESEWISE),
+    }
+
+    external_mappings.append(ExternalMappingElement
+                             ("inmemory", index_to_timestep_mapping, index_to_timestep_mapping_start, 1,
+                              dataframe_aliases))
+
+    data_loader = InMemoryDataLoader(df)
+    system_outer = TwoSystemInside('system_outer',
+                                   StaticDataSystem('system_external', n=1, external_mappings=external_mappings,
+                                                    data_loader=data_loader),
+                                    data_loader=data_loader)
+    dt_eval = 0.1
+    s = Simulation(
+        Model(system_outer, use_llvm=use_llvm),
+        t_start=0, t_stop=tmax, num=len(np.arange(0, tmax, dt_eval)), max_step=0.1)
+    s.solve()

@@ -1,7 +1,6 @@
 import pytest
-from numerous.engine.model import Model
 from numerous.engine.system import Subsystem
-from numerous.multiphysics import Equation, EquationBase
+from numerous.multiphysics import EquationBase
 
 
 class StringVariables(Subsystem, EquationBase):

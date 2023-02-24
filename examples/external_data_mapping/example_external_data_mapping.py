@@ -31,7 +31,7 @@ class Time(Item, EquationBase):
 class TestSystem(Subsystem):
 
     def __init__(self, tag='sys', data_loader=None, external_mappings=None):
-        super().__init__(tag, data_loader=data_loader, external_mappings=external_mappings)
+        super().__init__(tag, external_mappings=external_mappings, data_loader=data_loader)
 
         time_ = Time()
 

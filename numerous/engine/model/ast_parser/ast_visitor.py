@@ -65,6 +65,37 @@ class AstVisitor(ast.NodeVisitor):
         self.mapped_stack.append([None])
         self.node_number_stack.append(en)
 
+    def visit_List(self, node: ast.List) -> Any:
+        self._visit_iterable(node=node, ast_type=ast.List, ctx=node.ctx)
+
+    def visit_Set(self, node: ast.Set) -> Any:
+        self._visit_iterable(node=node, ast_type=ast.Set)
+
+# TODO rewrite tuple as set and list
+    def visit_Tuple(self, node: ast.Tuple):
+        en = []
+        mapped = []
+        for el in node.elts:
+            self.traverse(el)
+            en.append(self.node_number_stack.pop())
+            mapped.append(self.mapped_stack.pop())
+        self.mapped_stack.append(list(chain.from_iterable(mapped)))
+        self.node_number_stack.append(list(chain.from_iterable(en)))
+
+    def _visit_iterable(self, node, ast_type, ctx=None):
+        en = self.graph.add_node(Node(ao=Node, file=self.eq_file,
+                                      name=self.eq_key, ln=self.eq_lineno,
+                                      label="iterable_node", ctx=ctx, node_type=NodeTypes.OP,
+                                      ast_type=ast_type))
+
+        for el in node.elts:
+            self.traverse(el)
+            start = self.node_number_stack.pop()
+            self.graph.add_edge(Edge(start=start[0], end=en, e_type=EdgeType.ELEMENT, branches=self.branches.copy()))
+        self.mapped_stack.append([None])
+        self.node_number_stack.append([en])
+
+
     def _is_assign_target_supported(self, target: ast.expr):
         return isinstance(target, self._supported_assign_target)
 
@@ -130,10 +161,6 @@ class AstVisitor(ast.NodeVisitor):
     def visit_Name(self, node: ast.Name):
         self._process_named_node(node, ast_type=ast.Name, static_key=True, node_type=NodeTypes.VAR)
 
-    #TODO: Enable Subscript visitation
-    #def visit_Subscript(self, node: ast.Subscript):
-    #    self._process_named_node(node, ast_type=ast.Subscript, static_key=True, node_type=NodeTypes.V)
-
     def _select_scope_var(self, source_id: str):
         scope_label_length = len(self.SCOPE_LABEL)
         if source_id[:scope_label_length] == self.SCOPE_LABEL:
@@ -152,16 +179,6 @@ class AstVisitor(ast.NodeVisitor):
                                       node_type=NodeTypes.VAR))
         self.mapped_stack.append([None])
         self.node_number_stack.append([en])
-
-    def visit_Tuple(self, node: ast.Tuple):
-        en = []
-        mapped = []
-        for el in node.elts:
-            self.traverse(el)
-            en.append(self.node_number_stack.pop())
-            mapped.append(self.mapped_stack.pop())
-        self.mapped_stack.append(list(chain.from_iterable(mapped)))
-        self.node_number_stack.append(list(chain.from_iterable(en)))
 
     def visit_Subscript(self, node: ast.Subscript):
         sl = node.slice
@@ -261,9 +278,9 @@ class AstVisitor(ast.NodeVisitor):
 def connect_equation_node(equation_graph, mappings_graph, node, is_set, include_local=False):
     eq_node_idx = mappings_graph.add_node(node)
     for n in range(equation_graph.node_counter):
-        if equation_graph.get(n, attr='node_type') == NodeTypes.VAR:
-            if equation_graph.get(n, attr='scope_var'):
-                sv = equation_graph.get(n, 'scope_var')
+        if equation_graph.nodes[n].node_type == NodeTypes.VAR:
+            if equation_graph.nodes[n].scope_var:
+                sv = equation_graph.nodes[n].scope_var
                 neq = mappings_graph.add_node(Node(key=sv.id, node_type=NodeTypes.VAR, scope_var=sv,
                                                    is_set_var=is_set, label=sv.get_path_dot()),
                                               ignore_existing=True)
@@ -289,34 +306,21 @@ def connect_equation_node(equation_graph, mappings_graph, node, is_set, include_
                     except StopIteration:
                         pass
 
-            elif include_local and equation_graph.get(n, attr='key') and \
-                    not equation_graph.get(n, attr='ast_type') == ast.Constant:
-                var_key = equation_graph.get(n, attr='key')
+            elif include_local and equation_graph.nodes[n].key and \
+                    not equation_graph.nodes[n].ast_type == ast.Constant:
+                var_key = equation_graph.nodes[n].key
                 neq = mappings_graph.add_node(Node(key=var_key, node_type=NodeTypes.VAR,
-                                                   is_set_var=is_set, ast_type=equation_graph.get(n, attr='ast_type'),
+                                                   is_set_var=is_set, ast_type=equation_graph.nodes[n].ast_type,
                                                    label=var_key),
                                               ignore_existing=True)
-
-                targeted = False
-                read = False
 
                 end_edges = equation_graph.get_edges_for_node(end_node=n)
 
                 try:
                     next(end_edges)
                     mappings_graph.add_edge(
-                        Edge(start=eq_node_idx, end=neq, e_type=EdgeType.TARGET, arg_local='local'))
-                    targeted = True
+                        Edge(start=eq_node_idx, end=neq, e_type=EdgeType.TARGET, arg_local=True))
                 except StopIteration:
                     pass
-
-                if not targeted and not read:
-                    start_edges = equation_graph.get_edges_for_node(start_node=n)
-                    try:
-                        next(start_edges)
-                        mappings_graph.add_edge(Edge(neq, eq_node_idx, e_type=EdgeType.ARGUMENT, arg_local=sv.id if (
-                            sv := equation_graph.get(n, 'scope_var')) else 'local'))
-                    except StopIteration:
-                        pass
 
     return eq_node_idx

@@ -3,7 +3,8 @@ import os
 import pickle
 import sys
 
-from copy import copy, deepcopy
+from typing import Optional, Callable
+
 from ctypes import CFUNCTYPE, c_int64, POINTER, c_double, c_void_p
 
 import numpy as np
@@ -18,9 +19,9 @@ from numba.experimental import jitclass
 import pandas as pd
 from numerous.engine.model.aliased_dataframe import AliasedDataFrame
 
-from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
+from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, replace_path_strings
 from numerous.engine.model.utils import Imports
-from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
+from numerous.engine.numerous_event import StateEvent, TimestampEvent, Condition, Action
 from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping, ExternalMappingUnpacked
 
 from numerous.utils.logger_levels import LoggerLevel
@@ -31,7 +32,7 @@ from numerous.engine.model.compiled_model import numba_model_spec, CompiledModel
 from numerous.engine.system.connector import Connector
 
 from numerous.engine.system.subsystem import Subsystem, ItemSet
-from numerous.engine.variables import VariableType
+from numerous.engine.variables import VariableType, VariableDescription, _VariableFactory
 
 from numerous.engine.model.ast_parser.parser_ast import parse_eq
 from numerous.engine.model.graph_representation.graph import Graph
@@ -40,16 +41,9 @@ from numerous.engine.model.ast_parser.parser_ast import process_mappings
 from numerous.engine.model.lowering.equations_generator import EquationGenerator
 from numerous.engine.system import SetNamespace
 
-import faulthandler
-import llvmlite.binding as llvm
+from numerous.utils import logger as log
 
-faulthandler.enable()
-llvm.initialize()
-llvm.initialize_native_target()
-llvm.initialize_native_asmprinter()
-llvmmodule = llvm.parse_assembly("")
-target_machine = llvm.Target.from_default_triple().create_target_machine()
-ee = llvm.create_mcjit_compiler(llvmmodule, target_machine)
+from numerous.engine.model.lowering.llvm_initializer import ee, llvm
 
 
 class ModelNamespace:
@@ -109,14 +103,6 @@ class ModelAssembler:
         return variables_, equation_dict
 
 
-import logging
-
-logging.basicConfig(
-    format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
-    level=logging.INFO,
-    datefmt='%Y-%m-%d %H:%M:%S')
-
-
 class Model:
     """
      The model object traverses the system to collect all information needed to pass to the solver
@@ -124,22 +110,31 @@ class Model:
      so they can be accessed as variable values there.
     """
 
-    def __init__(self, system=None, logger_level=None, historian_filter=None, assemble=True, validate=False,
-                 imports=None, historian=InMemoryHistorian(),
-                 use_llvm=True, save_to_file=False, generate_graph_pdf=False, export_model=False, clonable=False):
+    def __init__(self, system=None,
+                 logger_level: LoggerLevel = LoggerLevel.ALL,
+                 assemble: bool = True,
+                 imports: dict = None, historian=InMemoryHistorian(),
+                 use_llvm: bool = True,
+                 save_to_file: bool = False,
+                 generate_graph_pdf: bool = False,
+                 global_variables: dict = None,
+                 export_model: bool = False,
+                 clonable: bool = False):
 
         self.path_to_variable = {}
         self.generate_graph_pdf = generate_graph_pdf
         self.export_model = export_model
-        if logger_level == None:
-            self.logger_level = LoggerLevel.ALL
-        else:
-            self.logger_level = logger_level
+
+        self.logger_level = logger_level
         external_mappings_unpacked = system.get_external_mappings()
         self.system_external_mappings = external_mappings_unpacked
         self.is_external_data = True if len(external_mappings_unpacked) else False
         self.external_mappings = ExternalMapping(external_mappings_unpacked) if len(
             external_mappings_unpacked) else EmptyMapping()
+
+        self.run_after_solve = system.get_run_after_solve()
+
+        self.post_step = system.get_post_step()
 
         self.use_llvm = use_llvm
         self.save_to_file = save_to_file
@@ -159,7 +154,7 @@ class Model:
         self.numba_callbacks = []
         self.numba_callbacks_init_run = []
         self.callbacks = []
-        self.historian_filter = historian_filter
+        self.global_tag_vars = {}
         self.system = system
         self.event_function = None
         self.condition_function = None
@@ -176,13 +171,11 @@ class Model:
         self.events = []
         self.timestamp_events = []
         self.global_variables_tags = ['time']
-        self.global_vars = np.array([0], dtype=np.float64)
-
+        self.global_variables = {}
         self.equation_dict = {}
         self.variables = {}
         self.name_spaces = {}
         self.flat_variables = {}
-        self.path_variables = {}
         self.states = {}
         self.period = 1
         self.mapping_from = []
@@ -196,11 +189,14 @@ class Model:
         self.numba_model = None
 
         self.info = {}
+        self.add_global_variable("t", 0.0)
+
+        if global_variables:
+            for g_var in global_variables:
+                self.add_global_variable(g_var[0], g_var[1])
+
         if assemble:
             self.assemble()
-
-        if validate:
-            self.validate()
 
     def __add_item(self, item):
         model_namespaces = {}
@@ -208,7 +204,7 @@ class Model:
             return model_namespaces
 
         self.model_items.update({item.id: item})
-        model_namespaces[item.id] = self.create_model_namespaces(item)
+        model_namespaces[item.id] = self._create_model_namespaces(item)
         if isinstance(item, ItemSet):
             return model_namespaces
         if isinstance(item, Connector):
@@ -225,6 +221,23 @@ class Model:
             return self.__get_mapping__variable(variable.mapping, depth - 1)
         else:
             return variable
+
+    def _add_global_var(self, name: str, initial_value: float):
+        if name in self.global_variables:
+            return self.global_variables[name]
+        else:
+            var_desc = VariableDescription(tag=name, initial_value=initial_value,
+                                           type=VariableType.PARAMETER, global_var=True,
+                                           global_var_idx=len(self.global_variables.values()))
+            self.global_variables[name] = _VariableFactory._create_from_variable_desc_unbound(
+                variable_description=var_desc, initial_value=initial_value)
+            return self.global_variables[name]
+
+    def add_global_variable(self, name: str, initial_value: float):
+        tag = "global_vars_"
+        x = self._add_global_var(tag + name, initial_value)
+        self.global_tag_vars[tag + name] = x
+        self.variables.update({x.id: x})
 
     def assemble(self):
         """
@@ -245,7 +258,7 @@ class Model:
             else:
                 return variable.idx_in_scope[0]
 
-        logging.info("Assembling numerous Model")
+        log.info("Assembling numerous Model")
         assemble_start = time.time()
 
         # 1. Create list of model namespaces
@@ -261,7 +274,8 @@ class Model:
 
         mappings = []
         for variable in self.variables.values():
-            variable.top_item = self.system.id
+            if not (variable.global_var):
+                variable.top_item = self.system.id
 
         for scope_var_idx, var in enumerate(self.variables.values()):
             if var.mapping:
@@ -276,14 +290,9 @@ class Model:
 
         self.mappings_graph = Graph(preallocate_items=1000000)
 
-        nodes_dep = {}
         self.equations_parsed = {}
-        self.scoped_equations = {}
-        self.equations_top = {}
 
-        logging.info('Parsing equations starting')
-        for v in self.variables.values():
-            v.top_item = self.system.id
+        log.info('Parsing equations starting')
 
         eq_used = []
         for item_id, namespaces in model_namespaces.items():
@@ -293,19 +302,18 @@ class Model:
                     tag_vars = ns.set_variables
                 else:
                     tag_vars = {v.tag: v for k, v in ns.variables.items()}
-
+                tag_vars.update(self.global_tag_vars)
                 parse_eq(model_namespace=ns, item_id=item_id, mappings_graph=self.mappings_graph,
-                         scope_variables=tag_vars, parsed_eq_branches=self.equations_parsed,
-                         scoped_equations=self.scoped_equations, parsed_eq=self.equations_top, eq_used=eq_used)
+                         variables=tag_vars, parsed_eq_branches=self.equations_parsed, eq_used=eq_used)
         self.eq_used = eq_used
-        logging.info('Parsing equations completed')
+        log.info('Parsing equations completed')
 
         # Process mappings add update the global graph
-        logging.info('Process mappings')
+        log.info('Process mappings')
         self.mappings_graph = process_mappings(mappings, self.mappings_graph, self.variables)
         self.mappings_graph.build_node_edges()
 
-        logging.info('Mappings processed')
+        log.info('Mappings processed')
 
         # Process variables
         states = []
@@ -333,7 +341,7 @@ class Model:
 
         self.special_indcs = [self.states_end_ix, self.deriv_end_ix, self.mapping_end_ix]
 
-        logging.info('Variables sorted')
+        log.info('Variables sorted')
 
         self.mappings_graph = MappingsGraph.from_graph(self.mappings_graph)
         self.mappings_graph.remove_chains()
@@ -342,10 +350,10 @@ class Model:
         if self.generate_graph_pdf:
             self.mappings_graph.as_graphviz(self.system.tag, force=True)
         self.lower_model_codegen(tmp_vars)
-        self.assembly_tail()
-        self._initial_variables_dict = {k: v.value for k, v in self.variables.items()}
+        self._assembly_tail()
+        self._initial_variables_dict = {k: v.value for k, v in self.variables.items() if not v.global_var}
 
-    def assembly_tail(self):
+    def _assembly_tail(self):
         self.logged_aliases = {}
 
         for i, variable in enumerate(self.variables.values()):
@@ -356,16 +364,15 @@ class Model:
             logvar = False
             if variable.logger_level.value >= self.logger_level.value:
                 logvar = True
-            for path in variable.path.path[self.system.id]:
-                self.aliases.update({path: variable.id})
-                if logvar:
-                    self.logged_aliases.update({path: variable.id})
+            if self.system.id in variable.path.path:
+                for path in variable.path.path[self.system.id]:
+                    self.aliases.update({path: variable.id})
+                    if logvar:
+                        self.logged_aliases.update({path: variable.id})
             if variable.alias is not None:
                 self.aliases.update({variable.alias: variable.id})
                 if logvar:
                     self.logged_aliases.update({variable.alias: variable.id})
-            for path in variable.path.path[self.system.id]:
-                self.path_variables.update({path: variable.value})  # is this used at all?
 
         self.inverse_aliases = {v: k for k, v in self.aliases.items()}
         inverse_logged_aliases = {}  # {id: [alias1, alias2...], ...}
@@ -400,16 +407,21 @@ class Model:
         for item in self.model_items.values():
             if item.events:
                 for event in item.events:
-                    if event.compiled:
-                        pass
-                    else:
-                        event.condition = _replace_path_strings(self, event.condition, "var", item.path)
-                        event.action = _replace_path_strings(self, event.action, "var", item.path)
+                    if not event.compiled:
+                        condition_ast, condition_closurevariables = replace_path_strings(self, event.condition.func, "var",
+                                                                                         item.path)
+                        event.condition = Condition(event.condition.func, condition_ast, condition_closurevariables)
+                        if not event.is_external:
+                            action_ast, action_closurevariables = replace_path_strings(self, event.action.func, "var",
+                                                                                       item.path)
+                            event.action = Action(event.action.func, action_ast, action_closurevariables)
 
                     self.events.append(event)
             if item.timestamp_events:
                 for event in item.timestamp_events:
-                    event.action = _replace_path_strings(self, event.action, "var", item.path)
+                    if not event.is_external:
+                        action_ast, action_closurevariables = replace_path_strings(self, event.action.func, "var", item.path)
+                        event.action = Action(event.action.func, action_ast, action_closurevariables)
                     self.timestamp_events.append(event)
 
         self.info.update({"Number of items": len(self.model_items)})
@@ -434,16 +446,16 @@ class Model:
 
     def lower_model_codegen(self, tmp_vars):
 
-        logging.info('Lowering model')
+        log.info('Lowering model')
 
         eq_gen = EquationGenerator(equations=self.equations_parsed, filename="kernel.py",
                                    equation_graph=self.mappings_graph,
-                                   scope_variables=self.variables, scoped_equations=self.scoped_equations,
+                                   scope_variables=self.variables,
                                    temporary_variables=tmp_vars, system_tag=self.system.tag, use_llvm=self.use_llvm,
                                    imports=self.imports, eq_used=self.eq_used)
 
         compiled_compute, var_func, var_write, self.vars_ordered_values, self.variables, \
-        self.state_idx, self.derivatives_idx = \
+            self.state_idx, self.derivatives_idx = \
             eq_gen.generate_equations(export_model=self.export_model, clonable=self.clonable)
 
         for varname, ix in self.vars_ordered_values.items():
@@ -454,7 +466,7 @@ class Model:
                 setattr(var, 'logger_level', LoggerLevel.ALL)
 
         def c1(self, array_):
-            return compiled_compute(array_)
+            return compiled_compute(array_, self.global_vars)
 
         def c2(self):
             return var_func()
@@ -499,7 +511,7 @@ class Model:
                              self.state_idx, self.derivatives_idx, self.init_values, self.aliases,
                              eq_gen.generated_program.equations_llvm_opt, eq_gen.generated_program.max_var,
                              eq_gen.generated_program.n_deriv), handle, protocol=pickle.HIGHEST_PROTOCOL)
-            logging.info('Model successfully exported to ' + filename)
+            log.info('Model successfully exported to ' + filename)
 
         if self.clonable:
             self.equations_llvm_opt = eq_gen.generated_program.equations_llvm_opt
@@ -515,7 +527,7 @@ class Model:
                        None) is None:  # added to temporary variables - maybe put in generate_equations?
                 setattr(var, 'logger_level', LoggerLevel.ALL)
 
-        logging.info("Lowering model finished")
+        log.info("Lowering model finished")
 
     def generate_path_to_varaible(self):
         for k, v in self.aliases.items():
@@ -538,10 +550,8 @@ class Model:
         states : list of states
             list of all states.
         """
-        return self.variables[self.state_idx]
+        return self.variables[self.states]
 
-    def update_states(self, y):
-        self.variables[self.states_idx] = y
 
     def history_as_dataframe(self):
         time = self.data[0]
@@ -602,15 +612,63 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
-    def add_event(self, key, condition, action, terminal=True, direction=-1, compiled=False):
-        condition = _replace_path_strings(self, condition, "var")
-        action = _replace_path_strings(self, action, "var")
-        event = NumerousEvent(key, condition, action, compiled, terminal, direction)
+    def add_event(self, key, condition: Callable, action: Callable, terminal: bool = False, direction: int = -1,
+                  compiled: bool = False, is_external: bool = False):
+        """
+
+        Method for adding state events on the model.
+
+        :param key: the name of the event
+        :param condition: the condition function that determines if the event takes place
+        :param action: the action function that executes the event
+        :param terminal: not used
+        :param direction: Direction of the event that triggers it (<0 from positive to negative, and >0 from negative
+        to positive)
+        :param compiled: if the action and condition functions are compiled already when adding
+        :param is_external: True if action function should not be compiled
+
+        """
+
+        condition_ast, condition_closurevariables = replace_path_strings(self, condition, "var")
+        condition_ = Condition(condition, condition_ast, condition_closurevariables)
+        action_closeurevariables = None
+        action_ast = None
+        if not is_external:
+            action_ast, action_closeurevariables = replace_path_strings(self, action, "var")
+
+        action_ = Action(action, action_ast, action_closeurevariables)
+        event = StateEvent(key=key, condition=condition_, action=action_, direction=direction, compiled=compiled,
+                           terminal=terminal, is_external=is_external)
         self.events.append(event)
 
-    def add_timestamp_event(self, key, action, timestamps):
-        action = _replace_path_strings(self, action, "var")
-        event = TimestampEvent(key, action, timestamps)
+    def add_timestamp_event(self, key: str, action: Callable[[float, dict[str, float]], None],
+                            timestamps: Optional[list] = None, periodicity: Optional[float] = None,
+                            is_external: bool = False):
+        """
+        Method for adding time stamped events, that can trigger at a specific time, either given as an explicit list of
+        timestamps, or a periodic trigger time. A time event must be associated with a time event action function with
+        the signature (t, variables).
+
+        :param key: A name for the event
+        :type key: str
+        :param action: callable with signature (t, variables)
+        :type action: Callable[[float, dict[str, float]]
+        :param timestamps: an optional list of timestamps
+        :type timestamps: Optional[list]
+        :param periodicity: an optional time value for which the event action function is triggered at each multiple of
+        :type periodicity: Optional[float]
+        :param is_external: True if action function should not be compiled
+        :type is_external: bool
+
+        """
+        action_closeurevariables = None
+        action_ast = None
+        if not is_external:
+            action_ast, action_closeurevariables = replace_path_strings(self, action, "var")
+
+        action_ = Action(action, action_ast, action_closeurevariables)
+        event = TimestampEvent(key=key, action=action_, timestamps=timestamps, periodicity=periodicity,
+                               is_external=is_external)
         self.timestamp_events.append(event)
 
     def generate_mock_event(self) -> None:
@@ -622,19 +680,19 @@ class Model:
 
         self.add_event("mock", condition, action)
 
-    def generate_mock_timestamp_event(self):
+    def _generate_mock_timestamp_event(self):
         def action(t, v):
             i = 1
 
         self.add_timestamp_event("mock", action, [-1])
 
-    def generate_event_condition_ast(self) -> tuple[list[CPUDispatcher], npt.ArrayLike]:
+    def generate_event_condition_ast(self) -> tuple[CPUDispatcher, npt.ArrayLike]:
         if len(self.events) == 0:
             self.generate_mock_event()
         return generate_event_condition_ast(self.events, self.imports.from_imports)
 
-    def generate_event_action_ast(self, events) -> list[CPUDispatcher]:
-        return [generate_event_action_ast(events, self.imports.from_imports)]
+    def generate_event_action_ast(self, events) -> CPUDispatcher:
+        return generate_event_action_ast(events, self.imports.from_imports)
 
     def _get_var_idx(self, var, idx_type):
         if idx_type == "state":
@@ -642,21 +700,7 @@ class Model:
         if idx_type == "var":
             return [var.llvm_idx]
 
-    def create_alias(self, variable_name, alias):
-        """
-
-        Parameters
-        ----------
-        variable_name
-        alias
-
-        Returns
-        -------
-
-        """
-        self.variables[variable_name].alias = alias
-
-    def create_model_namespaces(self, item):
+    def _create_model_namespaces(self, item):
         namespaces_list = []
         for namespace in item.registered_namespaces.values():
             set_namespace = isinstance(namespace, SetNamespace)
@@ -689,7 +733,7 @@ class Model:
         return namespaces_list
 
     # Method that generates numba_model
-    def generate_compiled_model(self, start_time, number_of_timesteps):
+    def _generate_compiled_model(self, start_time, number_of_timesteps):
         for spec_dict in self.numba_callbacks_variables:
             for item in spec_dict.items():
                 numba_model_spec.append(item)
@@ -708,7 +752,8 @@ class Model:
         NM_instance = CompiledModel_instance(self.init_values,
                                              self.derivatives_idx,
                                              self.state_idx,
-                                             self.global_vars,
+                                             np.array([v.value for v in self.global_variables.values()],
+                                                      dtype=np.float),
                                              number_of_timesteps,
                                              start_time,
                                              self.historian.get_historian_max_size(number_of_timesteps,
@@ -721,12 +766,10 @@ class Model:
                                              self.is_external_data,
                                              self.external_mappings.t_max,
                                              self.external_mappings.t_min,
-                                             self.external_idx
+                                             self.external_idx,
+                                             self.post_step
                                              )
 
-        for key, value in self.path_variables.items():
-            NM_instance.path_variables[key] = value
-            NM_instance.path_keys.append(key)
         # NM_instance.run_init_callbacks(start_time)
         NM_instance.map_external_data(start_time)
 
@@ -734,7 +777,7 @@ class Model:
         self.numba_model = NM_instance
         return self.numba_model
 
-    def set_functions(self, equations_llvm_opt, n_deriv, max_var):
+    def _set_functions(self, equations_llvm_opt, n_deriv, max_var):
         for equation in equations_llvm_opt:
             llmod2 = llvm.parse_assembly(equation)
             ee.add_module(llmod2)
@@ -746,7 +789,7 @@ class Model:
 
         c_float_type = type(np.ctypeslib.as_ctypes(np.float64()))
 
-        diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type))(cfptr)
+        diff_ = CFUNCTYPE(POINTER(c_float_type), POINTER(c_float_type), POINTER(c_float_type))(cfptr)
 
         vars_r = CFUNCTYPE(POINTER(c_float_type), c_int64)(cfptr_var_r)
 
@@ -755,9 +798,9 @@ class Model:
         n_deriv = n_deriv
         max_var = max_var
 
-        @njit('float64[:](float64[:])')
-        def compiled_compute(y):
-            deriv_pointer = diff_(y.ctypes)
+        @njit('float64[:](float64[:],float64[:])')
+        def compiled_compute(y, global_vars):
+            deriv_pointer = diff_(y.ctypes, global_vars.ctypes)
             return carray(deriv_pointer, (n_deriv,)).copy()
 
         @njit('float64[:]()')
@@ -772,7 +815,7 @@ class Model:
             vars_w(var, idx)
 
         def c1(self, array_):
-            return compiled_compute(array_)
+            return compiled_compute(array_, self.global_vars)
 
         def c2(self):
             return var_func()
@@ -802,7 +845,7 @@ class Model:
 
         setattr(self, "update_variables", c4)
         setattr(self, "get_variables", c5)
-        self.assembly_tail()
+        self._assembly_tail()
 
     def create_historian_dict(self, historian_data=None):
         if historian_data is None:
@@ -821,21 +864,20 @@ class Model:
             import pandas as pd
             self.historian_df = AliasedDataFrame(pd.concat([self.historian_df.df,
                                                             self._generate_history_df(
-                                                                self.generate_not_nan_history_array(),
-                                                                rename_columns=False).df],
+                                                                self.generate_not_nan_history_array()).df],
                                                            axis=0, sort=False, ignore_index=True),
                                                  aliases=self.aliases, rename_columns=True)
 
         else:
-            self.historian_df = self._generate_history_df(self.generate_not_nan_history_array(),
-                                                          rename_columns=False)
+            self.historian_df = self._generate_history_df(self.generate_not_nan_history_array())
         self.historian.store(self.historian_df)
 
-    def _generate_history_df(self, historian_data, rename_columns=True):
+    def _generate_history_df(self, historian_data):
         data = self.create_historian_dict(historian_data)
         return AliasedDataFrame(data, aliases=self.aliases, rename_columns=True)
 
     def set_external_mappings(self, external_mappings, data_loader):
+
         external_mappings_unpacked = [ExternalMappingUnpacked(external_mappings, data_loader)]
         external_mappings_unpacked = self.system_external_mappings + external_mappings_unpacked
         self.is_external_data = True if len(external_mappings_unpacked) else False
@@ -875,9 +917,11 @@ class Model:
                                                   self.external_mappings.t_max, self.external_mappings.t_min)
 
     @classmethod
-    def from_file(cls, param):
+    def from_file(cls, filename: str):
+
         system_, logger_level, imports, use_llvm, vars_ordered_values, variables, state_idx, \
-        derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(open(param, "rb"))
+            derivatives_idx, init_values, aliases, equations_llvm_opt, max_var, n_deriv = pickle.load(
+            open(filename, "rb"))
         model = Model(system=system_, assemble=False, logger_level=logger_level,
                       use_llvm=use_llvm)
         model.variables = variables
@@ -888,10 +932,11 @@ class Model:
         model.init_values = init_values
         model.aliases = aliases
 
-        model.set_functions(equations_llvm_opt, n_deriv, max_var)
+        model._set_functions(equations_llvm_opt, n_deriv, max_var)
         return model
 
     def clone(self, clonable=False):
+
         if not self.clonable:
             raise Exception("Model isn't clonable")
         system_ = self.system
@@ -907,7 +952,7 @@ class Model:
         model.init_values = self.init_values
         model.aliases = self.aliases
 
-        model.set_functions(self.equations_llvm_opt, self.n_deriv, self.max_var)
+        model._set_functions(self.equations_llvm_opt, self.n_deriv, self.max_var)
 
         if clonable:
             model.clonable = True

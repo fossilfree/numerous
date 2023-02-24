@@ -1,0 +1,5 @@
+Equation
+===================
+
+.. toctree::
+   Equation.rst

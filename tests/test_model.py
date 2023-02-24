@@ -6,7 +6,8 @@ from pytest import approx
 from numerous.engine.model import Model
 from numerous.engine.simulation import Simulation
 
-from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay, LoggerLevel
+from numerous.engine.system import Subsystem, ConnectorItem, Item, ConnectorTwoWay
+from numerous.utils.logger_levels import LoggerLevel
 from numerous.multiphysics import EquationBase, Equation
 from tests.test_equations import TestEq_ground, Test_Eq, TestEq_input
 
@@ -238,7 +239,7 @@ def test_callback_step_item_model(ms3, use_llvm):
     m1 = Model(ms3)
     m1.add_event("simple", condition, action)
     m1.add_event("simple2", condition2, action2)
-    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, use_llvm=use_llvm, atol=TOL)
+    s1 = Simulation(m1, t_start=0, t_stop=1000, num=100, use_llvm=use_llvm, atol=TOL/1000)
     with pytest.raises(ValueError, match=r".*time:119*"):
         s1.solve()
 
@@ -285,8 +286,8 @@ def test_chain_item_binding_model_nested2(ms3, use_llvm):
     m1 = Model(ms7, use_llvm=use_llvm)
     s1 = Simulation(m1, t_start=0, t_stop=1000, num=100)
     s1.solve()
-    assert len(m1.path_variables) == 52
-    assert len(m1.variables) == 26
+    assert len(m1.path_to_variable) == 52
+    assert len(m1.variables) - len(m1.global_variables) == 26
     assert approx(m1.states_as_vector, rel=0.01) == [2010, 1010, 510, 210]
 
 
@@ -368,7 +369,7 @@ class SetVar(Subsystem, EquationBase):
         scope.x_dot = 1
 
 
-@pytest.mark.parametrize("use_llvm", [True, False])
+@pytest.mark.parametrize("use_llvm", [False, True])
 def test_static_system(use_llvm):
     s = Simulation(Model(StaticDataSystem('system_static', n=1), use_llvm=use_llvm), t_start=0, t_stop=100.0, num=100,
                    num_inner=100, max_step=.1)
@@ -409,3 +410,5 @@ def test_get_init_variables():
     model = Model(SetVar(tag='system'))
 
     assert model.get_variables_initial_values()['system.t1.p1'] == p1_val
+
+
