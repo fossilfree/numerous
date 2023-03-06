@@ -1,5 +1,5 @@
-Equation
+System
 ===================
 
 .. toctree::
-   Equation.rst
+   Troubleshooting.rst

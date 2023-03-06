@@ -1,5 +1,5 @@
-Equation
+Get Started
 ===================
 
 .. toctree::
-   Equation.rst
+   GetStarted.rst

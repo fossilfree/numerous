@@ -36,12 +36,12 @@ sys.setrecursionlimit(1500)
 # -- Project information -----------------------------------------------------
 
 project = 'Numerous'
-copyright = '2019, EnergyMachines Aps'
+copyright = '2023, EnergyMachines Aps'
 author = 'Artem Chupryna, EnergyMachines ApS'
 
 # The short X.Y version
 ##TODO version should be in main code
-version = '0.3'
+version = '0.4'
 # The full version, including alpha/beta/rc tags
 release = ''
 

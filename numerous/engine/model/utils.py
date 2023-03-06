@@ -47,7 +47,8 @@ def recurse_Attribute(attr, sep='.'):
 
 
 def njit_and_compile_function(func: ast.FunctionDef, from_imports: list[(str, str)],
-                              compiled_functions: list[CPUDispatcher] = None) -> CPUDispatcher:
+                              compiled_functions: list[CPUDispatcher] = None,
+                              closurevariables: dict=None) -> CPUDispatcher:
     fname = func.name
     njit_decorator = ast.Name(id='njit', ctx=ast.Load())
     func.decorator_list = [njit_decorator]
@@ -70,6 +71,10 @@ def njit_and_compile_function(func: ast.FunctionDef, from_imports: list[(str, st
         namespace = compiled_functions
     else:
         namespace = {}
+
+    if closurevariables:
+        namespace.update(closurevariables)
+
     exec(code, namespace)
     compiled_func = namespace[wrapper_name]()
     return compiled_func

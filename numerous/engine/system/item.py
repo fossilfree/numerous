@@ -1,4 +1,4 @@
-from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
+from numerous.engine.numerous_event import StateEvent, TimestampEvent, Action, Condition
 from numerous.engine.system.connector import Connector
 from numerous.utils.dict_wrapper import _DictWrapper
 from numerous.engine.system.namespace import VariableNamespace, VariableNamespaceBase
@@ -122,16 +122,35 @@ class Item(Node):
                 variables_result.append((variable, vn))
         return variables_result
 
-    def add_event(self, key, condition, action, compiled_functions=None, terminal=True, direction=-1, compiled=False):
-        condition = condition
-        action = action
-        event = NumerousEvent(key, condition, action, compiled, terminal, direction,
-                              compiled_functions=compiled_functions)
+    def add_event(self, key, condition, action, compiled_functions=None, terminal=True, direction=-1, compiled=False,
+                  is_external: bool = False):
+        """
+        Method for adding state events, that can trigger when a certain condition is fulfilled. A state event must have
+        a condition function and an action function, both of which must have the signature (t, variables).
+
+        :param key: A name for the event
+        :param condition: a function to call which determines if the condition for triggering the event is fulfilled
+        :param action: the action function to call once the triggering function fires it
+        :param compiled_functions: an internal parameter
+        :param terminal: presently unused parameter
+        :param direction: direction of the event triggering function: <0 if event triggers when function passes from
+        positive to negative, and >0 if the opposite is true
+        :param compiled: presently unused parameter
+        :param is_external: a bool, which determines if the action function is external or not (and will be compiled or
+        not). This allows the user to create custom action functions that are not necessarily numba compilable.
+        :return:
+        """
+        condition_ = Condition(condition, None, None)
+        action_ = Action(action, None, None)
+        event = StateEvent(key=key, condition=condition_, action=action_, compiled=compiled, terminal=terminal,
+                           direction=direction, compiled_functions=compiled_functions, is_external=is_external,
+                           parent_path=self.path)
 
         self.events.append(event)
 
     def add_timestamp_event(self, key: str, action: Callable[[float, dict[str, float]], None],
-                            timestamps: Optional[list] = None, periodicity: Optional[float] = None):
+                            timestamps: Optional[list] = None, periodicity: Optional[float] = None,
+                            is_external: bool = False):
         """
         Method for adding time stamped events, that can trigger at a specific time, either given as an explicit list of
         timestamps, or a periodic trigger time. A time event must be associated with a time event action function with
@@ -145,10 +164,13 @@ class Item(Node):
         :type timestamps: Optional[list]
         :param periodicity: an optional time value for which the event action function is triggered at each multiple of
         :type periodicity: Optional[float]
+        :param is_external: a bool, which determines if the action function is external or not (and will be compiled or
+        not). This allows the user to create custom action functions that are not necessarily numba compilable.
 
         """
-        action = action
-        event = TimestampEvent(key, action, timestamps, periodicity)
+        action_ = Action(action, None, None)
+        event = TimestampEvent(key=key, action=action_, timestamps=timestamps, periodicity=periodicity,
+                               is_external=is_external, parent_path=self.path)
         self.timestamp_events.append(event)
 
     def _increase_level(self):

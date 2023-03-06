@@ -7,31 +7,20 @@ Numerous is a simulation library for simulation
 
 .. toctree::
    :maxdepth: 2
-   :caption: Tutorials
+   :caption: User guide
 
+   GetStarted/index.rst
    System/index.rst
    Equation/index.rst
    Model/index.rst
-
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Python API
-
-   equations
-   items
-   variables
-   binding
-   namespace
-   model
-   simulation
-   utils
+   Simulation/index.rst
+   Events/index.rst
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Development
+   :caption: Release notes
+   :maxdepth: 2
 
-   development
+   release_notes.rst
 
 
 Indices and tables

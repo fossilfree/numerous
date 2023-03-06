@@ -1,5 +1,5 @@
-Equation
+Events
 ===================
 
 .. toctree::
-   Equation.rst
+   Events.rst

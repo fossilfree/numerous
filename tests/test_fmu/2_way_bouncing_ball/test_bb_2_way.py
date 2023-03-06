@@ -1,4 +1,5 @@
 import os
+from math import ceil
 
 import numpy as np
 import pytest
@@ -18,17 +19,29 @@ class S3(Subsystem):
 
 
 @pytest.mark.parametrize("use_llvm", [True, False])
-def test_bounsing_ball_2_way_pos_hits(use_llvm):
+def test_bouncing_ball_2_way_pos_hits(use_llvm):
+    """
+    Checks if a bouncing ball hits the ground and ceil repeatedly (no friction). Then checks the value of the hit
+    is approximately 0 and 1 repeatedly.
+    :param use_llvm:
+    :return:
+    """
     subsystem1 = S3('q1')
     m1 = Model(subsystem1, use_llvm=use_llvm)
-    s = Simulation(m1, t_start=0, t_stop=1, num=10, num_inner=1, max_step=.1)
+    s = Simulation(m1, t_start=0, t_stop=1, num=10, max_step=.1, atol=1e-6, rtol=1e-6)
     s.solve()
     pos = np.array(m1.historian_df["q1.BouncingBall_2_way.t1.h"])
     vel = m1.historian_df["q1.BouncingBall_2_way.t1.v"]
     asign = np.sign(np.array(vel))
     signchange = ((np.roll(asign, 1) - asign) != 0).astype(int)
     args = np.argwhere(signchange > 0)[2:].flatten()
-    assert all(np.isclose(pos[args], np.array([0, 1, 0]), rtol=1e-03, atol=1e-01))
+    num_events = ceil(len(args) / 2)
+    missing = len(args) % 2
+    array = np.array([[0,1]]*num_events).flatten()
+    if missing:
+        array = array[:-1]
+
+    assert approx(pos[args], rel=1e-3, abs=1e-3) == array
 
 
 @pytest.mark.parametrize("use_llvm", [True, False])

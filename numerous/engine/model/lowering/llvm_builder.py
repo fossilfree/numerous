@@ -250,10 +250,6 @@ class LLVMBuilder:
         eptr = self.builder.gep(ptr, indices, name="global_var_" + global_arg_name)
         self.values[global_arg_name] = eptr
 
-        ptr = self.global_variables
-        index_global = ll.IntType(64)(self.global_names[global_arg_name])
-        indices = [self.index0, index_global]
-        eptr = self.builder.gep(ptr, indices)
         self.builder.store(self.builder.load(self.values[global_arg_name]), eptr)
 
     def store_variable(self, variable_name: str):

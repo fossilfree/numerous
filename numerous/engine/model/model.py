@@ -4,6 +4,7 @@ import pickle
 import sys
 
 from typing import Optional, Callable
+
 from ctypes import CFUNCTYPE, c_int64, POINTER, c_double, c_void_p
 
 import numpy as np
@@ -18,9 +19,9 @@ from numba.experimental import jitclass
 import pandas as pd
 from numerous.engine.model.aliased_dataframe import AliasedDataFrame
 
-from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, _replace_path_strings
+from numerous.engine.model.events import generate_event_action_ast, generate_event_condition_ast, replace_path_strings
 from numerous.engine.model.utils import Imports
-from numerous.engine.numerous_event import NumerousEvent, TimestampEvent
+from numerous.engine.numerous_event import StateEvent, TimestampEvent, Condition, Action
 from numerous.engine.system.external_mappings import ExternalMapping, EmptyMapping, ExternalMappingUnpacked
 
 from numerous.utils.logger_levels import LoggerLevel
@@ -111,7 +112,6 @@ class Model:
 
     def __init__(self, system=None,
                  logger_level: LoggerLevel = LoggerLevel.ALL,
-                 historian_filter=None,
                  assemble: bool = True,
                  imports: dict = None, historian=InMemoryHistorian(),
                  use_llvm: bool = True,
@@ -155,7 +155,6 @@ class Model:
         self.numba_callbacks_init_run = []
         self.callbacks = []
         self.global_tag_vars = {}
-        self.historian_filter = historian_filter
         self.system = system
         self.event_function = None
         self.condition_function = None
@@ -408,16 +407,21 @@ class Model:
         for item in self.model_items.values():
             if item.events:
                 for event in item.events:
-                    if event.compiled:
-                        pass
-                    else:
-                        event.condition = _replace_path_strings(self, event.condition, "var", item.path)
-                        event.action = _replace_path_strings(self, event.action, "var", item.path)
+                    if not event.compiled:
+                        condition_ast, condition_closurevariables = replace_path_strings(self, event.condition.func, "var",
+                                                                                         item.path)
+                        event.condition = Condition(event.condition.func, condition_ast, condition_closurevariables)
+                        if not event.is_external:
+                            action_ast, action_closurevariables = replace_path_strings(self, event.action.func, "var",
+                                                                                       item.path)
+                            event.action = Action(event.action.func, action_ast, action_closurevariables)
 
                     self.events.append(event)
             if item.timestamp_events:
                 for event in item.timestamp_events:
-                    event.action = _replace_path_strings(self, event.action, "var", item.path)
+                    if not event.is_external:
+                        action_ast, action_closurevariables = replace_path_strings(self, event.action.func, "var", item.path)
+                        event.action = Action(event.action.func, action_ast, action_closurevariables)
                     self.timestamp_events.append(event)
 
         self.info.update({"Number of items": len(self.model_items)})
@@ -546,7 +550,7 @@ class Model:
         states : list of states
             list of all states.
         """
-        return self.variables[self.state_idx]
+        return self.variables[self.states]
 
 
     def history_as_dataframe(self):
@@ -608,14 +612,38 @@ class Model:
                     return "{0}.{1}".format(registered_item.tag, result)
         return ""
 
-    def add_event(self, key, condition, action, terminal=True, direction=-1, compiled=False):
-        condition = _replace_path_strings(self, condition, "var")
-        action = _replace_path_strings(self, action, "var")
-        event = NumerousEvent(key, condition, action, compiled, terminal, direction)
+    def add_event(self, key, condition: Callable, action: Callable, terminal: bool = False, direction: int = -1,
+                  compiled: bool = False, is_external: bool = False):
+        """
+
+        Method for adding state events on the model.
+
+        :param key: the name of the event
+        :param condition: the condition function that determines if the event takes place
+        :param action: the action function that executes the event
+        :param terminal: not used
+        :param direction: Direction of the event that triggers it (<0 from positive to negative, and >0 from negative
+        to positive)
+        :param compiled: if the action and condition functions are compiled already when adding
+        :param is_external: True if action function should not be compiled
+
+        """
+
+        condition_ast, condition_closurevariables = replace_path_strings(self, condition, "var")
+        condition_ = Condition(condition, condition_ast, condition_closurevariables)
+        action_closeurevariables = None
+        action_ast = None
+        if not is_external:
+            action_ast, action_closeurevariables = replace_path_strings(self, action, "var")
+
+        action_ = Action(action, action_ast, action_closeurevariables)
+        event = StateEvent(key=key, condition=condition_, action=action_, direction=direction, compiled=compiled,
+                           terminal=terminal, is_external=is_external)
         self.events.append(event)
 
     def add_timestamp_event(self, key: str, action: Callable[[float, dict[str, float]], None],
-                            timestamps: Optional[list] = None, periodicity: Optional[float] = None):
+                            timestamps: Optional[list] = None, periodicity: Optional[float] = None,
+                            is_external: bool = False):
         """
         Method for adding time stamped events, that can trigger at a specific time, either given as an explicit list of
         timestamps, or a periodic trigger time. A time event must be associated with a time event action function with
@@ -629,10 +657,18 @@ class Model:
         :type timestamps: Optional[list]
         :param periodicity: an optional time value for which the event action function is triggered at each multiple of
         :type periodicity: Optional[float]
+        :param is_external: True if action function should not be compiled
+        :type is_external: bool
 
         """
-        action = _replace_path_strings(self, action, "var")
-        event = TimestampEvent(key, action, timestamps, periodicity)
+        action_closeurevariables = None
+        action_ast = None
+        if not is_external:
+            action_ast, action_closeurevariables = replace_path_strings(self, action, "var")
+
+        action_ = Action(action, action_ast, action_closeurevariables)
+        event = TimestampEvent(key=key, action=action_, timestamps=timestamps, periodicity=periodicity,
+                               is_external=is_external)
         self.timestamp_events.append(event)
 
     def generate_mock_event(self) -> None:

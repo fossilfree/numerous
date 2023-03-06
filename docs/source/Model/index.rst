@@ -2,5 +2,4 @@ Model
 ===================
 
 .. toctree::
-
-   ModelWork.rst
+   Model.rst
