@@ -61,7 +61,7 @@ def process_module_items(module: Module|ModuleSpec, path, tabs):
 
 def process_module_connections(module_path: tuple[str], module: Module, tabs, objects):
 
-
+    #print("Processing connections of module", module_path)
     if isinstance(module, Module):
         _logger.info(tabs + f"Processing connections of module {path_str(module_path)}")
 
@@ -83,7 +83,7 @@ def process_module_connections(module_path: tuple[str], module: Module, tabs, ob
                         _logger.info(tabs + "mapping variables")
                         to_.add_sum_mapping(from_)
                     else:
-                        raise TypeError('!')
+                        raise TypeError(f'!: {type(to_)}, {type(from_)}, {from_.assigned_to}')
 
     for itemsspec_name, itemsspec in module.items_specs.items():
         items_path = module_path+(itemsspec_name,)
@@ -117,16 +117,18 @@ def process_mappings(module: Module|ModuleSpec, path, objects, tabs, spec=False)
                     map_path = path_str(mapping[1].path)
 
 
-                    var = objects[variable.path].native_ref
                     print('var path: ', variable.path)
                     print('mapping var: ', mapping[1].path)
-                    for k in objects.keys():
-                        print(k)
 
-                    mapping_var = objects[mapping[1].path].native_ref
-                    if not mapping_var in var.sum_mapping:
-                        _logger.info(tabs + f"{var_path} << {map_path}")
-                        var.add_sum_mapping(mapping_var)
+                    try:
+                        var = objects[variable.path].native_ref
+
+                        mapping_var = objects[mapping[1].path].native_ref
+                        if not mapping_var in var.sum_mapping:
+                            _logger.info(tabs + f"{var_path} << {map_path}")
+                            var.add_sum_mapping(mapping_var)
+                    except KeyError as e:
+                        pass
 
     for itemsspec_name, itemsspec in module.items_specs.items():
         items_path = path+(itemsspec_name,)
@@ -270,6 +272,14 @@ def generate_system(name:str, module: Module):
     tic = time()
     objects = {}
     path = (name,)
+
+    for itemsspec_name, itemsspec in module.items_specs.items():
+
+        for sub_module_name, sub_module in itemsspec.get_modules(ignore_not_assigned=True).items():
+            sub_module.finalize()
+
+
+
     processed_modules = []
 
     tabs = ""
@@ -278,11 +288,8 @@ def generate_system(name:str, module: Module):
     _logger.info("Processing model connections")
 
     generate_paths(module, path, objects)
-    print(objects.keys())
-    #asdasd=ssdsdf
+
     process_module_connections(path, module, tabs+"\t", objects)
-
-
 
     # Process items specs - create system hierarchy
     _logger.info("Processing model items")

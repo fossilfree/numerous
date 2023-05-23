@@ -163,6 +163,9 @@ class Module(ModuleInterface, Class):
     def scopes(self):
         return self._items_of_type(ScopeSpecInterface)
 
+    def finalize(self):
+        ...
+
 def handler(annotation):
     return ModuleSpec.from_module_cls(annotation)
 
