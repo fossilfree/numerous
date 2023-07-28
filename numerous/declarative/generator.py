@@ -268,15 +268,20 @@ def create_equation(system, name, equation_specifications):
 
     return equation
 
+def finalize(module):
+    for itemsspec_name, itemsspec in module.items_specs.items():
+
+        for sub_module_name, sub_module in itemsspec.get_modules(ignore_not_assigned=True).items():
+            sub_module.finalize()
+            finalize(sub_module)
+
+
 def generate_system(name:str, module: Module):
     tic = time()
     objects = {}
     path = (name,)
 
-    for itemsspec_name, itemsspec in module.items_specs.items():
-
-        for sub_module_name, sub_module in itemsspec.get_modules(ignore_not_assigned=True).items():
-            sub_module.finalize()
+    finalize(module)
 
 
 
