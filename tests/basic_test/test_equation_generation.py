@@ -5,9 +5,9 @@ from numerous.multiphysics.equation_base import EquationBase
 from numerous.engine.system.item import Item
 from numerous.engine.system import Subsystem
 from numerous.engine import model, simulation
+from numba import njit
 
-
-
+import numpy as np
 
 class EqTest(EquationBase, Item):
     def __init__(self, tag="tm"):
@@ -15,13 +15,24 @@ class EqTest(EquationBase, Item):
         self.add_parameter('x', 5)
         self.add_parameter('z', 2)
         self.add_parameter('Y', 5)
+        self.add_parameter('Y2', 5)
+        self.add_parameter('a', 5)
+
+
         mechanics = self.create_namespace('test_nm')
         mechanics.add_equations([self])
-
-
+        @njit
+        def a(v):
+            return v
+        self.a = a
     @Equation()
     def eval(self, scope):
+        a = self.a(0)
         scope.Y = scope.x+scope.z
+
+    @Equation()
+    def eval2(self, scope):
+        scope.Y2 = scope.x + scope.z
 
 
 class IfSystem(Subsystem):
@@ -40,3 +51,7 @@ def test_external_if_statement(use_llvm):
     assert s.model.historian_df['m_system.tm1.test_nm.Y'][1] == expected
     assert s.model.historian_df['m_system.tm2.test_nm.Y'][1] == expected
     assert s.model.historian_df['m_system.tm3.test_nm.Y'][1] == expected
+
+    assert s.model.historian_df['m_system.tm1.test_nm.Y2'][1] == expected
+    assert s.model.historian_df['m_system.tm2.test_nm.Y2'][1] == expected
+    assert s.model.historian_df['m_system.tm3.test_nm.Y2'][1] == expected

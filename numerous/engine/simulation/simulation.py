@@ -1,11 +1,10 @@
 from datetime import datetime
 import time
 import numpy as np
-from numerous.solver.numerous_solver import NumerousSolver
 from numerous.engine.simulation.solver_interface import generate_numerous_engine_solver_model
 from numerous.engine.model import Model
 from numerous.utils import logger as log
-
+from numerous.solver.numerous_solver import NumerousSolver
 
 class Simulation:
     """

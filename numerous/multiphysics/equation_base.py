@@ -78,7 +78,7 @@ class EquationBase:
         -------
 
         """
-        self.add_variable(tag, init_val, VariableType.PARAMETER, logger_level, alias)
+        var_desc = self.add_variable(tag, init_val, VariableType.PARAMETER, logger_level, alias)
 
         if integrate is not None:
             self.add_state(integrate['tag'], 0, logger_level=logger_level)
@@ -92,6 +92,8 @@ class EquationBase:
 
             setattr(self, 'integrate_' + tag, integrate_source_)
             self.equations.append(integrate_source_)
+
+        return var_desc
 
     def add_parameters(self, parameters: dict or list):
         if isinstance(parameters, dict):
@@ -163,14 +165,16 @@ class EquationBase:
         -------
 
         """
-
-        self.variables_descriptions. \
-            register_variable_description(VariableDescription(tag=tag, id=str(uuid.uuid1()), initial_value=init_val,
+        var_description = VariableDescription(tag=tag, id=str(uuid.uuid1()), initial_value=init_val,
                                                               type=var_type, logger_level=logger_level, alias=alias,
-                                                              variable_idx=self.new_variable_idx))
+                                                              variable_idx=self.new_variable_idx)
+        self.variables_descriptions. \
+            register_variable_description(var_description)
         self.new_variable_idx += 1
+
+        return var_description
 
     def map_create_parameters(self, item, mappings):
         for m in mappings:
-            if not self.variables_descriptions.variable_exists(m.to_):
-                self.add_parameter(m.to_)
+            if not self.variables_descriptions.variable_exists(m.side2):
+                self.add_parameter(m.side2)

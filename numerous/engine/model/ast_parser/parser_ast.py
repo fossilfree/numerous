@@ -159,7 +159,7 @@ def parse_eq(model_namespace, item_id, mappings_graph: Graph, variables,
                     branch_graphs = []
                     for a in all_branches:
 
-                        gb = g.clone()
+                        gb = g._clone()
 
                         for i, b in enumerate(gb.edges_attr['branches'][:g.edge_counter]):
 

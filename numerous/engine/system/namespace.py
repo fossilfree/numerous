@@ -77,9 +77,12 @@ class VariableNamespaceBase:
 
         name = variable_description.tag
         if variable_description.update:
+
             self[name].model.write_variables(variable_description.initial_value, self[name].llvm_idx)
         else:
+
             variable = _VariableFactory._create_from_variable_desc(self, self.item, variable_description)
+            variable_description._variable = variable
             self.register_variable(variable)
 
     def get_flat_variables(self):
@@ -182,6 +185,12 @@ class VariableNamespaceBase:
         equation.set_equation = set_equation
         self.associated_equations.update({equation.tag: equation})
 
+    def set_values(self, **kwargs):
+        """
+            Set values of variables in the namespace by passing keyword arguments corresponding to variable names.
+        """
+        for k, v in kwargs.items():
+            self.variables[k].value = v
 
 class VariableNamespace(VariableNamespaceBase):
     pass

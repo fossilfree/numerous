@@ -16,6 +16,7 @@ class AliasedDataFrame:
         self.df = pd.DataFrame(data)
 
     def __getitem__(self, names: str | Sequence[str]):
+
         if self.rename_columns:
             if isinstance(names, str):
                 return self.df[self.aliases[names] if names in self.aliases else names]
