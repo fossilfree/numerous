@@ -17,17 +17,15 @@ jobs:
             pip3 install -r linters/linter_requirements.txt
 
       - run:
-          name: Tests
-          parallel: true
-          command: |  
-            TESTFILES=$((pytest --co -q --disable-warnings | head -n -2) | circleci tests split --split-by=timings --timings-type=testname)
-            mkdir -p test-results
-            python3 -m pytest --verbose $TESTFILES --junitxml=test-results/junit.xml
-            python3 tests/utils/get_test_names.py
-            
-      - store_test_results:
-          path: test-results
+          name: Test fmu
+          command: |
+            git clone https://github.com/modelica/Reference-FMUs
+            cmake -S Reference-FMUs/ -B build_tmp -D FMI_VERSION=2
+            cd build_tmp/ && make && cd ../
+            python3 check_fmu_debug.py
+            python3 check_fmu.py
 
+  
       - run:
           name: Linters
           command: |
